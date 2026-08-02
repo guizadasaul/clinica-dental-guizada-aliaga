@@ -1,0 +1,47 @@
+<form class="step-form" (ngSubmit)="onSubmit()" novalidate>
+  <div class="step-form__section">
+    <h3 class="step-form__section-title">Hallazgos clínicos</h3>
+    <div class="step-form__checkgrid">
+      <label class="step-form__check">
+        <input type="checkbox" [checked]="tartar()" (change)="tartar.set($any($event.target).checked)" />
+        <span>Sarro / Tártaro</span>
+      </label>
+      <label class="step-form__check">
+        <input type="checkbox" [checked]="saburra()" (change)="saburra.set($any($event.target).checked)" />
+        <span>Saburra</span>
+      </label>
+      <label class="step-form__check">
+        <input type="checkbox" [checked]="bacterialPlaque()" (change)="bacterialPlaque.set($any($event.target).checked)" />
+        <span>Placa bacteriana</span>
+      </label>
+      <label class="step-form__check">
+        <input type="checkbox" [checked]="halitosis()" (change)="halitosis.set($any($event.target).checked)" />
+        <span>Halitosis</span>
+      </label>
+    </div>
+  </div>
+
+  <div class="step-form__section">
+    <h3 class="step-form__section-title">Oclusión</h3>
+    <div class="step-form__field" style="max-width: 500px;">
+      <label class="step-form__label">Descripción de la oclusión</label>
+      <input class="step-form__input" type="text" [value]="occlusion()" (input)="occlusion.set($any($event.target).value)" placeholder="Ej: Clase I, mordida abierta, etc." />
+    </div>
+  </div>
+
+  <div class="step-form__actions">
+    <button class="step-form__btn step-form__btn--secondary" type="button" [disabled]="loading()" (click)="onBack()">
+      <span class="material-symbols-outlined">arrow_back</span>
+      Anterior
+    </button>
+    <button class="step-form__btn step-form__btn--primary" type="submit" [disabled]="loading()">
+      @if (loading()) {
+        <span class="step-form__spinner"></span>
+        Guardando...
+      } @else {
+        Finalizar registro
+        <span class="material-symbols-outlined">check_circle</span>
+      }
+    </button>
+  </div>
+</form>

@@ -1,0 +1,66 @@
+@use 'styles/tokens';
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+// === RESET & BASE ===
+html {
+  scroll-behavior: smooth;
+  font-family: var(--font-body);
+  background: var(--color-bg);
+  color: var(--color-text);
+}
+
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+// === ANIMACIONES GLOBALES ===
+// Los scroll-reveals de la landing viven en el componente (GSAP +
+// ScrollTrigger sobre [data-reveal] / [data-reveal-group]).
+
+// === BOTÓN SLIDE SHINE ===
+.btn-slide {
+  position: relative;
+  overflow: hidden;
+
+  &::after {
+    content: '';
+    position: absolute;
+    top: -50%;
+    left: -60%;
+    width: 30%;
+    height: 200%;
+    background: linear-gradient(to right, transparent, rgb(255 255 255 / 0.25), transparent);
+    transform: skewX(-20deg);
+    transition: left 0.5s ease;
+  }
+
+  &:hover::after {
+    left: 130%;
+  }
+}
+
+// === SCROLLBAR OCULTO ===
+.hide-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+
+  &::-webkit-scrollbar { display: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+
+  html { scroll-behavior: auto; }
+}

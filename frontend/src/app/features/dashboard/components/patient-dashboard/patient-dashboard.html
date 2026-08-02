@@ -1,0 +1,103 @@
+@if (activeNav() === 'history') {
+  @if (patientId()) {
+    <app-treatment-history
+      [patientId]="patientId()!"
+      (close)="onHistoryClose()"
+    />
+  } @else {
+    <div class="patient__no-profile">
+      <span class="material-symbols-outlined patient__no-profile-icon">info</span>
+      <p>Completá tu ficha de paciente primero para poder ver tu historial de tratamientos.</p>
+    </div>
+  }
+} @else {
+  <div class="patient">
+    <!-- Header -->
+    <header class="patient__header">
+      <div class="patient__greeting">
+        <p class="patient__date">{{ today() }}</p>
+        <h1 class="patient__title">{{ greeting() }}, {{ firstName() }}</h1>
+        <p class="patient__subtitle">Bienvenido a tu portal de salud dental.</p>
+      </div>
+      <div class="patient__header-deco" aria-hidden="true">✦</div>
+    </header>
+
+    <!-- Stats -->
+    <section class="patient__stats" aria-label="Resumen">
+      <div class="stat-card">
+        <span class="material-symbols-outlined stat-card__icon stat-card__icon--primary">calendar_clock</span>
+        <div>
+          <p class="stat-card__value">—</p>
+          <p class="stat-card__label">Próxima cita</p>
+        </div>
+      </div>
+      <div class="stat-card">
+        <span class="material-symbols-outlined stat-card__icon stat-card__icon--tertiary">clinical_notes</span>
+        <div>
+          <p class="stat-card__value">0</p>
+          <p class="stat-card__label">Visitas realizadas</p>
+        </div>
+      </div>
+      <div class="stat-card">
+        <span class="material-symbols-outlined stat-card__icon stat-card__icon--navy">healing</span>
+        <div>
+          <p class="stat-card__value">0</p>
+          <p class="stat-card__label">Tratamientos activos</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Next appointment -->
+    <section class="patient__section">
+      <h2 class="patient__section-title">
+        <span class="material-symbols-outlined" aria-hidden="true">event</span>
+        Próxima cita
+      </h2>
+      <div class="appointment-empty">
+        <div class="appointment-empty__icon" aria-hidden="true">
+          <span class="material-symbols-outlined">calendar_add_on</span>
+        </div>
+        <p class="appointment-empty__text">No tenés citas programadas</p>
+        <p class="appointment-empty__sub">Solicitá un turno y te atendemos a la brevedad.</p>
+        <button type="button" class="appointment-empty__cta">
+          <span class="material-symbols-outlined" aria-hidden="true">add</span>
+          Solicitar cita
+        </button>
+      </div>
+    </section>
+
+    <!-- Quick actions -->
+    <section class="patient__section">
+      <h2 class="patient__section-title">
+        <span class="material-symbols-outlined" aria-hidden="true">apps</span>
+        Acciones rápidas
+      </h2>
+      <div class="actions-grid">
+        <button type="button" class="action-card action-card--primary">
+          <span class="material-symbols-outlined action-card__icon" aria-hidden="true">add_circle</span>
+          <p class="action-card__label">Solicitar Cita</p>
+          <p class="action-card__desc">Pedí un turno con nuestros especialistas</p>
+          <span class="material-symbols-outlined action-card__arrow" aria-hidden="true">arrow_forward</span>
+        </button>
+        <button type="button" class="action-card action-card--tertiary" (click)="navChange.emit('history')">
+          <span class="material-symbols-outlined action-card__icon" aria-hidden="true">history</span>
+          <p class="action-card__label">Mi Historial</p>
+          <p class="action-card__desc">Revisá tus visitas y tratamientos anteriores</p>
+          <span class="material-symbols-outlined action-card__arrow" aria-hidden="true">arrow_forward</span>
+        </button>
+        <button type="button" class="action-card action-card--navy">
+          <span class="material-symbols-outlined action-card__icon" aria-hidden="true">description</span>
+          <p class="action-card__label">Mis Documentos</p>
+          <p class="action-card__desc">Presupuestos, radiografías y certificados</p>
+          <span class="material-symbols-outlined action-card__arrow" aria-hidden="true">arrow_forward</span>
+        </button>
+        <button type="button" class="action-card action-card--muted">
+          <span class="material-symbols-outlined action-card__icon" aria-hidden="true">person_edit</span>
+          <p class="action-card__label">Mi Perfil</p>
+          <p class="action-card__desc">Actualizá tus datos personales</p>
+          <span class="material-symbols-outlined action-card__arrow" aria-hidden="true">arrow_forward</span>
+        </button>
+      </div>
+    </section>
+  </div>
+}

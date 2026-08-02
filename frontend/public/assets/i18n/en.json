@@ -1,0 +1,159 @@
+{
+  "landing": {
+    "nav": {
+      "ariaLabel": "Main navigation",
+      "logoAriaLabel": "Go to home",
+      "logoName": "Guizada Aliaga",
+      "services": "Services",
+      "about": "About Us",
+      "contact": "Contact",
+      "cta": "Log In"
+    },
+    "hero": {
+      "label": "Boutique Clinical Excellence",
+      "titleLine1": "Smile with health,",
+      "titleLine2": "Smile with confidence.",
+      "subtitle": "A boutique experience combining clinical excellence with human warmth. Your well-being is our primary focus, in an environment designed for tranquility.",
+      "ctaPrimary": "Book Appointment",
+      "ctaSecondary": "Call Now",
+      "statsAriaLabel": "Clinic statistics",
+      "stat1": "Satisfied Patients",
+      "stat2": "Years of Experience",
+      "stat3": "Satisfaction",
+      "instruments": {
+        "mirror": "Mouth mirror",
+        "explorer": "Curved explorer",
+        "doubleExplorer": "Double-ended explorer",
+        "tweezers": "Dental tweezers",
+        "turbine": "Dental turbine",
+        "fanAriaLabel": "Clinic instruments"
+      }
+    },
+    "mission": {
+      "eyebrow": "Our Pillars",
+      "title": "A Philosophy of Comprehensive Care",
+      "missionTitle": "Our Mission",
+      "missionText": "To provide clinical excellence with a truly human touch, ensuring that every patient receives top-level care in an environment designed for their absolute comfort and peace of mind.",
+      "visionTitle": "Our Vision",
+      "visionText": "To completely reimagine the healthcare experience, transforming every visit into an exceptional moment of well-being, empathy, and lasting trust."
+    },
+    "services": {
+      "eyebrow": "Specialties",
+      "title": "Cutting-Edge Treatments",
+      "subtitle": "Each treatment is a personalized project, designed to achieve the most natural and lasting results.",
+      "tag": {
+        "featured": "Featured Treatment"
+      },
+      "dental": {
+        "esthetic": {
+          "title": "Esthetic Dentistry",
+          "desc": "Smile design and comprehensive health. We transform your smile with state-of-the-art techniques adapted to your unique facial anatomy."
+        }
+      },
+      "ortho": {
+        "title": "Invisible Orthodontics",
+        "desc": "Discreet and comfortable dental alignment with high-precision 3D technology."
+      },
+      "whitening": {
+        "title": "Teeth Whitening",
+        "desc": "Visible results from the first session with our advanced LED technology."
+      },
+      "implants": {
+        "title": "Dental Implants",
+        "desc": "Permanent functional and aesthetic restoration using the highest quality biocompatible materials. A definitive solution for a complete smile."
+      },
+      "knowMore": "Learn more",
+      "consultNow": "Consult now"
+    },
+    "work": {
+      "eyebrow": "Real Results",
+      "title": "Our Work",
+      "subtitle": "Each case is a story of transformation. Results that speak for themselves.",
+      "before": "Before",
+      "after": "After",
+      "items": {
+        "smile": {
+          "beforeAlt": "Smile before dental design treatment",
+          "afterAlt": "Smile after dental design treatment",
+          "treatment": "Smile Design"
+        },
+        "whitening": {
+          "beforeAlt": "Smile before teeth whitening",
+          "afterAlt": "Smile after teeth whitening",
+          "treatment": "Teeth Whitening"
+        },
+        "ortho": {
+          "beforeAlt": "Smile before invisible orthodontics",
+          "afterAlt": "Smile after invisible orthodontics",
+          "treatment": "Invisible Orthodontics"
+        }
+      }
+    },
+    "testimonials": {
+      "eyebrow": "What They Say",
+      "title": "Our Patients",
+      "stars": "5 stars",
+      "items": {
+        "sofia": {
+          "quote": "The experience exceeded all my expectations. From the moment I walked in, I felt in an atmosphere of absolute calm and professionalism. The result of my smile design is incredibly natural.",
+          "treatment": "Smile Design"
+        },
+        "carlos": {
+          "quote": "I never thought going to the dentist could be so enjoyable. The team is extraordinary and the results are exactly what I dreamed of. My new smile changed my life.",
+          "treatment": "Invisible Orthodontics"
+        },
+        "andrea": {
+          "quote": "World-class care in Santa Cruz. Every detail of the treatment was planned with precision and care. Undoubtedly the best investment I have ever made.",
+          "treatment": "Dental Implants"
+        }
+      }
+    },
+    "philosophy": {
+      "eyebrow": "The Legacy",
+      "title": "Guizada Aliaga",
+      "body": "Founded with the conviction that medicine must be both an exact science and a human art, Clínica Guizada Aliaga was born from the desire to offer Santa Cruz a space where clinical excellence and personal care meet in perfect harmony.",
+      "body2": "Our team of specialists shares a common philosophy: every patient deserves the time, attention, and respect that transform a medical visit into a genuine experience of well-being.",
+      "cta": "Meet the Team",
+      "founderImgAlt": "Dr. María Guizada — Founding Medical Director",
+      "founderName": "Dr. María Guizada",
+      "founderRole": "Founding Medical Director",
+      "founderCredential": "Specialist in Esthetic Dentistry"
+    },
+    "contact": {
+      "eyebrow": "Find Us",
+      "title": "Location & Contact",
+      "addressTitle": "Address",
+      "addressLine1": "Av. San Martín 1234, Floor 3",
+      "addressLine2": "Equipetrol, Santa Cruz de la Sierra",
+      "hoursTitle": "Office Hours",
+      "hoursWeekdays": "Monday to Friday: 08:00 – 20:00",
+      "hoursSaturday": "Saturdays: 09:00 – 13:00",
+      "phoneTitle": "Phone",
+      "emailTitle": "Email",
+      "ctaTitle": "Ready to start your transformation?",
+      "ctaSubtitle": "Schedule your initial consultation with no commitment and discover the care you deserve.",
+      "ctaBtn": "Book My Appointment Now"
+    },
+    "footer": {
+      "logoName": "Guizada Aliaga",
+      "tagline1": "Healthcare Reimagined.",
+      "tagline2": "Clinical excellence with human warmth.",
+      "servicesAriaLabel": "Services",
+      "servicesTitle": "Services",
+      "esthetic": "Esthetic Dentistry",
+      "ortho": "Invisible Orthodontics",
+      "whitening": "Whitening",
+      "implants": "Dental Implants",
+      "clinicAriaLabel": "Clinic information",
+      "clinicTitle": "Clinic",
+      "about": "About Us",
+      "contact": "Contact",
+      "appointment": "Book Appointment",
+      "legalAriaLabel": "Legal",
+      "legalTitle": "Legal",
+      "privacy": "Privacy Policy",
+      "terms": "Terms of Service",
+      "copyright": "© 2024 Clínica Guizada Aliaga. All rights reserved."
+    }
+  }
+}

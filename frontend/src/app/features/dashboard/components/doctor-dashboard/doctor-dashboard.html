@@ -1,0 +1,128 @@
+@if (activeNav() === 'home') {
+  <div class="doctor">
+    <!-- Header -->
+    <header class="doctor__header">
+      <div class="doctor__greeting">
+        <p class="doctor__date">{{ today() }}</p>
+        <h1 class="doctor__title">{{ greeting() }}, Dr. {{ firstName() }}</h1>
+        <p class="doctor__subtitle">Este es tu panel clínico de hoy.</p>
+      </div>
+      <div class="doctor__badge" aria-hidden="true">
+        <span class="material-symbols-outlined">stethoscope</span>
+      </div>
+    </header>
+
+    <!-- Stats -->
+    <section class="doctor__stats" aria-label="Estadísticas del día">
+      @for (stat of stats; track stat.label) {
+        <div class="stat-card stat-card--{{ stat.color }}">
+          <div class="stat-card__icon-wrap">
+            <span class="material-symbols-outlined" aria-hidden="true">{{ stat.icon }}</span>
+          </div>
+          <div>
+            <p class="stat-card__value">{{ stat.value }}</p>
+            <p class="stat-card__label">{{ stat.label }}</p>
+          </div>
+        </div>
+      }
+    </section>
+
+    <!-- Today's schedule -->
+    <section class="doctor__section">
+      <div class="doctor__section-header">
+        <h2 class="doctor__section-title">
+          <span class="material-symbols-outlined" aria-hidden="true">calendar_today</span>
+          Agenda de hoy
+        </h2>
+      </div>
+
+      @if (appointments.length === 0) {
+        <div class="schedule-empty">
+          <div class="schedule-empty__icon" aria-hidden="true">
+            <span class="material-symbols-outlined">event_busy</span>
+          </div>
+          <p class="schedule-empty__text">No hay citas programadas para hoy</p>
+          <p class="schedule-empty__sub">Cuando se asignen pacientes, aparecerán aquí.</p>
+        </div>
+      } @else {
+        <div class="schedule-list">
+          @for (appt of appointments; track appt.time) {
+            <div class="schedule-item">
+              <div class="schedule-item__time">{{ appt.time }}</div>
+              <div class="schedule-item__body">
+                <p class="schedule-item__patient">{{ appt.patientName }}</p>
+                <p class="schedule-item__treatment">{{ appt.treatment }}</p>
+              </div>
+              <span class="schedule-item__badge schedule-item__badge--{{ appt.status }}">
+                {{ statusLabel[appt.status] }}
+              </span>
+            </div>
+          }
+        </div>
+      }
+    </section>
+
+    <!-- Quick actions -->
+    <section class="doctor__section">
+      <h2 class="doctor__section-title">
+        <span class="material-symbols-outlined" aria-hidden="true">apps</span>
+        Acciones rápidas
+      </h2>
+      <div class="doctor__actions">
+        <button type="button" class="doctor-action">
+          <span class="material-symbols-outlined doctor-action__icon" aria-hidden="true">person_search</span>
+          <div>
+            <p class="doctor-action__label">Ver Pacientes</p>
+            <p class="doctor-action__desc">Listado completo de tus pacientes</p>
+          </div>
+          <span class="material-symbols-outlined doctor-action__arrow" aria-hidden="true">chevron_right</span>
+        </button>
+        <button type="button" class="doctor-action">
+          <span class="material-symbols-outlined doctor-action__icon doctor-action__icon--tertiary" aria-hidden="true">folder_open</span>
+          <div>
+            <p class="doctor-action__label">Historial Clínico</p>
+            <p class="doctor-action__desc">Registros médicos y tratamientos</p>
+          </div>
+          <span class="material-symbols-outlined doctor-action__arrow" aria-hidden="true">chevron_right</span>
+        </button>
+        <button type="button" class="doctor-action">
+          <span class="material-symbols-outlined doctor-action__icon doctor-action__icon--navy" aria-hidden="true">add_box</span>
+          <div>
+            <p class="doctor-action__label">Nueva Consulta</p>
+            <p class="doctor-action__desc">Registrar una nueva atención</p>
+          </div>
+          <span class="material-symbols-outlined doctor-action__arrow" aria-hidden="true">chevron_right</span>
+        </button>
+      </div>
+    </section>
+  </div>
+}
+
+@if (activeNav() === 'patients') {
+  @if (showTreatmentFlow()) {
+    <app-register-treatment
+      [patientId]="selectedPatientForTreatment()!"
+      (done)="onTreatmentDone()"
+      (cancel)="onTreatmentCancel()"
+    />
+  } @else if (showHistoryFlow()) {
+    <app-treatment-history
+      [patientId]="selectedPatientForHistory()!"
+      (close)="onHistoryClose()"
+    />
+  } @else if (showWizard()) {
+    <app-patient-wizard
+      [userId]="selectedUserId() ?? ''"
+      [existingPatientId]="selectedPatientId()"
+      (wizardComplete)="onWizardComplete()"
+      (cancel)="onWizardCancel()"
+    />
+  } @else {
+    <app-patients-list
+      (startWizard)="onStartWizard($event)"
+      (openOdontogram)="onOpenOdontogram($event)"
+      (registerTreatment)="onRegisterTreatment($event)"
+      (viewHistory)="onViewHistory($event)"
+    />
+  }
+}

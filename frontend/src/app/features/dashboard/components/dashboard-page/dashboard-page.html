@@ -1,0 +1,72 @@
+<div class="layout">
+  <!-- Mobile overlay -->
+  @if (sidebarOpen()) {
+    <div class="layout__overlay" (click)="toggleSidebar()"></div>
+  }
+
+  <!-- Sidebar -->
+  <aside class="sidebar" [class.sidebar--open]="sidebarOpen()">
+    <div class="sidebar__brand">
+      <span class="sidebar__brand-symbol" aria-hidden="true">✦</span>
+      <span class="sidebar__brand-name">Guizada Aliaga</span>
+    </div>
+
+    <nav class="sidebar__nav" aria-label="Navegación principal">
+      @for (item of navItems(); track item.key) {
+        <button
+          type="button"
+          class="sidebar__link"
+          [class.sidebar__link--active]="activeNav() === item.key"
+          (click)="setActive(item.key)"
+        >
+          <span class="material-symbols-outlined" aria-hidden="true">{{ item.icon }}</span>
+          {{ item.label }}
+        </button>
+      }
+    </nav>
+
+    <div class="sidebar__footer">
+      <div class="sidebar__user">
+        @if (user()?.photoURL) {
+          <img class="sidebar__avatar" [src]="user()!.photoURL!" [alt]="user()!.displayName ?? 'Avatar'" referrerpolicy="no-referrer" />
+        } @else {
+          <div class="sidebar__avatar-placeholder" aria-hidden="true">
+            <span class="material-symbols-outlined">person</span>
+          </div>
+        }
+        <div class="sidebar__user-info">
+          <p class="sidebar__user-name">{{ user()?.displayName ?? 'Usuario' }}</p>
+          <p class="sidebar__user-role">{{ roleLabel() }}</p>
+        </div>
+      </div>
+      <button type="button" class="sidebar__logout" (click)="logout()" aria-label="Cerrar sesión">
+        <span class="material-symbols-outlined" aria-hidden="true">logout</span>
+        Cerrar sesión
+      </button>
+    </div>
+  </aside>
+
+  <!-- Main content -->
+  <div class="layout__main">
+    <!-- Mobile topbar -->
+    <header class="topbar">
+      <button type="button" class="topbar__menu-btn" (click)="toggleSidebar()" aria-label="Abrir menú">
+        <span class="material-symbols-outlined">menu</span>
+      </button>
+      <span class="topbar__brand-symbol" aria-hidden="true">✦</span>
+      <span class="topbar__brand-name">Guizada Aliaga</span>
+    </header>
+
+    <!-- Dashboard content by role -->
+    @if (role() === null) {
+      <div class="layout__loading" role="status" aria-label="Cargando">
+        <div class="layout__spinner"></div>
+        <p>Cargando tu panel...</p>
+      </div>
+    } @else if (role() === 'patient') {
+      <app-patient-dashboard [activeNav]="activeNav()" (navChange)="setActive($event)" />
+    } @else if (role() === 'odontologist') {
+      <app-doctor-dashboard [activeNav]="activeNav()" />
+    }
+  </div>
+</div>

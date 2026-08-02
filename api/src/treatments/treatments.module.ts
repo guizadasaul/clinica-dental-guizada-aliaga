@@ -1,0 +1,16 @@
+import { Module } from '@nestjs/common';
+import { TreatmentsController } from './infrastructure/http/treatments.controller';
+import { TreatmentsService } from './application/treatments.service';
+import { TreatmentRepository } from './domain/TreatmentRepository';
+import { PrismaTreatmentsRepository } from './infrastructure/persistence/prisma-treatments.repository';
+import { AuthModule } from '../auth/auth.module';
+
+@Module({
+  imports: [AuthModule],
+  controllers: [TreatmentsController],
+  providers: [
+    TreatmentsService,
+    { provide: TreatmentRepository, useClass: PrismaTreatmentsRepository },
+  ],
+})
+export class TreatmentsModule {}

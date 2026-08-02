@@ -1,0 +1,98 @@
+<div class="register-page">
+  <div class="register-card">
+    <a routerLink="/" class="register-card__logo">
+      <span class="register-card__logo-symbol" aria-hidden="true">✦</span>
+      <span class="register-card__logo-text">Guizada Aliaga</span>
+    </a>
+
+    <h1 class="register-card__title">Crear cuenta</h1>
+    <p class="register-card__subtitle">Completá tus datos para registrarte</p>
+
+    @if (errorMessage()) {
+      <div class="register-card__error" role="alert">
+        <span class="material-symbols-outlined" aria-hidden="true">error</span>
+        {{ errorMessage() }}
+      </div>
+    }
+
+    <form class="register-form" (ngSubmit)="onSubmit()" #form="ngForm" novalidate>
+      <div class="register-form__field">
+        <label class="register-form__label" for="fullName">Nombre completo</label>
+        <input
+          class="register-form__input"
+          id="fullName"
+          type="text"
+          name="fullName"
+          [(ngModel)]="fullName"
+          placeholder="Ej. María García"
+          autocomplete="name"
+          required
+          [disabled]="loading()"
+        />
+      </div>
+
+      <div class="register-form__field">
+        <label class="register-form__label" for="phone">Número de teléfono</label>
+        <input
+          class="register-form__input"
+          id="phone"
+          type="tel"
+          name="phone"
+          [(ngModel)]="phone"
+          placeholder="Ej. 70012345"
+          autocomplete="tel"
+          required
+          [disabled]="loading()"
+        />
+      </div>
+
+      <div class="register-form__field">
+        <label class="register-form__label" for="password">Contraseña</label>
+        <input
+          class="register-form__input"
+          id="password"
+          type="password"
+          name="password"
+          [(ngModel)]="password"
+          placeholder="Mínimo 8 caracteres"
+          autocomplete="new-password"
+          required
+          [disabled]="loading()"
+        />
+      </div>
+
+      <div class="register-form__field">
+        <label class="register-form__label" for="confirmPassword">Confirmar contraseña</label>
+        <input
+          class="register-form__input"
+          id="confirmPassword"
+          type="password"
+          name="confirmPassword"
+          [(ngModel)]="confirmPassword"
+          placeholder="Repetí tu contraseña"
+          autocomplete="new-password"
+          required
+          [disabled]="loading()"
+        />
+      </div>
+
+      <button
+        type="submit"
+        class="register-submit-btn"
+        [disabled]="loading() || !fullName || !phone || !password || !confirmPassword"
+      >
+        @if (loading()) {
+          <span class="register-submit-btn__spinner" aria-hidden="true"></span>
+          Creando cuenta...
+        } @else {
+          Crear cuenta
+        }
+      </button>
+    </form>
+
+    <p class="register-card__login-link">
+      ¿Ya tenés cuenta?
+      <a routerLink="/auth/login">Iniciar sesión</a>
+    </p>
+  </div>
+</div>

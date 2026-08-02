@@ -1,0 +1,57 @@
+<form class="step-form" (ngSubmit)="onSubmit()" novalidate>
+  <div class="step-form__section">
+    <h3 class="step-form__section-title">Hábitos de higiene bucal</h3>
+    <div class="step-form__checkgrid">
+      <label class="step-form__check">
+        <input type="checkbox" [checked]="usesToothbrush()" (change)="usesToothbrush.set($any($event.target).checked)" />
+        <span>Usa cepillo dental</span>
+      </label>
+      <label class="step-form__check">
+        <input type="checkbox" [checked]="usesDentalFloss()" (change)="usesDentalFloss.set($any($event.target).checked)" />
+        <span>Usa hilo dental</span>
+      </label>
+      <label class="step-form__check">
+        <input type="checkbox" [checked]="usesToothpick()" (change)="usesToothpick.set($any($event.target).checked)" />
+        <span>Usa palillo</span>
+      </label>
+      <label class="step-form__check">
+        <input type="checkbox" [checked]="brushesTongue()" (change)="brushesTongue.set($any($event.target).checked)" />
+        <span>Cepilla la lengua</span>
+      </label>
+      <label class="step-form__check">
+        <input type="checkbox" [checked]="usesMouthwash()" (change)="usesMouthwash.set($any($event.target).checked)" />
+        <span>Usa enjuague bucal</span>
+      </label>
+    </div>
+
+    @if (usesToothbrush()) {
+      <div class="step-form__field" style="margin-top: 1rem; max-width: 320px;">
+        <label class="step-form__label">Frecuencia de cepillado</label>
+        <select class="step-form__input" [value]="brushingFrequency()" (change)="brushingFrequency.set($any($event.target).value)">
+          <option value="">Seleccionar</option>
+          <option value="1 vez al día">1 vez al día</option>
+          <option value="2 veces al día">2 veces al día</option>
+          <option value="3 veces al día">3 veces al día</option>
+          <option value="Más de 3 veces al día">Más de 3 veces al día</option>
+          <option value="Ocasionalmente">Ocasionalmente</option>
+        </select>
+      </div>
+    }
+  </div>
+
+  <div class="step-form__actions">
+    <button class="step-form__btn step-form__btn--secondary" type="button" [disabled]="loading()" (click)="onBack()">
+      <span class="material-symbols-outlined">arrow_back</span>
+      Anterior
+    </button>
+    <button class="step-form__btn step-form__btn--primary" type="submit" [disabled]="loading()">
+      @if (loading()) {
+        <span class="step-form__spinner"></span>
+        Guardando...
+      } @else {
+        Siguiente
+        <span class="material-symbols-outlined">arrow_forward</span>
+      }
+    </button>
+  </div>
+</form>

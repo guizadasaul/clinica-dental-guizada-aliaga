@@ -1,0 +1,106 @@
+<div class="wizard">
+  <!-- Header -->
+  <div class="wizard__header">
+    <div class="wizard__header-top">
+      <button class="wizard__back-btn" type="button" (click)="onCancel()">
+        <span class="material-symbols-outlined">arrow_back</span>
+        Volver a la lista
+      </button>
+      <h2 class="wizard__title">{{ wizardTitle() }}</h2>
+    </div>
+
+    <!-- Progress bar -->
+    <div class="wizard__progress" role="list">
+      @for (step of steps; track step.number) {
+        <div
+          class="wizard__step"
+          [class.wizard__step--active]="currentStep() === step.number"
+          [class.wizard__step--done]="currentStep() > step.number || done()"
+          role="listitem"
+        >
+          <div class="wizard__step-circle">
+            @if (currentStep() > step.number || done()) {
+              <span class="material-symbols-outlined">check</span>
+            } @else {
+              <span class="material-symbols-outlined">{{ step.icon }}</span>
+            }
+          </div>
+          <span class="wizard__step-label">{{ step.label }}</span>
+        </div>
+
+        @if (step.number < steps.length) {
+          <div class="wizard__connector" [class.wizard__connector--done]="currentStep() > step.number || done()"></div>
+        }
+      }
+    </div>
+  </div>
+
+  <!-- Error banner -->
+  @if (error()) {
+    <div class="wizard__error" role="alert">
+      <span class="material-symbols-outlined">error</span>
+      {{ error() }}
+    </div>
+  }
+
+  <!-- Step content -->
+  <div class="wizard__body">
+    @if (done()) {
+      <div class="wizard__success">
+        <div class="wizard__success-icon">
+          <span class="material-symbols-outlined">check_circle</span>
+        </div>
+        <h3 class="wizard__success-title">¡Ficha registrada correctamente!</h3>
+        <p class="wizard__success-text">
+          La ficha clínica del paciente fue creada con todos sus datos, historial médico,
+          hábitos de higiene, examen clínico y odontograma diagnóstico.
+        </p>
+        <button class="wizard__success-btn" type="button" (click)="onFinish()">
+          <span class="material-symbols-outlined">group</span>
+          Volver a la lista de pacientes
+        </button>
+      </div>
+    } @else {
+      <div class="wizard__step-title">
+        <span class="wizard__step-number">Paso {{ currentStep() }} de {{ steps.length }}</span>
+        <h3 class="wizard__step-heading">{{ steps[currentStep() - 1].label }}</h3>
+      </div>
+
+      @if (currentStep() === 1) {
+        <app-step-patient-data
+          [loading]="loading()"
+          (submitStep)="onStep1Submit($event)"
+        />
+      }
+      @if (currentStep() === 2) {
+        <app-step-medical-history
+          [loading]="loading()"
+          (submitStep)="onStep2Submit($event)"
+          (back)="goBack()"
+        />
+      }
+      @if (currentStep() === 3) {
+        <app-step-hygiene-habits
+          [loading]="loading()"
+          (submitStep)="onStep3Submit($event)"
+          (back)="goBack()"
+        />
+      }
+      @if (currentStep() === 4) {
+        <app-step-clinical-exam
+          [loading]="loading()"
+          (submitStep)="onStep4Submit($event)"
+          (back)="goBack()"
+        />
+      }
+      @if (currentStep() === 5) {
+        <app-step-odontogram
+          [loading]="loading()"
+          [initialEntries]="existingOdontogramEntries()"
+          (submitStep)="onStep5Submit($event)"
+          (back)="goBack()"
+        />
+      }
+    }
+  </div>
+</div>

@@ -1,0 +1,9 @@
+# Claude Code / AI tooling and secrets — must never be committed, anywhere in this repo.
+# They still exist on disk for local dev convenience (see CLAUDE.md); git must never see them as trackable.
+CLAUDE.md
+.claude/
+.mcp.json
+.impeccable/
+
+# macOS
+.DS_Store

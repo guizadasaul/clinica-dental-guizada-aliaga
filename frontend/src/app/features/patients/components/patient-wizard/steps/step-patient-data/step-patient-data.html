@@ -1,0 +1,108 @@
+<form class="step-form" (ngSubmit)="onSubmit()" novalidate>
+  <div class="step-form__section">
+    <h3 class="step-form__section-title">Datos personales</h3>
+    <div class="step-form__grid step-form__grid--3">
+      <div class="step-form__field">
+        <label class="step-form__label">Nombre <span class="step-form__req">*</span></label>
+        <input class="step-form__input" type="text" [value]="firstName()" (input)="firstName.set($any($event.target).value)" placeholder="Ej: María" required />
+      </div>
+      <div class="step-form__field">
+        <label class="step-form__label">Apellido paterno <span class="step-form__req">*</span></label>
+        <input class="step-form__input" type="text" [value]="lastNamePaternal()" (input)="lastNamePaternal.set($any($event.target).value)" placeholder="Ej: García" required />
+      </div>
+      <div class="step-form__field">
+        <label class="step-form__label">Apellido materno</label>
+        <input class="step-form__input" type="text" [value]="lastNameMaternal()" (input)="lastNameMaternal.set($any($event.target).value)" placeholder="Ej: López" />
+      </div>
+      <div class="step-form__field">
+        <label class="step-form__label">Fecha de nacimiento <span class="step-form__req">*</span></label>
+        <input class="step-form__input" type="date" [value]="birthDate()" (input)="birthDate.set($any($event.target).value)" required />
+      </div>
+      <div class="step-form__field">
+        <label class="step-form__label">Lugar de nacimiento</label>
+        <input class="step-form__input" type="text" [value]="birthPlace()" (input)="birthPlace.set($any($event.target).value)" placeholder="Ej: Cochabamba" />
+      </div>
+      <div class="step-form__field">
+        <label class="step-form__label">Sexo</label>
+        <select class="step-form__input" [value]="sex()" (change)="sex.set($any($event.target).value)">
+          <option value="">Seleccionar</option>
+          <option value="masculino">Masculino</option>
+          <option value="femenino">Femenino</option>
+          <option value="otro">Otro</option>
+        </select>
+      </div>
+      <div class="step-form__field">
+        <label class="step-form__label">Ocupación</label>
+        <input class="step-form__input" type="text" [value]="occupation()" (input)="occupation.set($any($event.target).value)" placeholder="Ej: Docente" />
+      </div>
+      <div class="step-form__field">
+        <label class="step-form__label">DNI</label>
+        <input class="step-form__input" type="text" [value]="dni()" (input)="dni.set($any($event.target).value)" placeholder="Ej: 12345678" />
+      </div>
+      <div class="step-form__field">
+        <label class="step-form__label">Teléfono</label>
+        <input class="step-form__input" type="tel" [value]="phone()" (input)="phone.set($any($event.target).value)" placeholder="Ej: 70012345" />
+      </div>
+    </div>
+    <div class="step-form__field step-form__field--full">
+      <label class="step-form__label">Dirección</label>
+      <input class="step-form__input" type="text" [value]="address()" (input)="address.set($any($event.target).value)" placeholder="Ej: Av. Heroínas 456, Zona Centro" />
+    </div>
+  </div>
+
+  <div class="step-form__section">
+    <h3 class="step-form__section-title">Contacto de emergencia</h3>
+    <div class="step-form__grid step-form__grid--3">
+      <div class="step-form__field">
+        <label class="step-form__label">Nombre completo</label>
+        <input class="step-form__input" type="text" [value]="emergencyContactName()" (input)="emergencyContactName.set($any($event.target).value)" placeholder="Ej: Carlos García" />
+      </div>
+      <div class="step-form__field">
+        <label class="step-form__label">Teléfono</label>
+        <input class="step-form__input" type="tel" [value]="emergencyContactPhone()" (input)="emergencyContactPhone.set($any($event.target).value)" placeholder="Ej: 70098765" />
+      </div>
+      <div class="step-form__field">
+        <label class="step-form__label">Parentesco</label>
+        <input class="step-form__input" type="text" [value]="emergencyContactRelationship()" (input)="emergencyContactRelationship.set($any($event.target).value)" placeholder="Ej: Esposo/a" />
+      </div>
+    </div>
+  </div>
+
+  <div class="step-form__section">
+    <h3 class="step-form__section-title">Antecedentes odontológicos</h3>
+    <div class="step-form__grid step-form__grid--2">
+      <div class="step-form__field">
+        <label class="step-form__label">Motivo de consulta</label>
+        <textarea class="step-form__input step-form__input--textarea" [value]="consultationReason()" (input)="consultationReason.set($any($event.target).value)" placeholder="Describe el motivo principal..." rows="3"></textarea>
+      </div>
+      <div class="step-form__field">
+        <label class="step-form__label">Historial familiar</label>
+        <textarea class="step-form__input step-form__input--textarea" [value]="familyHistory()" (input)="familyHistory.set($any($event.target).value)" placeholder="Enfermedades hereditarias, etc." rows="3"></textarea>
+      </div>
+      <div class="step-form__field">
+        <label class="step-form__label">Última visita al dentista</label>
+        <input class="step-form__input" type="date" [value]="lastDentistVisit()" (input)="lastDentistVisit.set($any($event.target).value)" />
+      </div>
+      <div class="step-form__field">
+        <label class="step-form__label">Tratamiento previo</label>
+        <input class="step-form__input" type="text" [value]="lastVisitTreatment()" (input)="lastVisitTreatment.set($any($event.target).value)" placeholder="Ej: Extracción molar" />
+      </div>
+    </div>
+  </div>
+
+  @if (formError()) {
+    <p class="step-form__error">{{ formError() }}</p>
+  }
+
+  <div class="step-form__actions">
+    <button class="step-form__btn step-form__btn--primary" type="submit" [disabled]="loading()">
+      @if (loading()) {
+        <span class="step-form__spinner"></span>
+        Guardando...
+      } @else {
+        Siguiente
+        <span class="material-symbols-outlined">arrow_forward</span>
+      }
+    </button>
+  </div>
+</form>

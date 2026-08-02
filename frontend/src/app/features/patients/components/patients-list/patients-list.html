@@ -1,0 +1,117 @@
+<div class="patients-list">
+  <div class="patients-list__header">
+    <div class="patients-list__title-row">
+      <h2 class="patients-list__title">Pacientes</h2>
+      <span class="patients-list__count">{{ filtered().length }} pacientes</span>
+    </div>
+    <div class="patients-list__search-row">
+      <div class="patients-list__search-wrap">
+        <span class="material-symbols-outlined patients-list__search-icon">search</span>
+        <input
+          class="patients-list__search"
+          type="text"
+          placeholder="Buscar por nombre, email o DNI..."
+          [value]="filter()"
+          (input)="filter.set($any($event.target).value)"
+        />
+      </div>
+    </div>
+  </div>
+
+  @if (patients().length === 0) {
+    <div class="patients-list__empty">
+      <span class="material-symbols-outlined patients-list__empty-icon">group</span>
+      <p>No hay pacientes registrados aún.</p>
+    </div>
+  } @else if (filtered().length === 0) {
+    <div class="patients-list__empty">
+      <span class="material-symbols-outlined patients-list__empty-icon">search_off</span>
+      <p>No se encontraron pacientes con ese criterio.</p>
+    </div>
+  } @else {
+    <div class="patients-list__table-wrap">
+      <table class="patients-list__table">
+        <thead>
+          <tr>
+            <th>Paciente</th>
+            <th>Email</th>
+            <th>DNI</th>
+            <th>Estado</th>
+            <th>Acción</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (p of filtered(); track p.userId) {
+            <tr class="patients-list__row">
+              <td class="patients-list__cell patients-list__cell--name">
+                <div class="patients-list__avatar-wrap">
+                  <div class="patients-list__avatar">
+                    <span class="material-symbols-outlined">person</span>
+                  </div>
+                  <span>{{ fullName(p) }}</span>
+                </div>
+              </td>
+              <td class="patients-list__cell">{{ p.email ?? '—' }}</td>
+              <td class="patients-list__cell">{{ p.patient?.dni ?? '—' }}</td>
+              <td class="patients-list__cell">
+                @if (!p.patient) {
+                  <span class="patients-list__badge patients-list__badge--pending">Sin ficha</span>
+                } @else if (p.odontogramEntriesCount === 0) {
+                  <span class="patients-list__badge patients-list__badge--warning">Sin odontograma</span>
+                } @else {
+                  <span class="patients-list__badge patients-list__badge--complete">Completo</span>
+                }
+              </td>
+              <td class="patients-list__cell patients-list__cell--actions">
+                @if (!p.patient) {
+                  <button
+                    class="patients-list__btn"
+                    type="button"
+                    (click)="onRegister(p.userId)"
+                  >
+                    <span class="material-symbols-outlined">add_circle</span>
+                    Registrar
+                  </button>
+                } @else if (p.odontogramEntriesCount === 0) {
+                  <button
+                    class="patients-list__btn patients-list__btn--complete"
+                    type="button"
+                    (click)="onOpenOdontogram(p.patient!.id)"
+                  >
+                    <span class="material-symbols-outlined">dentistry</span>
+                    Completar ficha
+                  </button>
+                } @else {
+                  <button
+                    class="patients-list__btn patients-list__btn--edit"
+                    type="button"
+                    (click)="onOpenOdontogram(p.patient!.id)"
+                  >
+                    <span class="material-symbols-outlined">edit</span>
+                    Editar diagnóstico
+                  </button>
+                  <button
+                    class="patients-list__btn patients-list__btn--treatment"
+                    type="button"
+                    (click)="onRegisterTreatment(p.patient!.id)"
+                  >
+                    <span class="material-symbols-outlined">healing</span>
+                    Tratamiento
+                  </button>
+                  <button
+                    class="patients-list__btn patients-list__btn--history"
+                    type="button"
+                    (click)="onViewHistory(p.patient!.id)"
+                  >
+                    <span class="material-symbols-outlined">history</span>
+                    Ver historial
+                  </button>
+                }
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  }
+</div>

@@ -1,0 +1,413 @@
+@use '../step-form';
+
+.odontogram-step {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+
+  &__body {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+
+    &--split {
+      @media (min-width: 900px) {
+        flex-direction: row;
+        align-items: flex-start;
+        gap: 1.5rem;
+
+        .odontogram-step__chart {
+          flex: 1 1 0;
+          min-width: 0;
+        }
+
+        .odontogram-step__panel {
+          width: 340px;
+          flex-shrink: 0;
+        }
+      }
+    }
+  }
+
+  // ── Chart ───────────────────────────────────────────────────────────────────
+
+  &__chart {
+    display: flex;
+    flex-direction: column;
+    gap: 0.875rem;
+  }
+
+  &__toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+  }
+
+  &__chart-title {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.9375rem;
+    font-weight: 600;
+    color: var(--color-navy, #1a2b5e);
+    margin: 0;
+
+    .material-symbols-outlined {
+      font-size: 1.2rem;
+    }
+  }
+
+  &__chart-hint {
+    font-size: 0.8125rem;
+    color: #6b7280;
+    margin: 0;
+  }
+
+  // ── Chart canvas (drawing + interactive overlay) ─────────────────────────────
+
+  &__canvas {
+    position: relative;
+    width: 100%;
+    max-width: 680px;
+    margin: 0 auto;
+  }
+
+  &__canvas-img {
+    display: block;
+    width: 100%;
+    height: auto;
+    user-select: none;
+    -webkit-user-drag: none;
+    pointer-events: none;
+  }
+
+  &__canvas-overlay {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    overflow: visible;
+  }
+
+  &__arch-title-svg {
+    fill: #48566a;
+    font-family: Arial, sans-serif;
+    font-size: 12px;
+    font-weight: 700;
+  }
+
+  &__cell {
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+
+    &:focus-visible {
+      outline: none;
+
+      .odontogram-step__cell-hit {
+        stroke: #1a2b5e;
+        stroke-width: 1.5;
+        fill: rgba(26, 43, 94, 0.08);
+      }
+    }
+  }
+
+  &__cell-hit {
+    fill: transparent; // invisible click target — no visible box
+  }
+
+  // The tooth's outline paths are grouped; applying opacity to the GROUP flattens
+  // overlapping objects into one surface first, so the overlap region paints exactly
+  // like the rest of the tooth (no double-painting or seams). Selection is expressed
+  // through this same group (never per-path strokes) so composite teeth stay solid and
+  // never reveal the underlying overlapping element.
+  &__cell-paint {
+    transition: opacity 0.12s ease;
+
+    &--diagnosed {
+      opacity: 0.5;
+    }
+
+    // Selected + diagnosed → fully solid/opaque, still one flat surface.
+    &--diagnosed#{&}--selected {
+      opacity: 1;
+    }
+
+    // Selected + healthy → even highlight wash (grouped, so no seams).
+    &--selected:not(#{&}--diagnosed) {
+      opacity: 0.24;
+    }
+  }
+
+  &__cell-shape {
+    stroke: none;
+    pointer-events: none;
+    transition: fill 0.12s ease;
+  }
+
+  // Hover tints the tooth silhouette (grouped, so overlaps stay even) — only when it
+  // is neither diagnosed nor selected.
+  &__cell:hover &__cell-paint:not(&__cell-paint--diagnosed):not(&__cell-paint--selected) {
+    opacity: 0.16;
+
+    .odontogram-step__cell-shape {
+      fill: #1a2b5e;
+    }
+  }
+
+  &__cell-num {
+    fill: #5a6b7d;
+    font-family: Arial, sans-serif;
+    font-weight: 600;
+    pointer-events: none;
+
+    .odontogram-step__cell--selected & {
+      fill: #1a2b5e;
+    }
+  }
+
+  // ── Legend ──────────────────────────────────────────────────────────────────
+
+  &__legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.375rem 0.875rem;
+    padding: 0.75rem 1rem;
+    background: #f9fafb;
+    border: 1px solid #e5e7eb;
+    border-radius: 0.5rem;
+  }
+
+  &__legend-item {
+    display: flex;
+    align-items: center;
+    gap: 0.375rem;
+    font-size: 0.75rem;
+    color: #374151;
+  }
+
+  &__legend-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 2px;
+    flex-shrink: 0;
+  }
+
+  // ── Entries list ─────────────────────────────────────────────────────────────
+
+  &__entries {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  &__entries-title {
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: #374151;
+    margin: 0;
+  }
+
+  &__entries-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.375rem;
+  }
+
+  &__entry {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 0.75rem;
+    background: white;
+    border: 1px solid #e5e7eb;
+    border-radius: 0.5rem;
+    font-size: 0.8125rem;
+    flex-wrap: wrap;
+  }
+
+  &__entry-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  &__entry-tooth {
+    font-weight: 600;
+    color: #111827;
+    flex-shrink: 0;
+  }
+
+  &__entry-sep {
+    color: #d1d5db;
+    flex-shrink: 0;
+  }
+
+  &__entry-diag {
+    font-weight: 500;
+    color: #374151;
+    flex-shrink: 0;
+  }
+
+  &__entry-desc {
+    color: #6b7280;
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  &__entry-type {
+    font-size: 0.6875rem;
+    font-weight: 600;
+    color: #6b7280;
+    background: #f3f4f6;
+    border: 1px solid #e5e7eb;
+    border-radius: 0.25rem;
+    padding: 0.0625rem 0.375rem;
+    flex-shrink: 0;
+    text-transform: capitalize;
+  }
+
+  &__entry-xray {
+    color: #6b7280;
+    display: flex;
+    align-items: center;
+
+    .material-symbols-outlined {
+      font-size: 1rem;
+    }
+  }
+
+  &__entry-remove {
+    background: none;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+    color: #9ca3af;
+    display: flex;
+    align-items: center;
+    border-radius: 4px;
+    transition: color 0.15s, background 0.15s;
+    flex-shrink: 0;
+    margin-left: auto;
+
+    &:hover {
+      color: #dc2626;
+      background: #fef2f2;
+    }
+
+    .material-symbols-outlined {
+      font-size: 1rem;
+    }
+  }
+
+  // ── Panel ───────────────────────────────────────────────────────────────────
+
+  &__panel {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    padding: 1.25rem;
+    background: white;
+    border: 1px solid #e5e7eb;
+    border-radius: 0.75rem;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
+    animation: panel-in 0.18s ease-out;
+
+    @media (prefers-reduced-motion: reduce) {
+      animation: none;
+    }
+  }
+
+  &__panel-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  &__panel-tooth-badge {
+    display: flex;
+    align-items: center;
+    gap: 0.375rem;
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--color-navy, #1a2b5e);
+    background: rgba(26, 43, 94, 0.08);
+    padding: 0.375rem 0.75rem;
+    border-radius: 2rem;
+
+    .material-symbols-outlined {
+      font-size: 1rem;
+    }
+  }
+
+  &__panel-close {
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 0.25rem;
+    color: #9ca3af;
+    display: flex;
+    align-items: center;
+    border-radius: 4px;
+    transition: color 0.15s, background 0.15s;
+
+    &:hover {
+      color: #374151;
+      background: #f3f4f6;
+    }
+
+    .material-symbols-outlined {
+      font-size: 1.25rem;
+    }
+  }
+
+  &__panel-field {
+    display: flex;
+    flex-direction: column;
+    gap: 0.375rem;
+  }
+
+  &__panel-label {
+    font-size: 0.8125rem;
+    font-weight: 500;
+    color: #374151;
+  }
+
+  &__panel-select {
+    appearance: auto;
+    cursor: pointer;
+  }
+
+  &__panel-actions {
+    display: flex;
+    gap: 0.75rem;
+    justify-content: flex-end;
+    padding-top: 0.25rem;
+  }
+
+  // ── Footer ───────────────────────────────────────────────────────────────────
+
+  &__footer {
+    padding-top: 0.5rem;
+    border-top: 1px solid #e5e7eb;
+  }
+}
+
+@keyframes panel-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}

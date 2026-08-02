@@ -1,0 +1,288 @@
+<div class="odontogram-step">
+
+  <div class="odontogram-step__body" [class.odontogram-step__body--split]="selectedTooth()">
+
+    <!-- Odontogram chart -->
+    <div class="odontogram-step__chart">
+
+      <div class="odontogram-step__toolbar">
+        <h3 class="odontogram-step__chart-title">
+          <span class="material-symbols-outlined">dentistry</span>
+          Odontograma diagnóstico
+        </h3>
+      </div>
+      <p class="odontogram-step__chart-hint">Hacé clic en un diente para registrar su diagnóstico.</p>
+
+      <!-- Chart: static drawing + interactive overlay (same 618x554 grid) -->
+      <div class="odontogram-step__canvas">
+        <img class="odontogram-step__canvas-img" [src]="odontogramUrl" alt="Odontograma" />
+        <svg
+          class="odontogram-step__canvas-overlay"
+          viewBox="0 0 618 554"
+          xmlns="http://www.w3.org/2000/svg"
+          role="group"
+          aria-label="Selector de dientes"
+        >
+          <text class="odontogram-step__arch-title-svg" x="309" y="16" text-anchor="middle">Arcada superior</text>
+          <text class="odontogram-step__arch-title-svg" x="309" y="550" text-anchor="middle">Arcada inferior</text>
+
+          @for (tooth of cells; track tooth.number) {
+            <g
+              class="odontogram-step__cell"
+              [class.odontogram-step__cell--selected]="selectedTooth()?.number === tooth.number"
+              (click)="onToothClick(tooth)"
+              (keyup.enter)="onToothClick(tooth)"
+              role="button"
+              tabindex="0"
+              [attr.aria-label]="'Diente ' + tooth.number"
+            >
+              <!-- Invisible, generous click target -->
+              <rect
+                class="odontogram-step__cell-hit"
+                [attr.x]="tooth.x" [attr.y]="tooth.y" [attr.width]="tooth.w" [attr.height]="tooth.h"
+              />
+              <!-- Diagnosis color / selection on the tooth silhouette. Outline paths are
+                   grouped and the opacity is applied to the group, so overlapping objects
+                   flatten into a single surface (overlap paints the same, no doubling). -->
+              <g
+                class="odontogram-step__cell-paint"
+                [class.odontogram-step__cell-paint--diagnosed]="isDiagnosed(tooth.number)"
+                [class.odontogram-step__cell-paint--selected]="selectedTooth()?.number === tooth.number"
+              >
+                @for (outline of tooth.outlines; track $index) {
+                  <path
+                    class="odontogram-step__cell-shape"
+                    [attr.d]="outline"
+                    [attr.fill]="paintFill(tooth.number)"
+                  />
+                }
+              </g>
+              <text
+                class="odontogram-step__cell-num"
+                [attr.x]="tooth.labelX" [attr.y]="tooth.labelY" [attr.font-size]="tooth.labelSize"
+                text-anchor="middle"
+              >{{ tooth.number }}</text>
+            </g>
+          }
+        </svg>
+      </div>
+
+      <!-- Legend -->
+      <div class="odontogram-step__legend">
+        @for (opt of diagnosisOptions; track opt.value) {
+          <div class="odontogram-step__legend-item">
+            <span class="odontogram-step__legend-dot" [style.background]="opt.color"></span>
+            <span>{{ opt.label }}</span>
+          </div>
+        }
+      </div>
+
+      <!-- Entries list -->
+      @if (diagnosedEntries().length > 0) {
+        <div class="odontogram-step__entries">
+          <h4 class="odontogram-step__entries-title">Diagnósticos registrados</h4>
+          <ul class="odontogram-step__entries-list">
+            @for (entry of diagnosedEntries(); track entry.toothNumber) {
+              <li class="odontogram-step__entry">
+                <span
+                  class="odontogram-step__entry-dot"
+                  [style.background]="getDiagnosisColor(entry.toothCondition)"
+                ></span>
+                <span class="odontogram-step__entry-tooth">Diente #{{ entry.toothNumber }}</span>
+                <span class="odontogram-step__entry-sep">—</span>
+                <span class="odontogram-step__entry-diag">{{ getDiagnosisLabel(entry.toothCondition) }}</span>
+                <span class="odontogram-step__entry-type">[{{ entry.diagnosisType }}]</span>
+                <span class="odontogram-step__entry-desc">{{ entry.diagnosisDescription }}</span>
+                @if (entry.xrayRequested) {
+                  <span class="odontogram-step__entry-xray" title="Rayos X solicitados">
+                    <span class="material-symbols-outlined">radiology</span>
+                  </span>
+                }
+                <button
+                  type="button"
+                  class="odontogram-step__entry-remove"
+                  (click)="removeEntry(entry.toothNumber)"
+                  aria-label="Eliminar entrada"
+                >
+                  <span class="material-symbols-outlined">close</span>
+                </button>
+              </li>
+            }
+          </ul>
+        </div>
+      }
+
+    </div>
+
+    <!-- Diagnosis form panel -->
+    @if (selectedTooth()) {
+      <div class="odontogram-step__panel" role="region" aria-label="Diagnóstico del diente">
+        <div class="odontogram-step__panel-header">
+          <div class="odontogram-step__panel-tooth-badge">
+            <span class="material-symbols-outlined">dentistry</span>
+            Diente #{{ selectedTooth()!.number }}
+          </div>
+          <button type="button" class="odontogram-step__panel-close" (click)="onPanelCancel()" aria-label="Cerrar panel">
+            <span class="material-symbols-outlined">close</span>
+          </button>
+        </div>
+
+        <!-- Tooth type -->
+        <div class="odontogram-step__panel-field">
+          <label class="odontogram-step__panel-label">Tipo de diente</label>
+          <div class="step-form__radio-row">
+            <label class="step-form__radio">
+              <input
+                type="radio"
+                name="toothType"
+                value="permanent"
+                [checked]="panelToothType() === 'permanent'"
+                (change)="panelToothType.set('permanent')"
+              />
+              Permanente
+            </label>
+            <label class="step-form__radio">
+              <input
+                type="radio"
+                name="toothType"
+                value="deciduous"
+                [checked]="panelToothType() === 'deciduous'"
+                (change)="panelToothType.set('deciduous')"
+              />
+              Deciduo (temporal)
+            </label>
+          </div>
+        </div>
+
+        <!-- Diagnosis type: presuntivo / definitivo -->
+        <div class="odontogram-step__panel-field">
+          <label class="odontogram-step__panel-label">
+            Tipo de diagnóstico <span class="step-form__req">*</span>
+          </label>
+          <div class="step-form__radio-row">
+            <label class="step-form__radio">
+              <input
+                type="radio"
+                name="diagnosisType"
+                value="presuntivo"
+                [checked]="panelDiagnosisType() === 'presuntivo'"
+                (change)="panelDiagnosisType.set('presuntivo')"
+              />
+              Presuntivo
+            </label>
+            <label class="step-form__radio">
+              <input
+                type="radio"
+                name="diagnosisType"
+                value="definitivo"
+                [checked]="panelDiagnosisType() === 'definitivo'"
+                (change)="panelDiagnosisType.set('definitivo')"
+              />
+              Definitivo
+            </label>
+          </div>
+        </div>
+
+        <!-- Tooth condition -->
+        <div class="odontogram-step__panel-field">
+          <label class="odontogram-step__panel-label" for="toothCondition">
+            Condición <span class="step-form__req">*</span>
+          </label>
+          <select
+            id="toothCondition"
+            class="step-form__input odontogram-step__panel-select"
+            [value]="panelToothCondition()"
+            (change)="panelToothCondition.set($any($event.target).value)"
+          >
+            @for (opt of diagnosisOptions; track opt.value) {
+              <option [value]="opt.value">{{ opt.label }}</option>
+            }
+          </select>
+        </div>
+
+        <!-- Diagnosis description -->
+        <div class="odontogram-step__panel-field">
+          <label class="odontogram-step__panel-label" for="diagnosisDesc">
+            Descripción <span class="step-form__req">*</span>
+          </label>
+          <textarea
+            id="diagnosisDesc"
+            class="step-form__input step-form__input--textarea"
+            placeholder="Describí el estado del diente..."
+            [value]="panelDescription()"
+            (input)="panelDescription.set($any($event.target).value)"
+            rows="3"
+          ></textarea>
+        </div>
+
+        <!-- X-ray -->
+        <div class="odontogram-step__panel-field">
+          <label class="step-form__check">
+            <input
+              type="checkbox"
+              [checked]="panelXray()"
+              (change)="panelXray.set($any($event.target).checked)"
+            />
+            Solicitar Rayos X
+          </label>
+        </div>
+
+        <!-- Notes -->
+        <div class="odontogram-step__panel-field">
+          <label class="odontogram-step__panel-label" for="diagnosisNotes">Notas adicionales</label>
+          <textarea
+            id="diagnosisNotes"
+            class="step-form__input step-form__input--textarea"
+            placeholder="Observaciones adicionales..."
+            [value]="panelNotes()"
+            (input)="panelNotes.set($any($event.target).value)"
+            rows="2"
+          ></textarea>
+        </div>
+
+        @if (formError()) {
+          <p class="step-form__error">{{ formError() }}</p>
+        }
+
+        <div class="odontogram-step__panel-actions">
+          <button type="button" class="step-form__btn step-form__btn--secondary" (click)="onPanelCancel()">
+            Cancelar
+          </button>
+          <button type="button" class="step-form__btn step-form__btn--primary" (click)="onPanelAdd()">
+            <span class="material-symbols-outlined">add_circle</span>
+            {{ isDiagnosed(selectedTooth()!.number) ? 'Actualizar' : 'Agregar' }}
+          </button>
+        </div>
+      </div>
+    }
+
+  </div>
+
+  <!-- Footer actions -->
+  <div class="step-form__actions odontogram-step__footer">
+    <button
+      type="button"
+      class="step-form__btn step-form__btn--secondary"
+      [disabled]="loading()"
+      (click)="onBack()"
+    >
+      <span class="material-symbols-outlined">arrow_back</span>
+      Anterior
+    </button>
+    <button
+      type="button"
+      class="step-form__btn step-form__btn--primary"
+      [disabled]="loading()"
+      (click)="onSubmit()"
+    >
+      @if (loading()) {
+        <span class="step-form__spinner"></span>
+        Guardando...
+      } @else {
+        <span class="material-symbols-outlined">save</span>
+        Guardar odontograma
+      }
+    </button>
+  </div>
+
+</div>

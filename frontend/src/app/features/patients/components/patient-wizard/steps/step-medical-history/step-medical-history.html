@@ -1,0 +1,98 @@
+<form class="step-form" (ngSubmit)="onSubmit()" novalidate>
+  <div class="step-form__section">
+    <h3 class="step-form__section-title">Enfermedades y condiciones</h3>
+    <div class="step-form__checkgrid">
+      <label class="step-form__check">
+        <input type="checkbox" [checked]="hasAllergies()" (change)="hasAllergies.set($any($event.target).checked)" />
+        <span>Alergias</span>
+      </label>
+      <label class="step-form__check">
+        <input type="checkbox" [checked]="kidneyProblems()" (change)="kidneyProblems.set($any($event.target).checked)" />
+        <span>Problemas renales</span>
+      </label>
+      <label class="step-form__check">
+        <input type="checkbox" [checked]="ulcers()" (change)="ulcers.set($any($event.target).checked)" />
+        <span>Úlceras</span>
+      </label>
+      <label class="step-form__check">
+        <input type="checkbox" [checked]="rheumatism()" (change)="rheumatism.set($any($event.target).checked)" />
+        <span>Reumatismo</span>
+      </label>
+      <label class="step-form__check">
+        <input type="checkbox" [checked]="heartProblems()" (change)="heartProblems.set($any($event.target).checked)" />
+        <span>Problemas cardíacos</span>
+      </label>
+      <label class="step-form__check">
+        <input type="checkbox" [checked]="diabetes()" (change)="diabetes.set($any($event.target).checked)" />
+        <span>Diabetes</span>
+      </label>
+      <label class="step-form__check">
+        <input type="checkbox" [checked]="hypertension()" (change)="hypertension.set($any($event.target).checked)" />
+        <span>Hipertensión</span>
+      </label>
+      <label class="step-form__check">
+        <input type="checkbox" [checked]="hemorrhages()" (change)="hemorrhages.set($any($event.target).checked)" />
+        <span>Hemorragias</span>
+      </label>
+      <label class="step-form__check">
+        <input type="checkbox" [checked]="anemia()" (change)="anemia.set($any($event.target).checked)" />
+        <span>Anemia</span>
+      </label>
+      <label class="step-form__check">
+        <input type="checkbox" [checked]="sti()" (change)="sti.set($any($event.target).checked)" />
+        <span>ITS</span>
+      </label>
+    </div>
+  </div>
+
+  <div class="step-form__section">
+    <h3 class="step-form__section-title">Información adicional</h3>
+    <div class="step-form__grid step-form__grid--2">
+      <div class="step-form__field">
+        <label class="step-form__label">Otras enfermedades</label>
+        <textarea class="step-form__input step-form__input--textarea" [value]="otherDiseases()" (input)="otherDiseases.set($any($event.target).value)" placeholder="Describe otras enfermedades relevantes..." rows="3"></textarea>
+      </div>
+      <div class="step-form__field">
+        <label class="step-form__label">Medicamentos actuales</label>
+        <textarea class="step-form__input step-form__input--textarea" [value]="currentMedications()" (input)="currentMedications.set($any($event.target).value)" placeholder="Lista los medicamentos que toma actualmente..." rows="3"></textarea>
+      </div>
+      <div class="step-form__field">
+        <label class="step-form__label">Período de gestación</label>
+        <input class="step-form__input" type="text" [value]="gestationPeriod()" (input)="gestationPeriod.set($any($event.target).value)" placeholder="Ej: 20 semanas / No aplica" />
+      </div>
+      <div class="step-form__field">
+        <label class="step-form__label">¿Reacciones a la anestesia?</label>
+        <div class="step-form__radio-row">
+          <label class="step-form__radio">
+            <input type="radio" name="anesthesia" [checked]="anesthesiaReactions() === true" (change)="anesthesiaReactions.set(true)" />
+            Sí
+          </label>
+          <label class="step-form__radio">
+            <input type="radio" name="anesthesia" [checked]="anesthesiaReactions() === false" (change)="anesthesiaReactions.set(false)" />
+            No
+          </label>
+          <label class="step-form__radio">
+            <input type="radio" name="anesthesia" [checked]="anesthesiaReactions() === null" (change)="anesthesiaReactions.set(null)" />
+            No sabe
+          </label>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="step-form__actions">
+    <button class="step-form__btn step-form__btn--secondary" type="button" [disabled]="loading()" (click)="onBack()">
+      <span class="material-symbols-outlined">arrow_back</span>
+      Anterior
+    </button>
+    <button class="step-form__btn step-form__btn--primary" type="submit" [disabled]="loading()">
+      @if (loading()) {
+        <span class="step-form__spinner"></span>
+        Guardando...
+      } @else {
+        Siguiente
+        <span class="material-symbols-outlined">arrow_forward</span>
+      }
+    </button>
+  </div>
+</form>

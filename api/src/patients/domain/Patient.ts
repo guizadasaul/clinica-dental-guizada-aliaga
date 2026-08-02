@@ -1,0 +1,25 @@
+export class Patient {
+  constructor(
+    readonly id: string,
+    readonly userId: string,
+    readonly firstName: string,
+    readonly lastNamePaternal: string,
+    readonly lastNameMaternal: string | null,
+    readonly birthDate: Date,
+    readonly birthPlace: string | null,
+    readonly sex: string | null,
+    readonly occupation: string | null,
+    readonly address: string | null,
+    readonly phone: string | null,
+    readonly emergencyContactName: string | null,
+    readonly emergencyContactPhone: string | null,
+    readonly emergencyContactRelationship: string | null,
+    readonly consultationReason: string | null,
+    readonly lastDentistVisit: Date | null,
+    readonly lastVisitTreatment: string | null,
+    readonly familyHistory: string | null,
+    readonly dni: string | null,
+    readonly createdAt: Date,
+    readonly updatedAt: Date,
+  ) {}
+}

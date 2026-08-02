@@ -1,0 +1,250 @@
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["partialIndexes"]
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum UserRole {
+  odontologist
+  patient
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model appointments {
+  id                   String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id              String?     @unique(map: "idx_one_active_appointment_web", where: raw("(((status)::text = 'scheduled'::text) AND (user_id IS NOT NULL))")) @db.Uuid
+  patient_id           String?     @db.Uuid
+  treatment_id         String?     @db.Uuid
+  appointment_datetime DateTime    @db.Timestamptz(6)
+  status               String      @default("scheduled") @db.VarChar(20)
+  source               String      @db.VarChar(20)
+  whatsapp_name        String?     @db.VarChar(200)
+  whatsapp_phone       String?     @unique(map: "idx_one_active_appointment_wa", where: raw("(((status)::text = 'scheduled'::text) AND (whatsapp_phone IS NOT NULL))")) @db.VarChar(20)
+  notes                String?
+  created_at           DateTime    @default(now()) @db.Timestamptz(6)
+  patients             patients?   @relation(fields: [patient_id], references: [id], onUpdate: NoAction)
+  treatments           treatments? @relation(fields: [treatment_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  users                users?      @relation(fields: [user_id], references: [id], onUpdate: NoAction)
+
+  @@index([appointment_datetime], map: "idx_appointments_datetime")
+}
+
+model clinical_exams {
+  id               String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  patient_id       String   @db.Uuid
+  tartar           Boolean  @default(false)
+  saburra          Boolean  @default(false)
+  bacterial_plaque Boolean  @default(false)
+  halitosis        Boolean  @default(false)
+  occlusion        String?  @db.VarChar(200)
+  exam_date        DateTime @default(dbgenerated("CURRENT_DATE")) @db.Date
+  created_at       DateTime @default(now()) @db.Timestamptz(6)
+  patients         patients @relation(fields: [patient_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+}
+
+model hygiene_habits {
+  id                 String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  patient_id         String   @unique @db.Uuid
+  uses_toothbrush    Boolean  @default(false)
+  brushing_frequency String?  @db.VarChar(100)
+  uses_dental_floss  Boolean  @default(false)
+  uses_toothpick     Boolean  @default(false)
+  brushes_tongue     Boolean  @default(false)
+  uses_mouthwash     Boolean  @default(false)
+  updated_at         DateTime @default(now()) @db.Timestamptz(6)
+  patients           patients @relation(fields: [patient_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+}
+
+model medical_history {
+  id                   String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  patient_id           String   @unique @db.Uuid
+  has_allergies        Boolean  @default(false)
+  kidney_problems      Boolean  @default(false)
+  ulcers               Boolean  @default(false)
+  rheumatism           Boolean  @default(false)
+  heart_problems       Boolean  @default(false)
+  diabetes             Boolean  @default(false)
+  hypertension         Boolean  @default(false)
+  hemorrhages          Boolean  @default(false)
+  anemia               Boolean  @default(false)
+  sti                  Boolean  @default(false)
+  other_diseases       String?
+  gestation_period     String?
+  anesthesia_reactions Boolean?
+  current_medications  String?
+  updated_at           DateTime @default(now()) @db.Timestamptz(6)
+  patients             patients @relation(fields: [patient_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model odontogram_entries {
+  id                    String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  patient_id            String      @db.Uuid
+  tooth_number          Int
+  tooth_type            String      @default("permanent") @db.VarChar(20)
+  diagnosis_type        String      @db.VarChar(20)
+  tooth_condition       String      @default("sano") @db.VarChar(30)
+  diagnosis_description String
+  xray_requested        Boolean     @default(false)
+  treatment_id          String?     @db.Uuid
+  custom_price          Decimal?    @db.Decimal(10, 2)
+  entry_date            DateTime    @default(dbgenerated("CURRENT_DATE")) @db.Date
+  notes                 String?
+  created_at            DateTime    @default(now()) @db.Timestamptz(6)
+  patients              patients    @relation(fields: [patient_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  treatments            treatments? @relation(fields: [treatment_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([patient_id, tooth_number], map: "idx_odontogram_patient_tooth")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model patients {
+  id                             String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id                        String               @unique @db.Uuid
+  first_name                     String               @db.VarChar(100)
+  last_name_paternal             String               @db.VarChar(100)
+  last_name_maternal             String?              @db.VarChar(100)
+  birth_date                     DateTime             @db.Date
+  birth_place                    String?              @db.VarChar(150)
+  sex                            String?              @db.VarChar(20)
+  occupation                     String?              @db.VarChar(150)
+  address                        String?
+  phone                          String?              @db.VarChar(20)
+  emergency_contact_name         String?              @db.VarChar(200)
+  emergency_contact_phone        String?              @db.VarChar(20)
+  emergency_contact_relationship String?              @db.VarChar(100)
+  consultation_reason            String?
+  last_dentist_visit             DateTime?            @db.Date
+  last_visit_treatment           String?
+  family_history                 String?
+  dni                            String?              @unique @db.VarChar(20)
+  created_at                     DateTime             @default(now()) @db.Timestamptz(6)
+  updated_at                     DateTime             @default(now()) @db.Timestamptz(6)
+  appointments                   appointments[]
+  clinical_exams                 clinical_exams[]
+  hygiene_habits                 hygiene_habits?
+  medical_history                medical_history?
+  odontogram_entries             odontogram_entries[]
+  users                          users                @relation(fields: [user_id], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  quotes                         quotes[]
+  tooth_procedures               tooth_procedures[]
+  xray_documents                 xray_documents[]
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model payments {
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  quote_id       String   @db.Uuid
+  amount         Decimal  @db.Decimal(10, 2)
+  payment_method String?  @db.VarChar(50)
+  receipt_number String   @unique @default(dbgenerated("('REC-'::text || lpad((nextval('receipt_number_seq'::regclass))::text, 6, '0'::text))")) @db.VarChar(20)
+  payment_date   DateTime @default(now()) @db.Timestamptz(6)
+  notes          String?
+  created_at     DateTime @default(now()) @db.Timestamptz(6)
+  quotes         quotes   @relation(fields: [quote_id], references: [id], onUpdate: NoAction)
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model quote_items {
+  id           String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  quote_id     String     @db.Uuid
+  treatment_id String     @db.Uuid
+  tooth_number Int?
+  unit_price   Decimal    @db.Decimal(10, 2)
+  quantity     Int        @default(1)
+  subtotal     Decimal?   @default(dbgenerated("(unit_price * (quantity)::numeric)")) @db.Decimal(10, 2)
+  quotes       quotes     @relation(fields: [quote_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  treatments   treatments @relation(fields: [treatment_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model quotes {
+  id           String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  patient_id   String        @db.Uuid
+  total_amount Decimal       @default(0) @db.Decimal(10, 2)
+  total_paid   Decimal       @default(0) @db.Decimal(10, 2)
+  status       String        @default("pending") @db.VarChar(20)
+  notes        String?
+  created_at   DateTime      @default(now()) @db.Timestamptz(6)
+  updated_at   DateTime      @default(now()) @db.Timestamptz(6)
+  payments     payments[]
+  quote_items  quote_items[]
+  patients     patients      @relation(fields: [patient_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model tooth_procedures {
+  id                 String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  patient_id         String           @db.Uuid
+  tooth_number       Int
+  treatment_id       String           @db.Uuid
+  price_charged      Decimal          @db.Decimal(10, 2)
+  procedure_date     DateTime         @default(dbgenerated("CURRENT_DATE")) @db.Date
+  surface_vestibular Boolean          @default(false)
+  surface_palatal    Boolean          @default(false)
+  surface_mesial     Boolean          @default(false)
+  surface_distal     Boolean          @default(false)
+  surface_occlusal   Boolean          @default(false)
+  notes              String?
+  performed_by       String           @db.Uuid
+  created_at         DateTime         @default(now()) @db.Timestamptz(6)
+  patients           patients         @relation(fields: [patient_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  users              users            @relation(fields: [performed_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  treatments         treatments       @relation(fields: [treatment_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  xray_documents     xray_documents[]
+
+  @@index([procedure_date], map: "idx_tooth_procedures_date")
+  @@index([patient_id, tooth_number], map: "idx_tooth_procedures_patient_tooth")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model treatments {
+  id                 String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name               String               @db.VarChar(200)
+  description        String?
+  base_price         Decimal              @db.Decimal(10, 2)
+  estimated_minutes  Int                  @default(30)
+  is_active          Boolean              @default(true)
+  created_at         DateTime             @default(now()) @db.Timestamptz(6)
+  updated_at         DateTime             @default(now()) @db.Timestamptz(6)
+  appointments       appointments[]
+  odontogram_entries odontogram_entries[]
+  quote_items        quote_items[]
+  tooth_procedures   tooth_procedures[]
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model users {
+  id               String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  firebase_uid     String             @unique @db.VarChar(128)
+  email            String?            @unique @db.VarChar(255)
+  display_name     String?            @db.VarChar(255)
+  photo_url        String?
+  phone            String?            @db.VarChar(20)
+  password_hash    String?            @db.VarChar(255)
+  is_active        Boolean            @default(true)
+  created_at       DateTime           @default(now()) @db.Timestamptz(6)
+  updated_at       DateTime           @default(now()) @db.Timestamptz(6)
+  role             UserRole           @default(patient)
+  appointments     appointments?
+  patients         patients?
+  tooth_procedures tooth_procedures[]
+}
+
+model xray_documents {
+  id                   String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  patient_id           String            @db.Uuid
+  tooth_procedure_id   String?           @db.Uuid
+  google_drive_file_id String            @unique @db.VarChar(200)
+  google_drive_url     String
+  thumbnail_url        String?
+  file_name            String?           @db.VarChar(255)
+  taken_date           DateTime?         @db.Date
+  notes                String?
+  uploaded_at          DateTime          @default(now()) @db.Timestamptz(6)
+  patients             patients          @relation(fields: [patient_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  tooth_procedures     tooth_procedures? @relation(fields: [tooth_procedure_id], references: [id], onUpdate: NoAction)
+}

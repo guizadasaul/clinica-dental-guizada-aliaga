@@ -1,0 +1,414 @@
+<!-- ========================================================= -->
+<!-- NAVBAR                                                    -->
+<!-- ========================================================= -->
+<nav
+  class="navbar"
+  [class.navbar--scrolled]="navScrolled()"
+  role="navigation"
+  [attr.aria-label]="'landing.nav.ariaLabel' | translate"
+>
+  <div class="navbar__inner">
+    <a href="/" class="navbar__logo" [attr.aria-label]="'landing.nav.logoAriaLabel' | translate">
+      <img
+        class="navbar__logo-img"
+        src="assets/images/LogoHorizontal.png"
+        [alt]="'landing.nav.logoName' | translate"
+      />
+    </a>
+
+    <ul class="navbar__links" role="list">
+      <li><a href="#servicios" class="navbar__link">{{ 'landing.nav.services' | translate }}</a></li>
+      <li><a href="#nosotros" class="navbar__link">{{ 'landing.nav.about' | translate }}</a></li>
+      <li><a href="#contacto" class="navbar__link">{{ 'landing.nav.contact' | translate }}</a></li>
+    </ul>
+
+    <div class="navbar__actions">
+      <app-lang-switcher />
+      <a routerLink="/auth/login" class="btn-primary btn-slide" appMagnetic>
+        {{ 'landing.nav.cta' | translate }}
+      </a>
+    </div>
+  </div>
+</nav>
+
+<!-- ========================================================= -->
+<!-- HERO — editorial en crema, parallax + abanico de          -->
+<!-- instrumentos como imaginería de marca                     -->
+<!-- ========================================================= -->
+<section class="hero" aria-labelledby="hero-title">
+  <!-- Capas de fondo con parallax (más lentas que el contenido) -->
+  <div class="hero__backdrop" aria-hidden="true">
+    <span class="hero__glow"></span>
+  </div>
+
+  <!-- Esporas naranjas: campo de partículas sutil, más denso en el centro
+       donde converge el abanico. Huyen del cursor. Solo decorativo. -->
+  <canvas #spores class="hero__spores" aria-hidden="true"></canvas>
+
+  <div class="hero__content">
+    <h1 id="hero-title" class="hero__title">
+      {{ 'landing.hero.titleLine1' | translate }}<br>
+      <em class="hero__title-accent">{{ 'landing.hero.titleLine2' | translate }}</em>
+    </h1>
+
+  </div>
+
+  <!-- Abanico de fichas de instrumental -->
+  <div class="hero__fan" role="group" [attr.aria-label]="'landing.hero.instruments.fanAriaLabel' | translate">
+    @for (item of instruments; track item.id) {
+      <div class="fan__item">
+        <img
+          [src]="item.src"
+          [alt]="item.label | translate"
+          class="fan__img"
+          loading="eager"
+          draggable="false"
+        >
+      </div>
+    }
+  </div>
+</section>
+
+<!-- ========================================================= -->
+<!-- MISIÓN Y VISIÓN — dos columnas de texto, sin tarjetas    -->
+<!-- ========================================================= -->
+<section class="section section--cream" aria-labelledby="mission-title">
+  <div class="container">
+    <h2 id="mission-title" class="section__title" data-reveal>
+      {{ 'landing.mission.title' | translate }}
+    </h2>
+
+    <div class="mission-grid" data-reveal-group>
+      <div class="mission__col" data-reveal-item>
+        <h3 class="mission__heading">{{ 'landing.mission.missionTitle' | translate }}</h3>
+        <p class="mission__body">{{ 'landing.mission.missionText' | translate }}</p>
+      </div>
+
+      <div class="mission__col" data-reveal-item>
+        <h3 class="mission__heading">{{ 'landing.mission.visionTitle' | translate }}</h3>
+        <p class="mission__body">{{ 'landing.mission.visionText' | translate }}</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ========================================================= -->
+<!-- SERVICIOS — BENTO GRID                                    -->
+<!-- ========================================================= -->
+<section id="servicios" class="section section--surface" aria-labelledby="services-title">
+  <div class="container">
+    <div class="section__header" data-reveal>
+      <h2 id="services-title" class="section__title">
+        {{ 'landing.services.title' | translate }}
+      </h2>
+      <p class="section__subtitle">
+        {{ 'landing.services.subtitle' | translate }}
+      </p>
+    </div>
+
+    <div class="bento-grid" data-reveal-group>
+      <!-- Odontología Estética — grande -->
+      <article class="bento-card bento-card--large bento-card--primary" data-reveal-item>
+        <span class="material-symbols-outlined bento-card__symbol" aria-hidden="true">sentiment_very_satisfied</span>
+        <div class="bento-card__content">
+          <span class="bento-card__tag">{{ 'landing.services.tag.featured' | translate }}</span>
+          <h3 class="bento-card__title">{{ 'landing.services.dental.esthetic.title' | translate }}</h3>
+          <p class="bento-card__text">{{ 'landing.services.dental.esthetic.desc' | translate }}</p>
+          <a href="#contacto" class="bento-card__link">
+            {{ 'landing.services.knowMore' | translate }}
+            <span class="material-symbols-outlined" aria-hidden="true">arrow_forward</span>
+          </a>
+        </div>
+      </article>
+
+      <!-- Ortodoncia Invisible -->
+      <article class="bento-card bento-card--mint" data-reveal-item>
+        <span class="material-symbols-outlined bento-card__symbol" aria-hidden="true">straighten</span>
+        <h3 class="bento-card__title">{{ 'landing.services.ortho.title' | translate }}</h3>
+        <p class="bento-card__text">{{ 'landing.services.ortho.desc' | translate }}</p>
+      </article>
+
+      <!-- Blanqueamiento -->
+      <article class="bento-card bento-card--blush" data-reveal-item>
+        <span class="material-symbols-outlined bento-card__symbol" aria-hidden="true">light_mode</span>
+        <h3 class="bento-card__title">{{ 'landing.services.whitening.title' | translate }}</h3>
+        <p class="bento-card__text">{{ 'landing.services.whitening.desc' | translate }}</p>
+      </article>
+
+      <!-- Implantes — grande -->
+      <article class="bento-card bento-card--large bento-card--navy" data-reveal-item>
+        <span class="material-symbols-outlined bento-card__symbol" aria-hidden="true">medical_services</span>
+        <div class="bento-card__content">
+          <h3 class="bento-card__title">{{ 'landing.services.implants.title' | translate }}</h3>
+          <p class="bento-card__text">{{ 'landing.services.implants.desc' | translate }}</p>
+          <a href="#contacto" class="bento-card__link bento-card__link--light">
+            {{ 'landing.services.consultNow' | translate }}
+            <span class="material-symbols-outlined" aria-hidden="true">arrow_forward</span>
+          </a>
+        </div>
+      </article>
+    </div>
+  </div>
+</section>
+
+<!-- ========================================================= -->
+<!-- NUESTRO TRABAJO — ANTES & DESPUÉS                        -->
+<!-- ========================================================= -->
+<section class="section section--cream" aria-labelledby="work-title">
+  <div class="container">
+    <div class="section__header" data-reveal>
+      <h2 id="work-title" class="section__title">{{ 'landing.work.title' | translate }}</h2>
+      <p class="section__subtitle">{{ 'landing.work.subtitle' | translate }}</p>
+    </div>
+
+    <div class="work-scroll hide-scrollbar" data-reveal-group>
+      @for (item of workItems; track item.id) {
+        <article class="work-card" data-reveal-item="x">
+          <div class="work-card__images">
+            <figure class="work-card__figure">
+              <img
+                [src]="item.beforeUrl"
+                [alt]="item.beforeAlt | translate"
+                class="work-card__img"
+                loading="lazy"
+              >
+              <figcaption class="work-card__caption work-card__caption--before">
+                {{ 'landing.work.before' | translate }}
+              </figcaption>
+            </figure>
+            <div class="work-card__divider" aria-hidden="true">
+              <span class="material-symbols-outlined">compare_arrows</span>
+            </div>
+            <figure class="work-card__figure">
+              <img
+                [src]="item.afterUrl"
+                [alt]="item.afterAlt | translate"
+                class="work-card__img"
+                loading="lazy"
+              >
+              <figcaption class="work-card__caption work-card__caption--after">
+                {{ 'landing.work.after' | translate }}
+              </figcaption>
+            </figure>
+          </div>
+          <p class="work-card__label">{{ item.treatment | translate }}</p>
+        </article>
+      }
+    </div>
+  </div>
+</section>
+
+<!-- ========================================================= -->
+<!-- TESTIMONIOS — pull-quote editorial                        -->
+<!-- ========================================================= -->
+<section class="section section--surface" aria-labelledby="testimonials-title">
+  <div class="container">
+    <div class="section__header" data-reveal>
+      <h2 id="testimonials-title" class="section__title">
+        {{ 'landing.testimonials.title' | translate }}
+      </h2>
+    </div>
+
+    <div class="testimonials-editorial">
+      <!-- Testimonio destacado -->
+      <blockquote class="testimonial-featured" data-reveal>
+        <span class="testimonial-mark" aria-hidden="true">✦</span>
+        <p class="testimonial-featured__quote">{{ testimonials[0].quote | translate }}</p>
+        <footer class="testimonial-featured__footer">
+          <img
+            [src]="testimonials[0].avatarUrl"
+            [alt]="testimonials[0].name"
+            class="testimonial-featured__avatar"
+            loading="lazy"
+          >
+          <div>
+            <cite class="testimonial-featured__name">{{ testimonials[0].name }}</cite>
+            <span class="testimonial-featured__treatment">{{ testimonials[0].treatment | translate }}</span>
+          </div>
+        </footer>
+      </blockquote>
+
+      <!-- Testimonios secundarios -->
+      <div class="testimonial-pair" data-reveal-group>
+        @for (testimonial of testimonials.slice(1); track testimonial.id) {
+          <blockquote class="testimonial-secondary" data-reveal-item>
+            <span class="testimonial-mark" aria-hidden="true">✦</span>
+            <p class="testimonial-secondary__quote">{{ testimonial.quote | translate }}</p>
+            <footer class="testimonial-secondary__footer">
+              <img
+                [src]="testimonial.avatarUrl"
+                [alt]="testimonial.name"
+                class="testimonial-secondary__avatar"
+                loading="lazy"
+              >
+              <div>
+                <cite class="testimonial-secondary__name">{{ testimonial.name }}</cite>
+                <span class="testimonial-secondary__treatment">{{ testimonial.treatment | translate }}</span>
+              </div>
+            </footer>
+          </blockquote>
+        }
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ========================================================= -->
+<!-- FILOSOFÍA — HISTORIA / DRA. GUIZADA                      -->
+<!-- ========================================================= -->
+<section id="nosotros" class="section section--navy" aria-labelledby="philosophy-title">
+  <div class="container">
+    <div class="philosophy-split">
+      <div class="philosophy-split__text" data-reveal>
+        <span class="label-caps label-caps--light">{{ 'landing.philosophy.eyebrow' | translate }}</span>
+        <h2 id="philosophy-title" class="section__title section__title--light">
+          {{ 'landing.philosophy.title' | translate }}
+        </h2>
+        <p class="philosophy-split__body">{{ 'landing.philosophy.body' | translate }}</p>
+        <p class="philosophy-split__body">{{ 'landing.philosophy.body2' | translate }}</p>
+        <div class="philosophy-split__cta">
+          <a href="#contacto" class="btn-primary btn-slide" appMagnetic>
+            {{ 'landing.philosophy.cta' | translate }}
+          </a>
+        </div>
+      </div>
+
+      <div class="philosophy-split__founder" data-reveal>
+        <div class="founder-card">
+          <div class="founder-card__image-wrap">
+            <img
+              src="https://lh3.googleusercontent.com/aida/ADBb0ui9XRS_CVf7bIZ7v3yrZnDiDLw4CPgWvIvgyoFRoGi56_9o56evTJLb7OC2rT5qJq61o_JHScdjanrEKlsnRGAs8AiF_g2Rg8ZhWlVbptgXJuEjm_zEhzzNH1uwITX97g-3vAUy8E_jfJHZMuuJgR-fRubLTJKZwhbSxaxAvu4gP8mdrgNFw-1_twkLhGw5GricB9Ejj9aCtRTuV3GaXiezeznarPaimf-KlxMowWRA7HM"
+              [alt]="'landing.philosophy.founderImgAlt' | translate"
+              class="founder-card__img"
+              loading="lazy"
+            >
+          </div>
+          <div class="founder-card__info">
+            <strong class="founder-card__name">{{ 'landing.philosophy.founderName' | translate }}</strong>
+            <span class="founder-card__role">{{ 'landing.philosophy.founderRole' | translate }}</span>
+            <div class="founder-card__badge">
+              <span class="material-symbols-outlined" aria-hidden="true">workspace_premium</span>
+              <span>{{ 'landing.philosophy.founderCredential' | translate }}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ========================================================= -->
+<!-- CONTACTO — dos columnas editorial                         -->
+<!-- ========================================================= -->
+<section id="contacto" class="section section--cream" aria-labelledby="contact-title">
+  <div class="container">
+    <h2 id="contact-title" class="section__title" data-reveal>
+      {{ 'landing.contact.title' | translate }}
+    </h2>
+
+    <div class="contact-editorial" data-reveal>
+      <div class="contact-info">
+        <div class="contact-item">
+          <span class="material-symbols-outlined contact-item__icon" aria-hidden="true">location_on</span>
+          <div>
+            <strong class="contact-item__label">{{ 'landing.contact.addressTitle' | translate }}</strong>
+            <address class="contact-item__value">
+              {{ 'landing.contact.addressLine1' | translate }}<br>
+              {{ 'landing.contact.addressLine2' | translate }}
+            </address>
+          </div>
+        </div>
+
+        <div class="contact-item">
+          <span class="material-symbols-outlined contact-item__icon" aria-hidden="true">schedule</span>
+          <div>
+            <strong class="contact-item__label">{{ 'landing.contact.hoursTitle' | translate }}</strong>
+            <p class="contact-item__value">
+              {{ 'landing.contact.hoursWeekdays' | translate }}<br>
+              {{ 'landing.contact.hoursSaturday' | translate }}
+            </p>
+          </div>
+        </div>
+
+        <div class="contact-item">
+          <span class="material-symbols-outlined contact-item__icon" aria-hidden="true">call</span>
+          <div>
+            <strong class="contact-item__label">{{ 'landing.contact.phoneTitle' | translate }}</strong>
+            <a href="tel:+591700000000" class="contact-item__link">+591 700 00000</a>
+          </div>
+        </div>
+
+        <div class="contact-item">
+          <span class="material-symbols-outlined contact-item__icon" aria-hidden="true">mail</span>
+          <div>
+            <strong class="contact-item__label">{{ 'landing.contact.emailTitle' | translate }}</strong>
+            <a href="mailto:hola@guizadaaliaga.com" class="contact-item__link">hola&#64;guizadaaliaga.com</a>
+          </div>
+        </div>
+      </div>
+
+      <div class="contact-cta">
+        <h3 class="contact-cta__title">{{ 'landing.contact.ctaTitle' | translate }}</h3>
+        <p class="contact-cta__subtitle">{{ 'landing.contact.ctaSubtitle' | translate }}</p>
+        <a href="tel:+591700000000" class="btn-primary btn-slide" appMagnetic>
+          <span class="material-symbols-outlined" aria-hidden="true">calendar_month</span>
+          {{ 'landing.contact.ctaBtn' | translate }}
+        </a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ========================================================= -->
+<!-- FOOTER                                                    -->
+<!-- ========================================================= -->
+<footer class="footer" role="contentinfo">
+  <div class="container">
+    <div class="footer__grid">
+      <div class="footer__brand">
+        <div class="footer__logo">
+          <img
+            class="footer__logo-img"
+            src="assets/images/LogoHorizontalBlanco.png"
+            [alt]="'landing.footer.logoName' | translate"
+          />
+        </div>
+        <p class="footer__tagline">
+          {{ 'landing.footer.tagline1' | translate }}<br>
+          {{ 'landing.footer.tagline2' | translate }}
+        </p>
+      </div>
+
+      <nav [attr.aria-label]="'landing.footer.servicesAriaLabel' | translate">
+        <h4 class="footer__heading">{{ 'landing.footer.servicesTitle' | translate }}</h4>
+        <ul class="footer__links" role="list">
+          <li><a href="#servicios" class="footer__link">{{ 'landing.footer.esthetic' | translate }}</a></li>
+          <li><a href="#servicios" class="footer__link">{{ 'landing.footer.ortho' | translate }}</a></li>
+          <li><a href="#servicios" class="footer__link">{{ 'landing.footer.whitening' | translate }}</a></li>
+          <li><a href="#servicios" class="footer__link">{{ 'landing.footer.implants' | translate }}</a></li>
+        </ul>
+      </nav>
+
+      <nav [attr.aria-label]="'landing.footer.clinicAriaLabel' | translate">
+        <h4 class="footer__heading">{{ 'landing.footer.clinicTitle' | translate }}</h4>
+        <ul class="footer__links" role="list">
+          <li><a href="#nosotros" class="footer__link">{{ 'landing.footer.about' | translate }}</a></li>
+          <li><a href="#contacto" class="footer__link">{{ 'landing.footer.contact' | translate }}</a></li>
+          <li><a href="#contacto" class="footer__link">{{ 'landing.footer.appointment' | translate }}</a></li>
+        </ul>
+      </nav>
+
+      <nav [attr.aria-label]="'landing.footer.legalAriaLabel' | translate">
+        <h4 class="footer__heading">{{ 'landing.footer.legalTitle' | translate }}</h4>
+        <ul class="footer__links" role="list">
+          <li><a href="#" class="footer__link">{{ 'landing.footer.privacy' | translate }}</a></li>
+          <li><a href="#" class="footer__link">{{ 'landing.footer.terms' | translate }}</a></li>
+        </ul>
+      </nav>
+    </div>
+
+    <div class="footer__bottom">
+      <p class="footer__copy">{{ 'landing.footer.copyright' | translate }}</p>
+    </div>
+  </div>
+</footer>
