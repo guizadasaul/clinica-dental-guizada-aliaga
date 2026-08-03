@@ -83,11 +83,11 @@ export class PatientsService {
 
   async createToothProcedure(
     patientId: string,
-    firebaseUid: string,
+    authUserId: string,
     data: Omit<CreateToothProcedureData, 'performedBy'>,
   ): Promise<ToothProcedure> {
     await this.requirePatient(patientId);
-    const user = await this.userRepo.findByFirebaseUid(firebaseUid);
+    const user = await this.userRepo.findByAuthUserId(authUserId);
     if (!user) {
       throw new NotFoundException('Usuario autenticado no encontrado en la base de datos');
     }
@@ -102,8 +102,8 @@ export class PatientsService {
     return this.patientRepo.findToothProcedures(patientId);
   }
 
-  async findMyPatient(firebaseUid: string): Promise<Patient> {
-    const user = await this.userRepo.findByFirebaseUid(firebaseUid);
+  async findMyPatient(authUserId: string): Promise<Patient> {
+    const user = await this.userRepo.findByAuthUserId(authUserId);
     if (!user) {
       throw new NotFoundException('Usuario autenticado no encontrado en la base de datos');
     }
@@ -115,9 +115,9 @@ export class PatientsService {
   }
 
   async findMyPatientStatus(
-    firebaseUid: string,
+    authUserId: string,
   ): Promise<{ exists: boolean; patient: Patient | null }> {
-    const user = await this.userRepo.findByFirebaseUid(firebaseUid);
+    const user = await this.userRepo.findByAuthUserId(authUserId);
     if (!user) {
       return { exists: false, patient: null };
     }

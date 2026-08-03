@@ -1,22 +1,21 @@
 import { Module } from '@nestjs/common';
 import { AuthController } from './infrastructure/http/auth.controller';
-import { PhoneAuthController } from './infrastructure/http/phone-auth.controller';
 import { AuthService } from './application/auth.service';
 import { UserRepository } from './domain/UserRepository';
-import { TokenPort } from './domain/TokenPort';
+import { AccessTokenVerifier } from './domain/AccessTokenVerifier';
 import { PrismaUserRepository } from './infrastructure/persistence/prisma-user.repository';
-import { FirebaseService } from './infrastructure/FirebaseService';
-import { FirebaseAuthGuard } from './infrastructure/FirebaseAuthGuard';
+import { SupabaseJwtVerifier } from './infrastructure/SupabaseJwtVerifier';
+import { SupabaseAuthGuard } from './infrastructure/SupabaseAuthGuard';
 
 @Module({
-  controllers: [AuthController, PhoneAuthController],
+  controllers: [AuthController],
   providers: [
     AuthService,
-    FirebaseService,
-    FirebaseAuthGuard,
+    SupabaseJwtVerifier,
+    SupabaseAuthGuard,
     { provide: UserRepository, useClass: PrismaUserRepository },
-    { provide: TokenPort, useExisting: FirebaseService },
+    { provide: AccessTokenVerifier, useExisting: SupabaseJwtVerifier },
   ],
-  exports: [FirebaseAuthGuard, FirebaseService, UserRepository],
+  exports: [SupabaseAuthGuard, AccessTokenVerifier, UserRepository],
 })
 export class AuthModule {}

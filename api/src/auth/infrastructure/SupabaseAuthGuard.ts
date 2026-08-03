@@ -1,15 +1,15 @@
-import { CanActivate, ExecutionContext, Injectable, UnauthorizedException } from '@nestjs/common';
+import { CanActivate, ExecutionContext, Inject, Injectable, UnauthorizedException } from '@nestjs/common';
 import { Request } from 'express';
+import { AccessTokenVerifier } from '../domain/AccessTokenVerifier';
 import { AuthenticatedUser } from '../domain/AuthenticatedUser';
-import { FirebaseService } from './FirebaseService';
 
 export interface AuthenticatedRequest extends Request {
   user: AuthenticatedUser;
 }
 
 @Injectable()
-export class FirebaseAuthGuard implements CanActivate {
-  constructor(private readonly firebaseService: FirebaseService) {}
+export class SupabaseAuthGuard implements CanActivate {
+  constructor(@Inject(AccessTokenVerifier) private readonly verifier: AccessTokenVerifier) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const request = context.switchToHttp().getRequest<Request>();
@@ -19,13 +19,7 @@ export class FirebaseAuthGuard implements CanActivate {
       throw new UnauthorizedException('No token provided');
     }
 
-    const decoded = await this.firebaseService.verifyIdToken(token);
-    const user: AuthenticatedUser = {
-      uid: decoded.uid,
-      email: decoded.email ?? '',
-      displayName: decoded.name ?? null,
-      photoUrl: decoded.picture ?? null,
-    };
+    const user = await this.verifier.verify(token);
     (request as AuthenticatedRequest).user = user;
     return true;
   }

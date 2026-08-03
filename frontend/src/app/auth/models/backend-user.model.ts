@@ -2,7 +2,7 @@ import type { UserRole } from './authenticated-user.model';
 
 export interface BackendUser {
   id: string;
-  firebaseUid: string;
+  authUserId: string;
   email: string | null;
   role: UserRole;
   displayName: string | null;

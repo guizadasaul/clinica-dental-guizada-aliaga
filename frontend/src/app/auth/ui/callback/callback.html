@@ -1,0 +1,17 @@
+<div class="login-page">
+  <div class="login-card">
+    @if (errorMessage()) {
+      <div class="login-card__error" role="alert">
+        <span class="material-symbols-outlined" aria-hidden="true">error</span>
+        {{ errorMessage() }}
+      </div>
+      <a routerLink="/auth/login" class="login-card__back">
+        <span class="material-symbols-outlined" aria-hidden="true">arrow_back</span>
+        Volver a iniciar sesión
+      </a>
+    } @else {
+      <span class="callback-spinner" aria-hidden="true"></span>
+      <p class="login-card__subtitle">Iniciando sesión...</p>
+    }
+  </div>
+</div>
