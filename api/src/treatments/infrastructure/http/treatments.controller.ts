@@ -1,9 +1,9 @@
 import { Controller, Get, UseGuards } from '@nestjs/common';
 import { TreatmentsService } from '../../application/treatments.service.js';
-import { FirebaseAuthGuard } from '../../../auth/infrastructure/FirebaseAuthGuard.js';
+import { SupabaseAuthGuard } from '../../../auth/infrastructure/SupabaseAuthGuard.js';
 
 @Controller('treatments')
-@UseGuards(FirebaseAuthGuard)
+@UseGuards(SupabaseAuthGuard)
 export class TreatmentsController {
   constructor(private readonly treatmentsService: TreatmentsService) {}
 

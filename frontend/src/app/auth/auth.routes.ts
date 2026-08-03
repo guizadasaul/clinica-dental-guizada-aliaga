@@ -7,8 +7,8 @@ export const authRoutes: Routes = [
       import('./ui/login/login').then((m) => m.LoginComponent),
   },
   {
-    path: 'register',
+    path: 'callback',
     loadComponent: () =>
-      import('../features/auth/components/register/register').then((m) => m.RegisterComponent),
+      import('./ui/callback/callback').then((m) => m.CallbackComponent),
   },
 ];

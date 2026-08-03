@@ -6,13 +6,12 @@ export class UserMapper {
   static toDomain(record: users): User {
     return new User(
       record.id,
-      record.firebase_uid,
+      record.auth_user_id,
       record.email,
       record.role as UserRole,
       record.display_name,
       record.phone,
       record.photo_url,
-      record.password_hash,
       record.is_active,
       record.created_at,
       record.updated_at,

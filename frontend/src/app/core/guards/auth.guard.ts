@@ -6,7 +6,7 @@ export const authGuard: CanActivateFn = async () => {
   const authService = inject(AuthService);
   const router = inject(Router);
 
-  // Esperar a que Firebase restaure la sesión persistida antes de decidir.
+  // Esperar a que Supabase restaure la sesión persistida antes de decidir.
   await authService.authReady;
 
   return authService.currentUser() !== null

@@ -10,7 +10,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { PatientsService } from '../../application/patients.service.js';
-import { FirebaseAuthGuard } from '../../../auth/infrastructure/FirebaseAuthGuard.js';
+import { SupabaseAuthGuard } from '../../../auth/infrastructure/SupabaseAuthGuard.js';
 import { CurrentUser } from '../../../auth/infrastructure/CurrentUserDecorator.js';
 import type { AuthenticatedUser } from '../../../auth/domain/AuthenticatedUser.js';
 import { CreatePatientDto } from './dto/create-patient.dto.js';
@@ -21,7 +21,7 @@ import { CreateOdontogramEntriesDto } from './dto/create-odontogram-entries.dto.
 import { CreateToothProcedureDto } from './dto/create-tooth-procedure.dto.js';
 
 @Controller('patients')
-@UseGuards(FirebaseAuthGuard)
+@UseGuards(SupabaseAuthGuard)
 export class PatientsController {
   constructor(private readonly patientsService: PatientsService) {}
 
