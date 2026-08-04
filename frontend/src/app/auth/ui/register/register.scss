@@ -1,0 +1,11 @@
+@use '../auth-shell';
+@use '../auth-form';
+
+:host {
+  display: block;
+}
+
+.register-confirm-icon {
+  font-size: 2.5rem;
+  color: var(--color-primary);
+}
