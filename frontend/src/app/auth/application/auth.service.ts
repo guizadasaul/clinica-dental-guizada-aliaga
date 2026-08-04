@@ -91,6 +91,29 @@ export class AuthService {
     // En éxito el browser navega a Google; nada después de esta línea corre.
   }
 
+  async registerWithPassword(email: string, password: string): Promise<{ confirmationRequired: boolean }> {
+    const { data, error } = await this.supabase.auth.signUp({
+      email,
+      password,
+      options: { emailRedirectTo: `${window.location.origin}/auth/callback` },
+    });
+    if (error) {
+      throw new Error(mapAuthError(error, 'No se pudo crear la cuenta.'));
+    }
+    // Con mailer_autoconfirm=false (config actual del proyecto), data.session
+    // es null hasta que el usuario confirme por correo.
+    return { confirmationRequired: data.session === null };
+  }
+
+  async loginWithPassword(email: string, password: string): Promise<void> {
+    const { error } = await this.supabase.auth.signInWithPassword({ email, password });
+    if (error) {
+      throw new Error(mapAuthError(error, 'No se pudo iniciar sesión.'));
+    }
+    // onAuthStateChange('SIGNED_IN') ya corrió de forma síncrona antes de que
+    // signInWithPassword resuelva, así que currentUser() ya está seteado acá.
+  }
+
   async requestPasswordReset(email: string): Promise<void> {
     try {
       await this.supabase.auth.resetPasswordForEmail(email, {
