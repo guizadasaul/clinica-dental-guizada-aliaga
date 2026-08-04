@@ -46,7 +46,17 @@ export class AuthService {
     // callback dentro de un lock de auth-js. Cualquier llamada async a
     // supabase.auth.* desde acá (incluida vía el interceptor) genera un
     // await circular que cuelga la app sin ningún error en consola.
-    this.supabase.auth.onAuthStateChange((_event, session) => {
+    this.supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'PASSWORD_RECOVERY') {
+        // Sesión de recuperación del link de "olvidé mi contraseña": es una
+        // sesión válida a nivel de Supabase, pero NO se trata como login
+        // normal — si seteáramos currentUser acá, authGuard dejaría pasar a
+        // alguien que todavía no definió su nueva contraseña. La pantalla
+        // reset-password valida esta sesión por su cuenta.
+        this.settleReady();
+        return;
+      }
+
       if (!session) {
         this.currentUser.set(null);
         this.syncedUserId = null;
@@ -102,6 +112,28 @@ export class AuthService {
     }
     // onAuthStateChange('SIGNED_IN') ya corrió de forma síncrona antes de que
     // signInWithPassword resuelva, así que currentUser() ya está seteado acá.
+  }
+
+  async requestPasswordReset(email: string): Promise<void> {
+    try {
+      await this.supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/auth/reset-password`,
+      });
+    } catch {
+      // Silenciado a propósito: nunca revelar si el correo existe o no.
+    }
+  }
+
+  async hasRecoverySession(): Promise<boolean> {
+    const { data } = await this.supabase.auth.getSession();
+    return data.session !== null;
+  }
+
+  async updatePassword(newPassword: string): Promise<void> {
+    const { error } = await this.supabase.auth.updateUser({ password: newPassword });
+    if (error) {
+      throw new Error(mapAuthError(error, 'No se pudo actualizar la contraseña.'));
+    }
   }
 
   async logout(): Promise<void> {
