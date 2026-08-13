@@ -1,0 +1,26 @@
+.booking-confirmed {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 0.75rem;
+  padding: 1.5rem 0;
+
+  &__icon {
+    font-size: 3rem;
+    color: #16a34a;
+  }
+
+  &__title {
+    margin: 0;
+    font-size: 1.25rem;
+    color: var(--color-navy, #1a2b5e);
+  }
+
+  &__text {
+    margin: 0;
+    color: #6b7280;
+    font-size: 0.9375rem;
+    max-width: 420px;
+  }
+}

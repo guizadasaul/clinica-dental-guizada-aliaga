@@ -4,10 +4,12 @@ import { firstValueFrom } from 'rxjs';
 import { BookingService } from '../../services/booking.service';
 import { StepSlotPickerComponent } from '../step-slot-picker/step-slot-picker';
 import { StepGuestContactComponent } from '../step-guest-contact/step-guest-contact';
+import { StepPaymentQrComponent } from '../step-payment-qr/step-payment-qr';
+import { BookingConfirmedComponent } from '../booking-confirmed/booking-confirmed';
 import { HoldCountdownComponent } from '../hold-countdown/hold-countdown';
 import type { GuestContactRequest } from '../../models/booking.request';
 
-type BookingStep = 'slot' | 'contact' | 'done';
+type BookingStep = 'slot' | 'contact' | 'payment' | 'confirmed';
 
 function todayIso(): string {
   return new Date().toISOString().slice(0, 10);
@@ -17,7 +19,13 @@ function todayIso(): string {
   selector: 'app-booking-page',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [StepSlotPickerComponent, StepGuestContactComponent, HoldCountdownComponent],
+  imports: [
+    StepSlotPickerComponent,
+    StepGuestContactComponent,
+    StepPaymentQrComponent,
+    BookingConfirmedComponent,
+    HoldCountdownComponent,
+  ],
   templateUrl: './booking-page.html',
   styleUrl: './booking-page.scss',
 })
@@ -32,6 +40,8 @@ export class BookingPageComponent {
 
   protected readonly appointmentId = signal<string | null>(null);
   protected readonly holdExpiresAt = signal<string | null>(null);
+  protected readonly qrImageBase64 = signal<string | null>(null);
+  protected readonly amount = signal<number | null>(null);
 
   constructor() {
     void this.loadAvailability(this.selectedDate());
@@ -84,9 +94,14 @@ export class BookingPageComponent {
     this.loading.set(true);
     this.error.set(null);
     try {
-      const result = await firstValueFrom(this.bookingService.saveGuestContact(id, data));
-      this.holdExpiresAt.set(result.holdExpiresAt);
-      this.step.set('done');
+      const contactResult = await firstValueFrom(this.bookingService.saveGuestContact(id, data));
+      this.holdExpiresAt.set(contactResult.holdExpiresAt);
+
+      const checkout = await firstValueFrom(this.bookingService.checkout(id));
+      this.qrImageBase64.set(checkout.qrImageBase64);
+      this.amount.set(checkout.amount);
+      this.holdExpiresAt.set(checkout.holdExpiresAt);
+      this.step.set('payment');
     } catch (err) {
       if (err instanceof HttpErrorResponse && err.status === 410) {
         this.error.set('El horario reservado ya venció. Elegí uno nuevo.');
@@ -97,6 +112,10 @@ export class BookingPageComponent {
     } finally {
       this.loading.set(false);
     }
+  }
+
+  protected onPaymentConfirmed(): void {
+    this.step.set('confirmed');
   }
 
   protected onHoldExpired(): void {

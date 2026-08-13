@@ -12,5 +12,6 @@ import { AuthModule } from '../auth/auth.module';
     TreatmentsService,
     { provide: TreatmentRepository, useClass: PrismaTreatmentsRepository },
   ],
+  exports: [TreatmentRepository],
 })
 export class TreatmentsModule {}

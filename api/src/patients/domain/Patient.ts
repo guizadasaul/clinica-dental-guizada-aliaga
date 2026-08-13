@@ -5,7 +5,7 @@ export class Patient {
     readonly firstName: string,
     readonly lastNamePaternal: string,
     readonly lastNameMaternal: string | null,
-    readonly birthDate: Date,
+    readonly birthDate: Date | null,
     readonly birthPlace: string | null,
     readonly sex: string | null,
     readonly occupation: string | null,

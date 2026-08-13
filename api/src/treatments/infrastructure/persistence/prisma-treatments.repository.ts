@@ -15,4 +15,11 @@ export class PrismaTreatmentsRepository implements ITreatmentRepository {
     });
     return records.map((r) => TreatmentMapper.toDomain(r));
   }
+
+  async findDefaultConsultation(): Promise<Treatment | null> {
+    const record = await this.prisma.treatments.findFirst({
+      where: { is_default_consultation: true },
+    });
+    return record ? TreatmentMapper.toDomain(record) : null;
+  }
 }

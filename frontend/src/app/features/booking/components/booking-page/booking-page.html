@@ -4,8 +4,10 @@
     <p class="booking-page__subtitle">Elegí un horario y confirmá tu lugar — el pago se realiza en el siguiente paso.</p>
   </div>
 
-  @if (step() !== 'slot' && holdExpiresAt()) {
-    <app-hold-countdown [holdExpiresAt]="holdExpiresAt()!" (expired)="onHoldExpired()" />
+  @if (step() === 'contact' || step() === 'payment') {
+    @if (holdExpiresAt()) {
+      <app-hold-countdown [holdExpiresAt]="holdExpiresAt()!" (expired)="onHoldExpired()" />
+    }
   }
 
   @if (error() && step() !== 'slot') {
@@ -27,15 +29,18 @@
       @case ('contact') {
         <app-step-guest-contact [loading]="loading()" (submitContact)="onContactSubmit($event)" />
       }
-      @case ('done') {
-        <div class="booking-page__done">
-          <span class="material-symbols-outlined booking-page__done-icon">event_available</span>
-          <h2 class="booking-page__done-title">¡Ya casi está!</h2>
-          <p class="booking-page__done-text">
-            Guardamos tu horario. El siguiente paso es pagar la consulta con QR para confirmar tu cita
-            definitivamente — esa parte está en camino.
-          </p>
-        </div>
+      @case ('payment') {
+        @if (appointmentId() && qrImageBase64() && amount() !== null) {
+          <app-step-payment-qr
+            [appointmentId]="appointmentId()!"
+            [qrImageBase64]="qrImageBase64()!"
+            [amount]="amount()!"
+            (confirmed)="onPaymentConfirmed()"
+          />
+        }
+      }
+      @case ('confirmed') {
+        <app-booking-confirmed />
       }
     }
   </div>

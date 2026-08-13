@@ -31,6 +31,11 @@ export class Appointment {
     readonly holdExpiresAt: Date | null,
     readonly notes: string | null,
     readonly createdAt: Date,
+    readonly banecoQrId: string | null,
+    readonly banecoTransactionId: string | null,
+    readonly banecoQrImage: string | null,
+    readonly paymentAmount: number | null,
+    readonly paidAt: Date | null,
   ) {}
 
   isHoldActive(now: Date = new Date()): boolean {
