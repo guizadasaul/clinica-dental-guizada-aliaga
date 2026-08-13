@@ -20,6 +20,12 @@ export interface LinkAuthIdentityData {
   photoUrl: string | null;
 }
 
+export interface UpdateContactInfoData {
+  email?: string;
+  phone?: string;
+  displayName?: string;
+}
+
 export interface UserRepository {
   findByAuthUserId(authUserId: string): Promise<User | null>;
   upsertByAuthUserId(data: UpsertUserData): Promise<User>;
@@ -35,6 +41,12 @@ export interface UserRepository {
   linkAuthIdentity(
     userId: string,
     data: LinkAuthIdentityData,
+  ): Promise<User | null>;
+
+  /** null si userId no existe. Lanza ConflictException si el email ya está en uso. */
+  updateContactInfo(
+    userId: string,
+    data: UpdateContactInfoData,
   ): Promise<User | null>;
 }
 

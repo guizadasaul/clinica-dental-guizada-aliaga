@@ -1,5 +1,6 @@
-import type { appointments } from '@prisma/client';
+import type { appointments, patients } from '@prisma/client';
 import { Appointment } from '../../domain/Appointment.js';
+import { AppointmentWithPatient } from '../../domain/AppointmentWithPatient.js';
 
 export class AppointmentMapper {
   static toDomain(record: appointments): Appointment {
@@ -21,6 +22,22 @@ export class AppointmentMapper {
       record.baneco_qr_image,
       record.payment_amount !== null ? Number(record.payment_amount) : null,
       record.paid_at,
+    );
+  }
+
+  static toDomainWithPatient(
+    record: appointments & { patients: patients | null },
+  ): AppointmentWithPatient {
+    return new AppointmentWithPatient(
+      record.id,
+      record.appointment_datetime,
+      record.status,
+      record.patient_id,
+      record.patients?.first_name ?? null,
+      record.patients?.last_name_paternal ?? null,
+      record.patients?.phone ?? null,
+      record.guest_full_name,
+      record.guest_phone,
     );
   }
 }

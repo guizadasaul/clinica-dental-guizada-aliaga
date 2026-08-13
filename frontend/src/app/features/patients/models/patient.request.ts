@@ -19,6 +19,27 @@ export interface CreatePatientRequest {
   dni?: string;
 }
 
+export interface UpdatePatientRequest {
+  firstName?: string;
+  lastNamePaternal?: string;
+  lastNameMaternal?: string;
+  birthDate?: string;
+  birthPlace?: string;
+  sex?: string;
+  occupation?: string;
+  address?: string;
+  phone?: string;
+  emergencyContactName?: string;
+  emergencyContactPhone?: string;
+  emergencyContactRelationship?: string;
+  consultationReason?: string;
+  lastDentistVisit?: string;
+  lastVisitTreatment?: string;
+  familyHistory?: string;
+  dni?: string;
+  email?: string;
+}
+
 export interface CreateMedicalHistoryRequest {
   hasAllergies?: boolean;
   kidneyProblems?: boolean;

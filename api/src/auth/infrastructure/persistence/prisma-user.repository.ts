@@ -6,6 +6,7 @@ import { User } from '../../domain/User.js';
 import {
   CreatePlaceholderUserData,
   LinkAuthIdentityData,
+  UpdateContactInfoData,
   UpsertUserData,
   UserRepository,
 } from '../../domain/UserRepository.js';
@@ -77,6 +78,38 @@ export class PrismaUserRepository implements UserRepository {
         error.code === 'P2002'
       ) {
         throw new ConflictException('El email ya está en uso por otra cuenta');
+      }
+      throw error;
+    }
+  }
+
+  async updateContactInfo(
+    userId: string,
+    data: UpdateContactInfoData,
+  ): Promise<User | null> {
+    try {
+      const record = await this.prisma.users.update({
+        where: { id: userId },
+        data: {
+          ...(data.email !== undefined && { email: data.email }),
+          ...(data.phone !== undefined && { phone: data.phone }),
+          ...(data.displayName !== undefined && {
+            display_name: data.displayName,
+          }),
+          updated_at: new Date(),
+        },
+      });
+      return UserMapper.toDomain(record);
+    } catch (error: unknown) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError) {
+        if (error.code === 'P2025') {
+          return null;
+        }
+        if (error.code === 'P2002') {
+          throw new ConflictException(
+            'El email ya está en uso por otra cuenta',
+          );
+        }
       }
       throw error;
     }

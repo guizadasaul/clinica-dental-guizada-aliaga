@@ -1,8 +1,10 @@
 import { Injectable } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../../shared/prisma/prisma.service';
 import {
   IPatientRepository,
   CreatePatientData,
+  UpdatePatientData,
   MedicalHistoryData,
   HygieneHabitsData,
   ClinicalExamData,
@@ -45,7 +47,9 @@ export class PrismaPatientsRepository implements IPatientRepository {
   }
 
   async findByUserId(userId: string): Promise<Patient | null> {
-    const record = await this.prisma.patients.findUnique({ where: { user_id: userId } });
+    const record = await this.prisma.patients.findUnique({
+      where: { user_id: userId },
+    });
     return record ? PatientMapper.toDomainPatient(record) : null;
   }
 
@@ -64,7 +68,8 @@ export class PrismaPatientsRepository implements IPatientRepository {
         phone: data.phone ?? null,
         emergency_contact_name: data.emergencyContactName ?? null,
         emergency_contact_phone: data.emergencyContactPhone ?? null,
-        emergency_contact_relationship: data.emergencyContactRelationship ?? null,
+        emergency_contact_relationship:
+          data.emergencyContactRelationship ?? null,
         consultation_reason: data.consultationReason ?? null,
         last_dentist_visit: data.lastDentistVisit ?? null,
         last_visit_treatment: data.lastVisitTreatment ?? null,
@@ -73,6 +78,66 @@ export class PrismaPatientsRepository implements IPatientRepository {
       },
     });
     return PatientMapper.toDomainPatient(record);
+  }
+
+  async updatePatient(
+    id: string,
+    data: UpdatePatientData,
+  ): Promise<Patient | null> {
+    try {
+      const record = await this.prisma.patients.update({
+        where: { id },
+        data: {
+          ...(data.firstName !== undefined && { first_name: data.firstName }),
+          ...(data.lastNamePaternal !== undefined && {
+            last_name_paternal: data.lastNamePaternal,
+          }),
+          ...(data.lastNameMaternal !== undefined && {
+            last_name_maternal: data.lastNameMaternal,
+          }),
+          ...(data.birthDate !== undefined && { birth_date: data.birthDate }),
+          ...(data.birthPlace !== undefined && {
+            birth_place: data.birthPlace,
+          }),
+          ...(data.sex !== undefined && { sex: data.sex }),
+          ...(data.occupation !== undefined && { occupation: data.occupation }),
+          ...(data.address !== undefined && { address: data.address }),
+          ...(data.phone !== undefined && { phone: data.phone }),
+          ...(data.emergencyContactName !== undefined && {
+            emergency_contact_name: data.emergencyContactName,
+          }),
+          ...(data.emergencyContactPhone !== undefined && {
+            emergency_contact_phone: data.emergencyContactPhone,
+          }),
+          ...(data.emergencyContactRelationship !== undefined && {
+            emergency_contact_relationship: data.emergencyContactRelationship,
+          }),
+          ...(data.consultationReason !== undefined && {
+            consultation_reason: data.consultationReason,
+          }),
+          ...(data.lastDentistVisit !== undefined && {
+            last_dentist_visit: data.lastDentistVisit,
+          }),
+          ...(data.lastVisitTreatment !== undefined && {
+            last_visit_treatment: data.lastVisitTreatment,
+          }),
+          ...(data.familyHistory !== undefined && {
+            family_history: data.familyHistory,
+          }),
+          ...(data.dni !== undefined && { dni: data.dni }),
+          updated_at: new Date(),
+        },
+      });
+      return PatientMapper.toDomainPatient(record);
+    } catch (error: unknown) {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2025'
+      ) {
+        return null;
+      }
+      throw error;
+    }
   }
 
   async upsertMedicalHistory(
@@ -170,7 +235,9 @@ export class PrismaPatientsRepository implements IPatientRepository {
     patientId: string,
     entries: OdontogramEntryData[],
   ): Promise<OdontogramEntry[]> {
-    await this.prisma.odontogram_entries.deleteMany({ where: { patient_id: patientId } });
+    await this.prisma.odontogram_entries.deleteMany({
+      where: { patient_id: patientId },
+    });
     const records = await Promise.all(
       entries.map((e) =>
         this.prisma.odontogram_entries.create({

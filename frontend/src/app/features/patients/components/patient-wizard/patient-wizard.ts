@@ -57,6 +57,8 @@ export class PatientWizardComponent {
 
   readonly userId = input('');
   readonly existingPatientId = input<string | null>(null);
+  /** Paso donde arranca al editar un paciente existente — 5 (odontograma) por defecto. La agenda del doctor pasa 2 para abrir el historial clínico completo. */
+  readonly startStep = input(5);
   readonly wizardComplete = output<void>();
   readonly cancel = output<void>();
 
@@ -68,9 +70,12 @@ export class PatientWizardComponent {
   protected readonly done = signal(false);
 
   protected readonly isEditMode = computed(() => !!this.existingPatientId());
-  protected readonly wizardTitle = computed(() =>
-    this.isEditMode() ? 'Completar odontograma' : 'Registro de nuevo paciente',
-  );
+  protected readonly wizardTitle = computed(() => {
+    if (!this.isEditMode()) {
+      return 'Registro de nuevo paciente';
+    }
+    return this.startStep() === 5 ? 'Completar odontograma' : 'Completar historial clínico';
+  });
 
   protected readonly existingOdontogramEntries = signal<OdontogramEntry[]>([]);
 
@@ -79,7 +84,7 @@ export class PatientWizardComponent {
       const existingId = this.existingPatientId();
       if (existingId) {
         this.patientId.set(existingId);
-        this.currentStep.set(5);
+        this.currentStep.set(this.startStep());
         void this.loadOdontogramEntries(existingId);
       }
     }, { allowSignalWrites: true });

@@ -2,13 +2,15 @@ import {
   IsString,
   IsOptional,
   IsDateString,
+  IsUUID,
   MaxLength,
   MinLength,
 } from 'class-validator';
 
 export class CreatePatientDto {
-  @IsString()
-  userId: string;
+  @IsOptional()
+  @IsUUID()
+  userId?: string;
 
   @IsString()
   @MinLength(1)

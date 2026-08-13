@@ -23,6 +23,7 @@ const mockRepo = {
   updateGuestContact: jest.fn(),
   attachQr: jest.fn(),
   appendNote: jest.fn(),
+  findForAgenda: jest.fn(),
 };
 
 interface FakeAppointmentOptions {
@@ -153,6 +154,17 @@ describe('AppointmentsService', () => {
       await expect(
         service.saveGuestContact('appt-1', 'Juana Perez', '70011122'),
       ).rejects.toThrow(GoneException);
+    });
+  });
+
+  describe('getAgenda', () => {
+    it('delegates the filters straight to the repository', async () => {
+      mockRepo.findForAgenda.mockResolvedValue([]);
+      const filters = { status: 'confirmed' };
+
+      await service.getAgenda(filters);
+
+      expect(mockRepo.findForAgenda).toHaveBeenCalledWith(filters);
     });
   });
 });

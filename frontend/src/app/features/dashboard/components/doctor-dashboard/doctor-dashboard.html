@@ -98,6 +98,10 @@
   </div>
 }
 
+@if (activeNav() === 'schedule') {
+  <app-doctor-agenda />
+}
+
 @if (activeNav() === 'patients') {
   @if (showTreatmentFlow()) {
     <app-register-treatment

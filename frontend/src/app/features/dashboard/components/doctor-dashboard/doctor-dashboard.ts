@@ -11,6 +11,7 @@ import { PatientsListComponent } from '../../../patients/components/patients-lis
 import { PatientWizardComponent } from '../../../patients/components/patient-wizard/patient-wizard';
 import { RegisterTreatmentComponent } from '../../../treatments/components/register-treatment/register-treatment';
 import { TreatmentHistoryComponent } from '../../../treatments/components/treatment-history/treatment-history';
+import { DoctorAgendaComponent } from '../../../appointments/components/doctor-agenda/doctor-agenda';
 
 interface AppointmentSlot {
   readonly time: string;
@@ -30,7 +31,13 @@ interface StatCard {
   selector: 'app-doctor-dashboard',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [PatientsListComponent, PatientWizardComponent, RegisterTreatmentComponent, TreatmentHistoryComponent],
+  imports: [
+    PatientsListComponent,
+    PatientWizardComponent,
+    RegisterTreatmentComponent,
+    TreatmentHistoryComponent,
+    DoctorAgendaComponent,
+  ],
   templateUrl: './doctor-dashboard.html',
   styleUrl: './doctor-dashboard.scss',
 })

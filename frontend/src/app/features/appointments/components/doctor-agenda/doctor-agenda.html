@@ -1,0 +1,59 @@
+<div class="agenda">
+  <h2 class="agenda__title">
+    <span class="material-symbols-outlined" aria-hidden="true">calendar_month</span>
+    Agenda — citas confirmadas
+  </h2>
+
+  @if (editingAppointment(); as appt) {
+    <app-patient-quick-edit
+      [patientId]="appt.patientId!"
+      [initialFirstName]="appt.patientFirstName ?? ''"
+      [initialLastNamePaternal]="appt.patientLastNamePaternal ?? ''"
+      [initialPhone]="appt.patientPhone ?? appt.guestPhone"
+      (saved)="onEditSaved()"
+      (cancel)="onEditCancel()"
+    />
+  } @else if (historyPatientId(); as patientId) {
+    <app-patient-wizard
+      [existingPatientId]="patientId"
+      [startStep]="2"
+      (wizardComplete)="onHistoryDone()"
+      (cancel)="onHistoryDone()"
+    />
+  } @else {
+    @if (error()) {
+      <p class="agenda__error" role="alert">{{ error() }}</p>
+    }
+
+    @if (loading()) {
+      <p class="agenda__hint">Cargando agenda...</p>
+    } @else if (appointments().length === 0) {
+      <div class="agenda__empty">
+        <span class="material-symbols-outlined">event_busy</span>
+        <p>No hay citas confirmadas todavía.</p>
+      </div>
+    } @else {
+      <div class="agenda__list">
+        @for (appt of appointments(); track appt.id) {
+          <div class="agenda-item">
+            <div class="agenda-item__time">{{ formatDatetime(appt.appointmentDatetime) }}</div>
+            <div class="agenda-item__body">
+              <p class="agenda-item__patient">{{ patientLabel(appt) }}</p>
+              <p class="agenda-item__phone">{{ patientPhone(appt) }}</p>
+            </div>
+            <div class="agenda-item__actions">
+              <button class="agenda-item__btn" type="button" (click)="onEdit(appt)">
+                <span class="material-symbols-outlined">edit</span>
+                Corregir datos
+              </button>
+              <button class="agenda-item__btn agenda-item__btn--primary" type="button" (click)="onOpenHistory(appt)">
+                <span class="material-symbols-outlined">folder_open</span>
+                Historial clínico
+              </button>
+            </div>
+          </div>
+        }
+      </div>
+    }
+  }
+</div>
