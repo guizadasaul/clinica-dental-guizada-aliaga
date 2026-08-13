@@ -1,0 +1,19 @@
+.hold-countdown {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.875rem;
+  border-radius: 0.5rem;
+  background: #eff6ff;
+  color: #1d4ed8;
+  font-size: 0.875rem;
+
+  .material-symbols-outlined {
+    font-size: 1.125rem;
+  }
+
+  &--low {
+    background: #fef2f2;
+    color: #dc2626;
+  }
+}

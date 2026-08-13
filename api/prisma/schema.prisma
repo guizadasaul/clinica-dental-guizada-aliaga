@@ -18,13 +18,16 @@ model appointments {
   user_id              String?     @unique(map: "idx_one_active_appointment_web", where: raw("(((status)::text = 'scheduled'::text) AND (user_id IS NOT NULL))")) @db.Uuid
   patient_id           String?     @db.Uuid
   treatment_id         String?     @db.Uuid
-  appointment_datetime DateTime    @db.Timestamptz(6)
+  appointment_datetime DateTime    @unique(map: "idx_one_active_appointment_slot", where: raw("(((status)::text = 'held'::text) OR ((status)::text = 'confirmed'::text))")) @db.Timestamptz(6)
   status               String      @default("scheduled") @db.VarChar(20)
   source               String      @db.VarChar(20)
   whatsapp_name        String?     @db.VarChar(200)
   whatsapp_phone       String?     @unique(map: "idx_one_active_appointment_wa", where: raw("(((status)::text = 'scheduled'::text) AND (whatsapp_phone IS NOT NULL))")) @db.VarChar(20)
   notes                String?
   created_at           DateTime    @default(now()) @db.Timestamptz(6)
+  hold_expires_at      DateTime?   @db.Timestamptz(6)
+  guest_full_name      String?     @db.VarChar(200)
+  guest_phone          String?     @db.VarChar(20)
   patients             patients?   @relation(fields: [patient_id], references: [id], onUpdate: NoAction)
   treatments           treatments? @relation(fields: [treatment_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   users                users?      @relation(fields: [user_id], references: [id], onUpdate: NoAction)

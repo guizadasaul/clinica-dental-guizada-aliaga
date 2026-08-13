@@ -1,0 +1,43 @@
+export const AppointmentStatus = {
+  SCHEDULED: 'scheduled',
+  HELD: 'held',
+  CONFIRMED: 'confirmed',
+  ATTENDED: 'attended',
+  EXPIRED: 'expired',
+} as const;
+export type AppointmentStatus =
+  (typeof AppointmentStatus)[keyof typeof AppointmentStatus];
+
+export const AppointmentSource = {
+  PUBLIC_WEB: 'public_web',
+  WHATSAPP: 'whatsapp',
+} as const;
+export type AppointmentSource =
+  (typeof AppointmentSource)[keyof typeof AppointmentSource];
+
+export const HOLD_TTL_MINUTES = 15;
+
+export class Appointment {
+  constructor(
+    readonly id: string,
+    readonly userId: string | null,
+    readonly patientId: string | null,
+    readonly treatmentId: string | null,
+    readonly appointmentDatetime: Date,
+    readonly status: string,
+    readonly source: string,
+    readonly guestFullName: string | null,
+    readonly guestPhone: string | null,
+    readonly holdExpiresAt: Date | null,
+    readonly notes: string | null,
+    readonly createdAt: Date,
+  ) {}
+
+  isHoldActive(now: Date = new Date()): boolean {
+    return (
+      this.status === AppointmentStatus.HELD &&
+      this.holdExpiresAt !== null &&
+      this.holdExpiresAt.getTime() > now.getTime()
+    );
+  }
+}
