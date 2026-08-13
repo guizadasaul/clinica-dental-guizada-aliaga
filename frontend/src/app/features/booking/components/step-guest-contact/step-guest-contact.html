@@ -1,0 +1,40 @@
+<form class="guest-contact" (ngSubmit)="onSubmit()" novalidate>
+  <div class="guest-contact__field">
+    <label class="guest-contact__label">Nombre completo <span class="guest-contact__req">*</span></label>
+    <input
+      class="guest-contact__input"
+      type="text"
+      [value]="fullName()"
+      (input)="fullName.set($any($event.target).value)"
+      placeholder="Ej: María García"
+      required
+    />
+  </div>
+  <div class="guest-contact__field">
+    <label class="guest-contact__label">Teléfono / WhatsApp <span class="guest-contact__req">*</span></label>
+    <input
+      class="guest-contact__input"
+      type="tel"
+      [value]="phone()"
+      (input)="phone.set($any($event.target).value)"
+      placeholder="Ej: 70012345"
+      required
+    />
+  </div>
+
+  @if (formError()) {
+    <p class="guest-contact__error">{{ formError() }}</p>
+  }
+
+  <div class="guest-contact__actions">
+    <button class="guest-contact__btn" type="submit" [disabled]="loading()">
+      @if (loading()) {
+        <span class="guest-contact__spinner"></span>
+        Guardando...
+      } @else {
+        Continuar
+        <span class="material-symbols-outlined">arrow_forward</span>
+      }
+    </button>
+  </div>
+</form>

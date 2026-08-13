@@ -1,5 +1,5 @@
 import { Injectable, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
-import { PrismaClient } from '@prisma/client';
+import { Prisma, PrismaClient } from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
 
 @Injectable()
@@ -24,6 +24,10 @@ export class PrismaService implements OnModuleInit, OnModuleDestroy {
   get quote_items() { return this._client.quote_items; }
   get payments() { return this._client.payments; }
   get xray_documents() { return this._client.xray_documents; }
+
+  transaction<T>(fn: (tx: Prisma.TransactionClient) => Promise<T>): Promise<T> {
+    return this._client.$transaction(fn);
+  }
 
   async onModuleInit(): Promise<void> {
     await this._client.$connect();

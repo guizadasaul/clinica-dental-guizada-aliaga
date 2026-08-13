@@ -1,0 +1,30 @@
+<div class="slot-picker">
+  <div class="slot-picker__field">
+    <label class="slot-picker__label">Elegí una fecha</label>
+    <input
+      class="slot-picker__date-input"
+      type="date"
+      [value]="date()"
+      [min]="minDate"
+      (input)="onDateInput($any($event.target).value)"
+    />
+  </div>
+
+  @if (error()) {
+    <p class="slot-picker__error">{{ error() }}</p>
+  }
+
+  @if (loading()) {
+    <p class="slot-picker__hint">Buscando horarios disponibles...</p>
+  } @else if (slotOptions().length === 0) {
+    <p class="slot-picker__hint">No hay horarios disponibles para esta fecha. Probá con otro día.</p>
+  } @else {
+    <div class="slot-picker__grid">
+      @for (option of slotOptions(); track option.iso) {
+        <button class="slot-picker__slot" type="button" (click)="slotSelected.emit(option.iso)">
+          {{ option.label }}
+        </button>
+      }
+    </div>
+  }
+</div>

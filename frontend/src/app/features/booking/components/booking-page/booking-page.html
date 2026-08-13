@@ -1,0 +1,42 @@
+<div class="booking-page">
+  <div class="booking-page__header">
+    <h1 class="booking-page__title">Reservá tu consulta</h1>
+    <p class="booking-page__subtitle">Elegí un horario y confirmá tu lugar — el pago se realiza en el siguiente paso.</p>
+  </div>
+
+  @if (step() !== 'slot' && holdExpiresAt()) {
+    <app-hold-countdown [holdExpiresAt]="holdExpiresAt()!" (expired)="onHoldExpired()" />
+  }
+
+  @if (error() && step() !== 'slot') {
+    <p class="booking-page__error" role="alert">{{ error() }}</p>
+  }
+
+  <div class="booking-page__body">
+    @switch (step()) {
+      @case ('slot') {
+        <app-step-slot-picker
+          [date]="selectedDate()"
+          [slots]="slots()"
+          [loading]="loading()"
+          [error]="error()"
+          (dateChanged)="onDateChanged($event)"
+          (slotSelected)="onSlotSelected($event)"
+        />
+      }
+      @case ('contact') {
+        <app-step-guest-contact [loading]="loading()" (submitContact)="onContactSubmit($event)" />
+      }
+      @case ('done') {
+        <div class="booking-page__done">
+          <span class="material-symbols-outlined booking-page__done-icon">event_available</span>
+          <h2 class="booking-page__done-title">¡Ya casi está!</h2>
+          <p class="booking-page__done-text">
+            Guardamos tu horario. El siguiente paso es pagar la consulta con QR para confirmar tu cita
+            definitivamente — esa parte está en camino.
+          </p>
+        </div>
+      }
+    }
+  </div>
+</div>

@@ -16,4 +16,9 @@ export const routes: Routes = [
     loadChildren: () =>
       import('./features/dashboard/dashboard.routes').then((r) => r.dashboardRoutes),
   },
+  {
+    path: 'reservar',
+    loadChildren: () =>
+      import('./features/booking/booking.routes').then((r) => r.bookingRoutes),
+  },
 ];
