@@ -3,17 +3,44 @@ import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../../shared/prisma/prisma.service.js';
 import { Appointment, AppointmentStatus } from '../../domain/Appointment.js';
 import {
+  AgendaFilters,
   AttachQrData,
   CreateHoldData,
   GuestContactData,
   IAppointmentRepository,
   SlotUnavailableError,
 } from '../../domain/AppointmentRepository.js';
+import type { AppointmentWithPatient } from '../../domain/AppointmentWithPatient.js';
 import { AppointmentMapper } from './appointment.mapper.js';
 
 @Injectable()
 export class PrismaAppointmentsRepository implements IAppointmentRepository {
   constructor(private readonly prisma: PrismaService) {}
+
+  async findForAgenda(
+    filters: AgendaFilters,
+  ): Promise<AppointmentWithPatient[]> {
+    const dateFilter =
+      filters.from || filters.to
+        ? {
+            appointment_datetime: {
+              ...(filters.from && { gte: filters.from }),
+              ...(filters.to && { lt: filters.to }),
+            },
+          }
+        : {};
+    const records = await this.prisma.appointments.findMany({
+      where: {
+        ...(filters.status && { status: filters.status }),
+        ...dateFilter,
+      },
+      include: { patients: true },
+      orderBy: { appointment_datetime: 'asc' },
+    });
+    return records.map((record) =>
+      AppointmentMapper.toDomainWithPatient(record),
+    );
+  }
 
   async findActiveBetween(
     from: Date,

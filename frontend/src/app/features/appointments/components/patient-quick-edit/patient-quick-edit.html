@@ -1,0 +1,62 @@
+<form class="quick-edit" (ngSubmit)="onSubmit()" novalidate>
+  <h3 class="quick-edit__title">Corregir datos del paciente</h3>
+
+  <div class="quick-edit__grid">
+    <div class="quick-edit__field">
+      <label class="quick-edit__label">Nombre <span class="quick-edit__req">*</span></label>
+      <input
+        class="quick-edit__input"
+        type="text"
+        [value]="firstName()"
+        (input)="firstName.set($any($event.target).value)"
+        required
+      />
+    </div>
+    <div class="quick-edit__field">
+      <label class="quick-edit__label">Apellido paterno <span class="quick-edit__req">*</span></label>
+      <input
+        class="quick-edit__input"
+        type="text"
+        [value]="lastNamePaternal()"
+        (input)="lastNamePaternal.set($any($event.target).value)"
+        required
+      />
+    </div>
+    <div class="quick-edit__field">
+      <label class="quick-edit__label">Teléfono</label>
+      <input
+        class="quick-edit__input"
+        type="tel"
+        [value]="phone()"
+        (input)="phone.set($any($event.target).value)"
+      />
+    </div>
+    <div class="quick-edit__field">
+      <label class="quick-edit__label">Email</label>
+      <input
+        class="quick-edit__input"
+        type="email"
+        [value]="email()"
+        (input)="email.set($any($event.target).value)"
+        placeholder="Para mandarle el link de registro"
+      />
+    </div>
+  </div>
+
+  @if (error()) {
+    <p class="quick-edit__error">{{ error() }}</p>
+  }
+
+  <div class="quick-edit__actions">
+    <button class="quick-edit__btn quick-edit__btn--secondary" type="button" (click)="onCancel()">
+      Cancelar
+    </button>
+    <button class="quick-edit__btn quick-edit__btn--primary" type="submit" [disabled]="loading()">
+      @if (loading()) {
+        Guardando...
+      } @else {
+        Guardar
+      }
+    </button>
+  </div>
+</form>

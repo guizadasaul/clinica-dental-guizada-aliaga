@@ -26,6 +26,26 @@ export interface CreatePatientData {
   dni?: string;
 }
 
+export interface UpdatePatientData {
+  firstName?: string;
+  lastNamePaternal?: string;
+  lastNameMaternal?: string;
+  birthDate?: Date;
+  birthPlace?: string;
+  sex?: string;
+  occupation?: string;
+  address?: string;
+  phone?: string;
+  emergencyContactName?: string;
+  emergencyContactPhone?: string;
+  emergencyContactRelationship?: string;
+  consultationReason?: string;
+  lastDentistVisit?: Date;
+  lastVisitTreatment?: string;
+  familyHistory?: string;
+  dni?: string;
+}
+
 export interface MedicalHistoryData {
   hasAllergies?: boolean;
   kidneyProblems?: boolean;
@@ -91,12 +111,29 @@ export interface IPatientRepository {
   findPatientById(id: string): Promise<Patient | null>;
   findByUserId(userId: string): Promise<Patient | null>;
   create(userId: string, data: CreatePatientData): Promise<Patient>;
-  upsertMedicalHistory(patientId: string, data: MedicalHistoryData): Promise<MedicalHistory>;
-  upsertHygieneHabits(patientId: string, data: HygieneHabitsData): Promise<HygieneHabits>;
-  createClinicalExam(patientId: string, data: ClinicalExamData): Promise<ClinicalExam>;
-  createOdontogramEntries(patientId: string, entries: OdontogramEntryData[]): Promise<OdontogramEntry[]>;
+  /** null si el patientId no existe. */
+  updatePatient(id: string, data: UpdatePatientData): Promise<Patient | null>;
+  upsertMedicalHistory(
+    patientId: string,
+    data: MedicalHistoryData,
+  ): Promise<MedicalHistory>;
+  upsertHygieneHabits(
+    patientId: string,
+    data: HygieneHabitsData,
+  ): Promise<HygieneHabits>;
+  createClinicalExam(
+    patientId: string,
+    data: ClinicalExamData,
+  ): Promise<ClinicalExam>;
+  createOdontogramEntries(
+    patientId: string,
+    entries: OdontogramEntryData[],
+  ): Promise<OdontogramEntry[]>;
   findOdontogramEntries(patientId: string): Promise<OdontogramEntry[]>;
-  createToothProcedure(patientId: string, data: CreateToothProcedureData): Promise<ToothProcedure>;
+  createToothProcedure(
+    patientId: string,
+    data: CreateToothProcedureData,
+  ): Promise<ToothProcedure>;
   findToothProcedures(patientId: string): Promise<ToothProcedure[]>;
 }
 

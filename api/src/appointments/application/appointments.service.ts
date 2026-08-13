@@ -15,7 +15,11 @@ import {
   AppointmentRepository,
   SlotUnavailableError,
 } from '../domain/AppointmentRepository.js';
-import type { IAppointmentRepository } from '../domain/AppointmentRepository.js';
+import type {
+  AgendaFilters,
+  IAppointmentRepository,
+} from '../domain/AppointmentRepository.js';
+import type { AppointmentWithPatient } from '../domain/AppointmentWithPatient.js';
 import { buildSlotsForDate, isValidSlot } from '../domain/ClinicSchedule.js';
 
 export interface AvailabilityResult {
@@ -107,5 +111,9 @@ export class AppointmentsService {
       throw new GoneException('El horario reservado ya venció');
     }
     return updated;
+  }
+
+  getAgenda(filters: AgendaFilters): Promise<AppointmentWithPatient[]> {
+    return this.appointmentRepo.findForAgenda(filters);
   }
 }

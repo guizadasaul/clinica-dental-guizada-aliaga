@@ -6,6 +6,7 @@ import { AccessTokenVerifier } from './domain/AccessTokenVerifier';
 import { PrismaUserRepository } from './infrastructure/persistence/prisma-user.repository';
 import { SupabaseJwtVerifier } from './infrastructure/SupabaseJwtVerifier';
 import { SupabaseAuthGuard } from './infrastructure/SupabaseAuthGuard';
+import { RolesGuard } from './infrastructure/RolesGuard';
 
 @Module({
   controllers: [AuthController],
@@ -13,9 +14,10 @@ import { SupabaseAuthGuard } from './infrastructure/SupabaseAuthGuard';
     AuthService,
     SupabaseJwtVerifier,
     SupabaseAuthGuard,
+    RolesGuard,
     { provide: UserRepository, useClass: PrismaUserRepository },
     { provide: AccessTokenVerifier, useExisting: SupabaseJwtVerifier },
   ],
-  exports: [SupabaseAuthGuard, AccessTokenVerifier, UserRepository],
+  exports: [SupabaseAuthGuard, RolesGuard, AccessTokenVerifier, UserRepository],
 })
 export class AuthModule {}

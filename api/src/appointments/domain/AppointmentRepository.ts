@@ -1,4 +1,5 @@
 import type { Appointment } from './Appointment';
+import type { AppointmentWithPatient } from './AppointmentWithPatient';
 
 export class SlotUnavailableError extends Error {
   constructor(message = 'El horario ya no está disponible') {
@@ -25,7 +26,15 @@ export interface AttachQrData {
   amount: number;
 }
 
+export interface AgendaFilters {
+  status?: string;
+  from?: Date;
+  to?: Date;
+}
+
 export interface IAppointmentRepository {
+  /** Agenda del doctor — citas con datos básicos del paciente embebidos. */
+  findForAgenda(filters: AgendaFilters): Promise<AppointmentWithPatient[]>;
   /** Citas activas (confirmed, o held vigente) que se solapan con el rango dado. */
   findActiveBetween(from: Date, to: Date, now: Date): Promise<Appointment[]>;
   findById(id: string): Promise<Appointment | null>;

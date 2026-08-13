@@ -5,6 +5,7 @@ import { environment } from '../../../../environments/environment';
 import type { PatientWithUser, Patient, PatientProfileStatus, MedicalHistory, HygieneHabits, ClinicalExam, OdontogramEntry } from '../models/patient.model';
 import type {
   CreatePatientRequest,
+  UpdatePatientRequest,
   CreateMedicalHistoryRequest,
   CreateHygieneHabitsRequest,
   CreateClinicalExamRequest,
@@ -30,6 +31,10 @@ export class PatientsService {
 
   createPatient(data: CreatePatientRequest): Observable<Patient> {
     return this.http.post<Patient>(this.base, data);
+  }
+
+  updatePatient(patientId: string, data: UpdatePatientRequest): Observable<Patient> {
+    return this.http.patch<Patient>(`${this.base}/${patientId}`, data);
   }
 
   createMedicalHistory(patientId: string, data: CreateMedicalHistoryRequest): Observable<MedicalHistory> {
