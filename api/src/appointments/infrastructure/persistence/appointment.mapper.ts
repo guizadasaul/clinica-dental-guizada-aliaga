@@ -16,6 +16,11 @@ export class AppointmentMapper {
       record.hold_expires_at,
       record.notes,
       record.created_at,
+      record.baneco_qr_id,
+      record.baneco_transaction_id,
+      record.baneco_qr_image,
+      record.payment_amount !== null ? Number(record.payment_amount) : null,
+      record.paid_at,
     );
   }
 }

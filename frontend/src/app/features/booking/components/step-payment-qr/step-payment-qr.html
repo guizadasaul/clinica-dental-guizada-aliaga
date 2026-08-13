@@ -1,0 +1,28 @@
+<div class="payment-qr">
+  <p class="payment-qr__amount">Monto a pagar: <strong>Bs {{ amount() }}</strong></p>
+
+  <img
+    class="payment-qr__image"
+    [src]="'data:image/png;base64,' + qrImageBase64()"
+    alt="Código QR de pago BANECO"
+  />
+
+  <p class="payment-qr__instructions">
+    Escaneá el código con la app de tu banco para pagar.
+  </p>
+
+  <div class="payment-qr__warning" role="alert">
+    <span class="material-symbols-outlined">info</span>
+    <span>Al pagar, la cita queda confirmada y <strong>no es reembolsable ni cancelable</strong>.</span>
+  </div>
+
+  <p class="payment-qr__waiting">
+    <span class="payment-qr__spinner"></span>
+    Esperando confirmación del pago...
+  </p>
+
+  <a class="payment-qr__call-btn" [href]="clinicPhoneHref">
+    <span class="material-symbols-outlined">call</span>
+    Llamar a la clínica ({{ clinicPhoneLabel }})
+  </a>
+</div>

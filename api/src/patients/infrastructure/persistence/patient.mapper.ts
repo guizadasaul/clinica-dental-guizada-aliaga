@@ -19,7 +19,7 @@ export class PatientMapper {
       r.first_name,
       r.last_name_paternal,
       r.last_name_maternal ?? null,
-      r.birth_date,
+      r.birth_date ?? null,
       r.birth_place ?? null,
       r.sex ?? null,
       r.occupation ?? null,

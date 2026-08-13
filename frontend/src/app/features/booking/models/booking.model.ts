@@ -14,3 +14,16 @@ export interface AppointmentContactResult {
   status: string;
   holdExpiresAt: string | null;
 }
+
+export interface CheckoutResponse {
+  qrId: string;
+  qrImageBase64: string;
+  amount: number;
+  holdExpiresAt: string;
+}
+
+export interface AppointmentPublicStatus {
+  status: string;
+  paid: boolean;
+  holdExpiresAt: string | null;
+}

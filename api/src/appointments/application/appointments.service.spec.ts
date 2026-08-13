@@ -18,8 +18,11 @@ const VALID_SLOT_ISO = `${MONDAY}T09:00:00-04:00`;
 const mockRepo = {
   findActiveBetween: jest.fn(),
   findById: jest.fn(),
+  findByQrId: jest.fn(),
   createHold: jest.fn(),
   updateGuestContact: jest.fn(),
+  attachQr: jest.fn(),
+  appendNote: jest.fn(),
 };
 
 interface FakeAppointmentOptions {
@@ -41,6 +44,11 @@ function fakeAppointment(options: FakeAppointmentOptions = {}): Appointment {
     new Date(Date.now() + 15 * 60 * 1000),
     null,
     new Date(),
+    null,
+    null,
+    null,
+    null,
+    null,
   );
 }
 

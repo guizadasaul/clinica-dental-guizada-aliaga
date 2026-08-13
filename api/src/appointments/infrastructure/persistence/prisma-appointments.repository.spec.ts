@@ -22,6 +22,11 @@ function fakeAppointmentRecord(overrides: Record<string, unknown> = {}) {
     hold_expires_at: new Date(NOW.getTime() + 15 * 60 * 1000),
     guest_full_name: null,
     guest_phone: null,
+    baneco_qr_id: null,
+    baneco_transaction_id: null,
+    baneco_qr_image: null,
+    payment_amount: null,
+    paid_at: null,
     ...overrides,
   };
 }
@@ -138,6 +143,66 @@ describe('PrismaAppointmentsRepository', () => {
         data: { guest_full_name: 'X', guest_phone: '7' },
       });
       expect(result?.guestFullName).toBe('X');
+    });
+  });
+
+  describe('attachQr', () => {
+    it('is a no-op (returns null) when the appointment is no longer held', async () => {
+      prismaMock.appointments.updateMany.mockResolvedValue({ count: 0 });
+
+      const result = await repo.attachQr('appt-1', {
+        qrId: 'qr-1',
+        qrImage: 'base64',
+        amount: 50,
+      });
+
+      expect(result).toBeNull();
+      expect(prismaMock.appointments.findUnique).not.toHaveBeenCalled();
+    });
+
+    it('saves the QR reference and returns the updated appointment when still held', async () => {
+      prismaMock.appointments.updateMany.mockResolvedValue({ count: 1 });
+      prismaMock.appointments.findUnique.mockResolvedValue(
+        fakeAppointmentRecord({ baneco_qr_id: 'qr-1', payment_amount: 50 }),
+      );
+
+      const result = await repo.attachQr('appt-1', {
+        qrId: 'qr-1',
+        qrImage: 'base64',
+        amount: 50,
+      });
+
+      expect(prismaMock.appointments.updateMany).toHaveBeenCalledWith({
+        where: { id: 'appt-1', status: 'held' },
+        data: {
+          baneco_qr_id: 'qr-1',
+          baneco_qr_image: 'base64',
+          payment_amount: 50,
+        },
+      });
+      expect(result?.banecoQrId).toBe('qr-1');
+      expect(result?.paymentAmount).toBe(50);
+    });
+  });
+
+  describe('findByQrId', () => {
+    it('maps the record when found', async () => {
+      prismaMock.appointments.findUnique.mockResolvedValue(
+        fakeAppointmentRecord({ baneco_qr_id: 'qr-1' }),
+      );
+
+      const result = await repo.findByQrId('qr-1');
+
+      expect(prismaMock.appointments.findUnique).toHaveBeenCalledWith({
+        where: { baneco_qr_id: 'qr-1' },
+      });
+      expect(result?.banecoQrId).toBe('qr-1');
+    });
+
+    it('returns null when not found', async () => {
+      prismaMock.appointments.findUnique.mockResolvedValue(null);
+
+      expect(await repo.findByQrId('missing')).toBeNull();
     });
   });
 });

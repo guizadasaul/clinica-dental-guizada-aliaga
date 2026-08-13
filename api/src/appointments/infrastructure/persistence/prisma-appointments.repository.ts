@@ -3,6 +3,7 @@ import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../../shared/prisma/prisma.service.js';
 import { Appointment, AppointmentStatus } from '../../domain/Appointment.js';
 import {
+  AttachQrData,
   CreateHoldData,
   GuestContactData,
   IAppointmentRepository,
@@ -34,6 +35,13 @@ export class PrismaAppointmentsRepository implements IAppointmentRepository {
 
   async findById(id: string): Promise<Appointment | null> {
     const record = await this.prisma.appointments.findUnique({ where: { id } });
+    return record ? AppointmentMapper.toDomain(record) : null;
+  }
+
+  async findByQrId(qrId: string): Promise<Appointment | null> {
+    const record = await this.prisma.appointments.findUnique({
+      where: { baneco_qr_id: qrId },
+    });
     return record ? AppointmentMapper.toDomain(record) : null;
   }
 
@@ -90,5 +98,28 @@ export class PrismaAppointmentsRepository implements IAppointmentRepository {
     }
     const record = await this.prisma.appointments.findUnique({ where: { id } });
     return record ? AppointmentMapper.toDomain(record) : null;
+  }
+
+  async attachQr(id: string, data: AttachQrData): Promise<Appointment | null> {
+    const { count } = await this.prisma.appointments.updateMany({
+      where: { id, status: AppointmentStatus.HELD },
+      data: {
+        baneco_qr_id: data.qrId,
+        baneco_qr_image: data.qrImage,
+        payment_amount: data.amount,
+      },
+    });
+    if (count === 0) {
+      return null;
+    }
+    const record = await this.prisma.appointments.findUnique({ where: { id } });
+    return record ? AppointmentMapper.toDomain(record) : null;
+  }
+
+  async appendNote(id: string, note: string): Promise<void> {
+    await this.prisma.appointments.update({
+      where: { id },
+      data: { notes: note },
+    });
   }
 }

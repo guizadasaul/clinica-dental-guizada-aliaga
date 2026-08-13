@@ -2,7 +2,13 @@ import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import type { Observable } from 'rxjs';
 import { environment } from '../../../../environments/environment';
-import type { AvailabilityResponse, HoldResponse, AppointmentContactResult } from '../models/booking.model';
+import type {
+  AvailabilityResponse,
+  HoldResponse,
+  AppointmentContactResult,
+  CheckoutResponse,
+  AppointmentPublicStatus,
+} from '../models/booking.model';
 import type { GuestContactRequest } from '../models/booking.request';
 
 @Injectable({ providedIn: 'root' })
@@ -23,5 +29,13 @@ export class BookingService {
       `${this.base}/appointments/${appointmentId}/contact`,
       data,
     );
+  }
+
+  checkout(appointmentId: string): Observable<CheckoutResponse> {
+    return this.http.post<CheckoutResponse>(`${this.base}/appointments/${appointmentId}/checkout`, {});
+  }
+
+  getStatus(appointmentId: string): Observable<AppointmentPublicStatus> {
+    return this.http.get<AppointmentPublicStatus>(`${this.base}/appointments/${appointmentId}/status`);
   }
 }

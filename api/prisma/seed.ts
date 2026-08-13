@@ -27,7 +27,7 @@ const treatments = [
   { name: 'Tratamiento de fluorización', description: 'Aplicación tópica de flúor para prevención de caries', base_price: 50, estimated_minutes: 20 },
 ];
 
-async function main() {
+async function seedTreatments() {
   const existing = await prisma.treatments.count();
   if (existing > 0) {
     console.log(`La tabla treatments ya tiene ${existing} registros — seed omitido.`);
@@ -45,6 +45,44 @@ async function main() {
   });
 
   console.log(`✓ ${treatments.length} tratamientos insertados.`);
+}
+
+/**
+ * Monto fijo de la reserva pública (CLI-10/CLI-11) mientras no existe un
+ * flujo de selección de tratamiento — precio provisional, se reemplaza
+ * cuando se reorganicen los tratamientos en un issue futuro.
+ */
+async function seedDefaultConsultationTreatment() {
+  const existing = await prisma.treatments.findFirst({
+    where: { is_default_consultation: true },
+  });
+  if (existing) {
+    console.log(
+      'Ya existe un tratamiento marcado is_default_consultation — seed omitido.',
+    );
+    return;
+  }
+
+  await prisma.treatments.create({
+    data: {
+      name: 'Consulta inicial',
+      description:
+        'Consulta odontológica inicial — reserva online (precio provisional)',
+      base_price: 50,
+      estimated_minutes: 30,
+      is_active: true,
+      is_default_consultation: true,
+    },
+  });
+
+  console.log(
+    '✓ Tratamiento "Consulta inicial" (is_default_consultation) insertado.',
+  );
+}
+
+async function main() {
+  await seedTreatments();
+  await seedDefaultConsultationTreatment();
 }
 
 main()
