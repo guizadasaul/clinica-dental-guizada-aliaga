@@ -219,7 +219,7 @@ model treatments {
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
 model users {
   id               String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  auth_user_id     String             @unique @db.Uuid
+  auth_user_id     String?            @unique @db.Uuid
   email            String?            @unique @db.VarChar(255)
   display_name     String?            @db.VarChar(255)
   photo_url        String?

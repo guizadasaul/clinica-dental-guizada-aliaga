@@ -24,6 +24,8 @@ const mockUser = new User(
 const mockRepo = {
   upsertByAuthUserId: jest.fn(),
   findByAuthUserId: jest.fn(),
+  createPlaceholder: jest.fn(),
+  linkAuthIdentity: jest.fn(),
 };
 
 const authUser: AuthenticatedUser = {
@@ -64,6 +66,21 @@ describe('AuthService', () => {
 
       await expect(service.syncUser(authUser)).rejects.toThrow('DB error');
     });
+
+    it('should ignore an inviteToken (CLI-13 not implemented yet) and still upsert normally', async () => {
+      mockRepo.upsertByAuthUserId.mockResolvedValue(mockUser);
+
+      const result = await service.syncUser(authUser, 'some-invite-token');
+
+      expect(result).toBe(mockUser);
+      expect(mockRepo.linkAuthIdentity).not.toHaveBeenCalled();
+      expect(mockRepo.upsertByAuthUserId).toHaveBeenCalledWith({
+        authUserId: AUTH_USER_ID,
+        email: 'test@example.com',
+        displayName: 'Test User',
+        photoUrl: null,
+      });
+    });
   });
 
   describe('getCurrentUser', () => {
@@ -79,7 +96,9 @@ describe('AuthService', () => {
     it('should throw NotFoundException when user does not exist', async () => {
       mockRepo.findByAuthUserId.mockResolvedValue(null);
 
-      await expect(service.getCurrentUser('nonexistent')).rejects.toThrow(NotFoundException);
+      await expect(service.getCurrentUser('nonexistent')).rejects.toThrow(
+        NotFoundException,
+      );
     });
 
     it('should propagate repository errors', async () => {

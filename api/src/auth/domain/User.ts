@@ -3,7 +3,7 @@ import { UserRole } from './value-objects/UserRole';
 export class User {
   constructor(
     readonly id: string,
-    readonly authUserId: string,
+    readonly authUserId: string | null,
     readonly email: string | null,
     readonly role: UserRole,
     readonly displayName: string | null,
