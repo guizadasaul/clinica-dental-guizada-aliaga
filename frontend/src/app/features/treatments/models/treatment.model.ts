@@ -1,9 +1,21 @@
+export type TreatmentScope =
+  | 'tooth'
+  | 'multi_tooth'
+  | 'upper_arch'
+  | 'lower_arch'
+  | 'full_mouth'
+  | 'none';
+
+export type TreatmentCurrency = 'BOB' | 'USD';
+
 export interface Treatment {
   id: string;
   name: string;
   description: string | null;
   basePrice: number;
   estimatedMinutes: number;
+  scope: TreatmentScope;
+  currency: TreatmentCurrency;
   isActive: boolean;
   createdAt: string;
   updatedAt: string;

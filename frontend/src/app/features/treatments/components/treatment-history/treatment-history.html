@@ -30,7 +30,7 @@
     <div class="th__summary">
       <span class="th__summary-count">
         <span class="material-symbols-outlined">healing</span>
-        {{ procedures().length }} tratamiento{{ procedures().length !== 1 ? 's' : '' }}
+        {{ groupedProcedures().length }} tratamiento{{ groupedProcedures().length !== 1 ? 's' : '' }}
       </span>
       <span class="th__summary-total">
         <span class="material-symbols-outlined">payments</span>
@@ -46,25 +46,27 @@
             <th>Diente</th>
             <th>Tratamiento</th>
             <th>Superficies</th>
-            <th>Precio (Bs.)</th>
+            <th>Precio</th>
             <th>Notas</th>
           </tr>
         </thead>
         <tbody>
-          @for (proc of procedures(); track proc.id) {
+          @for (row of groupedProcedures(); track row.key) {
             <tr class="th__row">
-              <td class="th__cell th__cell--date">{{ formatDate(proc.procedureDate) }}</td>
+              <td class="th__cell th__cell--date">{{ formatDate(row.procedureDate) }}</td>
               <td class="th__cell">
-                @if (proc.toothNumber !== null) {
-                  <span class="th__tooth-badge">#{{ proc.toothNumber }}</span>
+                @if (row.toothNumbers.length > 0) {
+                  @for (n of row.toothNumbers; track n) {
+                    <span class="th__tooth-badge">#{{ n }}</span>
+                  }
                 } @else {
                   <span>—</span>
                 }
               </td>
-              <td class="th__cell th__cell--name">{{ getTreatmentName(proc.treatmentId) }}</td>
-              <td class="th__cell th__cell--surfaces">{{ getSurfaces(proc) }}</td>
-              <td class="th__cell th__cell--price">{{ proc.priceCharged | number:'1.2-2' }}</td>
-              <td class="th__cell th__cell--notes">{{ proc.notes ?? '—' }}</td>
+              <td class="th__cell th__cell--name">{{ getTreatmentName(row.treatmentId) }}</td>
+              <td class="th__cell th__cell--surfaces">{{ row.surfaces }}</td>
+              <td class="th__cell th__cell--price">{{ getTreatmentCurrencySymbol(row.treatmentId) }} {{ row.totalPrice | number:'1.2-2' }}</td>
+              <td class="th__cell th__cell--notes">{{ row.notes ?? '—' }}</td>
             </tr>
           }
         </tbody>

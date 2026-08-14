@@ -17,216 +17,23 @@
     </div>
   }
 
-  <div class="reg-treatment__body" [class.reg-treatment__body--split]="selectedTooth()">
+  <div class="reg-treatment__body" [class.reg-treatment__body--split]="currentSelection()">
 
-    <!-- Odontogram chart -->
     <div class="reg-treatment__chart">
 
       <div class="reg-treatment__toolbar">
         <h3 class="reg-treatment__chart-title">
           <span class="material-symbols-outlined">dentistry</span>
-          Odontograma
+          Tratamiento y alcance
         </h3>
       </div>
-      <p class="reg-treatment__chart-hint">Hacé clic en un diente para registrar el tratamiento realizado.</p>
 
-      <!-- Upper arch -->
-      <div class="reg-treatment__arch-label">
-        <span>Superior</span>
-        <div class="reg-treatment__arch-divider"></div>
-      </div>
-      <div class="reg-treatment__arch reg-treatment__arch--upper">
-        @for (tooth of upperTeeth; track tooth.number) {
-          <button
-            type="button"
-            class="reg-treatment__tooth"
-            [class.reg-treatment__tooth--selected]="selectedTooth()?.number === tooth.number"
-            [class.reg-treatment__tooth--treated]="registeredProcedures().some(p => p.toothNumber === tooth.number)"
-            (click)="onToothClick(tooth)"
-            [attr.aria-label]="'Diente ' + tooth.number"
-          >
-            <svg
-              [attr.viewBox]="'0 0 32 72'"
-              xmlns="http://www.w3.org/2000/svg"
-              class="reg-treatment__tooth-svg"
-              role="img"
-            >
-              @switch (tooth.type) {
-                @case ('incisor') {
-                  <polygon points="11,30 21,30 18,64 14,64"
-                    [attr.fill]="diagnosisMap().has(tooth.number) ? '#e5e7eb' : '#f3f4f6'"
-                    [attr.stroke]="getToothStroke(tooth.number)" stroke-width="1"
-                  />
-                  <rect x="4" y="2" width="24" height="28" rx="3"
-                    [attr.fill]="getToothColor(tooth.number)"
-                    [attr.stroke]="getToothStroke(tooth.number)"
-                    [attr.stroke-width]="getToothStrokeWidth(tooth.number)"
-                  />
-                }
-                @case ('canine') {
-                  <polygon points="12,32 20,32 17,68 15,68"
-                    [attr.fill]="diagnosisMap().has(tooth.number) ? '#e5e7eb' : '#f3f4f6'"
-                    [attr.stroke]="getToothStroke(tooth.number)" stroke-width="1"
-                  />
-                  <rect x="5" y="2" width="22" height="30" rx="3"
-                    [attr.fill]="getToothColor(tooth.number)"
-                    [attr.stroke]="getToothStroke(tooth.number)"
-                    [attr.stroke-width]="getToothStrokeWidth(tooth.number)"
-                  />
-                }
-                @case ('premolar') {
-                  <polygon points="4,28 13,28 11,62 7,62"
-                    [attr.fill]="diagnosisMap().has(tooth.number) ? '#e5e7eb' : '#f3f4f6'"
-                    [attr.stroke]="getToothStroke(tooth.number)" stroke-width="1"
-                  />
-                  <polygon points="19,28 28,28 25,62 22,62"
-                    [attr.fill]="diagnosisMap().has(tooth.number) ? '#e5e7eb' : '#f3f4f6'"
-                    [attr.stroke]="getToothStroke(tooth.number)" stroke-width="1"
-                  />
-                  <rect x="3" y="2" width="26" height="26" rx="3"
-                    [attr.fill]="getToothColor(tooth.number)"
-                    [attr.stroke]="getToothStroke(tooth.number)"
-                    [attr.stroke-width]="getToothStrokeWidth(tooth.number)"
-                  />
-                  <line x1="16" y1="4" x2="16" y2="26" stroke="#d1d5db" stroke-width="1.5" />
-                }
-                @default {
-                  <polygon points="3,28 11,28 9,60 5,60"
-                    [attr.fill]="diagnosisMap().has(tooth.number) ? '#e5e7eb' : '#f3f4f6'"
-                    [attr.stroke]="getToothStroke(tooth.number)" stroke-width="1"
-                  />
-                  <polygon points="13,28 19,28 17,60 15,60"
-                    [attr.fill]="diagnosisMap().has(tooth.number) ? '#e5e7eb' : '#f3f4f6'"
-                    [attr.stroke]="getToothStroke(tooth.number)" stroke-width="1"
-                  />
-                  <polygon points="21,28 29,28 27,60 23,60"
-                    [attr.fill]="diagnosisMap().has(tooth.number) ? '#e5e7eb' : '#f3f4f6'"
-                    [attr.stroke]="getToothStroke(tooth.number)" stroke-width="1"
-                  />
-                  <rect x="2" y="2" width="28" height="26" rx="3"
-                    [attr.fill]="getToothColor(tooth.number)"
-                    [attr.stroke]="getToothStroke(tooth.number)"
-                    [attr.stroke-width]="getToothStrokeWidth(tooth.number)"
-                  />
-                  <line x1="2" y1="15" x2="30" y2="15" stroke="#d1d5db" stroke-width="1" />
-                  <line x1="16" y1="2" x2="16" y2="28" stroke="#d1d5db" stroke-width="1" />
-                }
-              }
-            </svg>
-            <span class="reg-treatment__tooth-number">{{ tooth.number }}</span>
-          </button>
-        }
-      </div>
-
-      <!-- Arch separator -->
-      <div class="reg-treatment__arch-separator">
-        <span>D</span>
-        <div class="reg-treatment__arch-separator-line"></div>
-        <span>I</span>
-      </div>
-
-      <!-- Lower arch -->
-      <div class="reg-treatment__arch reg-treatment__arch--lower">
-        @for (tooth of lowerTeeth; track tooth.number) {
-          <button
-            type="button"
-            class="reg-treatment__tooth"
-            [class.reg-treatment__tooth--selected]="selectedTooth()?.number === tooth.number"
-            [class.reg-treatment__tooth--treated]="registeredProcedures().some(p => p.toothNumber === tooth.number)"
-            (click)="onToothClick(tooth)"
-            [attr.aria-label]="'Diente ' + tooth.number"
-          >
-            <span class="reg-treatment__tooth-number reg-treatment__tooth-number--top">{{ tooth.number }}</span>
-            <svg
-              [attr.viewBox]="'0 0 32 72'"
-              xmlns="http://www.w3.org/2000/svg"
-              class="reg-treatment__tooth-svg"
-              role="img"
-            >
-              @switch (tooth.type) {
-                @case ('incisor') {
-                  <polygon points="11,8 21,8 18,42 14,42"
-                    [attr.fill]="diagnosisMap().has(tooth.number) ? '#e5e7eb' : '#f3f4f6'"
-                    [attr.stroke]="getToothStroke(tooth.number)" stroke-width="1"
-                  />
-                  <rect x="4" y="42" width="24" height="28" rx="3"
-                    [attr.fill]="getToothColor(tooth.number)"
-                    [attr.stroke]="getToothStroke(tooth.number)"
-                    [attr.stroke-width]="getToothStrokeWidth(tooth.number)"
-                  />
-                }
-                @case ('canine') {
-                  <polygon points="12,4 20,4 17,40 15,40"
-                    [attr.fill]="diagnosisMap().has(tooth.number) ? '#e5e7eb' : '#f3f4f6'"
-                    [attr.stroke]="getToothStroke(tooth.number)" stroke-width="1"
-                  />
-                  <rect x="5" y="40" width="22" height="30" rx="3"
-                    [attr.fill]="getToothColor(tooth.number)"
-                    [attr.stroke]="getToothStroke(tooth.number)"
-                    [attr.stroke-width]="getToothStrokeWidth(tooth.number)"
-                  />
-                }
-                @case ('premolar') {
-                  <polygon points="4,44 13,44 11,10 7,10"
-                    [attr.fill]="diagnosisMap().has(tooth.number) ? '#e5e7eb' : '#f3f4f6'"
-                    [attr.stroke]="getToothStroke(tooth.number)" stroke-width="1"
-                  />
-                  <polygon points="19,44 28,44 25,10 22,10"
-                    [attr.fill]="diagnosisMap().has(tooth.number) ? '#e5e7eb' : '#f3f4f6'"
-                    [attr.stroke]="getToothStroke(tooth.number)" stroke-width="1"
-                  />
-                  <rect x="3" y="44" width="26" height="26" rx="3"
-                    [attr.fill]="getToothColor(tooth.number)"
-                    [attr.stroke]="getToothStroke(tooth.number)"
-                    [attr.stroke-width]="getToothStrokeWidth(tooth.number)"
-                  />
-                  <line x1="16" y1="46" x2="16" y2="68" stroke="#d1d5db" stroke-width="1.5" />
-                }
-                @default {
-                  <polygon points="3,44 11,44 9,12 5,12"
-                    [attr.fill]="diagnosisMap().has(tooth.number) ? '#e5e7eb' : '#f3f4f6'"
-                    [attr.stroke]="getToothStroke(tooth.number)" stroke-width="1"
-                  />
-                  <polygon points="13,44 19,44 17,12 15,12"
-                    [attr.fill]="diagnosisMap().has(tooth.number) ? '#e5e7eb' : '#f3f4f6'"
-                    [attr.stroke]="getToothStroke(tooth.number)" stroke-width="1"
-                  />
-                  <polygon points="21,44 29,44 27,12 23,12"
-                    [attr.fill]="diagnosisMap().has(tooth.number) ? '#e5e7eb' : '#f3f4f6'"
-                    [attr.stroke]="getToothStroke(tooth.number)" stroke-width="1"
-                  />
-                  <rect x="2" y="44" width="28" height="26" rx="3"
-                    [attr.fill]="getToothColor(tooth.number)"
-                    [attr.stroke]="getToothStroke(tooth.number)"
-                    [attr.stroke-width]="getToothStrokeWidth(tooth.number)"
-                  />
-                  <line x1="2" y1="57" x2="30" y2="57" stroke="#d1d5db" stroke-width="1" />
-                  <line x1="16" y1="44" x2="16" y2="70" stroke="#d1d5db" stroke-width="1" />
-                }
-              }
-            </svg>
-          </button>
-        }
-      </div>
-
-      <div class="reg-treatment__arch-label">
-        <span>Inferior</span>
-        <div class="reg-treatment__arch-divider"></div>
-      </div>
-
-      <!-- Legend -->
-      <div class="reg-treatment__legend">
-        @for (opt of diagnosisOptions; track opt.value) {
-          <div class="reg-treatment__legend-item">
-            <span class="reg-treatment__legend-dot" [style.background]="opt.color"></span>
-            <span>{{ opt.label }}</span>
-          </div>
-        }
-        <div class="reg-treatment__legend-item">
-          <span class="reg-treatment__legend-dot" style="background: #16a34a; outline: 2px solid #15803d;"></span>
-          <span>Con tratamiento registrado</span>
-        </div>
-      </div>
+      <app-treatment-scope-picker
+        [treatments]="treatments()"
+        [odontogramEntries]="odontogramEntries()"
+        [treatedTeeth]="getTreatedTeeth()"
+        (selectionChange)="onSelectionChange($event)"
+      />
 
       <!-- Registered procedures list -->
       @if (registeredProcedures().length > 0) {
@@ -236,10 +43,12 @@
             @for (proc of registeredProcedures(); track proc.id) {
               <li class="reg-treatment__procedure-item">
                 <span class="material-symbols-outlined reg-treatment__procedure-icon">check_circle</span>
-                <span class="reg-treatment__procedure-tooth">Diente #{{ proc.toothNumber }}</span>
+                <span class="reg-treatment__procedure-tooth">
+                  @if (proc.toothNumber !== null) { Diente #{{ proc.toothNumber }} } @else { Sin diente asociado }
+                </span>
                 <span class="reg-treatment__procedure-sep">—</span>
                 <span class="reg-treatment__procedure-name">{{ getTreatmentName(proc.treatmentId) }}</span>
-                <span class="reg-treatment__procedure-price">$ {{ proc.priceCharged }}</span>
+                <span class="reg-treatment__procedure-price">{{ getTreatmentCurrencySymbol(proc.treatmentId) }} {{ proc.priceCharged }}</span>
               </li>
             }
           </ul>
@@ -249,73 +58,70 @@
     </div>
 
     <!-- Treatment form panel -->
-    @if (selectedTooth()) {
+    @if (currentSelection(); as sel) {
       <div class="reg-treatment__panel" role="region" aria-label="Formulario de tratamiento">
         <div class="reg-treatment__panel-header">
           <div class="reg-treatment__panel-tooth-badge">
             <span class="material-symbols-outlined">dentistry</span>
-            Diente #{{ selectedTooth()!.number }}
-            @if (diagnosisMap().get(selectedTooth()!.number); as diag) {
-              <span
-                class="reg-treatment__panel-diag-badge"
-                [style.background]="getDiagnosisColor(diag.toothCondition)"
-              >{{ getDiagnosisLabel(diag.toothCondition) }}</span>
+            @switch (sel.treatment.scope) {
+              @case ('tooth') {
+                Diente #{{ sel.toothNumbers[0] }}
+              }
+              @case ('multi_tooth') {
+                {{ sel.toothNumbers.length }} dientes: #{{ sel.toothNumbers.join(', #') }}
+              }
+              @case ('upper_arch') {
+                Arcada superior completa
+              }
+              @case ('lower_arch') {
+                Arcada inferior completa
+              }
+              @case ('full_mouth') {
+                Boca completa
+              }
+              @default {
+                {{ sel.treatment.name }}
+              }
             }
           </div>
-          <button type="button" class="reg-treatment__panel-close" (click)="onPanelCancel()" aria-label="Cerrar panel">
+          <button type="button" class="reg-treatment__panel-close" (click)="onCancelSelection()" aria-label="Cerrar panel">
             <span class="material-symbols-outlined">close</span>
           </button>
         </div>
 
-        <!-- Treatment selector -->
-        <div class="reg-treatment__panel-field">
-          <label class="reg-treatment__panel-label" for="treatmentId">
-            Tratamiento <span class="reg-treatment__req">*</span>
-          </label>
-          <select
-            id="treatmentId"
-            class="reg-treatment__input"
-            [value]="panelTreatmentId()"
-            (change)="panelTreatmentId.set($any($event.target).value)"
-          >
-            <option value="">-- Seleccioná un tratamiento --</option>
-            @for (t of treatments(); track t.id) {
-              <option [value]="t.id">{{ t.name }} ($ {{ t.basePrice }})</option>
-            }
-          </select>
-        </div>
-
-        <!-- Surfaces -->
-        <div class="reg-treatment__panel-field">
-          <label class="reg-treatment__panel-label">Superficies afectadas</label>
-          <div class="reg-treatment__surfaces">
-            <label class="reg-treatment__check">
-              <input type="checkbox" [checked]="panelVestibular()" (change)="panelVestibular.set($any($event.target).checked)" />
-              Vestibular
-            </label>
-            <label class="reg-treatment__check">
-              <input type="checkbox" [checked]="panelPalatal()" (change)="panelPalatal.set($any($event.target).checked)" />
-              Palatal
-            </label>
-            <label class="reg-treatment__check">
-              <input type="checkbox" [checked]="panelMesial()" (change)="panelMesial.set($any($event.target).checked)" />
-              Mesial
-            </label>
-            <label class="reg-treatment__check">
-              <input type="checkbox" [checked]="panelDistal()" (change)="panelDistal.set($any($event.target).checked)" />
-              Distal
-            </label>
-            <label class="reg-treatment__check">
-              <input type="checkbox" [checked]="panelOcclusal()" (change)="panelOcclusal.set($any($event.target).checked)" />
-              Oclusal
-            </label>
+        <!-- Surfaces (solo tiene sentido para un diente puntual) -->
+        @if (sel.treatment.scope === 'tooth') {
+          <div class="reg-treatment__panel-field">
+            <label class="reg-treatment__panel-label">Superficies afectadas</label>
+            <div class="reg-treatment__surfaces">
+              <label class="reg-treatment__check">
+                <input type="checkbox" [checked]="panelVestibular()" (change)="panelVestibular.set($any($event.target).checked)" />
+                Vestibular
+              </label>
+              <label class="reg-treatment__check">
+                <input type="checkbox" [checked]="panelPalatal()" (change)="panelPalatal.set($any($event.target).checked)" />
+                Palatal
+              </label>
+              <label class="reg-treatment__check">
+                <input type="checkbox" [checked]="panelMesial()" (change)="panelMesial.set($any($event.target).checked)" />
+                Mesial
+              </label>
+              <label class="reg-treatment__check">
+                <input type="checkbox" [checked]="panelDistal()" (change)="panelDistal.set($any($event.target).checked)" />
+                Distal
+              </label>
+              <label class="reg-treatment__check">
+                <input type="checkbox" [checked]="panelOcclusal()" (change)="panelOcclusal.set($any($event.target).checked)" />
+                Oclusal
+              </label>
+            </div>
           </div>
-        </div>
+        }
 
         <!-- Price charged -->
         <div class="reg-treatment__panel-field">
           <label class="reg-treatment__panel-label" for="priceCharged">
-            Precio cobrado (Bs.) <span class="reg-treatment__req">*</span>
+            Precio cobrado ({{ sel.treatment.currency === 'USD' ? '$' : 'Bs.' }}) <span class="reg-treatment__req">*</span>
           </label>
           <input
             id="priceCharged"
@@ -358,7 +164,7 @@
         }
 
         <div class="reg-treatment__panel-actions">
-          <button type="button" class="reg-treatment__btn reg-treatment__btn--secondary" (click)="onPanelCancel()">
+          <button type="button" class="reg-treatment__btn reg-treatment__btn--secondary" (click)="onCancelSelection()">
             Cancelar
           </button>
           <button
