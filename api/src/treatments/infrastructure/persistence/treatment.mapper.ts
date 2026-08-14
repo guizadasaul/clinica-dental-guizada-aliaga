@@ -9,6 +9,8 @@ export class TreatmentMapper {
       description: record.description ?? null,
       basePrice: Number(record.base_price),
       estimatedMinutes: record.estimated_minutes,
+      scope: record.scope,
+      currency: record.currency,
       isActive: record.is_active,
       createdAt: record.created_at,
       updatedAt: record.updated_at,
