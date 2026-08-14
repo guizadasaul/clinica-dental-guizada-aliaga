@@ -9,6 +9,7 @@ import { TreatmentsModule } from './treatments/treatments.module';
 import { AppointmentsModule } from './appointments/appointments.module';
 import { PaymentsModule } from './payments/payments.module';
 import { ExchangeRateModule } from './exchange-rate/exchange-rate.module';
+import { QuotesModule } from './quotes/quotes.module';
 
 @Module({
   imports: [
@@ -20,6 +21,7 @@ import { ExchangeRateModule } from './exchange-rate/exchange-rate.module';
     TreatmentsModule,
     AppointmentsModule,
     PaymentsModule,
+    QuotesModule,
   ],
   controllers: [AppController],
   providers: [AppService],

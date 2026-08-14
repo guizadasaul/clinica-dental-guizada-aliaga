@@ -11,6 +11,7 @@ import { PatientsListComponent } from '../../../patients/components/patients-lis
 import { PatientWizardComponent } from '../../../patients/components/patient-wizard/patient-wizard';
 import { RegisterTreatmentComponent } from '../../../treatments/components/register-treatment/register-treatment';
 import { TreatmentHistoryComponent } from '../../../treatments/components/treatment-history/treatment-history';
+import { QuoteBuilderComponent } from '../../../quotes/components/quote-builder/quote-builder';
 import { DoctorAgendaComponent } from '../../../appointments/components/doctor-agenda/doctor-agenda';
 
 interface AppointmentSlot {
@@ -36,6 +37,7 @@ interface StatCard {
     PatientWizardComponent,
     RegisterTreatmentComponent,
     TreatmentHistoryComponent,
+    QuoteBuilderComponent,
     DoctorAgendaComponent,
   ],
   templateUrl: './doctor-dashboard.html',
@@ -52,12 +54,14 @@ export class DoctorDashboardComponent {
   protected readonly selectedPatientId = signal<string | null>(null);
   protected readonly selectedPatientForTreatment = signal<string | null>(null);
   protected readonly selectedPatientForHistory = signal<string | null>(null);
+  protected readonly selectedPatientForQuote = signal<string | null>(null);
 
   protected readonly showWizard = computed(
     () =>
       (this.selectedUserId() !== null || this.selectedPatientId() !== null) &&
       this.selectedPatientForTreatment() === null &&
-      this.selectedPatientForHistory() === null,
+      this.selectedPatientForHistory() === null &&
+      this.selectedPatientForQuote() === null,
   );
 
   protected readonly showTreatmentFlow = computed(
@@ -66,6 +70,10 @@ export class DoctorDashboardComponent {
 
   protected readonly showHistoryFlow = computed(
     () => this.selectedPatientForHistory() !== null,
+  );
+
+  protected readonly showQuoteFlow = computed(
+    () => this.selectedPatientForQuote() !== null,
   );
 
   protected readonly firstName = computed(() => {
@@ -128,6 +136,7 @@ export class DoctorDashboardComponent {
     this.selectedUserId.set(null);
     this.selectedPatientId.set(null);
     this.selectedPatientForHistory.set(null);
+    this.selectedPatientForQuote.set(null);
   }
 
   protected onTreatmentDone(): void {
@@ -143,9 +152,22 @@ export class DoctorDashboardComponent {
     this.selectedUserId.set(null);
     this.selectedPatientId.set(null);
     this.selectedPatientForTreatment.set(null);
+    this.selectedPatientForQuote.set(null);
   }
 
   protected onHistoryClose(): void {
     this.selectedPatientForHistory.set(null);
+  }
+
+  protected onBuildQuote(patientId: string): void {
+    this.selectedPatientForQuote.set(patientId);
+    this.selectedUserId.set(null);
+    this.selectedPatientId.set(null);
+    this.selectedPatientForTreatment.set(null);
+    this.selectedPatientForHistory.set(null);
+  }
+
+  protected onQuoteClose(): void {
+    this.selectedPatientForQuote.set(null);
   }
 }

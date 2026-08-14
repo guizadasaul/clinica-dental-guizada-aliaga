@@ -24,6 +24,7 @@ export class PatientsListComponent {
   readonly openOdontogram = output<string>();
   readonly registerTreatment = output<string>();
   readonly viewHistory = output<string>();
+  readonly buildQuote = output<string>();
 
   protected readonly patients = toSignal(
     this.patientsService.getAll(),
@@ -64,5 +65,9 @@ export class PatientsListComponent {
 
   protected onViewHistory(patientId: string): void {
     this.viewHistory.emit(patientId);
+  }
+
+  protected onBuildQuote(patientId: string): void {
+    this.buildQuote.emit(patientId);
   }
 }
