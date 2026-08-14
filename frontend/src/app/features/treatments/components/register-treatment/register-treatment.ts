@@ -10,6 +10,7 @@ import {
 } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
+import { DecimalPipe } from '@angular/common';
 import { TreatmentsService } from '../../services/treatments.service';
 import { PatientsService } from '../../../patients/services/patients.service';
 import type { Treatment, ToothProcedure } from '../../models/treatment.model';
@@ -23,7 +24,7 @@ import {
   selector: 'app-register-treatment',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [FormsModule, TreatmentScopePickerComponent],
+  imports: [FormsModule, DecimalPipe, TreatmentScopePickerComponent],
   templateUrl: './register-treatment.html',
   styleUrl: './register-treatment.scss',
 })

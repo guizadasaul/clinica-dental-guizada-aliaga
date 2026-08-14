@@ -7,6 +7,7 @@ import {
   computed,
   effect,
 } from '@angular/core';
+import { DecimalPipe } from '@angular/common';
 import type { Treatment, TreatmentScope } from '../../models/treatment.model';
 import type { OdontogramEntry } from '../../../patients/models/patient.model';
 import {
@@ -48,6 +49,7 @@ const DIAGNOSIS_OPTIONS: { value: string; label: string; color: string }[] = [
   selector: 'app-treatment-scope-picker',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
+  imports: [DecimalPipe],
   templateUrl: './treatment-scope-picker.html',
   styleUrl: './treatment-scope-picker.scss',
 })

@@ -15,6 +15,9 @@
         <option [value]="t.id">{{ t.name }} ({{ t.currency === 'USD' ? '$' : 'Bs.' }} {{ t.basePrice }})</option>
       }
     </select>
+    @if (selectedTreatment()?.currency === 'USD' && selectedTreatment()?.basePriceBob !== null) {
+      <small class="tsp__fx-hint">aprox. Bs {{ selectedTreatment()!.basePriceBob | number:'1.2-2' }} al tipo de cambio del día</small>
+    }
   </div>
 
   @if (!selectedTreatment()) {

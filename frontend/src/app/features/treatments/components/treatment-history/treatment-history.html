@@ -65,7 +65,13 @@
               </td>
               <td class="th__cell th__cell--name">{{ getTreatmentName(row.treatmentId) }}</td>
               <td class="th__cell th__cell--surfaces">{{ row.surfaces }}</td>
-              <td class="th__cell th__cell--price">{{ getTreatmentCurrencySymbol(row.treatmentId) }} {{ row.totalPrice | number:'1.2-2' }}</td>
+              <td class="th__cell th__cell--price">
+                {{ getTreatmentCurrencySymbol(row.treatmentId) }} {{ row.totalPrice | number:'1.2-2' }}
+                @if (getTreatmentBasePriceBob(row.treatmentId); as bob) {
+                  <br />
+                  <small class="th__fx-hint">aprox. Bs {{ bob | number:'1.2-2' }}</small>
+                }
+              </td>
               <td class="th__cell th__cell--notes">{{ row.notes ?? '—' }}</td>
             </tr>
           }
