@@ -1,5 +1,5 @@
 export interface CreateToothProcedureRequest {
-  toothNumber: number;
+  toothNumbers: number[];
   treatmentId: string;
   priceCharged: number;
   procedureDate?: string;

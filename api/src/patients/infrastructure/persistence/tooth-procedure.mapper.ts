@@ -7,6 +7,7 @@ export class ToothProcedureMapper {
       id: record.id,
       patientId: record.patient_id,
       toothNumber: record.tooth_number,
+      applicationGroupId: record.application_group_id,
       treatmentId: record.treatment_id,
       priceCharged: Number(record.price_charged),
       procedureDate: record.procedure_date,

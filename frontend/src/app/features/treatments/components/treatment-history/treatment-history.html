@@ -55,7 +55,11 @@
             <tr class="th__row">
               <td class="th__cell th__cell--date">{{ formatDate(proc.procedureDate) }}</td>
               <td class="th__cell">
-                <span class="th__tooth-badge">#{{ proc.toothNumber }}</span>
+                @if (proc.toothNumber !== null) {
+                  <span class="th__tooth-badge">#{{ proc.toothNumber }}</span>
+                } @else {
+                  <span>—</span>
+                }
               </td>
               <td class="th__cell th__cell--name">{{ getTreatmentName(proc.treatmentId) }}</td>
               <td class="th__cell th__cell--surfaces">{{ getSurfaces(proc) }}</td>

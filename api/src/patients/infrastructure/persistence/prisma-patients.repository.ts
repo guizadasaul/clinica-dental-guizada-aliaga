@@ -267,27 +267,34 @@ export class PrismaPatientsRepository implements IPatientRepository {
     return records.map((r) => OdontogramEntryMapper.toDomain(r));
   }
 
-  async createToothProcedure(
+  async createToothProcedures(
     patientId: string,
-    data: CreateToothProcedureData,
-  ): Promise<ToothProcedure> {
-    const record = await this.prisma.tooth_procedures.create({
-      data: {
-        patient_id: patientId,
-        tooth_number: data.toothNumber,
-        treatment_id: data.treatmentId,
-        price_charged: data.priceCharged,
-        procedure_date: data.procedureDate ?? new Date(),
-        surface_vestibular: data.surfaceVestibular ?? false,
-        surface_palatal: data.surfacePalatal ?? false,
-        surface_mesial: data.surfaceMesial ?? false,
-        surface_distal: data.surfaceDistal ?? false,
-        surface_occlusal: data.surfaceOcclusal ?? false,
-        notes: data.notes ?? null,
-        performed_by: data.performedBy,
-      },
-    });
-    return ToothProcedureMapper.toDomain(record);
+    data: CreateToothProcedureData[],
+  ): Promise<ToothProcedure[]> {
+    const records = await this.prisma.transaction((tx) =>
+      Promise.all(
+        data.map((item) =>
+          tx.tooth_procedures.create({
+            data: {
+              patient_id: patientId,
+              tooth_number: item.toothNumber,
+              application_group_id: item.applicationGroupId ?? null,
+              treatment_id: item.treatmentId,
+              price_charged: item.priceCharged,
+              procedure_date: item.procedureDate ?? new Date(),
+              surface_vestibular: item.surfaceVestibular ?? false,
+              surface_palatal: item.surfacePalatal ?? false,
+              surface_mesial: item.surfaceMesial ?? false,
+              surface_distal: item.surfaceDistal ?? false,
+              surface_occlusal: item.surfaceOcclusal ?? false,
+              notes: item.notes ?? null,
+              performed_by: item.performedBy,
+            },
+          }),
+        ),
+      ),
+    );
+    return records.map((r) => ToothProcedureMapper.toDomain(r));
   }
 
   async findToothProcedures(patientId: string): Promise<ToothProcedure[]> {
@@ -296,5 +303,32 @@ export class PrismaPatientsRepository implements IPatientRepository {
       orderBy: { procedure_date: 'desc' },
     });
     return records.map((r) => ToothProcedureMapper.toDomain(r));
+  }
+
+  async appendOdontogramEntries(
+    patientId: string,
+    entries: OdontogramEntryData[],
+  ): Promise<OdontogramEntry[]> {
+    const records = await this.prisma.transaction((tx) =>
+      Promise.all(
+        entries.map((e) =>
+          tx.odontogram_entries.create({
+            data: {
+              patient_id: patientId,
+              tooth_number: e.toothNumber,
+              tooth_type: e.toothType ?? 'permanent',
+              diagnosis_type: e.diagnosisType,
+              tooth_condition: e.toothCondition ?? 'sano',
+              diagnosis_description: e.diagnosisDescription,
+              xray_requested: e.xrayRequested ?? false,
+              treatment_id: e.treatmentId ?? null,
+              custom_price: e.customPrice != null ? e.customPrice : null,
+              notes: e.notes ?? null,
+            },
+          }),
+        ),
+      ),
+    );
+    return records.map((r) => OdontogramEntryMapper.toDomain(r));
   }
 }
