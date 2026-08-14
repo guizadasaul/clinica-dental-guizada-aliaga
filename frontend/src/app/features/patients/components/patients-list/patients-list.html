@@ -106,6 +106,14 @@
                     <span class="material-symbols-outlined">history</span>
                     Ver historial
                   </button>
+                  <button
+                    class="patients-list__btn patients-list__btn--quote"
+                    type="button"
+                    (click)="onBuildQuote(p.patient!.id)"
+                  >
+                    <span class="material-symbols-outlined">receipt_long</span>
+                    Presupuesto
+                  </button>
                 }
               </td>
             </tr>

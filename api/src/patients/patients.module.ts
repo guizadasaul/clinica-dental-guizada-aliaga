@@ -13,5 +13,6 @@ import { TreatmentsModule } from '../treatments/treatments.module';
     PatientsService,
     { provide: PatientRepository, useClass: PrismaPatientsRepository },
   ],
+  exports: [PatientRepository],
 })
 export class PatientsModule {}

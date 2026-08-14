@@ -233,6 +233,15 @@
       }
     }
 
+    &--quote {
+      background: #16a34a;
+      color: white;
+
+      &:hover {
+        background: #15803d;
+      }
+    }
+
     &:disabled {
       cursor: default;
     }

@@ -114,6 +114,11 @@
       [patientId]="selectedPatientForHistory()!"
       (close)="onHistoryClose()"
     />
+  } @else if (showQuoteFlow()) {
+    <app-quote-builder
+      [patientId]="selectedPatientForQuote()!"
+      (close)="onQuoteClose()"
+    />
   } @else if (showWizard()) {
     <app-patient-wizard
       [userId]="selectedUserId() ?? ''"
@@ -127,6 +132,7 @@
       (openOdontogram)="onOpenOdontogram($event)"
       (registerTreatment)="onRegisterTreatment($event)"
       (viewHistory)="onViewHistory($event)"
+      (buildQuote)="onBuildQuote($event)"
     />
   }
 }
