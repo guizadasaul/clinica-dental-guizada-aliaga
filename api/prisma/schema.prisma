@@ -206,19 +206,20 @@ model quotes {
 
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
 model tooth_procedures {
-  id                 String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  patient_id         String           @db.Uuid
-  tooth_number       Int
-  treatment_id       String           @db.Uuid
-  price_charged      Decimal          @db.Decimal(10, 2)
-  procedure_date     DateTime         @default(dbgenerated("CURRENT_DATE")) @db.Date
-  surface_vestibular Boolean          @default(false)
-  surface_palatal    Boolean          @default(false)
-  surface_mesial     Boolean          @default(false)
-  surface_distal     Boolean          @default(false)
-  surface_occlusal   Boolean          @default(false)
-  notes              String?
-  performed_by       String           @db.Uuid
+  id                    String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  patient_id            String           @db.Uuid
+  tooth_number          Int?
+  application_group_id  String?          @db.Uuid
+  treatment_id          String           @db.Uuid
+  price_charged         Decimal          @db.Decimal(10, 2)
+  procedure_date        DateTime         @default(dbgenerated("CURRENT_DATE")) @db.Date
+  surface_vestibular    Boolean          @default(false)
+  surface_palatal       Boolean          @default(false)
+  surface_mesial        Boolean          @default(false)
+  surface_distal        Boolean          @default(false)
+  surface_occlusal      Boolean          @default(false)
+  notes                 String?
+  performed_by          String           @db.Uuid
   created_at         DateTime         @default(now()) @db.Timestamptz(6)
   patients           patients         @relation(fields: [patient_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
   users              users            @relation(fields: [performed_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
@@ -227,6 +228,7 @@ model tooth_procedures {
 
   @@index([procedure_date], map: "idx_tooth_procedures_date")
   @@index([patient_id, tooth_number], map: "idx_tooth_procedures_patient_tooth")
+  @@index([application_group_id], map: "idx_tooth_procedures_application_group")
 }
 
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.

@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ConflictException,
   ForbiddenException,
   NotFoundException,
@@ -10,6 +11,9 @@ import { Patient } from '../domain/Patient';
 import { UserRepository } from '../../auth/domain/UserRepository';
 import { User } from '../../auth/domain/User';
 import { UserRole } from '../../auth/domain/value-objects/UserRole';
+import { TreatmentRepository } from '../../treatments/domain/TreatmentRepository';
+import type { Treatment } from '../../treatments/domain/Treatment';
+import type { TreatmentScope } from '../../treatments/domain/TreatmentScope';
 
 const DOCTOR_AUTH_ID = 'doctor-auth-1';
 const PATIENT_AUTH_ID = 'patient-auth-1';
@@ -61,6 +65,22 @@ function fakePatient(
   );
 }
 
+function fakeTreatment(overrides: Partial<Treatment> = {}): Treatment {
+  return {
+    id: 'treatment-1',
+    name: 'Tratamiento',
+    description: null,
+    basePrice: 100,
+    estimatedMinutes: 30,
+    scope: 'tooth',
+    currency: 'BOB',
+    isActive: true,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+    ...overrides,
+  };
+}
+
 const mockPatientRepo = {
   findAllWithUsers: jest.fn(),
   findPatientById: jest.fn(),
@@ -72,8 +92,9 @@ const mockPatientRepo = {
   createClinicalExam: jest.fn(),
   createOdontogramEntries: jest.fn(),
   findOdontogramEntries: jest.fn(),
-  createToothProcedure: jest.fn(),
+  createToothProcedures: jest.fn(),
   findToothProcedures: jest.fn(),
+  appendOdontogramEntries: jest.fn(),
 };
 
 const mockUserRepo = {
@@ -82,6 +103,14 @@ const mockUserRepo = {
   createPlaceholder: jest.fn(),
   linkAuthIdentity: jest.fn(),
   updateContactInfo: jest.fn(),
+};
+
+const mockTreatmentRepo = {
+  findActive: jest.fn(),
+  findById: jest.fn(),
+  findDefaultConsultation: jest.fn(),
+  create: jest.fn(),
+  update: jest.fn(),
 };
 
 describe('PatientsService', () => {
@@ -94,6 +123,7 @@ describe('PatientsService', () => {
         PatientsService,
         { provide: PatientRepository, useValue: mockPatientRepo },
         { provide: UserRepository, useValue: mockUserRepo },
+        { provide: TreatmentRepository, useValue: mockTreatmentRepo },
       ],
     }).compile();
     service = module.get(PatientsService);
@@ -262,6 +292,190 @@ describe('PatientsService', () => {
         service.upsertMedicalHistory('patient-1', { hasAllergies: true }),
       ).resolves.toBeDefined();
       expect(mockUserRepo.findByAuthUserId).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('createToothProcedure — reglas de alcance', () => {
+    const baseInput = { treatmentId: 'treatment-1', priceCharged: 100 };
+
+    beforeEach(() => {
+      mockPatientRepo.findPatientById.mockResolvedValue(fakePatient());
+      mockUserRepo.findByAuthUserId.mockResolvedValue(
+        makeAppUser(UserRole.ODONTOLOGIST, 'doctor-1'),
+      );
+      mockPatientRepo.createToothProcedures.mockImplementation(
+        (_patientId: string, rows: Record<string, unknown>[]) =>
+          Promise.resolve(rows.map((r, i) => ({ id: `proc-${i}`, ...r }))),
+      );
+      mockPatientRepo.findOdontogramEntries.mockResolvedValue([]);
+      mockPatientRepo.appendOdontogramEntries.mockResolvedValue([]);
+    });
+
+    it('rejects a nonexistent treatment with 404', async () => {
+      mockTreatmentRepo.findById.mockResolvedValue(null);
+
+      await expect(
+        service.createToothProcedure('patient-1', 'doctor-auth-1', {
+          ...baseInput,
+          toothNumbers: [16],
+        }),
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    describe('scope: tooth', () => {
+      beforeEach(() => {
+        mockTreatmentRepo.findById.mockResolvedValue(
+          fakeTreatment({ scope: 'tooth' }),
+        );
+      });
+
+      it('rejects with no teeth', async () => {
+        await expect(
+          service.createToothProcedure('patient-1', 'doctor-auth-1', {
+            ...baseInput,
+            toothNumbers: [],
+          }),
+        ).rejects.toThrow(BadRequestException);
+      });
+
+      it('rejects with 2 teeth', async () => {
+        await expect(
+          service.createToothProcedure('patient-1', 'doctor-auth-1', {
+            ...baseInput,
+            toothNumbers: [16, 17],
+          }),
+        ).rejects.toThrow(BadRequestException);
+      });
+
+      it('creates a single row with applicationGroupId null', async () => {
+        const result = await service.createToothProcedure(
+          'patient-1',
+          'doctor-auth-1',
+          { ...baseInput, toothNumbers: [16] },
+        );
+
+        expect(result).toHaveLength(1);
+        expect(mockPatientRepo.createToothProcedures).toHaveBeenCalledWith(
+          'patient-1',
+          [
+            expect.objectContaining({
+              toothNumber: 16,
+              applicationGroupId: null,
+              priceCharged: 100,
+            }),
+          ],
+        );
+      });
+    });
+
+    describe('scope: multi_tooth', () => {
+      beforeEach(() => {
+        mockTreatmentRepo.findById.mockResolvedValue(
+          fakeTreatment({ scope: 'multi_tooth' }),
+        );
+      });
+
+      it('rejects with a single tooth', async () => {
+        await expect(
+          service.createToothProcedure('patient-1', 'doctor-auth-1', {
+            ...baseInput,
+            toothNumbers: [16],
+          }),
+        ).rejects.toThrow(BadRequestException);
+      });
+
+      it('creates one row per tooth sharing an applicationGroupId, price only on the lowest tooth', async () => {
+        await service.createToothProcedure('patient-1', 'doctor-auth-1', {
+          ...baseInput,
+          toothNumbers: [18, 16, 17],
+        });
+
+        const [, rows] = mockPatientRepo.createToothProcedures.mock
+          .calls[0] as [
+          string,
+          {
+            toothNumber: number;
+            applicationGroupId: string;
+            priceCharged: number;
+          }[],
+        ];
+        expect(rows).toHaveLength(3);
+        expect(rows.map((r) => r.toothNumber)).toEqual([16, 17, 18]);
+        expect(new Set(rows.map((r) => r.applicationGroupId)).size).toBe(1);
+        expect(rows[0].priceCharged).toBe(100);
+        expect(rows[1].priceCharged).toBe(0);
+        expect(rows[2].priceCharged).toBe(0);
+      });
+    });
+
+    describe.each([
+      ['upper_arch', 16],
+      ['lower_arch', 16],
+      ['full_mouth', 32],
+    ] as [TreatmentScope, number][])(
+      'scope: %s',
+      (scope, expectedTeethCount) => {
+        beforeEach(() => {
+          mockTreatmentRepo.findById.mockResolvedValue(
+            fakeTreatment({ scope }),
+          );
+        });
+
+        it('rejects when a tooth is specified', async () => {
+          await expect(
+            service.createToothProcedure('patient-1', 'doctor-auth-1', {
+              ...baseInput,
+              toothNumbers: [16],
+            }),
+          ).rejects.toThrow(BadRequestException);
+        });
+
+        it(`creates a single row with no tooth and generates ${expectedTeethCount} odontogram entries`, async () => {
+          await service.createToothProcedure('patient-1', 'doctor-auth-1', {
+            ...baseInput,
+            toothNumbers: [],
+          });
+
+          expect(mockPatientRepo.createToothProcedures).toHaveBeenCalledWith(
+            'patient-1',
+            [expect.objectContaining({ toothNumber: null })],
+          );
+          expect(mockPatientRepo.appendOdontogramEntries).toHaveBeenCalledTimes(
+            1,
+          );
+          const [, entries] = mockPatientRepo.appendOdontogramEntries.mock
+            .calls[0] as [string, unknown[]];
+          expect(entries).toHaveLength(expectedTeethCount);
+        });
+      },
+    );
+
+    describe('scope: none', () => {
+      beforeEach(() => {
+        mockTreatmentRepo.findById.mockResolvedValue(
+          fakeTreatment({ scope: 'none' }),
+        );
+      });
+
+      it('rejects when a tooth is specified', async () => {
+        await expect(
+          service.createToothProcedure('patient-1', 'doctor-auth-1', {
+            ...baseInput,
+            toothNumbers: [16],
+          }),
+        ).rejects.toThrow(BadRequestException);
+      });
+
+      it('creates a single row with no tooth and does not touch the odontogram', async () => {
+        const result = await service.createToothProcedure(
+          'patient-1',
+          'doctor-auth-1',
+          { ...baseInput, toothNumbers: [] },
+        );
+
+        expect(result).toHaveLength(1);
+        expect(mockPatientRepo.appendOdontogramEntries).not.toHaveBeenCalled();
+      });
     });
   });
 });

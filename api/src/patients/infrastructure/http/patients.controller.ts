@@ -205,7 +205,7 @@ export class PatientsController {
       patientId,
       currentUser.uid,
       {
-        toothNumber: dto.toothNumber,
+        toothNumbers: dto.toothNumbers,
         treatmentId: dto.treatmentId,
         priceCharged: dto.priceCharged,
         procedureDate: dto.procedureDate

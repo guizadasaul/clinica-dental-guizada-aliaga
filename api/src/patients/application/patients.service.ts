@@ -1,9 +1,11 @@
+import { randomUUID } from 'node:crypto';
 import {
   Injectable,
   Inject,
   NotFoundException,
   ConflictException,
   ForbiddenException,
+  BadRequestException,
 } from '@nestjs/common';
 import { PatientRepository } from '../domain/PatientRepository';
 import type {
@@ -19,6 +21,15 @@ import type {
 import { UserRepository } from '../../auth/domain/UserRepository';
 import type { UserRepository as IUserRepository } from '../../auth/domain/UserRepository';
 import { UserRole } from '../../auth/domain/value-objects/UserRole';
+import { TreatmentRepository } from '../../treatments/domain/TreatmentRepository';
+import type { ITreatmentRepository } from '../../treatments/domain/TreatmentRepository';
+import {
+  assertTeethMatchScope,
+  scopeGeneratesOdontogramEntries,
+  teethForScope,
+  InvalidScopeApplicationError,
+} from '../../treatments/domain/TreatmentScope';
+import type { TreatmentScope } from '../../treatments/domain/TreatmentScope';
 import type { Patient } from '../domain/Patient';
 import type { MedicalHistory } from '../domain/MedicalHistory';
 import type { HygieneHabits } from '../domain/HygieneHabits';
@@ -27,6 +38,19 @@ import type { PatientWithUser } from '../domain/PatientWithUser';
 import type { OdontogramEntry } from '../domain/OdontogramEntry';
 import type { ToothProcedure } from '../domain/ToothProcedure';
 
+interface CreateToothProcedureInput {
+  toothNumbers: number[];
+  treatmentId: string;
+  priceCharged: number;
+  procedureDate?: Date;
+  surfaceVestibular?: boolean;
+  surfacePalatal?: boolean;
+  surfaceMesial?: boolean;
+  surfaceDistal?: boolean;
+  surfaceOcclusal?: boolean;
+  notes?: string;
+}
+
 @Injectable()
 export class PatientsService {
   constructor(
@@ -34,6 +58,8 @@ export class PatientsService {
     private readonly patientRepo: IPatientRepository,
     @Inject(UserRepository)
     private readonly userRepo: IUserRepository,
+    @Inject(TreatmentRepository)
+    private readonly treatmentRepo: ITreatmentRepository,
   ) {}
 
   findAll(): Promise<PatientWithUser[]> {
@@ -139,8 +165,8 @@ export class PatientsService {
   async createToothProcedure(
     patientId: string,
     authUserId: string,
-    data: Omit<CreateToothProcedureData, 'performedBy'>,
-  ): Promise<ToothProcedure> {
+    data: CreateToothProcedureInput,
+  ): Promise<ToothProcedure[]> {
     await this.requirePatient(patientId);
     const user = await this.userRepo.findByAuthUserId(authUserId);
     if (!user) {
@@ -148,10 +174,100 @@ export class PatientsService {
         'Usuario autenticado no encontrado en la base de datos',
       );
     }
-    return this.patientRepo.createToothProcedure(patientId, {
-      ...data,
-      performedBy: user.id,
-    });
+    const treatment = await this.treatmentRepo.findById(data.treatmentId);
+    if (!treatment) {
+      throw new NotFoundException(
+        `Tratamiento con id ${data.treatmentId} no encontrado`,
+      );
+    }
+
+    try {
+      assertTeethMatchScope(treatment.scope, data.toothNumbers);
+    } catch (error: unknown) {
+      if (error instanceof InvalidScopeApplicationError) {
+        throw new BadRequestException(error.message);
+      }
+      throw error;
+    }
+
+    const rows = this.buildToothProcedureRows(treatment.scope, data, user.id);
+    const created = await this.patientRepo.createToothProcedures(
+      patientId,
+      rows,
+    );
+
+    if (scopeGeneratesOdontogramEntries(treatment.scope)) {
+      const existingEntries =
+        await this.patientRepo.findOdontogramEntries(patientId);
+      const conditionByTooth = new Map<number, string>();
+      for (const entry of existingEntries) {
+        if (!conditionByTooth.has(entry.toothNumber)) {
+          conditionByTooth.set(entry.toothNumber, entry.toothCondition);
+        }
+      }
+      const entries: OdontogramEntryData[] = teethForScope(treatment.scope).map(
+        (toothNumber) => ({
+          toothNumber,
+          diagnosisType: 'definitivo',
+          toothCondition: conditionByTooth.get(toothNumber) ?? 'sano',
+          diagnosisDescription: treatment.name,
+          treatmentId: treatment.id,
+          notes: data.notes,
+        }),
+      );
+      await this.patientRepo.appendOdontogramEntries(patientId, entries);
+    }
+
+    return created;
+  }
+
+  private buildToothProcedureRows(
+    scope: TreatmentScope,
+    data: CreateToothProcedureInput,
+    performedBy: string,
+  ): CreateToothProcedureData[] {
+    const shared = {
+      treatmentId: data.treatmentId,
+      procedureDate: data.procedureDate,
+      surfaceVestibular: data.surfaceVestibular,
+      surfacePalatal: data.surfacePalatal,
+      surfaceMesial: data.surfaceMesial,
+      surfaceDistal: data.surfaceDistal,
+      surfaceOcclusal: data.surfaceOcclusal,
+      notes: data.notes,
+      performedBy,
+    };
+
+    if (scope === 'multi_tooth') {
+      const applicationGroupId = randomUUID();
+      const sortedTeeth = [...data.toothNumbers].sort((a, b) => a - b);
+      return sortedTeeth.map((toothNumber, index) => ({
+        ...shared,
+        toothNumber,
+        applicationGroupId,
+        priceCharged: index === 0 ? data.priceCharged : 0,
+      }));
+    }
+
+    if (scope === 'tooth') {
+      return [
+        {
+          ...shared,
+          toothNumber: data.toothNumbers[0],
+          applicationGroupId: null,
+          priceCharged: data.priceCharged,
+        },
+      ];
+    }
+
+    return [
+      {
+        ...shared,
+        toothNumber: null,
+        applicationGroupId: null,
+        priceCharged: data.priceCharged,
+      },
+    ];
   }
 
   async findToothProcedures(patientId: string): Promise<ToothProcedure[]> {

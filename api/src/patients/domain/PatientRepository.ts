@@ -93,7 +93,8 @@ export interface OdontogramEntryData {
 }
 
 export interface CreateToothProcedureData {
-  toothNumber: number;
+  toothNumber: number | null;
+  applicationGroupId?: string | null;
   treatmentId: string;
   priceCharged: number;
   procedureDate?: Date;
@@ -130,11 +131,16 @@ export interface IPatientRepository {
     entries: OdontogramEntryData[],
   ): Promise<OdontogramEntry[]>;
   findOdontogramEntries(patientId: string): Promise<OdontogramEntry[]>;
-  createToothProcedure(
+  createToothProcedures(
     patientId: string,
-    data: CreateToothProcedureData,
-  ): Promise<ToothProcedure>;
+    data: CreateToothProcedureData[],
+  ): Promise<ToothProcedure[]>;
   findToothProcedures(patientId: string): Promise<ToothProcedure[]>;
+  /** Aditivo — a diferencia de createOdontogramEntries, no borra las entries existentes del paciente. */
+  appendOdontogramEntries(
+    patientId: string,
+    entries: OdontogramEntryData[],
+  ): Promise<OdontogramEntry[]>;
 }
 
 export const PatientRepository = Symbol('IPatientRepository');

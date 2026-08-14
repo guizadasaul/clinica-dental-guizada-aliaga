@@ -1,4 +1,5 @@
 import {
+  IsArray,
   IsInt,
   IsUUID,
   IsNumber,
@@ -7,13 +8,21 @@ import {
   IsBoolean,
   IsDateString,
   IsString,
+  Max,
   Min,
 } from 'class-validator';
 
 export class CreateToothProcedureDto {
-  @IsInt()
-  @Min(11)
-  toothNumber!: number;
+  /**
+   * Vacío para tratamientos de arcada/boca completa o sin diente (el scope
+   * del tratamiento decide si acepta 0, 1 o 2+ — no se valida acá, ver
+   * assertTeethMatchScope en patients.service.ts).
+   */
+  @IsArray()
+  @IsInt({ each: true })
+  @Min(11, { each: true })
+  @Max(85, { each: true })
+  toothNumbers!: number[];
 
   @IsUUID()
   treatmentId!: string;

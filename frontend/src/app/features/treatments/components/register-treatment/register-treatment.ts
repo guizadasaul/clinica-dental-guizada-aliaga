@@ -210,9 +210,9 @@ export class RegisterTreatmentComponent {
     this.formError.set(null);
 
     try {
-      const result = await new Promise<ToothProcedure>((resolve, reject) => {
+      const result = await new Promise<ToothProcedure[]>((resolve, reject) => {
         this.treatmentsService.createToothProcedure(this.patientId(), {
-          toothNumber: tooth.number,
+          toothNumbers: [tooth.number],
           treatmentId: this.panelTreatmentId(),
           priceCharged: this.panelPriceCharged(),
           procedureDate: this.panelProcedureDate(),
@@ -225,7 +225,7 @@ export class RegisterTreatmentComponent {
         }).subscribe({ next: resolve, error: reject });
       });
 
-      this.registeredProcedures.update((prev) => [...prev, result]);
+      this.registeredProcedures.update((prev) => [...prev, ...result]);
       this.successMessage.set(`Tratamiento registrado en diente #${tooth.number}.`);
       this.selectedTooth.set(null);
     } catch {

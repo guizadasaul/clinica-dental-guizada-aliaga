@@ -46,6 +46,8 @@ const CONSULTATION: Treatment = {
   description: null,
   basePrice: 50,
   estimatedMinutes: 30,
+  scope: 'none',
+  currency: 'BOB',
   isActive: true,
   createdAt: new Date(),
   updatedAt: new Date(),

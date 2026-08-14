@@ -1,7 +1,8 @@
 export interface ToothProcedure {
   id: string;
   patientId: string;
-  toothNumber: number;
+  toothNumber: number | null;
+  applicationGroupId: string | null;
   treatmentId: string;
   priceCharged: number;
   procedureDate: Date;

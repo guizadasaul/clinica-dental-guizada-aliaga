@@ -15,8 +15,8 @@ export class TreatmentsService {
     return this.http.get<Treatment[]>(this.treatmentsBase);
   }
 
-  createToothProcedure(patientId: string, data: CreateToothProcedureRequest): Observable<ToothProcedure> {
-    return this.http.post<ToothProcedure>(`${this.patientsBase}/${patientId}/tooth-procedures`, data);
+  createToothProcedure(patientId: string, data: CreateToothProcedureRequest): Observable<ToothProcedure[]> {
+    return this.http.post<ToothProcedure[]>(`${this.patientsBase}/${patientId}/tooth-procedures`, data);
   }
 
   getToothProcedures(patientId: string): Observable<ToothProcedure[]> {
