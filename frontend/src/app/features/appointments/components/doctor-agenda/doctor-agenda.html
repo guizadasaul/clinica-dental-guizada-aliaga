@@ -20,6 +20,14 @@
       (wizardComplete)="onHistoryDone()"
       (cancel)="onHistoryDone()"
     />
+  } @else if (invitingAppointment(); as appt) {
+    <app-send-invite
+      [patientId]="appt.patientId!"
+      [initialEmail]="appt.patientEmail"
+      [initialPhone]="appt.patientPhone ?? appt.guestPhone"
+      (sent)="onInviteSent()"
+      (cancel)="onInviteCancel()"
+    />
   } @else {
     @if (error()) {
       <p class="agenda__error" role="alert">{{ error() }}</p>
@@ -46,9 +54,17 @@
                 <span class="material-symbols-outlined">edit</span>
                 Corregir datos
               </button>
-              <button class="agenda-item__btn agenda-item__btn--primary" type="button" (click)="onOpenHistory(appt)">
+              <button
+                class="agenda-item__btn agenda-item__btn--primary"
+                type="button"
+                (click)="onOpenHistory(appt)"
+              >
                 <span class="material-symbols-outlined">folder_open</span>
                 Historial clínico
+              </button>
+              <button class="agenda-item__btn" type="button" (click)="onInvite(appt)">
+                <span class="material-symbols-outlined">person_add</span>
+                Enviar registro
               </button>
             </div>
           </div>

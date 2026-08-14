@@ -5,6 +5,7 @@ import { UserRepository } from '../domain/UserRepository';
 import { User } from '../domain/User';
 import { UserRole } from '../domain/value-objects/UserRole';
 import { AuthenticatedUser } from '../domain/AuthenticatedUser';
+import { PatientInvitesService } from '../../patient-invites/application/patient-invites.service';
 
 const AUTH_USER_ID = '11111111-1111-4111-8111-111111111111';
 
@@ -26,6 +27,13 @@ const mockRepo = {
   findByAuthUserId: jest.fn(),
   createPlaceholder: jest.fn(),
   linkAuthIdentity: jest.fn(),
+  updateContactInfo: jest.fn(),
+};
+
+const mockPatientInvitesService = {
+  redeem: jest.fn(),
+  createInvite: jest.fn(),
+  checkStatus: jest.fn(),
 };
 
 const authUser: AuthenticatedUser = {
@@ -41,7 +49,11 @@ describe('AuthService', () => {
   beforeEach(async () => {
     jest.clearAllMocks();
     const module = await Test.createTestingModule({
-      providers: [AuthService, { provide: UserRepository, useValue: mockRepo }],
+      providers: [
+        AuthService,
+        { provide: UserRepository, useValue: mockRepo },
+        { provide: PatientInvitesService, useValue: mockPatientInvitesService },
+      ],
     }).compile();
     service = module.get(AuthService);
   });
@@ -67,19 +79,51 @@ describe('AuthService', () => {
       await expect(service.syncUser(authUser)).rejects.toThrow('DB error');
     });
 
-    it('should ignore an inviteToken (CLI-13 not implemented yet) and still upsert normally', async () => {
+    it('links the auth identity to the invited patient when the token redeems successfully', async () => {
+      mockPatientInvitesService.redeem.mockResolvedValue({
+        patientId: 'patient-1',
+        userId: 'user-1',
+      });
+      mockRepo.linkAuthIdentity.mockResolvedValue(mockUser);
+
+      const result = await service.syncUser(authUser, 'valid-invite-token');
+
+      expect(mockPatientInvitesService.redeem).toHaveBeenCalledWith(
+        'valid-invite-token',
+      );
+      expect(mockRepo.linkAuthIdentity).toHaveBeenCalledWith('user-1', {
+        authUserId: AUTH_USER_ID,
+        email: 'test@example.com',
+        displayName: 'Test User',
+        photoUrl: null,
+      });
+      expect(result).toBe(mockUser);
+      expect(mockRepo.upsertByAuthUserId).not.toHaveBeenCalled();
+    });
+
+    it('falls back to a normal upsert when the invite token is invalid/expired/already used', async () => {
+      mockPatientInvitesService.redeem.mockResolvedValue(null);
       mockRepo.upsertByAuthUserId.mockResolvedValue(mockUser);
 
-      const result = await service.syncUser(authUser, 'some-invite-token');
+      const result = await service.syncUser(authUser, 'bad-invite-token');
 
-      expect(result).toBe(mockUser);
       expect(mockRepo.linkAuthIdentity).not.toHaveBeenCalled();
+      expect(result).toBe(mockUser);
       expect(mockRepo.upsertByAuthUserId).toHaveBeenCalledWith({
         authUserId: AUTH_USER_ID,
         email: 'test@example.com',
         displayName: 'Test User',
         photoUrl: null,
       });
+    });
+
+    it('still completes the login when the invite seam itself throws', async () => {
+      mockPatientInvitesService.redeem.mockRejectedValue(new Error('boom'));
+      mockRepo.upsertByAuthUserId.mockResolvedValue(mockUser);
+
+      const result = await service.syncUser(authUser, 'some-token');
+
+      expect(result).toBe(mockUser);
     });
   });
 

@@ -3,13 +3,11 @@ import { Routes } from '@angular/router';
 export const routes: Routes = [
   {
     path: '',
-    loadChildren: () =>
-      import('./landing/landing.routes').then((r) => r.landingRoutes),
+    loadChildren: () => import('./landing/landing.routes').then((r) => r.landingRoutes),
   },
   {
     path: 'auth',
-    loadChildren: () =>
-      import('./auth/auth.routes').then((r) => r.authRoutes),
+    loadChildren: () => import('./auth/auth.routes').then((r) => r.authRoutes),
   },
   {
     path: 'dashboard',
@@ -18,7 +16,11 @@ export const routes: Routes = [
   },
   {
     path: 'reservar',
+    loadChildren: () => import('./features/booking/booking.routes').then((r) => r.bookingRoutes),
+  },
+  {
+    path: 'invitacion',
     loadChildren: () =>
-      import('./features/booking/booking.routes').then((r) => r.bookingRoutes),
+      import('./features/invitation/invitation.routes').then((r) => r.invitationRoutes),
   },
 ];

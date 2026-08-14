@@ -1,0 +1,47 @@
+<div class="send-invite">
+  <h3 class="send-invite__title">Enviar registro de paciente nuevo</h3>
+  <p class="send-invite__hint">
+    Le mandamos un link para que complete su registro con Google. Al usarlo queda vinculado a esta
+    ficha.
+  </p>
+
+  @if (error()) {
+    <p class="send-invite__error">{{ error() }}</p>
+  }
+
+  <div class="send-invite__actions">
+    <button
+      class="send-invite__btn"
+      type="button"
+      [disabled]="!initialEmail() || loadingChannel() !== null"
+      [title]="!initialEmail() ? 'El paciente no tiene un email cargado' : ''"
+      (click)="onSendEmail()"
+    >
+      <span class="material-symbols-outlined">mail</span>
+      @if (loadingChannel() === 'email') {
+        Enviando...
+      } @else {
+        Enviar por email
+      }
+    </button>
+
+    <button
+      class="send-invite__btn"
+      type="button"
+      [disabled]="!initialPhone() || loadingChannel() !== null"
+      [title]="!initialPhone() ? 'El paciente no tiene un teléfono cargado' : ''"
+      (click)="onSendWhatsapp()"
+    >
+      <span class="material-symbols-outlined">chat</span>
+      @if (loadingChannel() === 'whatsapp') {
+        Abriendo...
+      } @else {
+        Enviar por WhatsApp
+      }
+    </button>
+
+    <button class="send-invite__btn send-invite__btn--secondary" type="button" (click)="onCancel()">
+      Cerrar
+    </button>
+  </div>
+</div>

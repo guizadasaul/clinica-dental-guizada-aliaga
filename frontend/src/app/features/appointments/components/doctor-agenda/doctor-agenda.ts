@@ -3,6 +3,7 @@ import { firstValueFrom } from 'rxjs';
 import { AppointmentsService } from '../../services/appointments.service';
 import { PatientQuickEditComponent } from '../patient-quick-edit/patient-quick-edit';
 import { PatientWizardComponent } from '../../../patients/components/patient-wizard/patient-wizard';
+import { SendInviteComponent } from '../send-invite/send-invite';
 import type { AppointmentAgendaItem } from '../../models/appointment.model';
 
 const TIME_FORMATTER = new Intl.DateTimeFormat('es-BO', {
@@ -18,7 +19,7 @@ const TIME_FORMATTER = new Intl.DateTimeFormat('es-BO', {
   selector: 'app-doctor-agenda',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [PatientQuickEditComponent, PatientWizardComponent],
+  imports: [PatientQuickEditComponent, PatientWizardComponent, SendInviteComponent],
   templateUrl: './doctor-agenda.html',
   styleUrl: './doctor-agenda.scss',
 })
@@ -31,6 +32,7 @@ export class DoctorAgendaComponent {
 
   protected readonly editingAppointment = signal<AppointmentAgendaItem | null>(null);
   protected readonly historyPatientId = signal<string | null>(null);
+  protected readonly invitingAppointment = signal<AppointmentAgendaItem | null>(null);
 
   constructor() {
     void this.load();
@@ -40,7 +42,9 @@ export class DoctorAgendaComponent {
     this.loading.set(true);
     this.error.set(null);
     try {
-      const result = await firstValueFrom(this.appointmentsService.getAgenda({ status: 'confirmed' }));
+      const result = await firstValueFrom(
+        this.appointmentsService.getAgenda({ status: 'confirmed' }),
+      );
       this.appointments.set(result);
     } catch {
       this.error.set('No pudimos cargar la agenda.');
@@ -70,6 +74,7 @@ export class DoctorAgendaComponent {
     }
     this.editingAppointment.set(a);
     this.historyPatientId.set(null);
+    this.invitingAppointment.set(null);
   }
 
   protected onOpenHistory(a: AppointmentAgendaItem): void {
@@ -78,6 +83,16 @@ export class DoctorAgendaComponent {
     }
     this.historyPatientId.set(a.patientId);
     this.editingAppointment.set(null);
+    this.invitingAppointment.set(null);
+  }
+
+  protected onInvite(a: AppointmentAgendaItem): void {
+    if (!a.patientId) {
+      return;
+    }
+    this.invitingAppointment.set(a);
+    this.editingAppointment.set(null);
+    this.historyPatientId.set(null);
   }
 
   protected onEditSaved(): void {
@@ -92,5 +107,13 @@ export class DoctorAgendaComponent {
   protected onHistoryDone(): void {
     this.historyPatientId.set(null);
     void this.load();
+  }
+
+  protected onInviteSent(): void {
+    this.invitingAppointment.set(null);
+  }
+
+  protected onInviteCancel(): void {
+    this.invitingAppointment.set(null);
   }
 }
