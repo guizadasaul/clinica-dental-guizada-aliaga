@@ -34,7 +34,7 @@ export class PrismaAppointmentsRepository implements IAppointmentRepository {
         ...(filters.status && { status: filters.status }),
         ...dateFilter,
       },
-      include: { patients: true },
+      include: { patients: { include: { users: true } } },
       orderBy: { appointment_datetime: 'asc' },
     });
     return records.map((record) =>

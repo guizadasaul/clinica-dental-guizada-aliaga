@@ -91,7 +91,10 @@ export class AuthService {
     // En éxito el browser navega a Google; nada después de esta línea corre.
   }
 
-  async registerWithPassword(email: string, password: string): Promise<{ confirmationRequired: boolean }> {
+  async registerWithPassword(
+    email: string,
+    password: string,
+  ): Promise<{ confirmationRequired: boolean }> {
     const { data, error } = await this.supabase.auth.signUp({
       email,
       password,
@@ -142,9 +145,13 @@ export class AuthService {
   }
 
   private async syncWithBackend(): Promise<void> {
+    const inviteToken = sessionStorage.getItem('pendingInviteToken');
     try {
       const user = await firstValueFrom(
-        this.http.post<BackendUser>(`${environment.backendUrl}/auth/sync`, {}),
+        this.http.post<BackendUser>(
+          `${environment.backendUrl}/auth/sync`,
+          inviteToken ? { inviteToken } : {},
+        ),
       );
       this.currentUser.update((u) =>
         u
@@ -159,6 +166,10 @@ export class AuthService {
       );
     } catch {
       // role queda null — el guard igual deja pasar por sesión válida
+    } finally {
+      if (inviteToken) {
+        sessionStorage.removeItem('pendingInviteToken');
+      }
     }
   }
 

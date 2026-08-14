@@ -6,6 +6,7 @@ export interface AppointmentAgendaItem {
   patientFirstName: string | null;
   patientLastNamePaternal: string | null;
   patientPhone: string | null;
+  patientEmail: string | null;
   guestFullName: string | null;
   guestPhone: string | null;
 }

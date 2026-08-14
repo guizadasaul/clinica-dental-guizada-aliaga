@@ -140,6 +140,18 @@ model patients {
   quotes                         quotes[]
   tooth_procedures               tooth_procedures[]
   xray_documents                 xray_documents[]
+  patient_invites                patient_invites[]
+}
+
+model patient_invites {
+  id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  patient_id String    @db.Uuid
+  token_hash String    @unique @db.VarChar(64)
+  channel    String    @db.VarChar(20)
+  expires_at DateTime  @db.Timestamptz(6)
+  used_at    DateTime? @db.Timestamptz(6)
+  created_at DateTime  @default(now()) @db.Timestamptz(6)
+  patients   patients  @relation(fields: [patient_id], references: [id], onDelete: Cascade)
 }
 
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.

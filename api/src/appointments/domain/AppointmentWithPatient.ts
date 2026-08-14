@@ -8,6 +8,7 @@ export class AppointmentWithPatient {
     readonly patientFirstName: string | null,
     readonly patientLastNamePaternal: string | null,
     readonly patientPhone: string | null,
+    readonly patientEmail: string | null,
     readonly guestFullName: string | null,
     readonly guestPhone: string | null,
   ) {}

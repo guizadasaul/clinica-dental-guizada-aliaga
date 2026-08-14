@@ -1,4 +1,4 @@
-import type { appointments, patients } from '@prisma/client';
+import type { appointments, patients, users } from '@prisma/client';
 import { Appointment } from '../../domain/Appointment.js';
 import { AppointmentWithPatient } from '../../domain/AppointmentWithPatient.js';
 
@@ -26,7 +26,7 @@ export class AppointmentMapper {
   }
 
   static toDomainWithPatient(
-    record: appointments & { patients: patients | null },
+    record: appointments & { patients: (patients & { users: users }) | null },
   ): AppointmentWithPatient {
     return new AppointmentWithPatient(
       record.id,
@@ -36,6 +36,7 @@ export class AppointmentMapper {
       record.patients?.first_name ?? null,
       record.patients?.last_name_paternal ?? null,
       record.patients?.phone ?? null,
+      record.patients?.users?.email ?? null,
       record.guest_full_name,
       record.guest_phone,
     );
