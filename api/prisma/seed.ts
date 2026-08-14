@@ -1,90 +1,432 @@
 import { PrismaClient } from '@prisma/client';
+import type { TreatmentScope } from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
 
 const adapter = new PrismaPg({ connectionString: process.env['DATABASE_URL'] });
 const prisma = new PrismaClient({ adapter });
 
-const treatments = [
-  { name: 'Extracción simple', description: 'Extracción de pieza dental con anestesia local', base_price: 150, estimated_minutes: 30 },
-  { name: 'Extracción de muela del juicio', description: 'Extracción quirúrgica de tercer molar', base_price: 350, estimated_minutes: 60 },
-  { name: 'Obturación resina (1 superficie)', description: 'Restauración con resina compuesta de una superficie', base_price: 120, estimated_minutes: 45 },
-  { name: 'Obturación resina (2 superficies)', description: 'Restauración con resina compuesta de dos superficies', base_price: 180, estimated_minutes: 60 },
-  { name: 'Obturación resina (3 superficies)', description: 'Restauración con resina compuesta de tres o más superficies', base_price: 240, estimated_minutes: 75 },
-  { name: 'Obturación amalgama', description: 'Restauración con amalgama dental', base_price: 100, estimated_minutes: 45 },
-  { name: 'Endodoncia unirradicular', description: 'Tratamiento de conducto en diente de un canal', base_price: 400, estimated_minutes: 90 },
-  { name: 'Endodoncia birradicular', description: 'Tratamiento de conducto en diente de dos canales', base_price: 550, estimated_minutes: 120 },
-  { name: 'Endodoncia multirradicular', description: 'Tratamiento de conducto en molar (tres o más canales)', base_price: 700, estimated_minutes: 150 },
-  { name: 'Corona de porcelana', description: 'Corona cerámica libre de metal', base_price: 800, estimated_minutes: 60 },
-  { name: 'Corona metal-porcelana', description: 'Corona con base metálica y recubrimiento cerámico', base_price: 600, estimated_minutes: 60 },
-  { name: 'Corona acrílica temporal', description: 'Corona provisional acrílica', base_price: 150, estimated_minutes: 30 },
-  { name: 'Raspado y alisado radicular', description: 'Limpieza subgingival profunda por cuadrante', base_price: 200, estimated_minutes: 60 },
-  { name: 'Profilaxis dental', description: 'Limpieza dental profesional y pulido', base_price: 80, estimated_minutes: 30 },
-  { name: 'Blanqueamiento dental', description: 'Blanqueamiento profesional en consultorio', base_price: 300, estimated_minutes: 90 },
-  { name: 'Periodoncia quirúrgica', description: 'Cirugía periodontal por cuadrante', base_price: 450, estimated_minutes: 90 },
-  { name: 'Implante dental', description: 'Colocación de implante de titanio', base_price: 1200, estimated_minutes: 90 },
-  { name: 'Incrustación de porcelana (inlay)', description: 'Restauración indirecta de porcelana en cavidad', base_price: 500, estimated_minutes: 90 },
-  { name: 'Frenectomía', description: 'Eliminación quirúrgica del frenillo labial o lingual', base_price: 250, estimated_minutes: 30 },
-  { name: 'Tratamiento de fluorización', description: 'Aplicación tópica de flúor para prevención de caries', base_price: 50, estimated_minutes: 20 },
-];
-
-async function seedTreatments() {
-  const existing = await prisma.treatments.count();
-  if (existing > 0) {
-    console.log(`La tabla treatments ya tiene ${existing} registros — seed omitido.`);
-    return;
-  }
-
-  await prisma.treatments.createMany({
-    data: treatments.map((t) => ({
-      name: t.name,
-      description: t.description,
-      base_price: t.base_price,
-      estimated_minutes: t.estimated_minutes,
-      is_active: true,
-    })),
-  });
-
-  console.log(`✓ ${treatments.length} tratamientos insertados.`);
+interface SeedTreatment {
+  name: string;
+  base_price: number;
+  scope: TreatmentScope;
+  currency: 'BOB' | 'USD';
 }
 
 /**
- * Monto fijo de la reserva pública (CLI-10/CLI-11) mientras no existe un
- * flujo de selección de tratamiento — precio provisional, se reemplaza
- * cuando se reorganicen los tratamientos en un issue futuro.
+ * Catálogo real de la clínica (64 tratamientos, CLI-18). Todo en BOB salvo
+ * Implante (USD). "Curetaje", "Gingivoplastia", "Operculectomía" y las tres
+ * reposiciones de ortodoncia (bracket metálico, bandas, bracket estético)
+ * vinieron sin alcance anotado a mano — se asume `tooth` por ser consistente
+ * con el patrón del resto del catálogo (todo lo que no es `tooth` viene
+ * anotado explícitamente).
  */
-async function seedDefaultConsultationTreatment() {
-  const existing = await prisma.treatments.findFirst({
-    where: { is_default_consultation: true },
-  });
-  if (existing) {
-    console.log(
-      'Ya existe un tratamiento marcado is_default_consultation — seed omitido.',
-    );
-    return;
+const CATALOG: SeedTreatment[] = [
+  // Básicos
+  { name: 'Consulta', base_price: 50, scope: 'none', currency: 'BOB' },
+  { name: 'Emergencia', base_price: 100, scope: 'none', currency: 'BOB' },
+  {
+    name: 'Certificado odontológico',
+    base_price: 150,
+    scope: 'none',
+    currency: 'BOB',
+  },
+
+  // Operatoria
+  { name: 'Caries simple', base_price: 180, scope: 'tooth', currency: 'BOB' },
+  {
+    name: 'Caries compuesta',
+    base_price: 250,
+    scope: 'tooth',
+    currency: 'BOB',
+  },
+  {
+    name: 'Resina para muñón',
+    base_price: 80,
+    scope: 'tooth',
+    currency: 'BOB',
+  },
+  { name: 'Ionómero', base_price: 80, scope: 'tooth', currency: 'BOB' },
+  {
+    name: 'Resina en diente temporal',
+    base_price: 80,
+    scope: 'tooth',
+    currency: 'BOB',
+  },
+  {
+    name: 'Sellante en diente permanente',
+    base_price: 100,
+    scope: 'tooth',
+    currency: 'BOB',
+  },
+  {
+    name: 'Sellante en diente temporal',
+    base_price: 80,
+    scope: 'tooth',
+    currency: 'BOB',
+  },
+  {
+    name: 'Blanqueamiento dental láser',
+    base_price: 1000,
+    scope: 'full_mouth',
+    currency: 'BOB',
+  },
+
+  // Periodoncia
+  {
+    name: 'Limpieza, profilaxis y flúor',
+    base_price: 250,
+    scope: 'full_mouth',
+    currency: 'BOB',
+  },
+  {
+    name: 'Gingivectomía superior',
+    base_price: 400,
+    scope: 'upper_arch',
+    currency: 'BOB',
+  },
+  {
+    name: 'Gingivectomía inferior',
+    base_price: 400,
+    scope: 'lower_arch',
+    currency: 'BOB',
+  },
+  {
+    name: 'Gingivectomía completa',
+    base_price: 800,
+    scope: 'full_mouth',
+    currency: 'BOB',
+  },
+  { name: 'Curetaje', base_price: 150, scope: 'tooth', currency: 'BOB' },
+  { name: 'Gingivoplastia', base_price: 200, scope: 'tooth', currency: 'BOB' },
+  {
+    name: 'Destartraje, limpieza, profilaxis y flúor',
+    base_price: 350,
+    scope: 'full_mouth',
+    currency: 'BOB',
+  },
+
+  // Endodoncia
+  {
+    name: 'Tratamiento de conducto unirradicular',
+    base_price: 300,
+    scope: 'tooth',
+    currency: 'BOB',
+  },
+  {
+    name: 'Tratamiento de conducto birradicular',
+    base_price: 350,
+    scope: 'tooth',
+    currency: 'BOB',
+  },
+  {
+    name: 'Tratamiento de conducto multirradicular',
+    base_price: 450,
+    scope: 'tooth',
+    currency: 'BOB',
+  },
+  {
+    name: 'Retratamiento de conducto',
+    base_price: 400,
+    scope: 'tooth',
+    currency: 'BOB',
+  },
+
+  // Cirugía
+  {
+    name: 'Extracción simple',
+    base_price: 100,
+    scope: 'tooth',
+    currency: 'BOB',
+  },
+  {
+    name: 'Extracción quirúrgica',
+    base_price: 500,
+    scope: 'tooth',
+    currency: 'BOB',
+  },
+  {
+    name: 'Extracción de tercer molar',
+    base_price: 600,
+    scope: 'tooth',
+    currency: 'BOB',
+  },
+  { name: 'Operculectomía', base_price: 200, scope: 'tooth', currency: 'BOB' },
+  { name: 'Apicectomía', base_price: 450, scope: 'tooth', currency: 'BOB' },
+  { name: 'Implante', base_price: 700, scope: 'tooth', currency: 'USD' },
+  {
+    name: 'Cirugía de lesiones en tejidos blandos',
+    base_price: 500,
+    scope: 'none',
+    currency: 'BOB',
+  },
+  { name: 'Frenectomía', base_price: 800, scope: 'none', currency: 'BOB' },
+
+  // Prótesis removible
+  {
+    name: 'Placa parcial de cromo-cobalto',
+    base_price: 1400,
+    scope: 'multi_tooth',
+    currency: 'BOB',
+  },
+  {
+    name: 'Placa parcial de acrílico',
+    base_price: 1000,
+    scope: 'multi_tooth',
+    currency: 'BOB',
+  },
+  {
+    name: 'Placa total de acrílico superior',
+    base_price: 1500,
+    scope: 'upper_arch',
+    currency: 'BOB',
+  },
+  {
+    name: 'Placa total de acrílico inferior',
+    base_price: 1500,
+    scope: 'lower_arch',
+    currency: 'BOB',
+  },
+  {
+    name: 'Placa total de acrílico completa Bonwill',
+    base_price: 2500,
+    scope: 'full_mouth',
+    currency: 'BOB',
+  },
+  {
+    name: 'Placa parcial flexible',
+    base_price: 1500,
+    scope: 'multi_tooth',
+    currency: 'BOB',
+  },
+  {
+    name: 'Placa parcial Cromoflex',
+    base_price: 1700,
+    scope: 'multi_tooth',
+    currency: 'BOB',
+  },
+  {
+    name: 'Reparación de prótesis',
+    base_price: 300,
+    scope: 'none',
+    currency: 'BOB',
+  },
+  {
+    name: 'Rebasado total en laboratorio',
+    base_price: 400,
+    scope: 'none',
+    currency: 'BOB',
+  },
+  {
+    name: 'Rebasado en clínica',
+    base_price: 200,
+    scope: 'none',
+    currency: 'BOB',
+  },
+  {
+    name: 'Placa de miorelajación',
+    base_price: 350,
+    scope: 'upper_arch',
+    currency: 'BOB',
+  },
+  {
+    name: 'Protector bucal',
+    base_price: 700,
+    scope: 'upper_arch',
+    currency: 'BOB',
+  },
+
+  // Prótesis fija
+  {
+    name: 'Corona provisional',
+    base_price: 100,
+    scope: 'tooth',
+    currency: 'BOB',
+  },
+  {
+    name: 'Perno de fibra de vidrio',
+    base_price: 350,
+    scope: 'tooth',
+    currency: 'BOB',
+  },
+  { name: 'Perno + muñón', base_price: 250, scope: 'tooth', currency: 'BOB' },
+  { name: 'Corona metálica', base_price: 350, scope: 'tooth', currency: 'BOB' },
+  {
+    name: 'Corona de Ivocron',
+    base_price: 550,
+    scope: 'tooth',
+    currency: 'BOB',
+  },
+  {
+    name: 'Corona de Isosit',
+    base_price: 750,
+    scope: 'tooth',
+    currency: 'BOB',
+  },
+  {
+    name: 'Corona de porcelana sobre metal o plástico',
+    base_price: 950,
+    scope: 'tooth',
+    currency: 'BOB',
+  },
+  {
+    name: 'Corona de porcelana libre de metal',
+    base_price: 1200,
+    scope: 'tooth',
+    currency: 'BOB',
+  },
+
+  // Ortodoncia
+  {
+    name: 'Ortodoncia con brackets metálicos',
+    base_price: 6800,
+    scope: 'full_mouth',
+    currency: 'BOB',
+  },
+  {
+    name: 'Reposición de bracket metálico',
+    base_price: 150,
+    scope: 'tooth',
+    currency: 'BOB',
+  },
+  {
+    name: 'Reposición de bandas',
+    base_price: 150,
+    scope: 'tooth',
+    currency: 'BOB',
+  },
+  {
+    name: 'Reposición de arco',
+    base_price: 50,
+    scope: 'none',
+    currency: 'BOB',
+  },
+  {
+    name: 'Ortodoncia con brackets estéticos',
+    base_price: 8300,
+    scope: 'full_mouth',
+    currency: 'BOB',
+  },
+  {
+    name: 'Reposición de bracket estético',
+    base_price: 200,
+    scope: 'tooth',
+    currency: 'BOB',
+  },
+  {
+    name: 'Placa de expansión removible',
+    base_price: 500,
+    scope: 'none',
+    currency: 'BOB',
+  },
+  {
+    name: 'Placa de expansión fija',
+    base_price: 1000,
+    scope: 'none',
+    currency: 'BOB',
+  },
+  {
+    name: 'Placa de contención superior',
+    base_price: 400,
+    scope: 'upper_arch',
+    currency: 'BOB',
+  },
+  {
+    name: 'Placa de contención inferior',
+    base_price: 400,
+    scope: 'lower_arch',
+    currency: 'BOB',
+  },
+  {
+    name: 'Placa de contención completa',
+    base_price: 800,
+    scope: 'full_mouth',
+    currency: 'BOB',
+  },
+  { name: 'Máscara facial', base_price: 3500, scope: 'none', currency: 'BOB' },
+  {
+    name: 'Elásticos de clase',
+    base_price: 20,
+    scope: 'none',
+    currency: 'BOB',
+  },
+  { name: 'Cera ortodóntica', base_price: 30, scope: 'none', currency: 'BOB' },
+];
+
+const DEFAULT_CONSULTATION_NAME = 'Consulta';
+
+/**
+ * Upsert por nombre, no createMany con guard de tabla completa — permite
+ * cargar ítems nuevos del catálogo en el futuro sin duplicar los actuales.
+ * El `update` NO toca `base_price` a propósito: el contenedor corre
+ * `prisma db seed` en cada arranque, y con PATCH /treatments/:id ya
+ * disponible (CLI-14) un upsert completo revertiría cualquier ajuste de
+ * precio que haga el doctor en el siguiente `docker compose up`.
+ */
+async function upsertCatalog() {
+  for (const item of CATALOG) {
+    await prisma.treatments.upsert({
+      where: { name: item.name },
+      create: {
+        name: item.name,
+        base_price: item.base_price,
+        scope: item.scope,
+        currency: item.currency,
+        is_active: true,
+      },
+      update: {
+        scope: item.scope,
+        currency: item.currency,
+        is_active: true,
+      },
+    });
   }
+  console.log(`✓ ${CATALOG.length} tratamientos del catálogo sincronizados.`);
+}
 
-  await prisma.treatments.create({
-    data: {
-      name: 'Consulta inicial',
-      description:
-        'Consulta odontológica inicial — reserva online (precio provisional)',
-      base_price: 50,
-      estimated_minutes: 30,
-      is_active: true,
-      is_default_consultation: true,
-    },
+/** Tratamientos que ya no están en el catálogo real quedan inactivos, nunca se borran (FKs con ON DELETE NO ACTION). */
+async function deactivateLegacy() {
+  const catalogNames = CATALOG.map((t) => t.name);
+  const { count } = await prisma.treatments.updateMany({
+    where: { name: { notIn: catalogNames }, is_active: true },
+    data: { is_active: false },
   });
+  if (count > 0) {
+    console.log(`✓ ${count} tratamientos fuera del catálogo desactivados.`);
+  }
+}
 
+/**
+ * Monto fijo de la reserva pública (CLI-10/CLI-11). Primero libera el flag
+ * de cualquier fila que no sea la consulta actual (el índice parcial único
+ * solo permite una fila con is_default_consultation=true a la vez), después
+ * lo marca en la fila correcta.
+ */
+async function syncDefaultConsultation() {
+  await prisma.treatments.updateMany({
+    where: {
+      is_default_consultation: true,
+      name: { not: DEFAULT_CONSULTATION_NAME },
+    },
+    data: { is_default_consultation: false },
+  });
+  await prisma.treatments.update({
+    where: { name: DEFAULT_CONSULTATION_NAME },
+    data: { is_default_consultation: true },
+  });
   console.log(
-    '✓ Tratamiento "Consulta inicial" (is_default_consultation) insertado.',
+    `✓ "${DEFAULT_CONSULTATION_NAME}" marcada como is_default_consultation.`,
   );
 }
 
 async function main() {
-  await seedTreatments();
-  await seedDefaultConsultationTreatment();
+  await upsertCatalog();
+  await deactivateLegacy();
+  await syncDefaultConsultation();
 }
 
 main()
-  .catch((e) => { console.error(e); process.exit(1); })
+  .catch((e) => {
+    console.error(e);
+    process.exit(1);
+  })
   .finally(() => prisma.$disconnect());
