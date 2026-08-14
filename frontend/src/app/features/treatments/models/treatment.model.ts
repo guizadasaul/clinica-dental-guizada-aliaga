@@ -16,6 +16,8 @@ export interface Treatment {
   estimatedMinutes: number;
   scope: TreatmentScope;
   currency: TreatmentCurrency;
+  /** Equivalente en Bs. al tipo de cambio del día — null si currency es BOB o no hay tipo de cambio disponible (CLI-19). */
+  basePriceBob: number | null;
   isActive: boolean;
   createdAt: string;
   updatedAt: string;

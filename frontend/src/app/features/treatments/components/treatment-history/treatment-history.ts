@@ -112,6 +112,11 @@ export class TreatmentHistoryComponent {
     return t?.currency === 'USD' ? '$' : 'Bs.';
   }
 
+  protected getTreatmentBasePriceBob(treatmentId: string): number | null {
+    const t = this.treatments().find((t) => t.id === treatmentId);
+    return t?.currency === 'USD' ? (t.basePriceBob ?? null) : null;
+  }
+
   protected formatDate(dateStr: string): string {
     const datePart = dateStr.slice(0, 10);
     const [y, m, d] = datePart.split('-');

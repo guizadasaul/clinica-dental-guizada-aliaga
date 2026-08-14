@@ -132,6 +132,9 @@
             [value]="panelPriceCharged()"
             (input)="panelPriceCharged.set(+$any($event.target).value)"
           />
+          @if (sel.treatment.currency === 'USD' && sel.treatment.basePriceBob !== null) {
+            <small class="reg-treatment__fx-hint">aprox. Bs {{ sel.treatment.basePriceBob | number:'1.2-2' }} al tipo de cambio del día</small>
+          }
         </div>
 
         <!-- Procedure date -->

@@ -8,12 +8,14 @@ import { PatientsModule } from './patients/patients.module';
 import { TreatmentsModule } from './treatments/treatments.module';
 import { AppointmentsModule } from './appointments/appointments.module';
 import { PaymentsModule } from './payments/payments.module';
+import { ExchangeRateModule } from './exchange-rate/exchange-rate.module';
 
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
     PrismaModule,
     AuthModule,
+    ExchangeRateModule,
     PatientsModule,
     TreatmentsModule,
     AppointmentsModule,

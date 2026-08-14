@@ -4,9 +4,10 @@ import { TreatmentsService } from './application/treatments.service';
 import { TreatmentRepository } from './domain/TreatmentRepository';
 import { PrismaTreatmentsRepository } from './infrastructure/persistence/prisma-treatments.repository';
 import { AuthModule } from '../auth/auth.module';
+import { ExchangeRateModule } from '../exchange-rate/exchange-rate.module';
 
 @Module({
-  imports: [AuthModule],
+  imports: [AuthModule, ExchangeRateModule],
   controllers: [TreatmentsController],
   providers: [
     TreatmentsService,
