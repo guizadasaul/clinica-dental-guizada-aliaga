@@ -13,6 +13,16 @@ import { toSignal } from '@angular/core/rxjs-interop';
 import { TreatmentsService } from '../../services/treatments.service';
 import type { Treatment, ToothProcedure } from '../../models/treatment.model';
 
+interface GroupedProcedure {
+  readonly key: string;
+  readonly procedureDate: string;
+  readonly toothNumbers: number[];
+  readonly treatmentId: string;
+  readonly totalPrice: number;
+  readonly surfaces: string;
+  readonly notes: string | null;
+}
+
 @Component({
   selector: 'app-treatment-history',
   standalone: true,
@@ -40,6 +50,40 @@ export class TreatmentHistoryComponent {
     this.procedures().reduce((sum, p) => sum + p.priceCharged, 0),
   );
 
+  /**
+   * Colapsa las filas de una misma aplicación multi_tooth (comparten
+   * applicationGroupId) en una sola fila — el precio ya está completo en
+   * la fila del diente más bajo del grupo y en 0 en las demás (ver CLI-15),
+   * así que sumar priceCharged del grupo sigue dando el precio real.
+   */
+  protected readonly groupedProcedures = computed<GroupedProcedure[]>(() => {
+    const groups = new Map<string, ToothProcedure[]>();
+    const order: string[] = [];
+    for (const p of this.procedures()) {
+      const key = p.applicationGroupId ?? p.id;
+      if (!groups.has(key)) {
+        groups.set(key, []);
+        order.push(key);
+      }
+      groups.get(key)!.push(p);
+    }
+    return order.map((key) => {
+      const rows = groups.get(key)!;
+      const first = rows[0];
+      return {
+        key,
+        procedureDate: first.procedureDate,
+        toothNumbers: rows
+          .map((r) => r.toothNumber)
+          .filter((n): n is number => n !== null),
+        treatmentId: first.treatmentId,
+        totalPrice: rows.reduce((sum, r) => sum + r.priceCharged, 0),
+        surfaces: rows.length === 1 ? this.getSurfaces(rows[0]) : '—',
+        notes: first.notes,
+      };
+    });
+  });
+
   constructor() {
     effect(() => {
       const id = this.patientId();
@@ -61,6 +105,11 @@ export class TreatmentHistoryComponent {
 
   protected getTreatmentName(treatmentId: string): string {
     return this.treatments().find((t) => t.id === treatmentId)?.name ?? '—';
+  }
+
+  protected getTreatmentCurrencySymbol(treatmentId: string): string {
+    const t = this.treatments().find((t) => t.id === treatmentId);
+    return t?.currency === 'USD' ? '$' : 'Bs.';
   }
 
   protected formatDate(dateStr: string): string {

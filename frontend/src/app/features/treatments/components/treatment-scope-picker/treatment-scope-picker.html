@@ -1,0 +1,225 @@
+<div class="tsp">
+
+  <div class="tsp__field">
+    <label class="tsp__label" for="tsp-treatment">
+      Tratamiento <span class="tsp__req">*</span>
+    </label>
+    <select
+      id="tsp-treatment"
+      class="tsp__input"
+      [value]="selectedTreatmentId()"
+      (change)="onTreatmentChange($any($event.target).value)"
+    >
+      <option value="">-- Seleccioná un tratamiento --</option>
+      @for (t of treatments(); track t.id) {
+        <option [value]="t.id">{{ t.name }} ({{ t.currency === 'USD' ? '$' : 'Bs.' }} {{ t.basePrice }})</option>
+      }
+    </select>
+  </div>
+
+  @if (!selectedTreatment()) {
+    <p class="tsp__hint">Elegí un tratamiento para continuar.</p>
+  } @else if (scope() === 'none') {
+    <p class="tsp__hint">Este tratamiento no requiere seleccionar un diente.</p>
+  } @else {
+
+    <p class="tsp__hint">
+      @if (scope() === 'tooth') {
+        Hacé clic en el diente donde se aplicó el tratamiento.
+      } @else if (scope() === 'multi_tooth') {
+        Hacé clic en 2 o más dientes ({{ selectedTeeth().length }} seleccionado{{ selectedTeeth().length === 1 ? '' : 's' }}).
+      } @else {
+        Este tratamiento se aplica a toda la arcada/boca — resaltada abajo, sin selección manual.
+      }
+    </p>
+
+    <!-- Upper arch -->
+    <div class="tsp__arch-label">
+      <span>Superior</span>
+      <div class="tsp__arch-divider"></div>
+    </div>
+    <div class="tsp__arch tsp__arch--upper">
+      @for (tooth of upperTeeth; track tooth.number) {
+        <button
+          type="button"
+          class="tsp__tooth"
+          [class.tsp__tooth--selected]="isSelected(tooth.number)"
+          [disabled]="!isClickable()"
+          (click)="onToothClick(tooth)"
+          [attr.aria-label]="'Diente ' + tooth.number"
+        >
+          <svg [attr.viewBox]="'0 0 32 72'" xmlns="http://www.w3.org/2000/svg" class="tsp__tooth-svg" role="img">
+            @switch (tooth.type) {
+              @case ('incisor') {
+                <polygon points="11,30 21,30 18,64 14,64"
+                  [attr.fill]="diagnosisMap().has(tooth.number) ? '#e5e7eb' : '#f3f4f6'"
+                  [attr.stroke]="getToothStroke(tooth.number)" stroke-width="1"
+                />
+                <rect x="4" y="2" width="24" height="28" rx="3"
+                  [attr.fill]="getToothColor(tooth.number)"
+                  [attr.stroke]="getToothStroke(tooth.number)"
+                  [attr.stroke-width]="getToothStrokeWidth(tooth.number)"
+                />
+              }
+              @case ('canine') {
+                <polygon points="12,32 20,32 17,68 15,68"
+                  [attr.fill]="diagnosisMap().has(tooth.number) ? '#e5e7eb' : '#f3f4f6'"
+                  [attr.stroke]="getToothStroke(tooth.number)" stroke-width="1"
+                />
+                <rect x="5" y="2" width="22" height="30" rx="3"
+                  [attr.fill]="getToothColor(tooth.number)"
+                  [attr.stroke]="getToothStroke(tooth.number)"
+                  [attr.stroke-width]="getToothStrokeWidth(tooth.number)"
+                />
+              }
+              @case ('premolar') {
+                <polygon points="4,28 13,28 11,62 7,62"
+                  [attr.fill]="diagnosisMap().has(tooth.number) ? '#e5e7eb' : '#f3f4f6'"
+                  [attr.stroke]="getToothStroke(tooth.number)" stroke-width="1"
+                />
+                <polygon points="19,28 28,28 25,62 22,62"
+                  [attr.fill]="diagnosisMap().has(tooth.number) ? '#e5e7eb' : '#f3f4f6'"
+                  [attr.stroke]="getToothStroke(tooth.number)" stroke-width="1"
+                />
+                <rect x="3" y="2" width="26" height="26" rx="3"
+                  [attr.fill]="getToothColor(tooth.number)"
+                  [attr.stroke]="getToothStroke(tooth.number)"
+                  [attr.stroke-width]="getToothStrokeWidth(tooth.number)"
+                />
+                <line x1="16" y1="4" x2="16" y2="26" stroke="#d1d5db" stroke-width="1.5" />
+              }
+              @default {
+                <polygon points="3,28 11,28 9,60 5,60"
+                  [attr.fill]="diagnosisMap().has(tooth.number) ? '#e5e7eb' : '#f3f4f6'"
+                  [attr.stroke]="getToothStroke(tooth.number)" stroke-width="1"
+                />
+                <polygon points="13,28 19,28 17,60 15,60"
+                  [attr.fill]="diagnosisMap().has(tooth.number) ? '#e5e7eb' : '#f3f4f6'"
+                  [attr.stroke]="getToothStroke(tooth.number)" stroke-width="1"
+                />
+                <polygon points="21,28 29,28 27,60 23,60"
+                  [attr.fill]="diagnosisMap().has(tooth.number) ? '#e5e7eb' : '#f3f4f6'"
+                  [attr.stroke]="getToothStroke(tooth.number)" stroke-width="1"
+                />
+                <rect x="2" y="2" width="28" height="26" rx="3"
+                  [attr.fill]="getToothColor(tooth.number)"
+                  [attr.stroke]="getToothStroke(tooth.number)"
+                  [attr.stroke-width]="getToothStrokeWidth(tooth.number)"
+                />
+                <line x1="2" y1="15" x2="30" y2="15" stroke="#d1d5db" stroke-width="1" />
+                <line x1="16" y1="2" x2="16" y2="28" stroke="#d1d5db" stroke-width="1" />
+              }
+            }
+          </svg>
+          <span class="tsp__tooth-number">{{ tooth.number }}</span>
+        </button>
+      }
+    </div>
+
+    <div class="tsp__arch-separator">
+      <span>D</span>
+      <div class="tsp__arch-separator-line"></div>
+      <span>I</span>
+    </div>
+
+    <!-- Lower arch -->
+    <div class="tsp__arch tsp__arch--lower">
+      @for (tooth of lowerTeeth; track tooth.number) {
+        <button
+          type="button"
+          class="tsp__tooth"
+          [class.tsp__tooth--selected]="isSelected(tooth.number)"
+          [disabled]="!isClickable()"
+          (click)="onToothClick(tooth)"
+          [attr.aria-label]="'Diente ' + tooth.number"
+        >
+          <span class="tsp__tooth-number tsp__tooth-number--top">{{ tooth.number }}</span>
+          <svg [attr.viewBox]="'0 0 32 72'" xmlns="http://www.w3.org/2000/svg" class="tsp__tooth-svg" role="img">
+            @switch (tooth.type) {
+              @case ('incisor') {
+                <polygon points="11,8 21,8 18,42 14,42"
+                  [attr.fill]="diagnosisMap().has(tooth.number) ? '#e5e7eb' : '#f3f4f6'"
+                  [attr.stroke]="getToothStroke(tooth.number)" stroke-width="1"
+                />
+                <rect x="4" y="42" width="24" height="28" rx="3"
+                  [attr.fill]="getToothColor(tooth.number)"
+                  [attr.stroke]="getToothStroke(tooth.number)"
+                  [attr.stroke-width]="getToothStrokeWidth(tooth.number)"
+                />
+              }
+              @case ('canine') {
+                <polygon points="12,4 20,4 17,40 15,40"
+                  [attr.fill]="diagnosisMap().has(tooth.number) ? '#e5e7eb' : '#f3f4f6'"
+                  [attr.stroke]="getToothStroke(tooth.number)" stroke-width="1"
+                />
+                <rect x="5" y="40" width="22" height="30" rx="3"
+                  [attr.fill]="getToothColor(tooth.number)"
+                  [attr.stroke]="getToothStroke(tooth.number)"
+                  [attr.stroke-width]="getToothStrokeWidth(tooth.number)"
+                />
+              }
+              @case ('premolar') {
+                <polygon points="4,44 13,44 11,10 7,10"
+                  [attr.fill]="diagnosisMap().has(tooth.number) ? '#e5e7eb' : '#f3f4f6'"
+                  [attr.stroke]="getToothStroke(tooth.number)" stroke-width="1"
+                />
+                <polygon points="19,44 28,44 25,10 22,10"
+                  [attr.fill]="diagnosisMap().has(tooth.number) ? '#e5e7eb' : '#f3f4f6'"
+                  [attr.stroke]="getToothStroke(tooth.number)" stroke-width="1"
+                />
+                <rect x="3" y="44" width="26" height="26" rx="3"
+                  [attr.fill]="getToothColor(tooth.number)"
+                  [attr.stroke]="getToothStroke(tooth.number)"
+                  [attr.stroke-width]="getToothStrokeWidth(tooth.number)"
+                />
+                <line x1="16" y1="46" x2="16" y2="68" stroke="#d1d5db" stroke-width="1.5" />
+              }
+              @default {
+                <polygon points="3,44 11,44 9,12 5,12"
+                  [attr.fill]="diagnosisMap().has(tooth.number) ? '#e5e7eb' : '#f3f4f6'"
+                  [attr.stroke]="getToothStroke(tooth.number)" stroke-width="1"
+                />
+                <polygon points="13,44 19,44 17,12 15,12"
+                  [attr.fill]="diagnosisMap().has(tooth.number) ? '#e5e7eb' : '#f3f4f6'"
+                  [attr.stroke]="getToothStroke(tooth.number)" stroke-width="1"
+                />
+                <polygon points="21,44 29,44 27,12 23,12"
+                  [attr.fill]="diagnosisMap().has(tooth.number) ? '#e5e7eb' : '#f3f4f6'"
+                  [attr.stroke]="getToothStroke(tooth.number)" stroke-width="1"
+                />
+                <rect x="2" y="44" width="28" height="26" rx="3"
+                  [attr.fill]="getToothColor(tooth.number)"
+                  [attr.stroke]="getToothStroke(tooth.number)"
+                  [attr.stroke-width]="getToothStrokeWidth(tooth.number)"
+                />
+                <line x1="2" y1="57" x2="30" y2="57" stroke="#d1d5db" stroke-width="1" />
+                <line x1="16" y1="44" x2="16" y2="70" stroke="#d1d5db" stroke-width="1" />
+              }
+            }
+          </svg>
+        </button>
+      }
+    </div>
+
+    <div class="tsp__arch-label">
+      <span>Inferior</span>
+      <div class="tsp__arch-divider"></div>
+    </div>
+
+    <!-- Legend -->
+    <div class="tsp__legend">
+      @for (opt of diagnosisOptions; track opt.value) {
+        <div class="tsp__legend-item">
+          <span class="tsp__legend-dot" [style.background]="opt.color"></span>
+          <span>{{ opt.label }}</span>
+        </div>
+      }
+      <div class="tsp__legend-item">
+        <span class="tsp__legend-dot" style="background: #16a34a; outline: 2px solid #15803d;"></span>
+        <span>Con tratamiento registrado</span>
+      </div>
+    </div>
+
+  }
+
+</div>

@@ -5,8 +5,8 @@ import {
   input,
   output,
   signal,
-  computed,
   effect,
+  viewChild,
 } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
@@ -14,69 +14,16 @@ import { TreatmentsService } from '../../services/treatments.service';
 import { PatientsService } from '../../../patients/services/patients.service';
 import type { Treatment, ToothProcedure } from '../../models/treatment.model';
 import type { OdontogramEntry } from '../../../patients/models/patient.model';
-
-interface ToothDef {
-  readonly number: number;
-  readonly type: 'incisor' | 'canine' | 'premolar' | 'molar';
-  readonly arch: 'upper' | 'lower';
-}
-
-const DIAGNOSIS_OPTIONS: { value: string; label: string; color: string }[] = [
-  { value: 'sano', label: 'Sano', color: '#16a34a' },
-  { value: 'caries', label: 'Caries', color: '#dc2626' },
-  { value: 'restauracion', label: 'Restauración', color: '#2563eb' },
-  { value: 'corona', label: 'Corona', color: '#d97706' },
-  { value: 'ausente', label: 'Ausente', color: '#9ca3af' },
-  { value: 'extraccion', label: 'Extracción', color: '#7c3aed' },
-  { value: 'endodoncia', label: 'Endodoncia', color: '#ea580c' },
-  { value: 'fractura', label: 'Fractura', color: '#ca8a04' },
-  { value: 'periodoncia', label: 'Periodoncia', color: '#0891b2' },
-  { value: 'otro', label: 'Otro', color: '#374151' },
-];
-
-const UPPER_TEETH: ToothDef[] = [
-  { number: 18, type: 'molar', arch: 'upper' },
-  { number: 17, type: 'molar', arch: 'upper' },
-  { number: 16, type: 'molar', arch: 'upper' },
-  { number: 15, type: 'premolar', arch: 'upper' },
-  { number: 14, type: 'premolar', arch: 'upper' },
-  { number: 13, type: 'canine', arch: 'upper' },
-  { number: 12, type: 'incisor', arch: 'upper' },
-  { number: 11, type: 'incisor', arch: 'upper' },
-  { number: 21, type: 'incisor', arch: 'upper' },
-  { number: 22, type: 'incisor', arch: 'upper' },
-  { number: 23, type: 'canine', arch: 'upper' },
-  { number: 24, type: 'premolar', arch: 'upper' },
-  { number: 25, type: 'premolar', arch: 'upper' },
-  { number: 26, type: 'molar', arch: 'upper' },
-  { number: 27, type: 'molar', arch: 'upper' },
-  { number: 28, type: 'molar', arch: 'upper' },
-];
-
-const LOWER_TEETH: ToothDef[] = [
-  { number: 48, type: 'molar', arch: 'lower' },
-  { number: 47, type: 'molar', arch: 'lower' },
-  { number: 46, type: 'molar', arch: 'lower' },
-  { number: 45, type: 'premolar', arch: 'lower' },
-  { number: 44, type: 'premolar', arch: 'lower' },
-  { number: 43, type: 'canine', arch: 'lower' },
-  { number: 42, type: 'incisor', arch: 'lower' },
-  { number: 41, type: 'incisor', arch: 'lower' },
-  { number: 31, type: 'incisor', arch: 'lower' },
-  { number: 32, type: 'incisor', arch: 'lower' },
-  { number: 33, type: 'canine', arch: 'lower' },
-  { number: 34, type: 'premolar', arch: 'lower' },
-  { number: 35, type: 'premolar', arch: 'lower' },
-  { number: 36, type: 'molar', arch: 'lower' },
-  { number: 37, type: 'molar', arch: 'lower' },
-  { number: 38, type: 'molar', arch: 'lower' },
-];
+import {
+  TreatmentScopePickerComponent,
+  type TreatmentScopeSelection,
+} from '../treatment-scope-picker/treatment-scope-picker';
 
 @Component({
   selector: 'app-register-treatment',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [FormsModule],
+  imports: [FormsModule, TreatmentScopePickerComponent],
   templateUrl: './register-treatment.html',
   styleUrl: './register-treatment.scss',
 })
@@ -88,9 +35,7 @@ export class RegisterTreatmentComponent {
   readonly done = output<void>();
   readonly cancel = output<void>();
 
-  protected readonly upperTeeth = UPPER_TEETH;
-  protected readonly lowerTeeth = LOWER_TEETH;
-  protected readonly diagnosisOptions = DIAGNOSIS_OPTIONS;
+  private readonly scopePicker = viewChild(TreatmentScopePickerComponent);
 
   protected readonly treatments = toSignal(
     this.treatmentsService.getAll(),
@@ -99,12 +44,11 @@ export class RegisterTreatmentComponent {
 
   protected readonly odontogramEntries = signal<OdontogramEntry[]>([]);
   protected readonly registeredProcedures = signal<ToothProcedure[]>([]);
-  protected readonly selectedTooth = signal<ToothDef | null>(null);
+  protected readonly currentSelection = signal<TreatmentScopeSelection | null>(null);
   protected readonly saving = signal(false);
   protected readonly formError = signal<string | null>(null);
   protected readonly successMessage = signal<string | null>(null);
 
-  protected readonly panelTreatmentId = signal('');
   protected readonly panelPriceCharged = signal<number>(0);
   protected readonly panelProcedureDate = signal(new Date().toISOString().substring(0, 10));
   protected readonly panelVestibular = signal(false);
@@ -113,16 +57,6 @@ export class RegisterTreatmentComponent {
   protected readonly panelDistal = signal(false);
   protected readonly panelOcclusal = signal(false);
   protected readonly panelNotes = signal('');
-
-  protected readonly diagnosisMap = computed(() => {
-    const map = new Map<number, OdontogramEntry>();
-    for (const e of this.odontogramEntries()) {
-      if (!map.has(e.toothNumber)) {
-        map.set(e.toothNumber, e);
-      }
-    }
-    return map;
-  });
 
   constructor() {
     effect(() => {
@@ -139,68 +73,47 @@ export class RegisterTreatmentComponent {
     });
 
     effect(() => {
-      const id = this.panelTreatmentId();
-      const found = this.treatments().find((t) => t.id === id);
-      if (found) {
-        this.panelPriceCharged.set(found.basePrice);
+      const sel = this.currentSelection();
+      if (sel) {
+        this.panelPriceCharged.set(sel.treatment.basePrice);
       }
     }, { allowSignalWrites: true });
   }
 
-  protected getToothColor(toothNumber: number): string {
-    const entry = this.diagnosisMap().get(toothNumber);
-    if (!entry) { return 'white'; }
-    return DIAGNOSIS_OPTIONS.find((d) => d.value === entry.toothCondition)?.color ?? '#374151';
-  }
-
-  protected getToothStroke(toothNumber: number): string {
-    const selected = this.selectedTooth();
-    if (selected?.number === toothNumber) { return '#1a2b5e'; }
-    const hasProcedure = this.registeredProcedures().some((p) => p.toothNumber === toothNumber);
-    if (hasProcedure) { return '#16a34a'; }
-    return this.diagnosisMap().has(toothNumber) ? '#6b7280' : '#d1d5db';
-  }
-
-  protected getToothStrokeWidth(toothNumber: number): number {
-    return this.selectedTooth()?.number === toothNumber ? 2.5 : 1.5;
-  }
-
-  protected getDiagnosisColor(value: string): string {
-    return DIAGNOSIS_OPTIONS.find((d) => d.value === value)?.color ?? '#374151';
-  }
-
-  protected getDiagnosisLabel(value: string): string {
-    return DIAGNOSIS_OPTIONS.find((d) => d.value === value)?.label ?? value;
-  }
-
-  protected onToothClick(tooth: ToothDef): void {
-    this.selectedTooth.set(tooth);
+  protected onSelectionChange(sel: TreatmentScopeSelection | null): void {
+    const previousTreatmentId = this.currentSelection()?.treatment.id;
+    this.currentSelection.set(sel);
     this.formError.set(null);
     this.successMessage.set(null);
-    this.panelTreatmentId.set('');
-    this.panelPriceCharged.set(0);
-    this.panelProcedureDate.set(new Date().toISOString().substring(0, 10));
-    this.panelVestibular.set(false);
-    this.panelPalatal.set(false);
-    this.panelMesial.set(false);
-    this.panelDistal.set(false);
-    this.panelOcclusal.set(false);
-    this.panelNotes.set('');
+    if (sel && sel.treatment.id !== previousTreatmentId) {
+      this.panelProcedureDate.set(new Date().toISOString().substring(0, 10));
+      this.panelVestibular.set(false);
+      this.panelPalatal.set(false);
+      this.panelMesial.set(false);
+      this.panelDistal.set(false);
+      this.panelOcclusal.set(false);
+      this.panelNotes.set('');
+    }
   }
 
-  protected onPanelCancel(): void {
-    this.selectedTooth.set(null);
+  protected getTreatedTeeth(): number[] {
+    const teeth: number[] = [];
+    for (const p of this.registeredProcedures()) {
+      if (p.toothNumber !== null) { teeth.push(p.toothNumber); }
+    }
+    return teeth;
+  }
+
+  protected onCancelSelection(): void {
+    this.currentSelection.set(null);
     this.formError.set(null);
+    this.scopePicker()?.reset();
   }
 
   protected async onSaveProcedure(): Promise<void> {
-    const tooth = this.selectedTooth();
-    if (!tooth) { return; }
+    const sel = this.currentSelection();
+    if (!sel) { return; }
 
-    if (!this.panelTreatmentId()) {
-      this.formError.set('Seleccioná un tratamiento.');
-      return;
-    }
     if (!this.panelPriceCharged() || this.panelPriceCharged() <= 0) {
       this.formError.set('El precio cobrado debe ser mayor a 0.');
       return;
@@ -212,8 +125,8 @@ export class RegisterTreatmentComponent {
     try {
       const result = await new Promise<ToothProcedure[]>((resolve, reject) => {
         this.treatmentsService.createToothProcedure(this.patientId(), {
-          toothNumbers: [tooth.number],
-          treatmentId: this.panelTreatmentId(),
+          toothNumbers: sel.toothNumbers,
+          treatmentId: sel.treatment.id,
           priceCharged: this.panelPriceCharged(),
           procedureDate: this.panelProcedureDate(),
           surfaceVestibular: this.panelVestibular(),
@@ -226,8 +139,9 @@ export class RegisterTreatmentComponent {
       });
 
       this.registeredProcedures.update((prev) => [...prev, ...result]);
-      this.successMessage.set(`Tratamiento registrado en diente #${tooth.number}.`);
-      this.selectedTooth.set(null);
+      this.successMessage.set(this.buildSuccessMessage(sel));
+      this.currentSelection.set(null);
+      this.scopePicker()?.reset();
     } catch {
       this.formError.set('Error al guardar el tratamiento. Intentá de nuevo.');
     } finally {
@@ -235,8 +149,30 @@ export class RegisterTreatmentComponent {
     }
   }
 
+  private buildSuccessMessage(sel: TreatmentScopeSelection): string {
+    switch (sel.treatment.scope) {
+      case 'tooth':
+        return `Tratamiento registrado en diente #${sel.toothNumbers[0]}.`;
+      case 'multi_tooth':
+        return `Tratamiento registrado en ${sel.toothNumbers.length} dientes.`;
+      case 'upper_arch':
+        return 'Tratamiento registrado en la arcada superior.';
+      case 'lower_arch':
+        return 'Tratamiento registrado en la arcada inferior.';
+      case 'full_mouth':
+        return 'Tratamiento registrado en toda la boca.';
+      default:
+        return 'Tratamiento registrado.';
+    }
+  }
+
   protected getTreatmentName(treatmentId: string): string {
     return this.treatments().find((t) => t.id === treatmentId)?.name ?? treatmentId;
+  }
+
+  protected getTreatmentCurrencySymbol(treatmentId: string): string {
+    const t = this.treatments().find((t) => t.id === treatmentId);
+    return t?.currency === 'USD' ? '$' : 'Bs.';
   }
 
   protected onClose(): void {
