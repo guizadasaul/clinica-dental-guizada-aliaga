@@ -1,44 +1,50 @@
 .booking-page {
-  max-width: 640px;
+  max-width: 40rem;
   margin: 0 auto;
-  padding: 2.5rem 1.5rem 4rem;
+  padding: var(--space-10) var(--space-6) var(--space-16);
   display: flex;
   flex-direction: column;
-  gap: 1.5rem;
+  gap: var(--space-6);
+  font-family: var(--font-body);
+  background: var(--color-cream);
+  min-height: 100vh;
 
   &__header {
     display: flex;
     flex-direction: column;
-    gap: 0.375rem;
+    gap: var(--space-2);
   }
 
   &__title {
-    font-size: 1.5rem;
-    font-weight: 700;
-    color: var(--color-navy, #1a2b5e);
+    font-family: var(--font-headline);
+    font-size: var(--font-size-3xl);
+    font-weight: 400;
+    color: var(--color-navy);
     margin: 0;
   }
 
   &__subtitle {
-    color: #6b7280;
-    font-size: 0.9375rem;
+    color: var(--color-text-muted);
+    font-size: var(--font-size-base);
     margin: 0;
   }
 
   &__error {
-    color: #dc2626;
-    font-size: 0.875rem;
-    background: #fef2f2;
-    border: 1px solid #fecaca;
-    border-radius: 0.5rem;
-    padding: 0.625rem 0.875rem;
+    color: var(--color-error);
+    font-size: var(--font-size-sm);
+    background: var(--color-error-light);
+    border: 1px solid var(--color-error-light);
+    border-radius: var(--radius-lg);
+    padding: var(--space-3) var(--space-4);
     margin: 0;
   }
 
   &__body {
-    background: white;
-    border: 1px solid #e5e7eb;
-    border-radius: 0.75rem;
-    padding: 1.5rem;
+    background: var(--color-surface);
+    border-radius: var(--radius-xl);
+    padding: var(--space-6);
+    box-shadow: var(--shadow-md);
+
+    @media (min-width: 640px) { padding: var(--space-8); }
   }
 }

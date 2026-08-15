@@ -5,4 +5,5 @@ export interface HoldSlotRequest {
 export interface GuestContactRequest {
   fullName: string;
   phone: string;
+  email?: string;
 }

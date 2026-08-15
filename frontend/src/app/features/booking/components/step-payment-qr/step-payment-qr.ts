@@ -1,6 +1,6 @@
-import { Component, ChangeDetectionStrategy, DestroyRef, inject, input, output } from '@angular/core';
+import { Component, ChangeDetectionStrategy, DestroyRef, inject, input, output, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { interval, switchMap } from 'rxjs';
+import { firstValueFrom, interval, switchMap } from 'rxjs';
 import { BookingService } from '../../services/booking.service';
 
 const POLL_INTERVAL_MS = 4000;
@@ -21,14 +21,17 @@ export class StepPaymentQrComponent {
 
   protected readonly clinicPhoneHref = `tel:${CLINIC_PHONE}`;
   protected readonly clinicPhoneLabel = CLINIC_PHONE;
+  protected readonly checkingNow = signal(false);
+  protected readonly justCheckedNotPaid = signal(false);
+
+  private readonly bookingService = inject(BookingService);
 
   constructor() {
-    const bookingService = inject(BookingService);
     const destroyRef = inject(DestroyRef);
 
     interval(POLL_INTERVAL_MS)
       .pipe(
-        switchMap(() => bookingService.getStatus(this.appointmentId())),
+        switchMap(() => this.bookingService.getStatus(this.appointmentId())),
         takeUntilDestroyed(destroyRef),
       )
       .subscribe((status) => {
@@ -36,5 +39,22 @@ export class StepPaymentQrComponent {
           this.confirmed.emit();
         }
       });
+  }
+
+  // El poll automático ya reconsulta cada 4s, pero un botón manual le da al
+  // paciente control inmediato en vez de esperar el próximo tick.
+  protected async checkNow(): Promise<void> {
+    this.checkingNow.set(true);
+    this.justCheckedNotPaid.set(false);
+    try {
+      const status = await firstValueFrom(this.bookingService.getStatus(this.appointmentId()));
+      if (status.paid) {
+        this.confirmed.emit();
+      } else {
+        this.justCheckedNotPaid.set(true);
+      }
+    } finally {
+      this.checkingNow.set(false);
+    }
   }
 }

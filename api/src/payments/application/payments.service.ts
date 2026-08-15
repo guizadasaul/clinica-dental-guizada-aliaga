@@ -184,6 +184,7 @@ export class PaymentsService {
       qrId: appointment.banecoQrId,
       guestFullName: appointment.guestFullName,
       guestPhone: appointment.guestPhone,
+      guestEmail: appointment.guestEmail,
     });
     if (!confirmed) {
       this.logger.debug(

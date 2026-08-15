@@ -28,6 +28,7 @@ export class Appointment {
     readonly source: string,
     readonly guestFullName: string | null,
     readonly guestPhone: string | null,
+    readonly guestEmail: string | null,
     readonly holdExpiresAt: Date | null,
     readonly notes: string | null,
     readonly createdAt: Date,

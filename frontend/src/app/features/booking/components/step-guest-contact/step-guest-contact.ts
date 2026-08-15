@@ -16,11 +16,13 @@ export class StepGuestContactComponent {
 
   protected readonly fullName = signal('');
   protected readonly phone = signal('');
+  protected readonly email = signal('');
   protected readonly formError = signal<string | null>(null);
 
   protected onSubmit(): void {
     const fullName = this.fullName().trim();
     const phone = this.phone().trim();
+    const email = this.email().trim();
     if (fullName.length < 3) {
       this.formError.set('Ingresá tu nombre completo.');
       return;
@@ -29,7 +31,11 @@ export class StepGuestContactComponent {
       this.formError.set('Ingresá un número de teléfono válido.');
       return;
     }
+    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      this.formError.set('Ingresá un correo válido, o dejalo vacío.');
+      return;
+    }
     this.formError.set(null);
-    this.submitContact.emit({ fullName, phone });
+    this.submitContact.emit({ fullName, phone, ...(email && { email }) });
   }
 }

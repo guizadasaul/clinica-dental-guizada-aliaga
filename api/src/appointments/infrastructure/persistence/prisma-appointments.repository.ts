@@ -118,7 +118,11 @@ export class PrismaAppointmentsRepository implements IAppointmentRepository {
         status: AppointmentStatus.HELD,
         hold_expires_at: { gt: now },
       },
-      data: { guest_full_name: data.fullName, guest_phone: data.phone },
+      data: {
+        guest_full_name: data.fullName,
+        guest_phone: data.phone,
+        guest_email: data.email,
+      },
     });
     if (count === 0) {
       return null;

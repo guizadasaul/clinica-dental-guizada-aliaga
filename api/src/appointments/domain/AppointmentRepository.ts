@@ -18,6 +18,7 @@ export interface CreateHoldData {
 export interface GuestContactData {
   fullName: string;
   phone: string;
+  email: string | null;
 }
 
 export interface AttachQrData {
