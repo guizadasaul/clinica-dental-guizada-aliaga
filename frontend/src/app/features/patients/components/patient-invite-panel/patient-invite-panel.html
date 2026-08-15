@@ -1,0 +1,115 @@
+<div class="invite-panel">
+  <h3 class="invite-panel__title">Enviar registro de paciente nuevo</h3>
+  <p class="invite-panel__hint">
+    Le mandamos un link para que complete su registro. Al usarlo queda vinculado a esta ficha.
+  </p>
+
+  <div class="invite-panel__section">
+    <h4 class="invite-panel__section-title">Datos de contacto</h4>
+    <div class="invite-panel__grid">
+      <div class="invite-panel__field">
+        <label class="invite-panel__label">Nombre <span class="invite-panel__req">*</span></label>
+        <input
+          class="invite-panel__input"
+          type="text"
+          [value]="firstName()"
+          (input)="firstName.set($any($event.target).value)"
+          required
+        />
+      </div>
+      <div class="invite-panel__field">
+        <label class="invite-panel__label">Apellido paterno <span class="invite-panel__req">*</span></label>
+        <input
+          class="invite-panel__input"
+          type="text"
+          [value]="lastNamePaternal()"
+          (input)="lastNamePaternal.set($any($event.target).value)"
+          required
+        />
+      </div>
+      <div class="invite-panel__field">
+        <label class="invite-panel__label">Teléfono</label>
+        <input
+          class="invite-panel__input"
+          type="tel"
+          [value]="phone()"
+          (input)="phone.set($any($event.target).value)"
+        />
+      </div>
+      <div class="invite-panel__field">
+        <label class="invite-panel__label">Email</label>
+        <input
+          class="invite-panel__input"
+          type="email"
+          [value]="email()"
+          (input)="email.set($any($event.target).value)"
+          placeholder="Para mandarle el link de registro"
+        />
+      </div>
+    </div>
+
+    @if (saveError()) {
+      <p class="invite-panel__error">{{ saveError() }}</p>
+    }
+
+    <div class="invite-panel__save-row">
+      <button class="invite-panel__btn invite-panel__btn--secondary" type="button" [disabled]="saving()" (click)="onSave()">
+        @if (saving()) {
+          Guardando...
+        } @else {
+          Guardar
+        }
+      </button>
+    </div>
+  </div>
+
+  <div class="invite-panel__section">
+    <h4 class="invite-panel__section-title">Enviar registro</h4>
+
+    @if (isDirty()) {
+      <p class="invite-panel__dirty-hint">Guardá los cambios antes de enviar.</p>
+    }
+
+    @if (sendError()) {
+      <p class="invite-panel__error">{{ sendError() }}</p>
+    }
+
+    <div class="invite-panel__actions">
+      <button
+        class="invite-panel__btn"
+        type="button"
+        [disabled]="!savedEmail() || isDirty() || loadingChannel() !== null"
+        [title]="!savedEmail() ? 'El paciente no tiene un email cargado' : ''"
+        (click)="onSendEmail()"
+      >
+        <span class="material-symbols-outlined">mail</span>
+        @if (loadingChannel() === 'email') {
+          Enviando...
+        } @else {
+          Enviar por email
+        }
+      </button>
+
+      <button
+        class="invite-panel__btn"
+        type="button"
+        [disabled]="!savedPhone() || isDirty() || loadingChannel() !== null"
+        [title]="!savedPhone() ? 'El paciente no tiene un teléfono cargado' : ''"
+        (click)="onSendWhatsapp()"
+      >
+        <span class="material-symbols-outlined">chat</span>
+        @if (loadingChannel() === 'whatsapp') {
+          Abriendo...
+        } @else {
+          Enviar por WhatsApp
+        }
+      </button>
+    </div>
+  </div>
+
+  <div class="invite-panel__close-row">
+    <button class="invite-panel__btn invite-panel__btn--secondary" type="button" (click)="onCancel()">
+      Cerrar
+    </button>
+  </div>
+</div>

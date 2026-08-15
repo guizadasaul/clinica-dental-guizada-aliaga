@@ -101,6 +101,7 @@ export class PatientMapper {
       u.created_at,
       u.patients ? PatientMapper.toDomainPatient(u.patients) : null,
       u.patients?._count.odontogram_entries ?? 0,
+      u.auth_user_id !== null,
     );
   }
 }

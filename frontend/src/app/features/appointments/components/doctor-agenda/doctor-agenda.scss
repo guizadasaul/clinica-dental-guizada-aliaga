@@ -45,6 +45,59 @@
     flex-direction: column;
     gap: 0.75rem;
   }
+
+  &__nav {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 0.5rem 0;
+  }
+
+  &__nav-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.25rem;
+    height: 2.25rem;
+    border: 1px solid #e5e7eb;
+    border-radius: 50%;
+    background: white;
+    color: var(--color-navy, #1a2b5e);
+    cursor: pointer;
+
+    &:hover {
+      background: #f9fafb;
+    }
+  }
+
+  &__nav-center {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+  }
+
+  &__nav-label {
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--color-navy, #1a2b5e);
+  }
+
+  &__nav-today {
+    padding: 0.25rem 0.625rem;
+    border: 1px solid var(--color-navy, #1a2b5e);
+    border-radius: 999px;
+    background: white;
+    color: var(--color-navy, #1a2b5e);
+    font-size: 0.75rem;
+    font-weight: 600;
+    cursor: pointer;
+
+    &:hover {
+      background: var(--color-navy, #1a2b5e);
+      color: white;
+    }
+  }
 }
 
 .agenda-item {

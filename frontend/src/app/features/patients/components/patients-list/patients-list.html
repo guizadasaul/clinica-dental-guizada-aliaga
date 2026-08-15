@@ -115,6 +115,16 @@
                     Presupuesto
                   </button>
                 }
+                @if (p.patient && !p.hasAccount) {
+                  <button
+                    class="patients-list__btn patients-list__btn--invite"
+                    type="button"
+                    (click)="onSendInvite(p)"
+                  >
+                    <span class="material-symbols-outlined">person_add</span>
+                    Enviar registro
+                  </button>
+                }
               </td>
             </tr>
           }

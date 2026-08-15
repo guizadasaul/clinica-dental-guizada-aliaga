@@ -95,4 +95,13 @@ export interface PatientWithUser {
   createdAt: string;
   patient: Patient | null;
   odontogramEntriesCount: number;
+  hasAccount: boolean;
+}
+
+export interface PatientInviteContact {
+  patientId: string;
+  firstName: string;
+  lastNamePaternal: string;
+  phone: string | null;
+  email: string | null;
 }

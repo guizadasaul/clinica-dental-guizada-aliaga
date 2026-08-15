@@ -103,7 +103,17 @@
 }
 
 @if (activeNav() === 'patients') {
-  @if (showTreatmentFlow()) {
+  @if (showInviteFlow()) {
+    <app-patient-invite-panel
+      [patientId]="selectedPatientForInvite()!.patientId"
+      [initialFirstName]="selectedPatientForInvite()!.firstName"
+      [initialLastNamePaternal]="selectedPatientForInvite()!.lastNamePaternal"
+      [initialPhone]="selectedPatientForInvite()!.phone"
+      [initialEmail]="selectedPatientForInvite()!.email"
+      (sent)="onInviteDone()"
+      (cancel)="onInviteDone()"
+    />
+  } @else if (showTreatmentFlow()) {
     <app-register-treatment
       [patientId]="selectedPatientForTreatment()!"
       (done)="onTreatmentDone()"
@@ -133,6 +143,7 @@
       (registerTreatment)="onRegisterTreatment($event)"
       (viewHistory)="onViewHistory($event)"
       (buildQuote)="onBuildQuote($event)"
+      (sendInvite)="onSendInvite($event)"
     />
   }
 }

@@ -242,6 +242,15 @@
       }
     }
 
+    &--invite {
+      background: #db2777;
+      color: white;
+
+      &:hover {
+        background: #be185d;
+      }
+    }
+
     &:disabled {
       cursor: default;
     }
