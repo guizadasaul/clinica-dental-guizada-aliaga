@@ -1,9 +1,7 @@
-import { Component, ChangeDetectionStrategy, DestroyRef, inject, input, output, signal } from '@angular/core';
-import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { firstValueFrom, interval, switchMap } from 'rxjs';
+import { Component, ChangeDetectionStrategy, inject, input, output, signal } from '@angular/core';
+import { firstValueFrom } from 'rxjs';
 import { BookingService } from '../../services/booking.service';
 
-const POLL_INTERVAL_MS = 4000;
 const CLINIC_PHONE = '+591700000000';
 
 @Component({
@@ -26,23 +24,10 @@ export class StepPaymentQrComponent {
 
   private readonly bookingService = inject(BookingService);
 
-  constructor() {
-    const destroyRef = inject(DestroyRef);
-
-    interval(POLL_INTERVAL_MS)
-      .pipe(
-        switchMap(() => this.bookingService.getStatus(this.appointmentId())),
-        takeUntilDestroyed(destroyRef),
-      )
-      .subscribe((status) => {
-        if (status.paid) {
-          this.confirmed.emit();
-        }
-      });
-  }
-
-  // El poll automático ya reconsulta cada 4s, pero un botón manual le da al
-  // paciente control inmediato en vez de esperar el próximo tick.
+  // Sin auto-poll a propósito: la confirmación depende solo de este botón
+  // (o del webhook de BANECO del lado del backend, que no toca la UI). Sin
+  // reconsultas automáticas de por medio, no hay ventana donde el sistema
+  // "podría" confirmar sin que el paciente haya efectivamente verificado.
   protected async checkNow(): Promise<void> {
     this.checkingNow.set(true);
     this.justCheckedNotPaid.set(false);

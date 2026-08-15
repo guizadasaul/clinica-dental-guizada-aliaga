@@ -40,6 +40,8 @@ export interface PaymentGateway {
   generateQr(params: GenerateQrParams): Promise<GeneratedQr>;
   /** Fuente de verdad para confirmar un pago — nunca confiar en el payload del webhook a solas. */
   getQrStatus(qrId: string): Promise<QrStatusResult>;
+  /** Anula un QR de uso único no pagado para futuros pagos (doc BANECO §7.3). Usado por el sweep de holds vencidos. */
+  cancelQr(qrId: string): Promise<void>;
 }
 
 export const PaymentGateway = Symbol('PaymentGateway');
