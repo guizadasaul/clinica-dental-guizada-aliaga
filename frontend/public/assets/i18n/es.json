@@ -154,6 +154,12 @@
       "privacy": "Política de Privacidad",
       "terms": "Términos de Servicio",
       "copyright": "© 2024 Clínica Guizada Aliaga. Todos los derechos reservados."
+    },
+    "noProfileBanner": {
+      "title": "Todavía no tenés una cuenta de paciente",
+      "body": "Reservá tu primera consulta para crear tu ficha.",
+      "cta": "Ver horarios disponibles",
+      "dismissAriaLabel": "Cerrar aviso"
     }
   }
 }

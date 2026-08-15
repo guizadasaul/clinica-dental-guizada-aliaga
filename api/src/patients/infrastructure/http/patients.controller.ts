@@ -47,7 +47,7 @@ export class PatientsController {
   }
 
   @Post()
-  @Roles(UserRole.ODONTOLOGIST, UserRole.PATIENT)
+  @Roles(UserRole.ODONTOLOGIST)
   @HttpCode(HttpStatus.CREATED)
   createPatient(
     @CurrentUser() currentUser: AuthenticatedUser,
