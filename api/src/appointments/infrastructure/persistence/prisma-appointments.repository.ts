@@ -154,11 +154,10 @@ export class PrismaAppointmentsRepository implements IAppointmentRepository {
     });
   }
 
-  async findExpiredHeldWithQr(now: Date): Promise<Appointment[]> {
+  async findHeldWithQr(): Promise<Appointment[]> {
     const records = await this.prisma.appointments.findMany({
       where: {
         status: AppointmentStatus.HELD,
-        hold_expires_at: { lt: now },
         baneco_qr_id: { not: null },
       },
     });

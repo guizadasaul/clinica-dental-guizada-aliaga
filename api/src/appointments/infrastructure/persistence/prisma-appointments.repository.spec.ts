@@ -206,18 +206,17 @@ describe('PrismaAppointmentsRepository', () => {
     });
   });
 
-  describe('findExpiredHeldWithQr', () => {
-    it('queries held appointments past their hold with a QR already attached', async () => {
+  describe('findHeldWithQr', () => {
+    it('queries held appointments with a QR already attached, expired or not', async () => {
       prismaMock.appointments.findMany.mockResolvedValue([
         fakeAppointmentRecord({ baneco_qr_id: 'qr-1' }),
       ]);
 
-      const result = await repo.findExpiredHeldWithQr(NOW);
+      const result = await repo.findHeldWithQr();
 
       expect(prismaMock.appointments.findMany).toHaveBeenCalledWith({
         where: {
           status: 'held',
-          hold_expires_at: { lt: NOW },
           baneco_qr_id: { not: null },
         },
       });

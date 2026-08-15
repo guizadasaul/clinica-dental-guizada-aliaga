@@ -19,6 +19,7 @@ import { PaymentGateway, QrStatus } from '../domain/PaymentGateway.js';
 import type { PaymentGateway as IPaymentGateway } from '../domain/PaymentGateway.js';
 import { BookingConfirmationRepository } from '../domain/BookingConfirmationRepository.js';
 import type { IBookingConfirmationRepository } from '../domain/BookingConfirmationRepository.js';
+import { HoldExpiryScheduler } from './hold-expiry-scheduler.service.js';
 
 export interface CheckoutResult {
   qrId: string;
@@ -45,6 +46,7 @@ export class PaymentsService {
     private readonly treatmentRepo: ITreatmentRepository,
     @Inject(BookingConfirmationRepository)
     private readonly confirmationRepo: IBookingConfirmationRepository,
+    private readonly holdExpiryScheduler: HoldExpiryScheduler,
   ) {}
 
   async checkout(appointmentId: string): Promise<CheckoutResult> {
@@ -67,6 +69,10 @@ export class PaymentsService {
       appointment.banecoQrImage &&
       appointment.paymentAmount !== null
     ) {
+      this.holdExpiryScheduler.scheduleExpiry(
+        appointmentId,
+        appointment.holdExpiresAt!,
+      );
       return {
         qrId: appointment.banecoQrId,
         qrImageBase64: appointment.banecoQrImage,
@@ -98,6 +104,11 @@ export class PaymentsService {
     if (!updated) {
       throw new GoneException('El horario reservado ya venció');
     }
+
+    this.holdExpiryScheduler.scheduleExpiry(
+      appointmentId,
+      updated.holdExpiresAt!,
+    );
 
     return {
       qrId: qr.qrId,

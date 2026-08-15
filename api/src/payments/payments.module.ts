@@ -3,7 +3,7 @@ import { ScheduleModule } from '@nestjs/schedule';
 import { PublicCheckoutController } from './infrastructure/http/public-checkout.controller';
 import { BanecoWebhookController } from './infrastructure/http/baneco-webhook.controller';
 import { PaymentsService } from './application/payments.service';
-import { ExpiredHoldsSweepService } from './application/expired-holds-sweep.service';
+import { HoldExpiryScheduler } from './application/hold-expiry-scheduler.service';
 import { PaymentGateway } from './domain/PaymentGateway';
 import { BookingConfirmationRepository } from './domain/BookingConfirmationRepository';
 import { BanecoClient } from './infrastructure/baneco/baneco.client';
@@ -17,7 +17,7 @@ import { TreatmentsModule } from '../treatments/treatments.module';
   controllers: [PublicCheckoutController, BanecoWebhookController],
   providers: [
     PaymentsService,
-    ExpiredHoldsSweepService,
+    HoldExpiryScheduler,
     BanecoClient,
     { provide: PaymentGateway, useClass: BanecoPaymentGateway },
     {

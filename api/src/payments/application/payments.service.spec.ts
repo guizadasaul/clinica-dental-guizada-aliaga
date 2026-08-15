@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { PaymentsService } from './payments.service';
+import { HoldExpiryScheduler } from './hold-expiry-scheduler.service';
 import { PaymentGateway, QrStatus } from '../domain/PaymentGateway';
 import { BookingConfirmationRepository } from '../domain/BookingConfirmationRepository';
 import { AppointmentRepository } from '../../appointments/domain/AppointmentRepository';
@@ -38,6 +39,10 @@ const mockTreatmentRepo = {
 
 const mockConfirmationRepo = {
   confirmPaidBooking: jest.fn(),
+};
+
+const mockHoldExpiryScheduler = {
+  scheduleExpiry: jest.fn(),
 };
 
 const CONSULTATION: Treatment = {
@@ -104,6 +109,7 @@ describe('PaymentsService', () => {
           provide: BookingConfirmationRepository,
           useValue: mockConfirmationRepo,
         },
+        { provide: HoldExpiryScheduler, useValue: mockHoldExpiryScheduler },
       ],
     }).compile();
     service = module.get(PaymentsService);
@@ -155,6 +161,10 @@ describe('PaymentsService', () => {
         }),
       );
       expect(mockGateway.generateQr).not.toHaveBeenCalled();
+      expect(mockHoldExpiryScheduler.scheduleExpiry).toHaveBeenCalledWith(
+        'appt-1',
+        expect.any(Date),
+      );
     });
 
     it('throws ServiceUnavailableException when no default-consultation treatment is configured', async () => {
@@ -193,6 +203,10 @@ describe('PaymentsService', () => {
         amount: 50,
       });
       expect(result.qrId).toBe('qr-new');
+      expect(mockHoldExpiryScheduler.scheduleExpiry).toHaveBeenCalledWith(
+        'appt-1',
+        expect.any(Date),
+      );
     });
 
     it('throws GoneException when the hold expires between reading it and attaching the QR', async () => {
@@ -205,6 +219,7 @@ describe('PaymentsService', () => {
       mockAppointmentRepo.attachQr.mockResolvedValue(null);
 
       await expect(service.checkout('appt-1')).rejects.toThrow(GoneException);
+      expect(mockHoldExpiryScheduler.scheduleExpiry).not.toHaveBeenCalled();
     });
   });
 
