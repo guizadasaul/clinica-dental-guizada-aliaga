@@ -14,6 +14,7 @@ import { UserRole } from '../../auth/domain/value-objects/UserRole';
 import { TreatmentRepository } from '../../treatments/domain/TreatmentRepository';
 import type { Treatment } from '../../treatments/domain/Treatment';
 import type { TreatmentScope } from '../../treatments/domain/TreatmentScope';
+import { SupabaseAdminService } from '../../auth/infrastructure/SupabaseAdminService';
 
 const DOCTOR_AUTH_ID = 'doctor-auth-1';
 const PATIENT_AUTH_ID = 'patient-auth-1';
@@ -113,6 +114,10 @@ const mockTreatmentRepo = {
   update: jest.fn(),
 };
 
+const mockSupabaseAdminService = {
+  setConfirmedPhone: jest.fn(),
+};
+
 describe('PatientsService', () => {
   let service: PatientsService;
 
@@ -124,6 +129,7 @@ describe('PatientsService', () => {
         { provide: PatientRepository, useValue: mockPatientRepo },
         { provide: UserRepository, useValue: mockUserRepo },
         { provide: TreatmentRepository, useValue: mockTreatmentRepo },
+        { provide: SupabaseAdminService, useValue: mockSupabaseAdminService },
       ],
     }).compile();
     service = module.get(PatientsService);
@@ -280,6 +286,63 @@ describe('PatientsService', () => {
       await expect(
         service.updatePatient('patient-1', { email: 'taken@example.com' }),
       ).rejects.toThrow(ConflictException);
+    });
+
+    it('syncs the phone onto the linked user when provided', async () => {
+      mockPatientRepo.updatePatient.mockResolvedValue(
+        fakePatient({ userId: 'user-1' }),
+      );
+      mockUserRepo.updateContactInfo.mockResolvedValue(
+        makeAppUser(UserRole.PATIENT, 'user-1'),
+      );
+
+      await service.updatePatient('patient-1', {
+        firstName: 'X',
+        phone: '71234567',
+      });
+
+      expect(mockUserRepo.updateContactInfo).toHaveBeenCalledWith('user-1', {
+        phone: '71234567',
+      });
+    });
+
+    it('confirms the phone in Supabase Auth when the linked user already has an account', async () => {
+      mockPatientRepo.updatePatient.mockResolvedValue(
+        fakePatient({ userId: 'user-1' }),
+      );
+      const linkedUser = makeAppUser(UserRole.PATIENT, 'user-1');
+      mockUserRepo.updateContactInfo.mockResolvedValue(linkedUser);
+
+      await service.updatePatient('patient-1', { phone: '71234567' });
+
+      expect(mockSupabaseAdminService.setConfirmedPhone).toHaveBeenCalledWith(
+        linkedUser.authUserId,
+        '+59171234567',
+      );
+    });
+
+    it('does not confirm the phone in Supabase Auth when the linked user has no account yet', async () => {
+      mockPatientRepo.updatePatient.mockResolvedValue(
+        fakePatient({ userId: 'user-1' }),
+      );
+      mockUserRepo.updateContactInfo.mockResolvedValue(
+        new User(
+          'user-1',
+          null,
+          null,
+          UserRole.PATIENT,
+          'Name',
+          '71234567',
+          null,
+          true,
+          new Date(),
+          new Date(),
+        ),
+      );
+
+      await service.updatePatient('patient-1', { phone: '71234567' });
+
+      expect(mockSupabaseAdminService.setConfirmedPhone).not.toHaveBeenCalled();
     });
   });
 

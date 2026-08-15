@@ -3,6 +3,8 @@ import type { AuthenticatedUser } from '../domain/AuthenticatedUser';
 import { User } from '../domain/User';
 import { UserRepository } from '../domain/UserRepository';
 import { PatientInvitesService } from '../../patient-invites/application/patient-invites.service';
+import { SupabaseAdminService } from '../infrastructure/SupabaseAdminService';
+import { toE164Bolivia } from '../../shared/phone.util';
 
 @Injectable()
 export class AuthService {
@@ -11,6 +13,7 @@ export class AuthService {
   constructor(
     @Inject(UserRepository) private readonly userRepository: UserRepository,
     private readonly patientInvitesService: PatientInvitesService,
+    private readonly supabaseAdminService: SupabaseAdminService,
   ) {}
 
   async syncUser(
@@ -29,9 +32,7 @@ export class AuthService {
     // ya canjeó una invitación antes). Sin fila previa y sin invitación
     // válida, no queda ningún rastro en users — la única cuenta real que
     // existe es la de Supabase, que no está bajo nuestro control.
-    const existing = await this.userRepository.findByAuthUserId(
-      authUser.uid,
-    );
+    const existing = await this.userRepository.findByAuthUserId(authUser.uid);
     if (!existing) {
       throw new NotFoundException(
         'No hay una cuenta asociada a este login todavía',
@@ -40,6 +41,7 @@ export class AuthService {
     return this.userRepository.upsertByAuthUserId({
       authUserId: authUser.uid,
       email: authUser.email,
+      ...(authUser.phone && { phone: authUser.phone }),
       displayName: authUser.displayName,
       photoUrl: authUser.photoUrl,
     });
@@ -62,12 +64,27 @@ export class AuthService {
         );
         return null;
       }
-      return await this.userRepository.linkAuthIdentity(redeemed.userId, {
-        authUserId: authUser.uid,
-        email: authUser.email,
-        displayName: authUser.displayName,
-        photoUrl: authUser.photoUrl,
-      });
+      const linked = await this.userRepository.linkAuthIdentity(
+        redeemed.userId,
+        {
+          authUserId: authUser.uid,
+          email: authUser.email,
+          ...(authUser.phone && { phone: authUser.phone }),
+          displayName: authUser.displayName,
+          photoUrl: authUser.photoUrl,
+        },
+      );
+      // El teléfono puede venir de una ficha que el doctor ya completó antes
+      // de que el paciente reclamara la invitación — si está, lo confirmamos
+      // en Supabase Auth ahora para que quede utilizable como login desde el
+      // primer momento, sin que el doctor tenga que volver a tocar la ficha.
+      if (linked?.phone) {
+        await this.supabaseAdminService.setConfirmedPhone(
+          authUser.uid,
+          toE164Bolivia(linked.phone),
+        );
+      }
+      return linked;
     } catch (error) {
       this.logger.error('Error al canjear inviteToken', error);
       return null;

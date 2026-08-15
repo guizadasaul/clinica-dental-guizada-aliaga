@@ -1,7 +1,7 @@
 import type { AuthError } from '@supabase/supabase-js';
 
 const MESSAGES_BY_CODE: Record<string, string> = {
-  invalid_credentials: 'Correo o contraseña incorrectos.',
+  invalid_credentials: 'Correo/teléfono o contraseña incorrectos.',
   user_already_exists: 'Ya existe una cuenta con este correo.',
   email_exists: 'Ya existe una cuenta con este correo.',
   weak_password: 'La contraseña debe tener al menos 6 caracteres.',
@@ -11,7 +11,7 @@ const MESSAGES_BY_CODE: Record<string, string> = {
 };
 
 const MESSAGE_FALLBACKS: Array<[needle: string, message: string]> = [
-  ['Invalid login credentials', 'Correo o contraseña incorrectos.'],
+  ['Invalid login credentials', 'Correo/teléfono o contraseña incorrectos.'],
   ['User already registered', 'Ya existe una cuenta con este correo.'],
   ['Password should be at least', 'La contraseña debe tener al menos 6 caracteres.'],
 ];

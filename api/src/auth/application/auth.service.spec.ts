@@ -6,6 +6,7 @@ import { User } from '../domain/User';
 import { UserRole } from '../domain/value-objects/UserRole';
 import { AuthenticatedUser } from '../domain/AuthenticatedUser';
 import { PatientInvitesService } from '../../patient-invites/application/patient-invites.service';
+import { SupabaseAdminService } from '../infrastructure/SupabaseAdminService';
 
 const AUTH_USER_ID = '11111111-1111-4111-8111-111111111111';
 
@@ -36,9 +37,14 @@ const mockPatientInvitesService = {
   checkStatus: jest.fn(),
 };
 
+const mockSupabaseAdminService = {
+  setConfirmedPhone: jest.fn(),
+};
+
 const authUser: AuthenticatedUser = {
   uid: AUTH_USER_ID,
   email: 'test@example.com',
+  phone: null,
   displayName: 'Test User',
   photoUrl: null,
 };
@@ -53,6 +59,7 @@ describe('AuthService', () => {
         AuthService,
         { provide: UserRepository, useValue: mockRepo },
         { provide: PatientInvitesService, useValue: mockPatientInvitesService },
+        { provide: SupabaseAdminService, useValue: mockSupabaseAdminService },
       ],
     }).compile();
     service = module.get(AuthService);
@@ -111,6 +118,51 @@ describe('AuthService', () => {
       });
       expect(result).toBe(mockUser);
       expect(mockRepo.upsertByAuthUserId).not.toHaveBeenCalled();
+      // mockUser.phone es null: no hay nada que confirmar en Supabase.
+      expect(mockSupabaseAdminService.setConfirmedPhone).not.toHaveBeenCalled();
+    });
+
+    it('confirms the phone in Supabase Auth when the just-linked user already has one on file', async () => {
+      mockPatientInvitesService.redeem.mockResolvedValue({
+        patientId: 'patient-1',
+        userId: 'user-1',
+      });
+      const linkedUserWithPhone = new User(
+        'uuid-1',
+        AUTH_USER_ID,
+        'test@example.com',
+        UserRole.PATIENT,
+        'Test User',
+        '71234567',
+        null,
+        true,
+        new Date(),
+        new Date(),
+      );
+      mockRepo.linkAuthIdentity.mockResolvedValue(linkedUserWithPhone);
+
+      const result = await service.syncUser(authUser, 'valid-invite-token');
+
+      expect(result).toBe(linkedUserWithPhone);
+      expect(mockSupabaseAdminService.setConfirmedPhone).toHaveBeenCalledWith(
+        AUTH_USER_ID,
+        '+59171234567',
+      );
+    });
+
+    it('threads the phone from the JWT through to upsertByAuthUserId when present', async () => {
+      mockRepo.findByAuthUserId.mockResolvedValue(mockUser);
+      mockRepo.upsertByAuthUserId.mockResolvedValue(mockUser);
+
+      await service.syncUser({ ...authUser, phone: '+59171234567' });
+
+      expect(mockRepo.upsertByAuthUserId).toHaveBeenCalledWith({
+        authUserId: AUTH_USER_ID,
+        email: 'test@example.com',
+        phone: '+59171234567',
+        displayName: 'Test User',
+        photoUrl: null,
+      });
     });
 
     it('falls back to a normal update when the invite token is invalid/expired/already used, for a user that already exists', async () => {

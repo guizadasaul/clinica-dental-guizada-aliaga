@@ -9,6 +9,7 @@ const AUTH_USER_ID = '11111111-1111-4111-8111-111111111111';
 const authUser: AuthenticatedUser = {
   uid: AUTH_USER_ID,
   email: 'test@example.com',
+  phone: null,
   displayName: 'Test User',
   photoUrl: null,
 };

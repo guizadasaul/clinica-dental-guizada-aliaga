@@ -9,14 +9,16 @@ const mockVerifier = {
 const authUser: AuthenticatedUser = {
   uid: '11111111-1111-4111-8111-111111111111',
   email: 'test@example.com',
+  phone: null,
   displayName: 'Test User',
   photoUrl: null,
 };
 
 function contextWithHeader(authorization?: string): ExecutionContext {
-  const request: { headers: Record<string, string>; user?: AuthenticatedUser } = {
-    headers: authorization ? { authorization } : {},
-  };
+  const request: { headers: Record<string, string>; user?: AuthenticatedUser } =
+    {
+      headers: authorization ? { authorization } : {},
+    };
   return {
     switchToHttp: () => ({
       getRequest: () => request,
@@ -35,22 +37,30 @@ describe('SupabaseAuthGuard', () => {
   it('throws UnauthorizedException when no Authorization header is present', async () => {
     const context = contextWithHeader();
 
-    await expect(guard.canActivate(context)).rejects.toThrow(UnauthorizedException);
+    await expect(guard.canActivate(context)).rejects.toThrow(
+      UnauthorizedException,
+    );
     expect(mockVerifier.verify).not.toHaveBeenCalled();
   });
 
   it('throws UnauthorizedException when the header is not a Bearer token', async () => {
     const context = contextWithHeader('Basic abc123');
 
-    await expect(guard.canActivate(context)).rejects.toThrow(UnauthorizedException);
+    await expect(guard.canActivate(context)).rejects.toThrow(
+      UnauthorizedException,
+    );
     expect(mockVerifier.verify).not.toHaveBeenCalled();
   });
 
   it('propagates the verifier rejection for an invalid token', async () => {
-    mockVerifier.verify.mockRejectedValue(new UnauthorizedException('Invalid or expired token'));
+    mockVerifier.verify.mockRejectedValue(
+      new UnauthorizedException('Invalid or expired token'),
+    );
     const context = contextWithHeader('Bearer bad-token');
 
-    await expect(guard.canActivate(context)).rejects.toThrow(UnauthorizedException);
+    await expect(guard.canActivate(context)).rejects.toThrow(
+      UnauthorizedException,
+    );
   });
 
   it('attaches the verified user to the request and returns true for a valid token', async () => {
@@ -61,7 +71,9 @@ describe('SupabaseAuthGuard', () => {
 
     expect(result).toBe(true);
     expect(mockVerifier.verify).toHaveBeenCalledWith('good-token');
-    const request = context.switchToHttp().getRequest<{ user: AuthenticatedUser }>();
+    const request = context
+      .switchToHttp()
+      .getRequest<{ user: AuthenticatedUser }>();
     expect(request.user).toEqual(authUser);
   });
 });

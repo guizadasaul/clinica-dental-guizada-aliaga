@@ -21,6 +21,8 @@ import type {
 import { UserRepository } from '../../auth/domain/UserRepository';
 import type { UserRepository as IUserRepository } from '../../auth/domain/UserRepository';
 import { UserRole } from '../../auth/domain/value-objects/UserRole';
+import { SupabaseAdminService } from '../../auth/infrastructure/SupabaseAdminService';
+import { toE164Bolivia } from '../../shared/phone.util';
 import { TreatmentRepository } from '../../treatments/domain/TreatmentRepository';
 import type { ITreatmentRepository } from '../../treatments/domain/TreatmentRepository';
 import {
@@ -60,6 +62,7 @@ export class PatientsService {
     private readonly userRepo: IUserRepository,
     @Inject(TreatmentRepository)
     private readonly treatmentRepo: ITreatmentRepository,
+    private readonly supabaseAdminService: SupabaseAdminService,
   ) {}
 
   findAll(): Promise<PatientWithUser[]> {
@@ -119,8 +122,23 @@ export class PatientsService {
     if (!patient) {
       throw new NotFoundException(`Paciente con id ${patientId} no encontrado`);
     }
-    if (email !== undefined) {
-      await this.userRepo.updateContactInfo(patient.userId, { email });
+    const phone = patientFields.phone;
+    if (email !== undefined || phone !== undefined) {
+      const user = await this.userRepo.updateContactInfo(patient.userId, {
+        ...(email !== undefined && { email }),
+        ...(phone !== undefined && { phone }),
+      });
+      // El teléfono queda utilizable como login (phone + contraseña) recién
+      // cuando la cuenta de Supabase ya existe (authUserId no nulo). Si
+      // todavía es una ficha placeholder, alcanza con guardarlo en `users` —
+      // se confirma en Supabase cuando el paciente reclame la invitación
+      // (ver AuthService.tryLinkInvitedUser).
+      if (user?.authUserId && phone) {
+        await this.supabaseAdminService.setConfirmedPhone(
+          user.authUserId,
+          toE164Bolivia(phone),
+        );
+      }
     }
     return patient;
   }

@@ -2,6 +2,7 @@ import { Component, ChangeDetectionStrategy, signal, inject, OnInit } from '@ang
 import { FormsModule } from '@angular/forms';
 import { RouterLink, Router, ActivatedRoute } from '@angular/router';
 import { AuthService } from '../../application/auth.service';
+import { looksLikePhone, normalizePhone } from '../../application/phone.util';
 
 @Component({
   selector: 'app-login',
@@ -16,7 +17,7 @@ export class LoginComponent implements OnInit {
   private readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
 
-  protected readonly email = signal('');
+  protected readonly identifier = signal('');
   protected readonly password = signal('');
   protected readonly passwordVisible = signal(false);
   protected readonly loading = signal(false);
@@ -38,10 +39,10 @@ export class LoginComponent implements OnInit {
       return;
     }
 
-    const email = this.email().trim();
+    const identifier = this.identifier().trim();
     const password = this.password();
-    if (!email || !password) {
-      this.errorMessage.set('Correo y contraseña son obligatorios.');
+    if (!identifier || !password) {
+      this.errorMessage.set('Correo/teléfono y contraseña son obligatorios.');
       return;
     }
 
@@ -50,7 +51,11 @@ export class LoginComponent implements OnInit {
     this.loading.set(true);
 
     try {
-      await this.authService.loginWithPassword(email, password);
+      if (looksLikePhone(identifier)) {
+        await this.authService.loginWithPhone(normalizePhone(identifier), password);
+      } else {
+        await this.authService.loginWithPassword(identifier, password);
+      }
       await this.router.navigateByUrl('/dashboard');
     } catch (err) {
       this.errorMessage.set(err instanceof Error ? err.message : 'No se pudo iniciar sesión.');

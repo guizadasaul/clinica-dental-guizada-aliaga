@@ -30,12 +30,14 @@ export class PrismaUserRepository implements UserRepository {
         create: {
           auth_user_id: data.authUserId,
           email: data.email,
+          ...(data.phone !== undefined && { phone: data.phone }),
           display_name: data.displayName,
           photo_url: data.photoUrl,
           role: UserRole.PATIENT,
         },
         update: {
           email: data.email,
+          ...(data.phone !== undefined && { phone: data.phone }),
           display_name: data.displayName,
           photo_url: data.photoUrl,
           updated_at: new Date(),
@@ -86,6 +88,7 @@ export class PrismaUserRepository implements UserRepository {
         data: {
           auth_user_id: data.authUserId,
           email: data.email,
+          ...(data.phone !== undefined && { phone: data.phone }),
           display_name: data.displayName,
           photo_url: data.photoUrl,
           updated_at: new Date(),
