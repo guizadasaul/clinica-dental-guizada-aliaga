@@ -59,12 +59,14 @@ describe('AuthService', () => {
   });
 
   describe('syncUser', () => {
-    it('should upsert and return the user', async () => {
+    it('updates and returns the user when a row already exists for this identity', async () => {
+      mockRepo.findByAuthUserId.mockResolvedValue(mockUser);
       mockRepo.upsertByAuthUserId.mockResolvedValue(mockUser);
 
       const result = await service.syncUser(authUser);
 
       expect(result).toBe(mockUser);
+      expect(mockRepo.findByAuthUserId).toHaveBeenCalledWith(AUTH_USER_ID);
       expect(mockRepo.upsertByAuthUserId).toHaveBeenCalledWith({
         authUserId: AUTH_USER_ID,
         email: 'test@example.com',
@@ -73,7 +75,17 @@ describe('AuthService', () => {
       });
     });
 
+    it('does not create a row and throws NotFoundException for a brand-new login with no invite', async () => {
+      mockRepo.findByAuthUserId.mockResolvedValue(null);
+
+      await expect(service.syncUser(authUser)).rejects.toThrow(
+        NotFoundException,
+      );
+      expect(mockRepo.upsertByAuthUserId).not.toHaveBeenCalled();
+    });
+
     it('should propagate repository errors', async () => {
+      mockRepo.findByAuthUserId.mockResolvedValue(mockUser);
       mockRepo.upsertByAuthUserId.mockRejectedValue(new Error('DB error'));
 
       await expect(service.syncUser(authUser)).rejects.toThrow('DB error');
@@ -101,8 +113,9 @@ describe('AuthService', () => {
       expect(mockRepo.upsertByAuthUserId).not.toHaveBeenCalled();
     });
 
-    it('falls back to a normal upsert when the invite token is invalid/expired/already used', async () => {
+    it('falls back to a normal update when the invite token is invalid/expired/already used, for a user that already exists', async () => {
       mockPatientInvitesService.redeem.mockResolvedValue(null);
+      mockRepo.findByAuthUserId.mockResolvedValue(mockUser);
       mockRepo.upsertByAuthUserId.mockResolvedValue(mockUser);
 
       const result = await service.syncUser(authUser, 'bad-invite-token');
@@ -117,8 +130,19 @@ describe('AuthService', () => {
       });
     });
 
-    it('still completes the login when the invite seam itself throws', async () => {
+    it('throws NotFoundException when the invite token is invalid and there is no existing account either', async () => {
+      mockPatientInvitesService.redeem.mockResolvedValue(null);
+      mockRepo.findByAuthUserId.mockResolvedValue(null);
+
+      await expect(
+        service.syncUser(authUser, 'bad-invite-token'),
+      ).rejects.toThrow(NotFoundException);
+      expect(mockRepo.upsertByAuthUserId).not.toHaveBeenCalled();
+    });
+
+    it('still completes the login for an existing user when the invite seam itself throws', async () => {
       mockPatientInvitesService.redeem.mockRejectedValue(new Error('boom'));
+      mockRepo.findByAuthUserId.mockResolvedValue(mockUser);
       mockRepo.upsertByAuthUserId.mockResolvedValue(mockUser);
 
       const result = await service.syncUser(authUser, 'some-token');

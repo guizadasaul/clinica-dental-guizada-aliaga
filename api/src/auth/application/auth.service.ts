@@ -23,6 +23,20 @@ export class AuthService {
         return linked;
       }
     }
+
+    // Un login de Google, por sí solo, ya no crea una cuenta: solo actualiza
+    // el perfil de una que ya existe (reservó y pagó, el doctor la creó, o
+    // ya canjeó una invitación antes). Sin fila previa y sin invitación
+    // válida, no queda ningún rastro en users — la única cuenta real que
+    // existe es la de Supabase, que no está bajo nuestro control.
+    const existing = await this.userRepository.findByAuthUserId(
+      authUser.uid,
+    );
+    if (!existing) {
+      throw new NotFoundException(
+        'No hay una cuenta asociada a este login todavía',
+      );
+    }
     return this.userRepository.upsertByAuthUserId({
       authUserId: authUser.uid,
       email: authUser.email,

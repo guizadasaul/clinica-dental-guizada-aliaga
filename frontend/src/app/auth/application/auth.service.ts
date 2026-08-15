@@ -36,6 +36,14 @@ export class AuthService {
   private settled = false;
   private resolveReady!: () => void;
   private syncedUserId: string | null = null;
+  // Promesa del sync en curso (o recién terminado) para syncedUserId. Supabase
+  // dispara varios eventos (ej. SIGNED_IN + INITIAL_SESSION + SIGNED_IN) para
+  // un mismo login, separados por apenas 1-2ms — el segundo evento ve
+  // syncedUserId ya seteado (por el primero, de forma síncrona) y, sin esto,
+  // resolvía authReady de una sin esperar a que el sync programado por el
+  // primer evento (via setTimeout) siquiera arrancara. El guard terminaba
+  // leyendo currentUser().role todavía en null. Ver CLI-23.
+  private pendingSync: Promise<void> | null = null;
 
   constructor() {
     this.authReady = new Promise<void>((resolve) => {
@@ -60,23 +68,33 @@ export class AuthService {
       if (!session) {
         this.currentUser.set(null);
         this.syncedUserId = null;
+        this.pendingSync = null;
         this.settleReady();
         return;
       }
 
       if (this.syncedUserId === session.user.id) {
-        // Mismo usuario ya sincronizado (TOKEN_REFRESHED, o el interceptor
-        // reemitiendo el estado vía getSession() en cada request HTTP): no
-        // pisar currentUser con un reset a role:null.
-        this.settleReady();
+        // Mismo usuario ya sincronizado o en proceso (TOKEN_REFRESHED, un
+        // evento duplicado del propio login, o el interceptor reemitiendo el
+        // estado vía getSession() en cada request HTTP): no pisar currentUser
+        // con un reset a role:null. Si todavía hay un sync en vuelo, esperarlo
+        // antes de resolver authReady en vez de resolverla de una.
+        if (this.pendingSync) {
+          void this.pendingSync.then(() => this.settleReady());
+        } else {
+          this.settleReady();
+        }
         return;
       }
 
       this.currentUser.set(toAuthenticatedUser(session.user));
       this.syncedUserId = session.user.id;
-      setTimeout(() => {
-        void this.syncWithBackend().finally(() => this.settleReady());
-      }, 0);
+      this.pendingSync = new Promise<void>((resolve) => {
+        setTimeout(() => {
+          void this.syncWithBackend().finally(resolve);
+        }, 0);
+      });
+      void this.pendingSync.then(() => this.settleReady());
     });
   }
 
@@ -153,24 +171,41 @@ export class AuthService {
           inviteToken ? { inviteToken } : {},
         ),
       );
-      this.currentUser.update((u) =>
-        u
-          ? {
-              ...u,
-              role: user.role,
-              photoURL: user.photoUrl ?? u.photoURL,
-              displayName: user.displayName ?? u.displayName,
-              email: user.email ?? u.email,
-            }
-          : null,
-      );
+      this.applyBackendUser(user);
     } catch {
-      // role queda null — el guard igual deja pasar por sesión válida
+      // El POST falló (blip transitorio, backend reiniciando, etc.) — antes
+      // de resignarse a role: null, probar una lectura simple. Si el usuario
+      // ya tenía una fila de un sync anterior (ej. un doctor recurrente), esto
+      // evita que patientProfileGuard lo expulse a la landing por un error de
+      // red puntual en vez de por no tener cuenta de verdad.
+      try {
+        const user = await firstValueFrom(
+          this.http.get<BackendUser>(`${environment.backendUrl}/auth/me`),
+        );
+        this.applyBackendUser(user);
+      } catch {
+        // role queda null — usuario genuinamente nuevo sin fila todavía, o el
+        // backend sigue caído. El guard de ficha lo manda a la landing.
+      }
     } finally {
       if (inviteToken) {
         sessionStorage.removeItem('pendingInviteToken');
       }
     }
+  }
+
+  private applyBackendUser(user: BackendUser): void {
+    this.currentUser.update((u) =>
+      u
+        ? {
+            ...u,
+            role: user.role,
+            photoURL: user.photoUrl ?? u.photoURL,
+            displayName: user.displayName ?? u.displayName,
+            email: user.email ?? u.email,
+          }
+        : null,
+    );
   }
 
   private settleReady(): void {

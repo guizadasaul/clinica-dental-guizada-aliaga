@@ -27,7 +27,9 @@ describe('PrismaUserRepository', () => {
   let prismaMock: {
     users: {
       create: jest.Mock;
+      update: jest.Mock;
       updateMany: jest.Mock;
+      upsert: jest.Mock;
       findUnique: jest.Mock;
     };
   };
@@ -37,11 +39,78 @@ describe('PrismaUserRepository', () => {
     prismaMock = {
       users: {
         create: jest.fn(),
+        update: jest.fn(),
         updateMany: jest.fn(),
+        upsert: jest.fn(),
         findUnique: jest.fn(),
       },
     };
     repo = new PrismaUserRepository(prismaMock as unknown as PrismaService);
+  });
+
+  describe('upsertByAuthUserId', () => {
+    it('returns the upserted record on the happy path', async () => {
+      prismaMock.users.upsert.mockResolvedValue(
+        fakeUserRecord({ auth_user_id: AUTH_USER_ID, email: 'a@b.com' }),
+      );
+
+      const result = await repo.upsertByAuthUserId({
+        authUserId: AUTH_USER_ID,
+        email: 'a@b.com',
+        displayName: 'Real Name',
+        photoUrl: null,
+      });
+
+      expect(result.authUserId).toBe(AUTH_USER_ID);
+      expect(prismaMock.users.update).not.toHaveBeenCalled();
+    });
+
+    it('re-links an existing row by email instead of throwing when the email is already taken by a different auth_user_id', async () => {
+      const error = new Prisma.PrismaClientKnownRequestError(
+        'Unique constraint failed',
+        { code: 'P2002', clientVersion: 'test' },
+      );
+      prismaMock.users.upsert.mockRejectedValue(error);
+      prismaMock.users.update.mockResolvedValue(
+        fakeUserRecord({
+          auth_user_id: AUTH_USER_ID,
+          email: 'taken@b.com',
+          role: 'odontologist',
+        }),
+      );
+
+      const result = await repo.upsertByAuthUserId({
+        authUserId: AUTH_USER_ID,
+        email: 'taken@b.com',
+        displayName: 'Real Name',
+        photoUrl: null,
+      });
+
+      expect(prismaMock.users.update).toHaveBeenCalledWith({
+        where: { email: 'taken@b.com' },
+        data: expect.objectContaining({
+          auth_user_id: AUTH_USER_ID,
+        }) as Record<string, unknown>,
+      });
+      // El rol existente (ej. odontologist) no se toca — solo se re-vincula
+      // el auth_user_id, igual que hace linkAuthIdentity.
+      expect(result.role).toBe('odontologist');
+      expect(result.authUserId).toBe(AUTH_USER_ID);
+    });
+
+    it('rethrows non-P2002 errors', async () => {
+      prismaMock.users.upsert.mockRejectedValue(new Error('boom'));
+
+      await expect(
+        repo.upsertByAuthUserId({
+          authUserId: AUTH_USER_ID,
+          email: 'a@b.com',
+          displayName: null,
+          photoUrl: null,
+        }),
+      ).rejects.toThrow('boom');
+      expect(prismaMock.users.update).not.toHaveBeenCalled();
+    });
   });
 
   describe('createPlaceholder', () => {
