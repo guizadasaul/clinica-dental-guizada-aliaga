@@ -1,6 +1,6 @@
 import { Component, ChangeDetectionStrategy, inject, signal } from '@angular/core';
 import { HttpErrorResponse } from '@angular/common/http';
-import { ActivatedRoute } from '@angular/router';
+import { ActivatedRoute, RouterLink } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
 import { BookingService } from '../../services/booking.service';
 import { WeekSlotPickerComponent } from '../week-slot-picker/week-slot-picker';
@@ -21,6 +21,7 @@ function todayIso(): string {
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
+    RouterLink,
     WeekSlotPickerComponent,
     StepGuestContactComponent,
     StepPaymentQrComponent,
