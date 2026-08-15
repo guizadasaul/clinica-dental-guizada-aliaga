@@ -153,24 +153,41 @@ export class AuthService {
           inviteToken ? { inviteToken } : {},
         ),
       );
-      this.currentUser.update((u) =>
-        u
-          ? {
-              ...u,
-              role: user.role,
-              photoURL: user.photoUrl ?? u.photoURL,
-              displayName: user.displayName ?? u.displayName,
-              email: user.email ?? u.email,
-            }
-          : null,
-      );
+      this.applyBackendUser(user);
     } catch {
-      // role queda null — el guard igual deja pasar por sesión válida
+      // El POST falló (blip transitorio, backend reiniciando, etc.) — antes
+      // de resignarse a role: null, probar una lectura simple. Si el usuario
+      // ya tenía una fila de un sync anterior (ej. un doctor recurrente), esto
+      // evita que patientProfileGuard lo expulse a la landing por un error de
+      // red puntual en vez de por no tener cuenta de verdad.
+      try {
+        const user = await firstValueFrom(
+          this.http.get<BackendUser>(`${environment.backendUrl}/auth/me`),
+        );
+        this.applyBackendUser(user);
+      } catch {
+        // role queda null — usuario genuinamente nuevo sin fila todavía, o el
+        // backend sigue caído. El guard de ficha lo manda a la landing.
+      }
     } finally {
       if (inviteToken) {
         sessionStorage.removeItem('pendingInviteToken');
       }
     }
+  }
+
+  private applyBackendUser(user: BackendUser): void {
+    this.currentUser.update((u) =>
+      u
+        ? {
+            ...u,
+            role: user.role,
+            photoURL: user.photoUrl ?? u.photoURL,
+            displayName: user.displayName ?? u.displayName,
+            email: user.email ?? u.email,
+          }
+        : null,
+    );
   }
 
   private settleReady(): void {
