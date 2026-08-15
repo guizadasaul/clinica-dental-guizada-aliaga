@@ -115,4 +115,38 @@ describe('AuthService', () => {
     expect(service.currentUser()?.role).toBe('odontologist');
     httpMock.verify();
   });
+
+  it('waitForSync waits for a fresh login even after authReady already resolved at app boot', async () => {
+    // authReady resuelve UNA vez, al arrancar la app — para una pantalla que
+    // ya estaba abierta (login/registro/invitación) y recién ahora dispara
+    // un login, authReady ya está resuelta desde hace rato y awaitearla no
+    // espera nada. Un código que navega a una ruta gateada por ficha justo
+    // después de loguearse necesita esperar el sync de ESTE login puntual —
+    // para eso existe waitForSync, no authReady.
+    vi.useFakeTimers();
+    const { service, httpMock, fakeSupabase } = setup();
+
+    // Arranque de la app sin sesión: authReady resuelve casi de inmediato.
+    fakeSupabase.fireEvent('INITIAL_SESSION', null);
+    await service.authReady;
+
+    // Recién ahora el usuario se loguea, dentro de la misma app ya corriendo.
+    fakeSupabase.fireEvent('SIGNED_IN', { user: { id: 'user-2' } });
+
+    let syncSettled = false;
+    void service.waitForSync().then(() => {
+      syncSettled = true;
+    });
+
+    await vi.advanceTimersByTimeAsync(0);
+    expect(syncSettled).toBe(false);
+    expect(service.currentUser()?.role).toBeNull();
+
+    httpMock.expectOne((r) => r.url.endsWith('/auth/sync')).flush(BACKEND_USER);
+    await vi.advanceTimersByTimeAsync(0);
+
+    expect(syncSettled).toBe(true);
+    expect(service.currentUser()?.role).toBe('odontologist');
+    httpMock.verify();
+  });
 });

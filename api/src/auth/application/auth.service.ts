@@ -91,6 +91,19 @@ export class AuthService {
     }
   }
 
+  /**
+   * Self-registro por teléfono (CLI-27): crea la identidad de Supabase Auth
+   * directo vía Admin API, sin SMS. No toca users/patients — la fila se crea
+   * sola en el próximo POST /auth/sync (mismo pipeline y mismo gate de "sin
+   * ficha" que cualquier otro login sin invitación).
+   */
+  async registerWithPhone(phone: string, password: string): Promise<void> {
+    await this.supabaseAdminService.createPhoneUser(
+      toE164Bolivia(phone),
+      password,
+    );
+  }
+
   async getCurrentUser(uid: string): Promise<User> {
     const user = await this.userRepository.findByAuthUserId(uid);
     if (!user) {

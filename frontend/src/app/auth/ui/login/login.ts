@@ -56,6 +56,10 @@ export class LoginComponent implements OnInit {
       } else {
         await this.authService.loginWithPassword(identifier, password);
       }
+      // El guard de ficha también espera esto, pero sin hacerlo acá también
+      // el router ya arrancó la navegación con currentUser().role todavía
+      // en null en el momento exacto en que el guard lo lee.
+      await this.authService.waitForSync();
       await this.router.navigateByUrl('/dashboard');
     } catch (err) {
       this.errorMessage.set(err instanceof Error ? err.message : 'No se pudo iniciar sesión.');

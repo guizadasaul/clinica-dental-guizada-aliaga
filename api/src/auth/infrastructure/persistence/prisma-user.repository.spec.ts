@@ -111,6 +111,26 @@ describe('PrismaUserRepository', () => {
       ).rejects.toThrow('boom');
       expect(prismaMock.users.update).not.toHaveBeenCalled();
     });
+
+    it('does not overwrite an existing email with null (e.g. a phone-only login re-syncing)', async () => {
+      prismaMock.users.upsert.mockResolvedValue(
+        fakeUserRecord({ auth_user_id: AUTH_USER_ID, email: 'existing@b.com' }),
+      );
+
+      await repo.upsertByAuthUserId({
+        authUserId: AUTH_USER_ID,
+        email: null,
+        phone: '71234567',
+        displayName: 'Real Name',
+        photoUrl: null,
+      });
+
+      const upsertArgs = prismaMock.users.upsert.mock.calls[0][0] as {
+        update: Record<string, unknown>;
+      };
+      expect(upsertArgs.update).not.toHaveProperty('email');
+      expect(upsertArgs.update['phone']).toBe('71234567');
+    });
   });
 
   describe('createPlaceholder', () => {
@@ -192,6 +212,31 @@ describe('PrismaUserRepository', () => {
           photoUrl: null,
         }),
       ).rejects.toThrow(ConflictException);
+    });
+
+    it('does not overwrite the invited patient\'s existing email when linking a phone-only login (null email)', async () => {
+      prismaMock.users.updateMany.mockResolvedValue({ count: 1 });
+      prismaMock.users.findUnique.mockResolvedValue(
+        fakeUserRecord({
+          auth_user_id: AUTH_USER_ID,
+          email: 'ya-cargado-por-el-doctor@b.com',
+          phone: '59171234567',
+        }),
+      );
+
+      await repo.linkAuthIdentity(USER_ID, {
+        authUserId: AUTH_USER_ID,
+        email: null,
+        phone: '59171234567',
+        displayName: 'Real Name',
+        photoUrl: null,
+      });
+
+      const updateManyArgs = prismaMock.users.updateMany.mock.calls[0][0] as {
+        data: Record<string, unknown>;
+      };
+      expect(updateManyArgs.data).not.toHaveProperty('email');
+      expect(updateManyArgs.data['phone']).toBe('59171234567');
     });
   });
 });

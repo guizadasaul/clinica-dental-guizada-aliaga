@@ -8,10 +8,18 @@
     @if (loading()) {
       <span class="callback-spinner" aria-hidden="true"></span>
       <p class="login-card__subtitle">Verificando tu invitación...</p>
+    } @else if (valid() && registered()) {
+      <span class="register-confirm-icon material-symbols-outlined" aria-hidden="true">
+        mark_email_read
+      </span>
+      <h1 class="login-card__title">Revisá tu correo</h1>
+      <p class="login-card__subtitle">
+        Te enviamos un correo de confirmación a <strong>{{ identifier() }}</strong>. Hacé clic en el enlace para activar tu cuenta y completar tu registro.
+      </p>
     } @else if (valid()) {
       <h1 class="login-card__title">Completá tu registro</h1>
       <p class="login-card__subtitle">
-        Conectá tu cuenta de Google para acceder a tu ficha y turnos.
+        Creá tu cuenta para acceder a tu ficha y turnos.
       </p>
 
       @if (errorMessage()) {
@@ -20,6 +28,67 @@
           {{ errorMessage() }}
         </div>
       }
+
+      <form class="auth-form" (ngSubmit)="onSubmit()" novalidate>
+        <div class="auth-form__field">
+          <label class="auth-form__label" for="invite-identifier">Correo o teléfono</label>
+          <input
+            id="invite-identifier"
+            class="auth-form__input"
+            type="text"
+            autocomplete="username"
+            [value]="identifier()"
+            (input)="identifier.set($any($event.target).value)"
+          />
+        </div>
+
+        <div class="auth-form__field">
+          <label class="auth-form__label" for="invite-password">Contraseña</label>
+          <div class="auth-form__input-group">
+            <input
+              id="invite-password"
+              class="auth-form__input auth-form__input--with-toggle"
+              [type]="passwordVisible() ? 'text' : 'password'"
+              autocomplete="new-password"
+              [value]="password()"
+              (input)="password.set($any($event.target).value)"
+            />
+            <button
+              type="button"
+              class="auth-form__toggle-visibility"
+              (click)="togglePasswordVisibility()"
+              [attr.aria-label]="passwordVisible() ? 'Ocultar contraseña' : 'Mostrar contraseña'"
+            >
+              <span class="material-symbols-outlined" aria-hidden="true">
+                {{ passwordVisible() ? 'visibility_off' : 'visibility' }}
+              </span>
+            </button>
+          </div>
+        </div>
+
+        <div class="auth-form__field">
+          <label class="auth-form__label" for="invite-confirm-password">Confirmar contraseña</label>
+          <input
+            id="invite-confirm-password"
+            class="auth-form__input"
+            [type]="passwordVisible() ? 'text' : 'password'"
+            autocomplete="new-password"
+            [value]="confirmPassword()"
+            (input)="confirmPassword.set($any($event.target).value)"
+          />
+        </div>
+
+        <button type="submit" class="auth-form__submit" [disabled]="formLoading()">
+          @if (formLoading()) {
+            <span class="auth-form__submit-spinner" aria-hidden="true"></span>
+            Creando cuenta...
+          } @else {
+            Crear cuenta
+          }
+        </button>
+      </form>
+
+      <span class="auth-form__divider">o continuar con</span>
 
       <button
         type="button"
