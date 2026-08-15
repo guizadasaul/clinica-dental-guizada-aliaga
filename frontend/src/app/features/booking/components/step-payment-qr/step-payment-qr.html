@@ -21,6 +21,20 @@
     Esperando confirmación del pago...
   </p>
 
+  <button type="button" class="payment-qr__check-btn" [disabled]="checkingNow()" (click)="checkNow()">
+    @if (checkingNow()) {
+      <span class="payment-qr__check-spinner"></span>
+      Verificando...
+    } @else {
+      <span class="material-symbols-outlined">refresh</span>
+      Ya pagué, verificar
+    }
+  </button>
+
+  @if (justCheckedNotPaid()) {
+    <p class="payment-qr__not-paid-yet">Todavía no detectamos tu pago. Probá de nuevo en unos segundos.</p>
+  }
+
   <a class="payment-qr__call-btn" [href]="clinicPhoneHref">
     <span class="material-symbols-outlined">call</span>
     Llamar a la clínica ({{ clinicPhoneLabel }})

@@ -21,6 +21,18 @@
       required
     />
   </div>
+  <div class="guest-contact__field">
+    <label class="guest-contact__label">
+      Correo electrónico <span class="guest-contact__optional">(opcional)</span>
+    </label>
+    <input
+      class="guest-contact__input"
+      type="email"
+      [value]="email()"
+      (input)="email.set($any($event.target).value)"
+      placeholder="Ej: maria@correo.com"
+    />
+  </div>
 
   @if (formError()) {
     <p class="guest-contact__error">{{ formError() }}</p>

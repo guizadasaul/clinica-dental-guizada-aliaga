@@ -62,6 +62,7 @@ export class AppointmentsController {
       id,
       dto.fullName,
       dto.phone,
+      dto.email ?? null,
     );
   }
 }

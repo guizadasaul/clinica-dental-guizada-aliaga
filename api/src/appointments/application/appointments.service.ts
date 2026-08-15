@@ -157,10 +157,11 @@ export class AppointmentsService {
     id: string,
     fullName: string,
     phone: string,
+    email: string | null,
   ): Promise<Appointment> {
     const updated = await this.appointmentRepo.updateGuestContact(
       id,
-      { fullName, phone },
+      { fullName, phone, email },
       new Date(),
     );
     if (!updated) {

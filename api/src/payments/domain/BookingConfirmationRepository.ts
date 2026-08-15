@@ -5,6 +5,7 @@ export interface ConfirmBookingData {
   qrId: string;
   guestFullName: string;
   guestPhone: string;
+  guestEmail: string | null;
 }
 
 export interface ConfirmedBooking {

@@ -14,6 +14,7 @@ export class AppointmentMapper {
       record.source,
       record.guest_full_name,
       record.guest_phone,
+      record.guest_email,
       record.hold_expires_at,
       record.notes,
       record.created_at,

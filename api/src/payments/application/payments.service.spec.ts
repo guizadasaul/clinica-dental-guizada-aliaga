@@ -61,6 +61,7 @@ interface FakeAppointmentOptions {
   paymentAmount?: number | null;
   guestFullName?: string | null;
   guestPhone?: string | null;
+  guestEmail?: string | null;
 }
 
 function fakeAppointment(options: FakeAppointmentOptions = {}): Appointment {
@@ -74,6 +75,7 @@ function fakeAppointment(options: FakeAppointmentOptions = {}): Appointment {
     'public_web',
     options.guestFullName ?? 'Juana Perez',
     options.guestPhone ?? '70011122',
+    options.guestEmail ?? null,
     options.holdExpiresAt !== undefined
       ? options.holdExpiresAt
       : new Date(Date.now() + 15 * 60 * 1000),

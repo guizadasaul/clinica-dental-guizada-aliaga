@@ -48,7 +48,7 @@ export class PrismaBookingConfirmationRepository implements IBookingConfirmation
         data: UserMapper.toPlaceholderCreateInput({
           displayName: data.guestFullName,
           phone: data.guestPhone,
-          email: null,
+          email: data.guestEmail,
         }),
       });
       const patient = await tx.patients.create({

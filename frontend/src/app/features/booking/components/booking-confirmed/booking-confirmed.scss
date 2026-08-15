@@ -3,24 +3,32 @@
   flex-direction: column;
   align-items: center;
   text-align: center;
-  gap: 0.75rem;
-  padding: 1.5rem 0;
+  gap: var(--space-3);
+  padding: var(--space-6) 0;
+  animation: booking-confirmed-in 0.5s ease-out;
 
   &__icon {
     font-size: 3rem;
-    color: #16a34a;
+    color: var(--color-success);
   }
 
   &__title {
     margin: 0;
-    font-size: 1.25rem;
-    color: var(--color-navy, #1a2b5e);
+    font-family: var(--font-headline);
+    font-size: var(--font-size-2xl);
+    font-weight: 400;
+    color: var(--color-navy);
   }
 
   &__text {
     margin: 0;
-    color: #6b7280;
-    font-size: 0.9375rem;
-    max-width: 420px;
+    color: var(--color-text-muted);
+    font-size: var(--font-size-base);
+    max-width: 26rem;
   }
+}
+
+@keyframes booking-confirmed-in {
+  from { opacity: 0; transform: translateY(12px) scale(0.98); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
 }

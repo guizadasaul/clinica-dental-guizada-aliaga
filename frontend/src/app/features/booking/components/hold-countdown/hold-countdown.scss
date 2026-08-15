@@ -1,19 +1,20 @@
 .hold-countdown {
   display: inline-flex;
   align-items: center;
-  gap: 0.5rem;
-  padding: 0.5rem 0.875rem;
-  border-radius: 0.5rem;
-  background: #eff6ff;
-  color: #1d4ed8;
-  font-size: 0.875rem;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-4);
+  border-radius: var(--radius-full);
+  background: var(--color-info-light);
+  color: var(--color-info);
+  font-family: var(--font-body);
+  font-size: var(--font-size-sm);
 
   .material-symbols-outlined {
     font-size: 1.125rem;
   }
 
   &--low {
-    background: #fef2f2;
-    color: #dc2626;
+    background: var(--color-error-light);
+    color: var(--color-error);
   }
 }
