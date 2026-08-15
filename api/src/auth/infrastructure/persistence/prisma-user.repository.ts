@@ -24,23 +24,49 @@ export class PrismaUserRepository implements UserRepository {
   }
 
   async upsertByAuthUserId(data: UpsertUserData): Promise<User> {
-    const record = await this.prisma.users.upsert({
-      where: { auth_user_id: data.authUserId },
-      create: {
-        auth_user_id: data.authUserId,
-        email: data.email,
-        display_name: data.displayName,
-        photo_url: data.photoUrl,
-        role: UserRole.PATIENT,
-      },
-      update: {
-        email: data.email,
-        display_name: data.displayName,
-        photo_url: data.photoUrl,
-        updated_at: new Date(),
-      },
-    });
-    return UserMapper.toDomain(record);
+    try {
+      const record = await this.prisma.users.upsert({
+        where: { auth_user_id: data.authUserId },
+        create: {
+          auth_user_id: data.authUserId,
+          email: data.email,
+          display_name: data.displayName,
+          photo_url: data.photoUrl,
+          role: UserRole.PATIENT,
+        },
+        update: {
+          email: data.email,
+          display_name: data.displayName,
+          photo_url: data.photoUrl,
+          updated_at: new Date(),
+        },
+      });
+      return UserMapper.toDomain(record);
+    } catch (error: unknown) {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2002' &&
+        data.email
+      ) {
+        // El email ya pertenece a otra fila con un auth_user_id distinto —
+        // típico de una fila creada antes de que esta persona tuviera cuenta
+        // real (seed manual, dato de prueba, etc.). Google ya verificó el
+        // email en el login, así que es seguro re-vincular esa fila al
+        // auth_user_id actual en vez de romper con 500 y dejar afuera a
+        // alguien que sí tiene una cuenta legítima.
+        const record = await this.prisma.users.update({
+          where: { email: data.email },
+          data: {
+            auth_user_id: data.authUserId,
+            display_name: data.displayName,
+            photo_url: data.photoUrl,
+            updated_at: new Date(),
+          },
+        });
+        return UserMapper.toDomain(record);
+      }
+      throw error;
+    }
   }
 
   async createPlaceholder(data: CreatePlaceholderUserData): Promise<User> {
