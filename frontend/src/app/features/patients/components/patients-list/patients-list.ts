@@ -8,7 +8,7 @@ import {
 } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { PatientsService } from '../../services/patients.service';
-import type { PatientWithUser } from '../../models/patient.model';
+import type { PatientWithUser, PatientInviteContact } from '../../models/patient.model';
 
 @Component({
   selector: 'app-patients-list',
@@ -25,6 +25,7 @@ export class PatientsListComponent {
   readonly registerTreatment = output<string>();
   readonly viewHistory = output<string>();
   readonly buildQuote = output<string>();
+  readonly sendInvite = output<PatientInviteContact>();
 
   protected readonly patients = toSignal(
     this.patientsService.getAll(),
@@ -69,5 +70,18 @@ export class PatientsListComponent {
 
   protected onBuildQuote(patientId: string): void {
     this.buildQuote.emit(patientId);
+  }
+
+  protected onSendInvite(p: PatientWithUser): void {
+    if (!p.patient) {
+      return;
+    }
+    this.sendInvite.emit({
+      patientId: p.patient.id,
+      firstName: p.patient.firstName,
+      lastNamePaternal: p.patient.lastNamePaternal,
+      phone: p.patient.phone,
+      email: p.email,
+    });
   }
 }

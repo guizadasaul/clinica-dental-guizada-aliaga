@@ -9,5 +9,6 @@ export class PatientWithUser {
     readonly createdAt: Date,
     readonly patient: Patient | null,
     readonly odontogramEntriesCount: number,
+    readonly hasAccount: boolean,
   ) {}
 }

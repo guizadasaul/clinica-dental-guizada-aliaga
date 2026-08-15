@@ -1,34 +1,32 @@
 <div class="agenda">
   <h2 class="agenda__title">
     <span class="material-symbols-outlined" aria-hidden="true">calendar_month</span>
-    Agenda — citas confirmadas
+    Agenda
   </h2>
 
-  @if (editingAppointment(); as appt) {
-    <app-patient-quick-edit
-      [patientId]="appt.patientId!"
-      [initialFirstName]="appt.patientFirstName ?? ''"
-      [initialLastNamePaternal]="appt.patientLastNamePaternal ?? ''"
-      [initialPhone]="appt.patientPhone ?? appt.guestPhone"
-      (saved)="onEditSaved()"
-      (cancel)="onEditCancel()"
-    />
-  } @else if (historyPatientId(); as patientId) {
+  @if (historyPatientId(); as patientId) {
     <app-patient-wizard
       [existingPatientId]="patientId"
       [startStep]="2"
       (wizardComplete)="onHistoryDone()"
       (cancel)="onHistoryDone()"
     />
-  } @else if (invitingAppointment(); as appt) {
-    <app-send-invite
-      [patientId]="appt.patientId!"
-      [initialEmail]="appt.patientEmail"
-      [initialPhone]="appt.patientPhone ?? appt.guestPhone"
-      (sent)="onInviteSent()"
-      (cancel)="onInviteCancel()"
-    />
   } @else {
+    <div class="agenda__nav">
+      <button type="button" class="agenda__nav-btn" (click)="onPrevDay()" aria-label="Día anterior">
+        <span class="material-symbols-outlined">chevron_left</span>
+      </button>
+      <div class="agenda__nav-center">
+        <span class="agenda__nav-label">{{ selectedDateLabel() }}</span>
+        @if (!isToday()) {
+          <button type="button" class="agenda__nav-today" (click)="onToday()">Hoy</button>
+        }
+      </div>
+      <button type="button" class="agenda__nav-btn" (click)="onNextDay()" aria-label="Día siguiente">
+        <span class="material-symbols-outlined">chevron_right</span>
+      </button>
+    </div>
+
     @if (error()) {
       <p class="agenda__error" role="alert">{{ error() }}</p>
     }
@@ -38,7 +36,7 @@
     } @else if (appointments().length === 0) {
       <div class="agenda__empty">
         <span class="material-symbols-outlined">event_busy</span>
-        <p>No hay citas confirmadas todavía.</p>
+        <p>No hay citas confirmadas para este día.</p>
       </div>
     } @else {
       <div class="agenda__list">
@@ -50,10 +48,6 @@
               <p class="agenda-item__phone">{{ patientPhone(appt) }}</p>
             </div>
             <div class="agenda-item__actions">
-              <button class="agenda-item__btn" type="button" (click)="onEdit(appt)">
-                <span class="material-symbols-outlined">edit</span>
-                Corregir datos
-              </button>
               <button
                 class="agenda-item__btn agenda-item__btn--primary"
                 type="button"
@@ -61,10 +55,6 @@
               >
                 <span class="material-symbols-outlined">folder_open</span>
                 Historial clínico
-              </button>
-              <button class="agenda-item__btn" type="button" (click)="onInvite(appt)">
-                <span class="material-symbols-outlined">person_add</span>
-                Enviar registro
               </button>
             </div>
           </div>

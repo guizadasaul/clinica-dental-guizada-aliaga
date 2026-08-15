@@ -1,25 +1,50 @@
-import { Component, ChangeDetectionStrategy, inject, signal } from '@angular/core';
+import { Component, ChangeDetectionStrategy, inject, signal, computed } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 import { AppointmentsService } from '../../services/appointments.service';
-import { PatientQuickEditComponent } from '../patient-quick-edit/patient-quick-edit';
 import { PatientWizardComponent } from '../../../patients/components/patient-wizard/patient-wizard';
-import { SendInviteComponent } from '../send-invite/send-invite';
 import type { AppointmentAgendaItem } from '../../models/appointment.model';
 
 const TIME_FORMATTER = new Intl.DateTimeFormat('es-BO', {
   timeZone: 'America/La_Paz',
-  weekday: 'short',
-  day: '2-digit',
-  month: '2-digit',
   hour: '2-digit',
   minute: '2-digit',
 });
+
+const DAY_LABEL_FORMATTER = new Intl.DateTimeFormat('es-BO', {
+  timeZone: 'America/La_Paz',
+  weekday: 'short',
+  day: '2-digit',
+  month: 'short',
+});
+
+function laPazDateString(date: Date): string {
+  return new Intl.DateTimeFormat('en-CA', { timeZone: 'America/La_Paz' }).format(date);
+}
+
+// Bolivia es UTC-4 fijo, sin horario de verano — sumar días de calendario en
+// UTC es seguro (mismo truco que usa el backend, api/src/appointments).
+function addDaysToDateString(date: string, days: number): string {
+  const [year, month, day] = date.split('-').map(Number);
+  const next = new Date(Date.UTC(year, month - 1, day));
+  next.setUTCDate(next.getUTCDate() + days);
+  return next.toISOString().slice(0, 10);
+}
+
+function capitalize(s: string): string {
+  return s.charAt(0).toUpperCase() + s.slice(1).replace(/\.$/, '');
+}
+
+function formatDayLabel(dateStr: string): string {
+  const parts = DAY_LABEL_FORMATTER.formatToParts(new Date(`${dateStr}T12:00:00-04:00`));
+  const get = (type: string) => parts.find((p) => p.type === type)?.value ?? '';
+  return `${capitalize(get('weekday'))} ${get('day')} ${capitalize(get('month'))}`;
+}
 
 @Component({
   selector: 'app-doctor-agenda',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [PatientQuickEditComponent, PatientWizardComponent, SendInviteComponent],
+  imports: [PatientWizardComponent],
   templateUrl: './doctor-agenda.html',
   styleUrl: './doctor-agenda.scss',
 })
@@ -30,9 +55,13 @@ export class DoctorAgendaComponent {
   protected readonly loading = signal(false);
   protected readonly error = signal<string | null>(null);
 
-  protected readonly editingAppointment = signal<AppointmentAgendaItem | null>(null);
   protected readonly historyPatientId = signal<string | null>(null);
-  protected readonly invitingAppointment = signal<AppointmentAgendaItem | null>(null);
+
+  protected readonly selectedDate = signal(laPazDateString(new Date()));
+  protected readonly selectedDateLabel = computed(() => formatDayLabel(this.selectedDate()));
+  protected readonly isToday = computed(
+    () => this.selectedDate() === laPazDateString(new Date()),
+  );
 
   constructor() {
     void this.load();
@@ -42,8 +71,10 @@ export class DoctorAgendaComponent {
     this.loading.set(true);
     this.error.set(null);
     try {
+      const from = this.selectedDate();
+      const to = addDaysToDateString(from, 1);
       const result = await firstValueFrom(
-        this.appointmentsService.getAgenda({ status: 'confirmed' }),
+        this.appointmentsService.getAgenda({ status: 'confirmed', from, to }),
       );
       this.appointments.set(result);
     } catch {
@@ -68,13 +99,19 @@ export class DoctorAgendaComponent {
     return TIME_FORMATTER.format(new Date(iso));
   }
 
-  protected onEdit(a: AppointmentAgendaItem): void {
-    if (!a.patientId) {
-      return;
-    }
-    this.editingAppointment.set(a);
-    this.historyPatientId.set(null);
-    this.invitingAppointment.set(null);
+  protected onPrevDay(): void {
+    this.selectedDate.set(addDaysToDateString(this.selectedDate(), -1));
+    void this.load();
+  }
+
+  protected onNextDay(): void {
+    this.selectedDate.set(addDaysToDateString(this.selectedDate(), 1));
+    void this.load();
+  }
+
+  protected onToday(): void {
+    this.selectedDate.set(laPazDateString(new Date()));
+    void this.load();
   }
 
   protected onOpenHistory(a: AppointmentAgendaItem): void {
@@ -82,38 +119,10 @@ export class DoctorAgendaComponent {
       return;
     }
     this.historyPatientId.set(a.patientId);
-    this.editingAppointment.set(null);
-    this.invitingAppointment.set(null);
-  }
-
-  protected onInvite(a: AppointmentAgendaItem): void {
-    if (!a.patientId) {
-      return;
-    }
-    this.invitingAppointment.set(a);
-    this.editingAppointment.set(null);
-    this.historyPatientId.set(null);
-  }
-
-  protected onEditSaved(): void {
-    this.editingAppointment.set(null);
-    void this.load();
-  }
-
-  protected onEditCancel(): void {
-    this.editingAppointment.set(null);
   }
 
   protected onHistoryDone(): void {
     this.historyPatientId.set(null);
     void this.load();
-  }
-
-  protected onInviteSent(): void {
-    this.invitingAppointment.set(null);
-  }
-
-  protected onInviteCancel(): void {
-    this.invitingAppointment.set(null);
   }
 }

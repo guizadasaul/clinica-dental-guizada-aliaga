@@ -9,10 +9,12 @@ import {
 import { AuthService } from '../../../../auth/application/auth.service';
 import { PatientsListComponent } from '../../../patients/components/patients-list/patients-list';
 import { PatientWizardComponent } from '../../../patients/components/patient-wizard/patient-wizard';
+import { PatientInvitePanelComponent } from '../../../patients/components/patient-invite-panel/patient-invite-panel';
 import { RegisterTreatmentComponent } from '../../../treatments/components/register-treatment/register-treatment';
 import { TreatmentHistoryComponent } from '../../../treatments/components/treatment-history/treatment-history';
 import { QuoteBuilderComponent } from '../../../quotes/components/quote-builder/quote-builder';
 import { DoctorAgendaComponent } from '../../../appointments/components/doctor-agenda/doctor-agenda';
+import type { PatientInviteContact } from '../../../patients/models/patient.model';
 
 interface AppointmentSlot {
   readonly time: string;
@@ -35,6 +37,7 @@ interface StatCard {
   imports: [
     PatientsListComponent,
     PatientWizardComponent,
+    PatientInvitePanelComponent,
     RegisterTreatmentComponent,
     TreatmentHistoryComponent,
     QuoteBuilderComponent,
@@ -55,13 +58,19 @@ export class DoctorDashboardComponent {
   protected readonly selectedPatientForTreatment = signal<string | null>(null);
   protected readonly selectedPatientForHistory = signal<string | null>(null);
   protected readonly selectedPatientForQuote = signal<string | null>(null);
+  protected readonly selectedPatientForInvite = signal<PatientInviteContact | null>(null);
 
   protected readonly showWizard = computed(
     () =>
       (this.selectedUserId() !== null || this.selectedPatientId() !== null) &&
       this.selectedPatientForTreatment() === null &&
       this.selectedPatientForHistory() === null &&
-      this.selectedPatientForQuote() === null,
+      this.selectedPatientForQuote() === null &&
+      this.selectedPatientForInvite() === null,
+  );
+
+  protected readonly showInviteFlow = computed(
+    () => this.selectedPatientForInvite() !== null,
   );
 
   protected readonly showTreatmentFlow = computed(
@@ -114,11 +123,13 @@ export class DoctorDashboardComponent {
   protected onStartWizard(userId: string): void {
     this.selectedUserId.set(userId);
     this.selectedPatientId.set(null);
+    this.selectedPatientForInvite.set(null);
   }
 
   protected onOpenOdontogram(patientId: string): void {
     this.selectedPatientId.set(patientId);
     this.selectedUserId.set(null);
+    this.selectedPatientForInvite.set(null);
   }
 
   protected onWizardComplete(): void {
@@ -137,6 +148,7 @@ export class DoctorDashboardComponent {
     this.selectedPatientId.set(null);
     this.selectedPatientForHistory.set(null);
     this.selectedPatientForQuote.set(null);
+    this.selectedPatientForInvite.set(null);
   }
 
   protected onTreatmentDone(): void {
@@ -153,6 +165,7 @@ export class DoctorDashboardComponent {
     this.selectedPatientId.set(null);
     this.selectedPatientForTreatment.set(null);
     this.selectedPatientForQuote.set(null);
+    this.selectedPatientForInvite.set(null);
   }
 
   protected onHistoryClose(): void {
@@ -165,9 +178,23 @@ export class DoctorDashboardComponent {
     this.selectedPatientId.set(null);
     this.selectedPatientForTreatment.set(null);
     this.selectedPatientForHistory.set(null);
+    this.selectedPatientForInvite.set(null);
   }
 
   protected onQuoteClose(): void {
     this.selectedPatientForQuote.set(null);
+  }
+
+  protected onSendInvite(payload: PatientInviteContact): void {
+    this.selectedPatientForInvite.set(payload);
+    this.selectedUserId.set(null);
+    this.selectedPatientId.set(null);
+    this.selectedPatientForTreatment.set(null);
+    this.selectedPatientForHistory.set(null);
+    this.selectedPatientForQuote.set(null);
+  }
+
+  protected onInviteDone(): void {
+    this.selectedPatientForInvite.set(null);
   }
 }
