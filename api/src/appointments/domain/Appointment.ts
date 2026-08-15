@@ -15,7 +15,7 @@ export const AppointmentSource = {
 export type AppointmentSource =
   (typeof AppointmentSource)[keyof typeof AppointmentSource];
 
-export const HOLD_TTL_MINUTES = 15;
+export const HOLD_TTL_MINUTES = 10;
 
 export class Appointment {
   constructor(

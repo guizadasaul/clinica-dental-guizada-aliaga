@@ -106,8 +106,12 @@ export class BanecoClient {
     return this.request<T>('GET', path);
   }
 
+  async delete<T>(path: string, body: unknown): Promise<T> {
+    return this.request<T>('DELETE', path, body);
+  }
+
   private async request<T>(
-    method: 'GET' | 'POST',
+    method: 'GET' | 'POST' | 'DELETE',
     path: string,
     body?: unknown,
     isRetry = false,

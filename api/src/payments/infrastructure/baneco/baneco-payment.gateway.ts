@@ -111,6 +111,17 @@ export class BanecoPaymentGateway implements PaymentGateway {
     }
   }
 
+  async cancelQr(qrId: string): Promise<void> {
+    try {
+      await this.client.delete<{ responseCode: number; message: string }>(
+        '/api/qrsimple/cancelQR',
+        { qrId },
+      );
+    } catch (error) {
+      throw this.toServiceUnavailable(error);
+    }
+  }
+
   private toServiceUnavailable(error: unknown): ServiceUnavailableException {
     const message =
       error instanceof BanecoApiError

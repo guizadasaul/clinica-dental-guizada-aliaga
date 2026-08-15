@@ -205,4 +205,37 @@ describe('PrismaAppointmentsRepository', () => {
       expect(await repo.findByQrId('missing')).toBeNull();
     });
   });
+
+  describe('findExpiredHeldWithQr', () => {
+    it('queries held appointments past their hold with a QR already attached', async () => {
+      prismaMock.appointments.findMany.mockResolvedValue([
+        fakeAppointmentRecord({ baneco_qr_id: 'qr-1' }),
+      ]);
+
+      const result = await repo.findExpiredHeldWithQr(NOW);
+
+      expect(prismaMock.appointments.findMany).toHaveBeenCalledWith({
+        where: {
+          status: 'held',
+          hold_expires_at: { lt: NOW },
+          baneco_qr_id: { not: null },
+        },
+      });
+      expect(result).toHaveLength(1);
+      expect(result[0].banecoQrId).toBe('qr-1');
+    });
+  });
+
+  describe('markExpired', () => {
+    it('conditionally updates a held appointment to expired', async () => {
+      prismaMock.appointments.updateMany.mockResolvedValue({ count: 1 });
+
+      await repo.markExpired('appt-1');
+
+      expect(prismaMock.appointments.updateMany).toHaveBeenCalledWith({
+        where: { id: 'appt-1', status: 'held' },
+        data: { status: 'expired' },
+      });
+    });
+  });
 });

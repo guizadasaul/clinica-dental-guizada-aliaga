@@ -52,6 +52,10 @@ export interface IAppointmentRepository {
   attachQr(id: string, data: AttachQrData): Promise<Appointment | null>;
   /** Best-effort, sin guard atómico — solo deja rastro para revisión manual (ej. pago llegado tras vencer el hold). */
   appendNote(id: string, note: string): Promise<void>;
+  /** Holds vencidos que todavía tienen un QR de BANECO activo — candidatos del sweep de anulación (CLI-24). */
+  findExpiredHeldWithQr(now: Date): Promise<Appointment[]>;
+  /** UPDATE condicional (WHERE id AND status='held') → 'expired'. Usado por el sweep tras anular el QR en BANECO. */
+  markExpired(id: string): Promise<void>;
 }
 
 export const AppointmentRepository = Symbol('IAppointmentRepository');
