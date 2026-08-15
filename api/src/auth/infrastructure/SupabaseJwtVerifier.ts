@@ -1,5 +1,10 @@
 import { Injectable, Logger, UnauthorizedException } from '@nestjs/common';
-import { createRemoteJWKSet, decodeProtectedHeader, jwtVerify, type JWTVerifyGetKey } from 'jose';
+import {
+  createRemoteJWKSet,
+  decodeProtectedHeader,
+  jwtVerify,
+  type JWTVerifyGetKey,
+} from 'jose';
 import type { AccessTokenVerifier } from '../domain/AccessTokenVerifier';
 import type { AuthenticatedUser } from '../domain/AuthenticatedUser';
 
@@ -16,7 +21,9 @@ export class SupabaseJwtVerifier implements AccessTokenVerifier {
       throw new Error('SUPABASE_URL environment variable is required');
     }
     this.issuer = `${supabaseUrl}/auth/v1`;
-    this.jwks = createRemoteJWKSet(new URL(`${supabaseUrl}/auth/v1/.well-known/jwks.json`));
+    this.jwks = createRemoteJWKSet(
+      new URL(`${supabaseUrl}/auth/v1/.well-known/jwks.json`),
+    );
 
     const jwtSecret = process.env['SUPABASE_JWT_SECRET'];
     this.hmacSecret = jwtSecret ? new TextEncoder().encode(jwtSecret) : null;
@@ -38,9 +45,14 @@ export class SupabaseJwtVerifier implements AccessTokenVerifier {
       const meta = (payload['user_metadata'] ?? {}) as Record<string, unknown>;
       return {
         uid: payload.sub!,
-        email: (payload['email'] as string) ?? '',
-        displayName: (meta['name'] ?? meta['full_name'] ?? null) as string | null,
-        photoUrl: (meta['picture'] ?? meta['avatar_url'] ?? null) as string | null,
+        email: (payload['email'] as string | undefined) || null,
+        phone: (payload['phone'] as string | undefined) || null,
+        displayName: (meta['name'] ?? meta['full_name'] ?? null) as
+          | string
+          | null,
+        photoUrl: (meta['picture'] ?? meta['avatar_url'] ?? null) as
+          | string
+          | null,
       };
     } catch (error) {
       this.logger.debug(error);

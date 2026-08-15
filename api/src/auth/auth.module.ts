@@ -6,6 +6,7 @@ import { AccessTokenVerifier } from './domain/AccessTokenVerifier';
 import { PrismaUserRepository } from './infrastructure/persistence/prisma-user.repository';
 import { SupabaseJwtVerifier } from './infrastructure/SupabaseJwtVerifier';
 import { SupabaseAuthGuard } from './infrastructure/SupabaseAuthGuard';
+import { SupabaseAdminService } from './infrastructure/SupabaseAdminService';
 import { RolesGuard } from './infrastructure/RolesGuard';
 import { PatientInvitesController } from '../patient-invites/infrastructure/http/patient-invites.controller';
 import { PublicInviteStatusController } from '../patient-invites/infrastructure/http/public-invite-status.controller';
@@ -34,6 +35,7 @@ import { ResendEmailSender } from '../patient-invites/infrastructure/email/resen
     AuthService,
     SupabaseJwtVerifier,
     SupabaseAuthGuard,
+    SupabaseAdminService,
     RolesGuard,
     { provide: UserRepository, useClass: PrismaUserRepository },
     { provide: AccessTokenVerifier, useExisting: SupabaseJwtVerifier },
@@ -44,6 +46,12 @@ import { ResendEmailSender } from '../patient-invites/infrastructure/email/resen
     },
     { provide: EmailSender, useClass: ResendEmailSender },
   ],
-  exports: [SupabaseAuthGuard, RolesGuard, AccessTokenVerifier, UserRepository],
+  exports: [
+    SupabaseAuthGuard,
+    RolesGuard,
+    AccessTokenVerifier,
+    UserRepository,
+    SupabaseAdminService,
+  ],
 })
 export class AuthModule {}

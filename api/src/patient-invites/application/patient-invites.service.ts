@@ -13,6 +13,7 @@ import type {
 } from '../domain/PatientInviteRepository.js';
 import { EmailSender } from '../domain/EmailSender.js';
 import type { EmailSender as IEmailSender } from '../domain/EmailSender.js';
+import { toE164Bolivia } from '../../shared/phone.util.js';
 
 export interface CreateInviteResult {
   whatsappUrl?: string;
@@ -23,8 +24,7 @@ function hashToken(rawToken: string): string {
 }
 
 function buildWhatsappUrl(phone: string, message: string): string {
-  const digits = phone.replace(/\D/g, '');
-  const normalized = digits.startsWith('591') ? digits : `591${digits}`;
+  const normalized = toE164Bolivia(phone).slice(1);
   return `https://wa.me/${normalized}?text=${encodeURIComponent(message)}`;
 }
 

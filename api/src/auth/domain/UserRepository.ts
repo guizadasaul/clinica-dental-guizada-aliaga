@@ -3,6 +3,7 @@ import { User } from './User';
 export interface UpsertUserData {
   authUserId: string;
   email: string | null;
+  phone?: string;
   displayName: string | null;
   photoUrl: string | null;
 }
@@ -16,6 +17,7 @@ export interface CreatePlaceholderUserData {
 export interface LinkAuthIdentityData {
   authUserId: string;
   email: string | null;
+  phone?: string;
   displayName: string | null;
   photoUrl: string | null;
 }

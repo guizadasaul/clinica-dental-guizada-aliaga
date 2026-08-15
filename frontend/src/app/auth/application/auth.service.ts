@@ -135,6 +135,19 @@ export class AuthService {
     // signInWithPassword resuelva, así que currentUser() ya está seteado acá.
   }
 
+  /**
+   * El teléfono queda habilitado como credencial cuando el doctor lo carga o
+   * edita en la ficha del paciente (el backend lo confirma vía Admin API de
+   * Supabase en ese momento) — acá no hay auto-registro ni verificación por
+   * SMS, solo login para una cuenta que ya lo tiene confirmado.
+   */
+  async loginWithPhone(phone: string, password: string): Promise<void> {
+    const { error } = await this.supabase.auth.signInWithPassword({ phone, password });
+    if (error) {
+      throw new Error(mapAuthError(error, 'No se pudo iniciar sesión.'));
+    }
+  }
+
   async requestPasswordReset(email: string): Promise<void> {
     try {
       await this.supabase.auth.resetPasswordForEmail(email, {

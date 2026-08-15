@@ -24,14 +24,14 @@
 
     <form class="auth-form" (ngSubmit)="onSubmit()" novalidate>
       <div class="auth-form__field">
-        <label class="auth-form__label" for="login-email">Correo</label>
+        <label class="auth-form__label" for="login-identifier">Correo o teléfono</label>
         <input
-          id="login-email"
+          id="login-identifier"
           class="auth-form__input"
-          type="email"
-          autocomplete="email"
-          [value]="email()"
-          (input)="email.set($any($event.target).value)"
+          type="text"
+          autocomplete="username"
+          [value]="identifier()"
+          (input)="identifier.set($any($event.target).value)"
         />
       </div>
 
