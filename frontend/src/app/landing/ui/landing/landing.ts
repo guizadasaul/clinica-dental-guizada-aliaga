@@ -11,7 +11,7 @@ import {
   PLATFORM_ID,
 } from '@angular/core';
 import { isPlatformBrowser } from '@angular/common';
-import { RouterLink } from '@angular/router';
+import { RouterLink, ActivatedRoute } from '@angular/router';
 import { TranslatePipe } from '@ngx-translate/core';
 import { MagneticDirective } from '../../../shared/directives/magnetic.directive';
 import { LangSwitcherComponent } from '../../../shared/ui/lang-switcher/lang-switcher';
@@ -56,10 +56,16 @@ const PATIENT_AVATAR =
 export class LandingComponent implements AfterViewInit, OnDestroy {
   private readonly platformId = inject(PLATFORM_ID);
   private readonly host = inject(ElementRef<HTMLElement>);
+  private readonly route = inject(ActivatedRoute);
 
   @ViewChild('spores') private sporeCanvas?: ElementRef<HTMLCanvasElement>;
 
   protected readonly navScrolled = signal(false);
+  // Alguien sin ficha de paciente asociada llega acá redirigido desde el
+  // guard del dashboard (CLI-20) con ?sinFicha=1 en la URL.
+  protected readonly showNoProfileBanner = signal(
+    this.route.snapshot.queryParamMap.get('sinFicha') === '1',
+  );
   private gsapContext: { revert(): void } | null = null;
   private sporeCleanup: (() => void) | null = null;
 
@@ -147,6 +153,10 @@ export class LandingComponent implements AfterViewInit, OnDestroy {
   @HostListener('window:scroll')
   onScroll(): void {
     this.navScrolled.set(window.scrollY > 50);
+  }
+
+  protected dismissNoProfileBanner(): void {
+    this.showNoProfileBanner.set(false);
   }
 
   async ngAfterViewInit(): Promise<void> {

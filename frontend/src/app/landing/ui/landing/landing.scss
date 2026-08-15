@@ -248,6 +248,80 @@
   }
 }
 
+// NO-PROFILE BANNER — redirect del guard del dashboard sin ficha (CLI-20).
+.no-profile-banner {
+  position: fixed;
+  top: 4.5rem;
+  inset-inline: 0;
+  z-index: 40;
+  background: var(--color-primary-subtle);
+  border-bottom: 1px solid var(--color-primary-light);
+  animation: no-profile-banner-in 0.4s ease-out;
+
+  &__inner {
+    max-width: 80rem;
+    margin-inline: auto;
+    padding: var(--space-3) var(--space-6);
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+
+    @media (min-width: 768px) { padding-inline: var(--space-10); }
+    @media (max-width: 640px) { flex-wrap: wrap; }
+  }
+
+  &__icon {
+    color: var(--color-primary-dark);
+    flex-shrink: 0;
+  }
+
+  &__text {
+    flex: 1 1 auto;
+    margin: 0;
+    font-size: var(--font-size-sm);
+    color: var(--color-text);
+    line-height: 1.5;
+
+    strong { font-weight: 600; margin-right: var(--space-1); }
+  }
+
+  &__cta {
+    flex-shrink: 0;
+    font-size: var(--font-size-sm);
+    font-weight: 600;
+    color: var(--color-primary-dark);
+    text-decoration: underline;
+    text-underline-offset: 3px;
+    white-space: nowrap;
+
+    &:hover { color: var(--color-navy); }
+  }
+
+  &__dismiss {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.75rem;
+    height: 1.75rem;
+    border: none;
+    background: transparent;
+    color: var(--color-text-muted);
+    cursor: pointer;
+    border-radius: var(--radius-full);
+    transition: background var(--transition-fast);
+
+    &:hover { background: var(--color-surface-var); }
+
+    .material-symbols-outlined { font-size: 1.125rem; }
+  }
+}
+
+@keyframes no-profile-banner-in {
+  from { transform: translateY(-100%); opacity: 0; }
+  to   { transform: translateY(0); opacity: 1; }
+}
+
 // ============================================================
 // HERO — editorial en crema. Tres planos de profundidad:
 //   1. backdrop (palabra fantasma + resplandor) → parallax lento

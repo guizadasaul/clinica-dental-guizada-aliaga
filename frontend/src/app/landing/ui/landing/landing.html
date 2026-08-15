@@ -31,6 +31,29 @@
   </div>
 </nav>
 
+@if (showNoProfileBanner()) {
+  <div class="no-profile-banner" role="status">
+    <div class="no-profile-banner__inner">
+      <span class="material-symbols-outlined no-profile-banner__icon" aria-hidden="true">info</span>
+      <p class="no-profile-banner__text">
+        <strong>{{ 'landing.noProfileBanner.title' | translate }}</strong>
+        {{ 'landing.noProfileBanner.body' | translate }}
+      </p>
+      <a routerLink="/reservar" class="no-profile-banner__cta">
+        {{ 'landing.noProfileBanner.cta' | translate }}
+      </a>
+      <button
+        type="button"
+        class="no-profile-banner__dismiss"
+        [attr.aria-label]="'landing.noProfileBanner.dismissAriaLabel' | translate"
+        (click)="dismissNoProfileBanner()"
+      >
+        <span class="material-symbols-outlined" aria-hidden="true">close</span>
+      </button>
+    </div>
+  </div>
+}
+
 <!-- ========================================================= -->
 <!-- HERO — editorial en crema, parallax + abanico de          -->
 <!-- instrumentos como imaginería de marca                     -->
