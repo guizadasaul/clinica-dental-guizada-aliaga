@@ -148,6 +148,23 @@ export class AuthService {
     }
   }
 
+  /**
+   * Self-registro por teléfono (CLI-27): la cuenta se crea en el backend
+   * (única forma de confirmar el teléfono sin SMS es vía Admin API, que
+   * requiere el service_role key — no puede hacerse client-side como el
+   * signUp por email). Una vez creada, logueamos con las mismas credenciales
+   * para establecer la sesión igual que loginWithPhone.
+   */
+  async registerWithPhone(phone: string, password: string): Promise<void> {
+    await firstValueFrom(
+      this.http.post<void>(`${environment.backendUrl}/auth/register/phone`, {
+        phone,
+        password,
+      }),
+    );
+    await this.loginWithPhone(phone, password);
+  }
+
   async requestPasswordReset(email: string): Promise<void> {
     try {
       await this.supabase.auth.resetPasswordForEmail(email, {

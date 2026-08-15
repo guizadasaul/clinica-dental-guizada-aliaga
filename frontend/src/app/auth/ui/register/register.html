@@ -11,7 +11,7 @@
       </span>
       <h1 class="login-card__title">Revisá tu correo</h1>
       <p class="login-card__subtitle">
-        Te enviamos un correo de confirmación a <strong>{{ email() }}</strong>. Hacé clic en el enlace para activar tu cuenta.
+        Te enviamos un correo de confirmación a <strong>{{ identifier() }}</strong>. Hacé clic en el enlace para activar tu cuenta.
       </p>
       <a routerLink="/auth/login" class="login-card__back">
         <span class="material-symbols-outlined" aria-hidden="true">arrow_back</span>
@@ -30,14 +30,14 @@
 
       <form class="auth-form" (ngSubmit)="onSubmit()" novalidate>
         <div class="auth-form__field">
-          <label class="auth-form__label" for="register-email">Correo</label>
+          <label class="auth-form__label" for="register-identifier">Correo o teléfono</label>
           <input
-            id="register-email"
+            id="register-identifier"
             class="auth-form__input"
-            type="email"
-            autocomplete="email"
-            [value]="email()"
-            (input)="email.set($any($event.target).value)"
+            type="text"
+            autocomplete="username"
+            [value]="identifier()"
+            (input)="identifier.set($any($event.target).value)"
           />
         </div>
 

@@ -1,7 +1,9 @@
 import { Component, ChangeDetectionStrategy, signal, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { RouterLink } from '@angular/router';
+import { RouterLink, Router } from '@angular/router';
+import { HttpErrorResponse } from '@angular/common/http';
 import { AuthService } from '../../application/auth.service';
+import { looksLikePhone, normalizePhone } from '../../application/phone.util';
 
 @Component({
   selector: 'app-register',
@@ -13,8 +15,9 @@ import { AuthService } from '../../application/auth.service';
 })
 export class RegisterComponent {
   private readonly authService = inject(AuthService);
+  private readonly router = inject(Router);
 
-  protected readonly email = signal('');
+  protected readonly identifier = signal('');
   protected readonly password = signal('');
   protected readonly confirmPassword = signal('');
   protected readonly passwordVisible = signal(false);
@@ -31,11 +34,11 @@ export class RegisterComponent {
       return;
     }
 
-    const email = this.email().trim();
+    const identifier = this.identifier().trim();
     const password = this.password();
 
-    if (!email || !password) {
-      this.errorMessage.set('Correo y contraseña son obligatorios.');
+    if (!identifier || !password) {
+      this.errorMessage.set('Correo/teléfono y contraseña son obligatorios.');
       return;
     }
     if (password.length < 6) {
@@ -51,10 +54,19 @@ export class RegisterComponent {
     this.loading.set(true);
 
     try {
-      await this.authService.registerWithPassword(email, password);
-      this.registered.set(true);
+      if (looksLikePhone(identifier)) {
+        await this.authService.registerWithPhone(normalizePhone(identifier), password);
+        await this.router.navigateByUrl('/dashboard');
+      } else {
+        await this.authService.registerWithPassword(identifier, password);
+        this.registered.set(true);
+      }
     } catch (err) {
-      this.errorMessage.set(err instanceof Error ? err.message : 'No se pudo crear la cuenta.');
+      if (err instanceof HttpErrorResponse && err.status === 409) {
+        this.errorMessage.set('Ese teléfono ya está registrado.');
+      } else {
+        this.errorMessage.set(err instanceof Error ? err.message : 'No se pudo crear la cuenta.');
+      }
     } finally {
       this.loading.set(false);
     }

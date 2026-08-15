@@ -39,6 +39,7 @@ const mockPatientInvitesService = {
 
 const mockSupabaseAdminService = {
   setConfirmedPhone: jest.fn(),
+  createPhoneUser: jest.fn(),
 };
 
 const authUser: AuthenticatedUser = {
@@ -200,6 +201,31 @@ describe('AuthService', () => {
       const result = await service.syncUser(authUser, 'some-token');
 
       expect(result).toBe(mockUser);
+    });
+  });
+
+  describe('registerWithPhone', () => {
+    it('normalizes the phone to E.164 before creating the Supabase user', async () => {
+      mockSupabaseAdminService.createPhoneUser.mockResolvedValue({
+        authUserId: 'new-uid',
+      });
+
+      await service.registerWithPhone('71234567', 'secret123');
+
+      expect(mockSupabaseAdminService.createPhoneUser).toHaveBeenCalledWith(
+        '+59171234567',
+        'secret123',
+      );
+    });
+
+    it('propagates errors from SupabaseAdminService (e.g. duplicate phone)', async () => {
+      mockSupabaseAdminService.createPhoneUser.mockRejectedValue(
+        new Error('Ese teléfono ya está registrado'),
+      );
+
+      await expect(
+        service.registerWithPhone('71234567', 'secret123'),
+      ).rejects.toThrow('Ese teléfono ya está registrado');
     });
   });
 
