@@ -1,0 +1,59 @@
+<div class="week-picker">
+  <div class="week-picker__week-toggle" role="tablist" aria-label="Semana">
+    <button
+      type="button"
+      role="tab"
+      class="week-picker__week-btn"
+      [class.week-picker__week-btn--active]="activeWeekIndex() === 0"
+      [attr.aria-selected]="activeWeekIndex() === 0"
+      (click)="switchWeek(0)"
+    >
+      Esta semana
+    </button>
+    <button
+      type="button"
+      role="tab"
+      class="week-picker__week-btn"
+      [class.week-picker__week-btn--active]="activeWeekIndex() === 1"
+      [attr.aria-selected]="activeWeekIndex() === 1"
+      [disabled]="!hasNextWeek()"
+      (click)="switchWeek(1)"
+    >
+      Próxima semana
+    </button>
+  </div>
+
+  <div class="week-picker__days hide-scrollbar" role="tablist" aria-label="Día">
+    @for (day of activeDayTabs(); track day.date) {
+      <button
+        type="button"
+        role="tab"
+        class="week-picker__day"
+        [class.week-picker__day--active]="activeDate() === day.date"
+        [class.week-picker__day--empty]="!day.hasSlots"
+        [attr.aria-selected]="activeDate() === day.date"
+        (click)="selectDate(day.date)"
+      >
+        <span class="week-picker__day-name">{{ day.weekdayLabel }}</span>
+        <span class="week-picker__day-number">{{ day.dayLabel }}</span>
+        <span class="week-picker__day-dot" aria-hidden="true"></span>
+      </button>
+    }
+  </div>
+
+  @if (error()) {
+    <p class="week-picker__error">{{ error() }}</p>
+  } @else if (loading()) {
+    <p class="week-picker__hint">Buscando horarios disponibles…</p>
+  } @else if (daySlots().length === 0) {
+    <p class="week-picker__hint">No hay horarios disponibles este día. Probá con otro.</p>
+  } @else {
+    <div class="week-picker__slots">
+      @for (option of daySlots(); track option.iso) {
+        <button type="button" class="week-picker__slot" (click)="slotSelected.emit(option.iso)">
+          {{ option.label }}
+        </button>
+      }
+    </div>
+  }
+</div>

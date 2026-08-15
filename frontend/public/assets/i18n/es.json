@@ -7,7 +7,8 @@
       "services": "Servicios",
       "about": "Nosotros",
       "contact": "Contacto",
-      "cta": "Log In"
+      "cta": "Reservar Cita",
+      "loginCta": "Iniciar Sesión"
     },
     "hero": {
       "label": "Excelencia Clínica Boutique",
@@ -27,7 +28,8 @@
         "tweezers": "Pinza de curación",
         "turbine": "Turbina dental",
         "fanAriaLabel": "Instrumental de la clínica"
-      }
+      },
+      "cta": "Reservar mi consulta"
     },
     "mission": {
       "eyebrow": "Nuestros Pilares",
@@ -160,6 +162,10 @@
       "body": "Reservá tu primera consulta para crear tu ficha.",
       "cta": "Ver horarios disponibles",
       "dismissAriaLabel": "Cerrar aviso"
+    },
+    "booking": {
+      "title": "Reservá tu consulta",
+      "subtitle": "Horarios reales de esta semana y la próxima, en bloques de 30 minutos. Elegí el que te acomode y confirmá con un pago simple por QR."
     }
   }
 }

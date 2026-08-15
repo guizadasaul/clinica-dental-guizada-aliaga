@@ -7,7 +7,8 @@
       "services": "Serviços",
       "about": "Sobre Nós",
       "contact": "Contato",
-      "cta": "Log In"
+      "cta": "Agendar Consulta",
+      "loginCta": "Entrar"
     },
     "hero": {
       "label": "Excelência Clínica Boutique",
@@ -27,7 +28,8 @@
         "tweezers": "Pinça clínica",
         "turbine": "Turbina dentária",
         "fanAriaLabel": "Instrumental da clínica"
-      }
+      },
+      "cta": "Agendar minha consulta"
     },
     "mission": {
       "eyebrow": "Nossos Pilares",
@@ -160,6 +162,10 @@
       "body": "Agende sua primeira consulta para criar sua ficha.",
       "cta": "Ver horários disponíveis",
       "dismissAriaLabel": "Fechar aviso"
+    },
+    "booking": {
+      "title": "Agende sua consulta",
+      "subtitle": "Horários reais desta semana e da próxima, em blocos de 30 minutos. Escolha o que funciona para você e confirme com um pagamento simples por QR."
     }
   }
 }

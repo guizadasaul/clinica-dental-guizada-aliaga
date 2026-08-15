@@ -3,6 +3,12 @@ export interface AvailabilityResponse {
   slots: string[];
 }
 
+export interface AvailabilityRangeResponse {
+  from: string;
+  days: number;
+  slotsByDate: Record<string, string[]>;
+}
+
 export interface HoldResponse {
   appointmentId: string;
   slot: string;

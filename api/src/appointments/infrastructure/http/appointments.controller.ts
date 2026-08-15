@@ -12,13 +12,17 @@ import {
 } from '@nestjs/common';
 import {
   AppointmentsService,
+  AvailabilityRangeResult,
   AvailabilityResult,
   HoldResult,
 } from '../../application/appointments.service.js';
 import { Appointment } from '../../domain/Appointment.js';
 import { AvailabilityQueryDto } from './dto/availability-query.dto.js';
+import { AvailabilityRangeQueryDto } from './dto/availability-range-query.dto.js';
 import { GuestContactDto } from './dto/guest-contact.dto.js';
 import { HoldSlotDto } from './dto/hold-slot.dto.js';
+
+const DEFAULT_RANGE_DAYS = 14;
 
 // Sin SupabaseAuthGuard a propósito: estos endpoints son para un visitante sin
 // sesión que todavía no tiene cuenta ni Patient (issue CLI-10).
@@ -31,6 +35,16 @@ export class AppointmentsController {
     @Query() query: AvailabilityQueryDto,
   ): Promise<AvailabilityResult> {
     return this.appointmentsService.getAvailability(query.date);
+  }
+
+  @Get('availability-range')
+  getAvailabilityRange(
+    @Query() query: AvailabilityRangeQueryDto,
+  ): Promise<AvailabilityRangeResult> {
+    return this.appointmentsService.getAvailabilityRange(
+      query.from,
+      query.days ? Number(query.days) : DEFAULT_RANGE_DAYS,
+    );
   }
 
   @Post('appointments/hold')

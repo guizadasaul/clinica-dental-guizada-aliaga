@@ -246,6 +246,19 @@
     align-items: center;
     gap: var(--space-3);
   }
+
+  &__login-link {
+    display: none;
+    font-size: var(--font-size-sm);
+    font-weight: 500;
+    color: var(--color-text-muted);
+    text-decoration: none;
+    white-space: nowrap;
+
+    &:hover { color: var(--color-navy); }
+
+    @media (min-width: 640px) { display: inline-block; }
+  }
 }
 
 // NO-PROFILE BANNER — redirect del guard del dashboard sin ficha (CLI-20).
@@ -541,6 +554,21 @@
     transform: rotate(calc(var(--r, 0deg) * -1)) translateY(-2rem) scale(1.05);
     filter: drop-shadow(0 30px 46px rgb(26 43 75 / 0.42));
   }
+}
+
+// ============================================================
+// RESERVA — panel con el selector de 2 semanas embebido
+// ============================================================
+
+.booking-panel {
+  max-width: 44rem;
+  margin-inline: auto;
+  padding: var(--space-8) var(--space-6);
+  background: var(--color-surface);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-warm);
+
+  @media (min-width: 768px) { padding: var(--space-10) var(--space-8); }
 }
 
 // ============================================================

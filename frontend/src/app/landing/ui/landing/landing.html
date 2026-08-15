@@ -24,7 +24,10 @@
 
     <div class="navbar__actions">
       <app-lang-switcher />
-      <a routerLink="/auth/login" class="btn-primary btn-slide" appMagnetic>
+      <a routerLink="/auth/login" class="navbar__login-link">
+        {{ 'landing.nav.loginCta' | translate }}
+      </a>
+      <a href="#reservar" class="btn-primary btn-slide" appMagnetic>
         {{ 'landing.nav.cta' | translate }}
       </a>
     </div>
@@ -74,6 +77,10 @@
       <em class="hero__title-accent">{{ 'landing.hero.titleLine2' | translate }}</em>
     </h1>
 
+    <a href="#reservar" class="btn-primary btn-slide hero__cta" appMagnetic>
+      <span class="material-symbols-outlined" aria-hidden="true">calendar_month</span>
+      {{ 'landing.hero.cta' | translate }}
+    </a>
   </div>
 
   <!-- Abanico de fichas de instrumental -->
@@ -89,6 +96,29 @@
         >
       </div>
     }
+  </div>
+</section>
+
+<!-- ========================================================= -->
+<!-- RESERVA — selector de 2 semanas embebido, sin necesidad   -->
+<!-- de cuenta. Elegir un horario lleva a /reservar con ese    -->
+<!-- horario ya en hold.                                       -->
+<!-- ========================================================= -->
+<section id="reservar" class="section section--cream" aria-labelledby="booking-title">
+  <div class="container">
+    <div class="section__header" data-reveal>
+      <h2 id="booking-title" class="section__title">{{ 'landing.booking.title' | translate }}</h2>
+      <p class="section__subtitle">{{ 'landing.booking.subtitle' | translate }}</p>
+    </div>
+
+    <div class="booking-panel" data-reveal>
+      <app-week-slot-picker
+        [slotsByDate]="bookingSlotsByDate()"
+        [loading]="bookingLoading()"
+        [error]="bookingError()"
+        (slotSelected)="onBookingSlotSelected($event)"
+      />
+    </div>
   </div>
 </section>
 
@@ -373,7 +403,7 @@
       <div class="contact-cta">
         <h3 class="contact-cta__title">{{ 'landing.contact.ctaTitle' | translate }}</h3>
         <p class="contact-cta__subtitle">{{ 'landing.contact.ctaSubtitle' | translate }}</p>
-        <a href="tel:+591700000000" class="btn-primary btn-slide" appMagnetic>
+        <a href="#reservar" class="btn-primary btn-slide" appMagnetic>
           <span class="material-symbols-outlined" aria-hidden="true">calendar_month</span>
           {{ 'landing.contact.ctaBtn' | translate }}
         </a>
