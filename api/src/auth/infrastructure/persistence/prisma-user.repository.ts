@@ -36,7 +36,12 @@ export class PrismaUserRepository implements UserRepository {
           role: UserRole.PATIENT,
         },
         update: {
-          email: data.email,
+          // Solo pisa el email si este login trajo uno de verdad — un login
+          // por teléfono no manda email en absoluto (null), y sin esta
+          // guarda un simple re-sync borraría el email ya cargado por otro
+          // canal (Google, registro por correo, o la ficha que llenó el
+          // doctor).
+          ...(data.email !== null && { email: data.email }),
           ...(data.phone !== undefined && { phone: data.phone }),
           display_name: data.displayName,
           photo_url: data.photoUrl,
@@ -87,7 +92,9 @@ export class PrismaUserRepository implements UserRepository {
         where: { id: userId, auth_user_id: null },
         data: {
           auth_user_id: data.authUserId,
-          email: data.email,
+          // Mismo motivo que en upsertByAuthUserId: un login por teléfono no
+          // trae email (null) — no pisar el que ya haya en la ficha.
+          ...(data.email !== null && { email: data.email }),
           ...(data.phone !== undefined && { phone: data.phone }),
           display_name: data.displayName,
           photo_url: data.photoUrl,

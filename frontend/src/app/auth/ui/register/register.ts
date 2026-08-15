@@ -56,6 +56,7 @@ export class RegisterComponent {
     try {
       if (looksLikePhone(identifier)) {
         await this.authService.registerWithPhone(normalizePhone(identifier), password);
+        await this.authService.waitForSync();
         await this.router.navigateByUrl('/dashboard');
       } else {
         await this.authService.registerWithPassword(identifier, password);

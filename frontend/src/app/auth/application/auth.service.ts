@@ -192,8 +192,27 @@ export class AuthService {
     this.currentUser.set(null);
   }
 
+  /**
+   * Espera el sync en curso, si hay uno. Distinto de authReady (que resuelve
+   * UNA sola vez, al arrancar la app): si el usuario ya tenía la app abierta
+   * y recién ahora hace login/registro, authReady ya está resuelta desde
+   * hace rato — awaitearla no espera nada. Cualquier código que loguea o
+   * registra y enseguida navega a una ruta gateada por ficha (CLI-23) debe
+   * esperar esto primero, o el guard puede leer currentUser().role todavía
+   * en null y mandar a alguien con ficha real a la landing por error.
+   */
+  async waitForSync(): Promise<void> {
+    if (this.pendingSync) {
+      await this.pendingSync;
+    }
+  }
+
   private async syncWithBackend(): Promise<void> {
-    const inviteToken = sessionStorage.getItem('pendingInviteToken');
+    // localStorage, no sessionStorage: si el token de invitación se guarda acá
+    // y el usuario confirma el registro por correo desde un link que abre una
+    // pestaña nueva (el caso común), sessionStorage de esa pestaña arranca
+    // vacío — localStorage es compartido entre pestañas del mismo origen.
+    const inviteToken = localStorage.getItem('pendingInviteToken');
     try {
       const user = await firstValueFrom(
         this.http.post<BackendUser>(
@@ -219,7 +238,7 @@ export class AuthService {
       }
     } finally {
       if (inviteToken) {
-        sessionStorage.removeItem('pendingInviteToken');
+        localStorage.removeItem('pendingInviteToken');
       }
     }
   }
