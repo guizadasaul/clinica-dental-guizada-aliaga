@@ -17,12 +17,10 @@
   <div class="booking-page__body">
     @switch (step()) {
       @case ('slot') {
-        <app-step-slot-picker
-          [date]="selectedDate()"
-          [slots]="slots()"
+        <app-week-slot-picker
+          [slotsByDate]="slotsByDate()"
           [loading]="loading()"
           [error]="error()"
-          (dateChanged)="onDateChanged($event)"
           (slotSelected)="onSlotSelected($event)"
         />
       }

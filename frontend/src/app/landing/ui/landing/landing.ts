@@ -11,10 +11,13 @@ import {
   PLATFORM_ID,
 } from '@angular/core';
 import { isPlatformBrowser } from '@angular/common';
-import { RouterLink, ActivatedRoute } from '@angular/router';
+import { RouterLink, ActivatedRoute, Router } from '@angular/router';
+import { firstValueFrom } from 'rxjs';
 import { TranslatePipe } from '@ngx-translate/core';
 import { MagneticDirective } from '../../../shared/directives/magnetic.directive';
 import { LangSwitcherComponent } from '../../../shared/ui/lang-switcher/lang-switcher';
+import { WeekSlotPickerComponent } from '../../../features/booking/components/week-slot-picker/week-slot-picker';
+import { BookingService } from '../../../features/booking/services/booking.service';
 
 interface Instrument {
   readonly id: number;
@@ -49,7 +52,7 @@ const PATIENT_AVATAR =
   selector: 'app-landing',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [RouterLink, MagneticDirective, TranslatePipe, LangSwitcherComponent],
+  imports: [RouterLink, MagneticDirective, TranslatePipe, LangSwitcherComponent, WeekSlotPickerComponent],
   templateUrl: './landing.html',
   styleUrl: './landing.scss',
 })
@@ -57,6 +60,8 @@ export class LandingComponent implements AfterViewInit, OnDestroy {
   private readonly platformId = inject(PLATFORM_ID);
   private readonly host = inject(ElementRef<HTMLElement>);
   private readonly route = inject(ActivatedRoute);
+  private readonly router = inject(Router);
+  private readonly bookingService = inject(BookingService);
 
   @ViewChild('spores') private sporeCanvas?: ElementRef<HTMLCanvasElement>;
 
@@ -66,6 +71,10 @@ export class LandingComponent implements AfterViewInit, OnDestroy {
   protected readonly showNoProfileBanner = signal(
     this.route.snapshot.queryParamMap.get('sinFicha') === '1',
   );
+
+  protected readonly bookingSlotsByDate = signal<Record<string, string[]>>({});
+  protected readonly bookingLoading = signal(true);
+  protected readonly bookingError = signal<string | null>(null);
   private gsapContext: { revert(): void } | null = null;
   private sporeCleanup: (() => void) | null = null;
 
@@ -150,6 +159,10 @@ export class LandingComponent implements AfterViewInit, OnDestroy {
     },
   ];
 
+  constructor() {
+    void this.loadBookingAvailability();
+  }
+
   @HostListener('window:scroll')
   onScroll(): void {
     this.navScrolled.set(window.scrollY > 50);
@@ -157,6 +170,24 @@ export class LandingComponent implements AfterViewInit, OnDestroy {
 
   protected dismissNoProfileBanner(): void {
     this.showNoProfileBanner.set(false);
+  }
+
+  protected onBookingSlotSelected(slot: string): void {
+    void this.router.navigate(['/reservar'], { queryParams: { slot } });
+  }
+
+  private async loadBookingAvailability(): Promise<void> {
+    this.bookingLoading.set(true);
+    this.bookingError.set(null);
+    try {
+      const today = new Date().toISOString().slice(0, 10);
+      const result = await firstValueFrom(this.bookingService.getAvailabilityRange(today));
+      this.bookingSlotsByDate.set(result.slotsByDate);
+    } catch {
+      this.bookingError.set('No pudimos cargar los horarios disponibles. Intentá de nuevo más tarde.');
+    } finally {
+      this.bookingLoading.set(false);
+    }
   }
 
   async ngAfterViewInit(): Promise<void> {
@@ -192,6 +223,7 @@ export class LandingComponent implements AfterViewInit, OnDestroy {
 
       intro
         .from('.hero__title', { y: 36, opacity: 0, duration: 0.8 })
+        .from('.hero__cta', { y: 20, opacity: 0, duration: 0.6 }, '-=0.45')
         .from(
           '.fan__item',
           {

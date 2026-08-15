@@ -4,6 +4,7 @@ import type { Observable } from 'rxjs';
 import { environment } from '../../../../environments/environment';
 import type {
   AvailabilityResponse,
+  AvailabilityRangeResponse,
   HoldResponse,
   AppointmentContactResult,
   CheckoutResponse,
@@ -18,6 +19,12 @@ export class BookingService {
 
   getAvailability(date: string): Observable<AvailabilityResponse> {
     return this.http.get<AvailabilityResponse>(`${this.base}/availability`, { params: { date } });
+  }
+
+  getAvailabilityRange(from: string, days = 14): Observable<AvailabilityRangeResponse> {
+    return this.http.get<AvailabilityRangeResponse>(`${this.base}/availability-range`, {
+      params: { from, days },
+    });
   }
 
   holdSlot(slot: string): Observable<HoldResponse> {

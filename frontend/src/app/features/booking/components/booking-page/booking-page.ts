@@ -1,8 +1,9 @@
 import { Component, ChangeDetectionStrategy, inject, signal } from '@angular/core';
 import { HttpErrorResponse } from '@angular/common/http';
+import { ActivatedRoute } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
 import { BookingService } from '../../services/booking.service';
-import { StepSlotPickerComponent } from '../step-slot-picker/step-slot-picker';
+import { WeekSlotPickerComponent } from '../week-slot-picker/week-slot-picker';
 import { StepGuestContactComponent } from '../step-guest-contact/step-guest-contact';
 import { StepPaymentQrComponent } from '../step-payment-qr/step-payment-qr';
 import { BookingConfirmedComponent } from '../booking-confirmed/booking-confirmed';
@@ -20,7 +21,7 @@ function todayIso(): string {
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
-    StepSlotPickerComponent,
+    WeekSlotPickerComponent,
     StepGuestContactComponent,
     StepPaymentQrComponent,
     BookingConfirmedComponent,
@@ -31,10 +32,10 @@ function todayIso(): string {
 })
 export class BookingPageComponent {
   private readonly bookingService = inject(BookingService);
+  private readonly route = inject(ActivatedRoute);
 
   protected readonly step = signal<BookingStep>('slot');
-  protected readonly selectedDate = signal(todayIso());
-  protected readonly slots = signal<string[]>([]);
+  protected readonly slotsByDate = signal<Record<string, string[]>>({});
   protected readonly loading = signal(false);
   protected readonly error = signal<string | null>(null);
 
@@ -44,22 +45,26 @@ export class BookingPageComponent {
   protected readonly amount = signal<number | null>(null);
 
   constructor() {
-    void this.loadAvailability(this.selectedDate());
+    void this.loadAvailability();
+
+    // Si venimos de la landing con un horario ya elegido (?slot=iso), lo
+    // reservamos directo y saltamos al paso de contacto. Si el hold falla
+    // (409/410) onSlotSelected ya nos deja en el paso 'slot' con la
+    // disponibilidad recién cargada.
+    const preselectedSlot = this.route.snapshot.queryParamMap.get('slot');
+    if (preselectedSlot) {
+      void this.onSlotSelected(preselectedSlot);
+    }
   }
 
-  protected async onDateChanged(date: string): Promise<void> {
-    this.selectedDate.set(date);
-    await this.loadAvailability(date);
-  }
-
-  private async loadAvailability(date: string): Promise<void> {
+  private async loadAvailability(): Promise<void> {
     this.loading.set(true);
     this.error.set(null);
     try {
-      const result = await firstValueFrom(this.bookingService.getAvailability(date));
-      this.slots.set(result.slots);
+      const result = await firstValueFrom(this.bookingService.getAvailabilityRange(todayIso()));
+      this.slotsByDate.set(result.slotsByDate);
     } catch {
-      this.slots.set([]);
+      this.slotsByDate.set({});
       this.error.set('No pudimos cargar los horarios disponibles. Intentá de nuevo.');
     } finally {
       this.loading.set(false);
@@ -77,7 +82,7 @@ export class BookingPageComponent {
     } catch (err) {
       if (err instanceof HttpErrorResponse && err.status === 409) {
         this.error.set('Ese horario ya no está disponible, elegí otro.');
-        await this.loadAvailability(this.selectedDate());
+        await this.loadAvailability();
       } else {
         this.error.set('No pudimos reservar ese horario. Intentá de nuevo.');
       }
@@ -127,6 +132,6 @@ export class BookingPageComponent {
     this.appointmentId.set(null);
     this.holdExpiresAt.set(null);
     this.step.set('slot');
-    void this.loadAvailability(this.selectedDate());
+    void this.loadAvailability();
   }
 }

@@ -88,6 +88,53 @@ describe('AppointmentsService', () => {
     });
   });
 
+  describe('getAvailabilityRange', () => {
+    it('returns one entry per day, in order, keyed by date', async () => {
+      mockRepo.findActiveBetween.mockResolvedValue([]);
+
+      const result = await service.getAvailabilityRange(MONDAY, 3);
+
+      expect(Object.keys(result.slotsByDate)).toEqual([
+        '2026-08-17',
+        '2026-08-18',
+        '2026-08-19',
+      ]);
+      expect(result.from).toBe(MONDAY);
+      expect(result.days).toBe(3);
+    });
+
+    it('leaves a closed day (Sunday) in the range as an empty array', async () => {
+      mockRepo.findActiveBetween.mockResolvedValue([]);
+
+      // 2026-08-16 es domingo.
+      const result = await service.getAvailabilityRange('2026-08-15', 3);
+
+      expect(result.slotsByDate['2026-08-16']).toEqual([]);
+      expect(result.slotsByDate['2026-08-15'].length).toBeGreaterThan(0);
+    });
+
+    it('queries the repository once for the whole range, not once per day', async () => {
+      mockRepo.findActiveBetween.mockResolvedValue([]);
+
+      await service.getAvailabilityRange(MONDAY, 14);
+
+      expect(mockRepo.findActiveBetween).toHaveBeenCalledTimes(1);
+    });
+
+    it('excludes a slot taken anywhere in the range from its day', async () => {
+      const takenOnDayTwo = fakeAppointment({
+        slot: new Date('2026-08-18T09:00:00-04:00'),
+      });
+      mockRepo.findActiveBetween.mockResolvedValue([takenOnDayTwo]);
+
+      const result = await service.getAvailabilityRange(MONDAY, 3);
+
+      expect(result.slotsByDate['2026-08-18']).not.toContain(
+        new Date('2026-08-18T09:00:00-04:00').toISOString(),
+      );
+    });
+  });
+
   describe('holdSlot', () => {
     it('rejects an off-grid slot without touching the repo', async () => {
       await expect(

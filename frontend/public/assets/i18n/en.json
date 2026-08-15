@@ -7,7 +7,8 @@
       "services": "Services",
       "about": "About Us",
       "contact": "Contact",
-      "cta": "Log In"
+      "cta": "Book Now",
+      "loginCta": "Log In"
     },
     "hero": {
       "label": "Boutique Clinical Excellence",
@@ -27,7 +28,8 @@
         "tweezers": "Dental tweezers",
         "turbine": "Dental turbine",
         "fanAriaLabel": "Clinic instruments"
-      }
+      },
+      "cta": "Book my consultation"
     },
     "mission": {
       "eyebrow": "Our Pillars",
@@ -160,6 +162,10 @@
       "body": "Book your first consultation to create your file.",
       "cta": "See available times",
       "dismissAriaLabel": "Dismiss notice"
+    },
+    "booking": {
+      "title": "Book your consultation",
+      "subtitle": "Real availability for this week and next, in 30-minute slots. Pick what works for you and confirm with a simple QR payment."
     }
   }
 }
