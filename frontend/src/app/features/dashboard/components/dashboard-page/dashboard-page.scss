@@ -91,8 +91,8 @@ $topbar-h: 56px;
 }
 
 .sidebar__brand-symbol {
-  font-size: var(--font-size-xl);
-  color: var(--color-primary);
+  width: 1.75rem;
+  height: 1.75rem;
 }
 
 .sidebar__brand-name {
@@ -273,8 +273,8 @@ $topbar-h: 56px;
 }
 
 .topbar__brand-symbol {
-  color: var(--color-primary);
-  font-size: var(--font-size-lg);
+  width: 1.5rem;
+  height: 1.5rem;
 }
 
 .topbar__brand-name {

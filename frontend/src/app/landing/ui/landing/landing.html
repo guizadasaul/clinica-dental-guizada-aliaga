@@ -260,7 +260,7 @@
     <div class="testimonials-editorial">
       <!-- Testimonio destacado -->
       <blockquote class="testimonial-featured" data-reveal>
-        <span class="testimonial-mark" aria-hidden="true">✦</span>
+        <app-logo class="testimonial-mark" tone="color" />
         <p class="testimonial-featured__quote">{{ testimonials[0].quote | translate }}</p>
         <footer class="testimonial-featured__footer">
           <img
@@ -280,7 +280,7 @@
       <div class="testimonial-pair" data-reveal-group>
         @for (testimonial of testimonials.slice(1); track testimonial.id) {
           <blockquote class="testimonial-secondary" data-reveal-item>
-            <span class="testimonial-mark" aria-hidden="true">✦</span>
+            <app-logo class="testimonial-mark" tone="color" />
             <p class="testimonial-secondary__quote">{{ testimonial.quote | translate }}</p>
             <footer class="testimonial-secondary__footer">
               <img
