@@ -3,9 +3,9 @@ import { ChangeDetectionStrategy, Component, computed, input } from '@angular/co
 export type LogoTone = 'color' | 'dark' | 'light';
 
 const LOGO_SRC: Record<LogoTone, string> = {
-  color: 'assets/images/LogoCuadrado.png',
-  dark: 'assets/images/LogoCuadradoNegro.png',
-  light: 'assets/images/LogoCuadradoBlanco.png',
+  color: 'assets/images/ClinicaIcono.png',
+  dark: 'assets/images/LogoCuadradoNegroSinLetra.png',
+  light: 'assets/images/LogoCuadradoBlancoSinLetra.png',
 };
 
 @Component({
