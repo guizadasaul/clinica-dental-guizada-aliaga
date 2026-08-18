@@ -57,5 +57,11 @@ services:
 
 volumes:
   db_data:
+    # Nombre fijo (no derivado del directorio del worktree) para que la base
+    # de datos se comparta entre todos los worktrees en vez de arrancar
+    # vacía en cada uno. Solo un worktree corre el stack a la vez (ver
+    # container_name fijos de arriba), así que compartir el volumen es
+    # seguro y evita reseedear a mano cada vez.
+    name: cga_db_data
   api_node_modules:
   frontend_node_modules:

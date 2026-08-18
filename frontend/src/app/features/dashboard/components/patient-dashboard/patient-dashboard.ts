@@ -11,12 +11,13 @@ import { map } from 'rxjs';
 import { AuthService } from '../../../../auth/application/auth.service';
 import { PatientsService } from '../../../patients/services/patients.service';
 import { TreatmentHistoryComponent } from '../../../treatments/components/treatment-history/treatment-history';
+import { LogoComponent } from '../../../../shared/ui/logo/logo';
 
 @Component({
   selector: 'app-patient-dashboard',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [TreatmentHistoryComponent],
+  imports: [TreatmentHistoryComponent, LogoComponent],
   templateUrl: './patient-dashboard.html',
   styleUrl: './patient-dashboard.scss',
 })

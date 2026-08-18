@@ -18,6 +18,7 @@ import { MagneticDirective } from '../../../shared/directives/magnetic.directive
 import { LangSwitcherComponent } from '../../../shared/ui/lang-switcher/lang-switcher';
 import { WeekSlotPickerComponent } from '../../../features/booking/components/week-slot-picker/week-slot-picker';
 import { BookingService } from '../../../features/booking/services/booking.service';
+import { LogoComponent } from '../../../shared/ui/logo/logo';
 
 interface Instrument {
   readonly id: number;
@@ -52,7 +53,7 @@ const PATIENT_AVATAR =
   selector: 'app-landing',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [RouterLink, MagneticDirective, TranslatePipe, LangSwitcherComponent, WeekSlotPickerComponent],
+  imports: [RouterLink, MagneticDirective, TranslatePipe, LangSwitcherComponent, WeekSlotPickerComponent, LogoComponent],
   templateUrl: './landing.html',
   styleUrl: './landing.scss',
 })

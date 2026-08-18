@@ -9,6 +9,7 @@ import { Router } from '@angular/router';
 import { AuthService } from '../../../../auth/application/auth.service';
 import { PatientDashboardComponent } from '../patient-dashboard/patient-dashboard';
 import { DoctorDashboardComponent } from '../doctor-dashboard/doctor-dashboard';
+import { LogoComponent } from '../../../../shared/ui/logo/logo';
 
 interface NavItem {
   readonly icon: string;
@@ -36,7 +37,7 @@ const DOCTOR_NAV: NavItem[] = [
   selector: 'app-dashboard-page',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [PatientDashboardComponent, DoctorDashboardComponent],
+  imports: [PatientDashboardComponent, DoctorDashboardComponent, LogoComponent],
   templateUrl: './dashboard-page.html',
   styleUrl: './dashboard-page.scss',
 })

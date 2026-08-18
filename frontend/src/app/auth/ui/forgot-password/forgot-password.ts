@@ -2,12 +2,13 @@ import { Component, ChangeDetectionStrategy, signal, inject } from '@angular/cor
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { AuthService } from '../../application/auth.service';
+import { LogoComponent } from '../../../shared/ui/logo/logo';
 
 @Component({
   selector: 'app-forgot-password',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [RouterLink, FormsModule],
+  imports: [RouterLink, FormsModule, LogoComponent],
   templateUrl: './forgot-password.html',
   styleUrl: './forgot-password.scss',
 })

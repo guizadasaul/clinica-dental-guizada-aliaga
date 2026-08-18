@@ -7,7 +7,7 @@
   <!-- Sidebar -->
   <aside class="sidebar" [class.sidebar--open]="sidebarOpen()">
     <div class="sidebar__brand">
-      <span class="sidebar__brand-symbol" aria-hidden="true">✦</span>
+      <app-logo class="sidebar__brand-symbol" tone="light" />
       <span class="sidebar__brand-name">Guizada Aliaga</span>
     </div>
 
@@ -53,7 +53,7 @@
       <button type="button" class="topbar__menu-btn" (click)="toggleSidebar()" aria-label="Abrir menú">
         <span class="material-symbols-outlined">menu</span>
       </button>
-      <span class="topbar__brand-symbol" aria-hidden="true">✦</span>
+      <app-logo class="topbar__brand-symbol" tone="light" />
       <span class="topbar__brand-name">Guizada Aliaga</span>
     </header>
 

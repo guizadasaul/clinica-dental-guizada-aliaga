@@ -4,12 +4,13 @@ import { RouterLink, Router } from '@angular/router';
 import { HttpErrorResponse } from '@angular/common/http';
 import { AuthService } from '../../application/auth.service';
 import { looksLikePhone, normalizePhone } from '../../application/phone.util';
+import { LogoComponent } from '../../../shared/ui/logo/logo';
 
 @Component({
   selector: 'app-register',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [RouterLink, FormsModule],
+  imports: [RouterLink, FormsModule, LogoComponent],
   templateUrl: './register.html',
   styleUrl: './register.scss',
 })
