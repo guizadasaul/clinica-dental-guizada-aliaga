@@ -2,7 +2,7 @@ import { Component, ChangeDetectionStrategy, inject, input, output, signal } fro
 import { firstValueFrom } from 'rxjs';
 import { BookingService } from '../../services/booking.service';
 
-const CLINIC_PHONE = '+591700000000';
+const CLINIC_PHONE = '+59157744250';
 
 @Component({
   selector: 'app-step-payment-qr',
