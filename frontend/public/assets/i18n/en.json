@@ -117,6 +117,21 @@
           "beforeAlt": "Smile before invisible orthodontics",
           "afterAlt": "Smile after invisible orthodontics",
           "treatment": "Invisible Orthodontics"
+        },
+        "veneers1": {
+          "beforeAlt": "Smile before dental veneers",
+          "afterAlt": "Smile after dental veneers",
+          "treatment": "Dental Veneers"
+        },
+        "resin": {
+          "beforeAlt": "Smile before resin restoration",
+          "afterAlt": "Smile after resin restoration",
+          "treatment": "Resin Restoration"
+        },
+        "veneers2": {
+          "beforeAlt": "Smile before dental veneers",
+          "afterAlt": "Smile after dental veneers",
+          "treatment": "Dental Veneers"
         }
       }
     },

@@ -117,6 +117,21 @@
           "beforeAlt": "Sorriso antes da ortodontia invisível",
           "afterAlt": "Sorriso depois da ortodontia invisível",
           "treatment": "Ortodontia Invisível"
+        },
+        "veneers1": {
+          "beforeAlt": "Sorriso antes das facetas dentárias",
+          "afterAlt": "Sorriso depois das facetas dentárias",
+          "treatment": "Facetas Dentárias"
+        },
+        "resin": {
+          "beforeAlt": "Sorriso antes da restauração com resina",
+          "afterAlt": "Sorriso depois da restauração com resina",
+          "treatment": "Restauração com Resina"
+        },
+        "veneers2": {
+          "beforeAlt": "Sorriso antes das facetas dentárias",
+          "afterAlt": "Sorriso depois das facetas dentárias",
+          "treatment": "Facetas Dentárias"
         }
       }
     },

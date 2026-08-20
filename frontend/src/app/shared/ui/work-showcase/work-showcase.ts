@@ -3,7 +3,6 @@ import { TranslatePipe } from '@ngx-translate/core';
 
 export interface WorkShowcaseItem {
   readonly id: number;
-  readonly icon: string;
   readonly titleKey: string;
   readonly beforeUrl: string;
   readonly beforeAlt: string;
@@ -13,8 +12,8 @@ export interface WorkShowcaseItem {
 
 /**
  * Selector interactivo de casos: fila de paneles que se expanden al click
- * (el resto queda como una franja angosta con solo el ícono). El panel
- * activo muestra la comparación antes/después completa; los demás, solo
+ * (el resto queda como una franja angosta). El panel activo muestra la
+ * comparación antes/después completa; los demás, solo
  * la foto "después" como preview. Puerto a Angular de un patrón React
  * equivalente — sin animación de entrada propia, reusa el sistema de
  * scroll-reveal (GSAP) ya existente en la landing vía [data-reveal-item].

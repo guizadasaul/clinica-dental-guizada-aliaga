@@ -121,25 +121,6 @@
   pointer-events: none;
 }
 
-.work-panel__icon {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 2.75rem;
-  height: 2.75rem;
-  flex-shrink: 0;
-  border-radius: var(--radius-full);
-  background: rgb(0 0 0 / 0.45);
-  border: 1.5px solid rgb(255 255 255 / 0.35);
-  backdrop-filter: blur(6px);
-  -webkit-backdrop-filter: blur(6px);
-  color: var(--color-cream);
-
-  .material-symbols-outlined {
-    font-size: 1.375rem;
-  }
-}
-
 .work-panel__title {
   font-family: var(--font-headline);
   font-size: var(--font-size-lg);
