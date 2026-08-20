@@ -12,8 +12,8 @@
     },
     "hero": {
       "label": "Boutique Clinical Excellence",
-      "titleLine1": "Smile with health,",
-      "titleLine2": "Smile with confidence.",
+      "titleLine1": "Give your life,",
+      "titleLine2": "a better smile.",
       "subtitle": "A boutique experience combining clinical excellence with human warmth. Your well-being is our primary focus, in an environment designed for tranquility.",
       "ctaPrimary": "Book Appointment",
       "ctaSecondary": "Call Now",
@@ -32,15 +32,15 @@
     },
     "mission": {
       "eyebrow": "Our Pillars",
-      "title": "A Philosophy of Comprehensive Care",
+      "title": "What Drives Us",
       "missionTitle": "Our Mission",
-      "missionText": "To provide clinical excellence with a truly human touch, ensuring that every patient receives top-level care in an environment designed for their absolute comfort and peace of mind.",
+      "missionText": "To provide clinical excellence with a deeply human touch, offering every patient top-level comprehensive dental care in an environment designed for their comfort and peace of mind.",
       "visionTitle": "Our Vision",
-      "visionText": "To completely reimagine the healthcare experience, transforming every visit into an exceptional moment of well-being, empathy, and lasting trust."
+      "visionText": "To become the reference dental clinic for transforming how people experience their oral health: leading with innovation, human warmth, and standards of excellence that inspire trust and lasting well-being in every patient."
     },
     "services": {
       "eyebrow": "Specialties",
-      "title": "Cutting-Edge Treatments",
+      "title": "Treatments for Every Smile",
       "subtitle": "Each treatment is a personalized project, designed to achieve the most natural and lasting results.",
       "categories": {
         "general": {
@@ -166,25 +166,40 @@
       }
     },
     "philosophy": {
-      "eyebrow": "Who We Are",
+      "eyebrow": "About Us",
       "title": "Guizada Aliaga",
       "body": "Clínica Dental Guizada Aliaga was born on December 24, 2010, in Cochabamba, Bolivia, out of the conviction that dentistry can be both an exact science and an act of human care. From that first practice, we built a space where clinical excellence and the warmth of human care meet in perfect harmony.",
-      "body2": "Over the years, that purpose grew into a team of specialists who share the same philosophy: every patient deserves the time, attention, and respect that turn a dental visit into a genuine experience of well-being.",
-      "cta": "Meet the Team",
-      "founderImgAlt": "Dr. María Guizada — Founding Medical Director",
-      "founderName": "Dr. María Guizada",
-      "founderRole": "Founding Medical Director",
-      "founderCredential": "Specialist in Esthetic Dentistry"
+      "body2": "That same conviction has been upheld from day one by the two dentists who lead the practice: every patient deserves the time, attention, and respect that turn a dental visit into a genuine experience of well-being.",
+      "doctors": {
+        "ariel": {
+          "imgAlt": "Dr. Ariel Guizada Herbas — Dentist",
+          "name": "Dr. Ariel Guizada Herbas",
+          "role": "Dentist",
+          "credential": "Specialist in Oral Implantology and Oral Surgery",
+          "bio": "Dr. Ariel Guizada Herbas is a dentist with more than 15 years of experience in comprehensive patient care. A graduate of Universidad de Aquino Bolivia (UDABOL), he has furthered his training with postgraduate studies and continuing education courses in Oral Implantology and Oral Surgery. His professional career is defined by a commitment to oral health, personalized care, and ongoing training in dental techniques and treatments, offering his patients a service built on trust, quality, and professionalism."
+        },
+        "marylu": {
+          "imgAlt": "Dra. Marylu Aliaga Calle — Dentist",
+          "name": "Dra. Marylu Aliaga Calle",
+          "role": "Dentist",
+          "credential": "Specialist in Orthodontics and Dentofacial Orthopedics",
+          "bio": "Dra. Marylu Aliaga Calle has more than 15 years of experience in comprehensive dental care, providing professional, patient-centered service since 2008. A graduate of Universidad de Aquino Bolivia (UDABOL), she has strengthened her training with a Diploma in Orthodontics and Dentofacial Orthopedics, as well as a Diploma in Competency-Based Higher Education. Her career includes extensive training in clinical dental supervision, teeth whitening, self-ligating systems, facial mask therapy, and mouthguard fabrication, staying continuously up to date to offer modern, high-quality treatments."
+        }
+      },
+      "doctorsNav": {
+        "prev": "Previous doctor",
+        "next": "Next doctor"
+      }
     },
     "contact": {
       "eyebrow": "Find Us",
       "title": "Location & Contact",
       "addressTitle": "Address",
-      "addressLine1": "Av. San Martín 1234, Floor 3",
-      "addressLine2": "Equipetrol, Santa Cruz de la Sierra",
+      "addressLine1": "Guizada Building, 1st floor — Carmela Serruto entre Suárez Miranda y Waldo Ballivián",
+      "addressLine2": "Quillacollo, Cochabamba",
       "hoursTitle": "Office Hours",
-      "hoursWeekdays": "Monday to Friday: 08:00 – 20:00",
-      "hoursSaturday": "Saturdays: 09:00 – 13:00",
+      "hoursWeekdays": "Monday to Friday: 9:00 AM – 12:00 PM and 3:00 PM – 7:00 PM",
+      "hoursSaturday": "Saturdays: 9:00 AM – 12:00 PM",
       "phoneTitle": "Phone",
       "emailTitle": "Email",
       "ctaTitle": "Ready to start your transformation?",
@@ -193,24 +208,16 @@
     },
     "footer": {
       "logoName": "Guizada Aliaga",
-      "tagline1": "Healthcare Reimagined.",
-      "tagline2": "Clinical excellence with human warmth.",
+      "tagline1": "Give your life,",
+      "tagline2": "a better smile.",
       "servicesAriaLabel": "Services",
       "servicesTitle": "Services",
-      "esthetic": "Esthetic Dentistry",
-      "ortho": "Invisible Orthodontics",
-      "whitening": "Whitening",
-      "implants": "Dental Implants",
       "clinicAriaLabel": "Clinic information",
       "clinicTitle": "Clinic",
       "about": "About Us",
       "contact": "Contact",
       "appointment": "Book Appointment",
-      "legalAriaLabel": "Legal",
-      "legalTitle": "Legal",
-      "privacy": "Privacy Policy",
-      "terms": "Terms of Service",
-      "copyright": "© 2024 Clínica Guizada Aliaga. All rights reserved."
+      "copyright": "© 2026 Clínica Guizada Aliaga. All rights reserved."
     },
     "noProfileBanner": {
       "title": "You don't have a patient account yet",
@@ -220,7 +227,8 @@
     },
     "booking": {
       "title": "Book your consultation",
-      "subtitle": "Real availability for this week and next, in 30-minute slots. Pick what works for you and confirm with a simple QR payment."
+      "subtitle": "Real availability for this week and next, in 30-minute slots. Pick what works for you and confirm with a simple QR payment.",
+      "close": "Close"
     }
   }
 }

@@ -12,8 +12,8 @@
     },
     "hero": {
       "label": "Excelencia Clínica Boutique",
-      "titleLine1": "Sonríe con salud,",
-      "titleLine2": "Sonríe con confianza.",
+      "titleLine1": "Dale a tu vida,",
+      "titleLine2": "una mejor sonrisa.",
       "subtitle": "Una experiencia boutique que combina excelencia clínica con calidez humana. Su bienestar es nuestro enfoque principal, en un ambiente diseñado para la tranquilidad.",
       "ctaPrimary": "Agendar Cita",
       "ctaSecondary": "Llamar Ahora",
@@ -32,15 +32,15 @@
     },
     "mission": {
       "eyebrow": "Nuestros Pilares",
-      "title": "Una Filosofía de Cuidado Integral",
+      "title": "Lo Que Nos Mueve",
       "missionTitle": "Nuestra Misión",
-      "missionText": "Proveer excelencia clínica con un toque verdaderamente humano, asegurando que cada paciente reciba atención de primer nivel en un entorno diseñado para su confort absoluto y tranquilidad.",
+      "missionText": "Brindar excelencia clínica con un trato profundamente humano, ofreciendo a cada paciente una atención odontológica integral de primer nivel en un entorno pensado para su confort y tranquilidad.",
       "visionTitle": "Nuestra Visión",
-      "visionText": "Reimaginar por completo la experiencia del cuidado de la salud, transformando cada visita en un momento excepcional de bienestar, empatía y confianza duradera."
+      "visionText": "Convertirnos en la clínica dental de referencia por transformar la manera en que las personas viven su salud bucal: liderando con innovación, calidez humana y estándares de excelencia que inspiren confianza y bienestar duradero en cada paciente."
     },
     "services": {
       "eyebrow": "Especialidades",
-      "title": "Tratamientos de Vanguardia",
+      "title": "Tratamientos para Cada Sonrisa",
       "subtitle": "Cada tratamiento es un proyecto personalizado, diseñado para alcanzar los resultados más naturales y duraderos.",
       "categories": {
         "general": {
@@ -166,25 +166,40 @@
       }
     },
     "philosophy": {
-      "eyebrow": "Quiénes Somos",
+      "eyebrow": "Sobre Nosotros",
       "title": "Guizada Aliaga",
       "body": "Clínica Dental Guizada Aliaga nació un 24 de diciembre de 2010, en Cochabamba, Bolivia, de la convicción de que la odontología puede ser tanto una ciencia exacta como un acto de cuidado humano. Desde ese primer consultorio construimos un espacio donde la excelencia clínica y la calidez del trato humano se encuentran en perfecta armonía.",
-      "body2": "Con los años, ese propósito se convirtió en un equipo de especialistas que comparte una misma filosofía: cada paciente merece el tiempo, la atención y el respeto que transforman una visita al dentista en una experiencia genuina de bienestar.",
-      "cta": "Conocer al Equipo",
-      "founderImgAlt": "Dra. María Guizada — Directora Médica Fundadora",
-      "founderName": "Dra. María Guizada",
-      "founderRole": "Directora Médica Fundadora",
-      "founderCredential": "Especialista en Odontología Estética"
+      "body2": "Esa misma convicción la sostienen, desde el primer día, los dos odontólogos que dirigen la clínica: cada paciente merece el tiempo, la atención y el respeto que transforman una visita al dentista en una experiencia genuina de bienestar.",
+      "doctors": {
+        "ariel": {
+          "imgAlt": "Dr. Ariel Guizada Herbas — Odontólogo",
+          "name": "Dr. Ariel Guizada Herbas",
+          "role": "Odontólogo",
+          "credential": "Especialista en Implantología Oral y Cirugía Bucal",
+          "bio": "Dr. Ariel Guizada Herbas es odontólogo con más de 15 años de experiencia en la atención integral de pacientes. Graduado de la Universidad de Aquino Bolivia (UDABOL), ha complementado su formación con estudios de posgrado y cursos de actualización en Implantología Oral y Cirugía Bucal. Su trayectoria profesional se caracteriza por el compromiso con la salud oral, la atención personalizada y la actualización constante en técnicas y tratamientos odontológicos, brindando a sus pacientes un servicio basado en la confianza, la calidad y el profesionalismo."
+        },
+        "marylu": {
+          "imgAlt": "Dra. Marylu Aliaga Calle — Odontóloga",
+          "name": "Dra. Marylu Aliaga Calle",
+          "role": "Odontóloga",
+          "credential": "Especialista en Ortodoncia y Ortopedia Dentofacial",
+          "bio": "Dra. Marylu Aliaga Calle cuenta con más de 15 años de experiencia en la atención odontológica integral, brindando un servicio profesional y centrado en el bienestar de sus pacientes desde 2008. Es graduada de la Universidad de Aquino Bolivia (UDABOL) y ha fortalecido su formación con un Diplomado en Ortodoncia y Ortopedia Dentofacial, además de un Diplomado en Educación Superior Basada en Competencias. Su trayectoria incluye múltiples capacitaciones en supervisión clínica odontológica, clareamiento dental, sistemas de autoligado, manejo de máscara facial y confección de protectores bucales, manteniéndose en constante actualización para ofrecer tratamientos modernos y de alta calidad."
+        }
+      },
+      "doctorsNav": {
+        "prev": "Doctor anterior",
+        "next": "Siguiente doctor"
+      }
     },
     "contact": {
       "eyebrow": "Encontranos",
       "title": "Ubicación y Contacto",
       "addressTitle": "Dirección",
-      "addressLine1": "Av. San Martín 1234, Piso 3",
-      "addressLine2": "Equipetrol, Santa Cruz de la Sierra",
+      "addressLine1": "Edificio Guizada, 1er piso — Carmela Serruto entre Suárez Miranda y Waldo Ballivián",
+      "addressLine2": "Quillacollo, Cochabamba",
       "hoursTitle": "Horario de Atención",
-      "hoursWeekdays": "Lunes a Viernes: 08:00 – 20:00",
-      "hoursSaturday": "Sábados: 09:00 – 13:00",
+      "hoursWeekdays": "Lunes a Viernes: 09:00 – 12:00 y 15:00 – 19:00",
+      "hoursSaturday": "Sábados: 09:00 – 12:00",
       "phoneTitle": "Teléfono",
       "emailTitle": "Correo Electrónico",
       "ctaTitle": "¿Listo para comenzar tu transformación?",
@@ -193,24 +208,16 @@
     },
     "footer": {
       "logoName": "Guizada Aliaga",
-      "tagline1": "Cuidado de la Salud Reimaginado.",
-      "tagline2": "Excelencia clínica con calidez humana.",
+      "tagline1": "Dale a tu vida,",
+      "tagline2": "una mejor sonrisa.",
       "servicesAriaLabel": "Servicios",
       "servicesTitle": "Servicios",
-      "esthetic": "Odontología Estética",
-      "ortho": "Ortodoncia Invisible",
-      "whitening": "Blanqueamiento",
-      "implants": "Implantes Dentales",
       "clinicAriaLabel": "Información de la clínica",
       "clinicTitle": "Clínica",
       "about": "Sobre Nosotros",
       "contact": "Contacto",
       "appointment": "Agendar Cita",
-      "legalAriaLabel": "Legal",
-      "legalTitle": "Legal",
-      "privacy": "Política de Privacidad",
-      "terms": "Términos de Servicio",
-      "copyright": "© 2024 Clínica Guizada Aliaga. Todos los derechos reservados."
+      "copyright": "© 2026 Clínica Guizada Aliaga. Todos los derechos reservados."
     },
     "noProfileBanner": {
       "title": "Todavía no tenés una cuenta de paciente",
@@ -220,7 +227,8 @@
     },
     "booking": {
       "title": "Reservá tu consulta",
-      "subtitle": "Horarios reales de esta semana y la próxima, en bloques de 30 minutos. Elegí el que te acomode y confirmá con un pago simple por QR."
+      "subtitle": "Horarios reales de esta semana y la próxima, en bloques de 30 minutos. Elegí el que te acomode y confirmá con un pago simple por QR.",
+      "close": "Cerrar"
     }
   }
 }

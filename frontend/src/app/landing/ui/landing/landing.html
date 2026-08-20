@@ -27,9 +27,9 @@
       <a routerLink="/auth/login" class="navbar__login-link">
         {{ 'landing.nav.loginCta' | translate }}
       </a>
-      <a href="#reservar" class="btn-primary" appOriginFill>
+      <button type="button" class="btn-primary" appOriginFill (click)="openBookingModal()">
         {{ 'landing.nav.cta' | translate }}
-      </a>
+      </button>
     </div>
   </div>
 </nav>
@@ -95,18 +95,31 @@
 </section>
 
 <!-- ========================================================= -->
-<!-- RESERVA — selector de 2 semanas embebido, sin necesidad   -->
-<!-- de cuenta. Elegir un horario lleva a /reservar con ese    -->
-<!-- horario ya en hold.                                       -->
+<!-- RESERVA — modal con el selector de 2 semanas, sin necesidad -->
+<!-- de cuenta. Se abre desde "Reservar Cita" (navbar/contacto). -->
+<!-- Elegir un horario lleva a /reservar con ese horario en hold. -->
 <!-- ========================================================= -->
-<section id="reservar" class="section section--cream" aria-labelledby="booking-title">
-  <div class="container">
-    <div class="section__header" data-reveal>
-      <h2 id="booking-title" class="section__title">{{ 'landing.booking.title' | translate }}</h2>
-      <p class="section__subtitle">{{ 'landing.booking.subtitle' | translate }}</p>
-    </div>
+@if (bookingModalOpen()) {
+  <div class="booking-modal" (click)="closeBookingModal()">
+    <div
+      class="booking-modal__panel"
+      role="dialog"
+      aria-modal="true"
+      [attr.aria-label]="'landing.booking.title' | translate"
+      (click)="$event.stopPropagation()"
+    >
+      <button
+        type="button"
+        class="booking-modal__close"
+        (click)="closeBookingModal()"
+        [attr.aria-label]="'landing.booking.close' | translate"
+      >
+        <span class="material-symbols-outlined" aria-hidden="true">close</span>
+      </button>
 
-    <div class="booking-panel" data-reveal>
+      <h2 class="booking-modal__title">{{ 'landing.booking.title' | translate }}</h2>
+      <p class="booking-modal__subtitle">{{ 'landing.booking.subtitle' | translate }}</p>
+
       <app-week-slot-picker
         [slotsByDate]="bookingSlotsByDate()"
         [loading]="bookingLoading()"
@@ -115,7 +128,7 @@
       />
     </div>
   </div>
-</section>
+}
 
 <!-- ========================================================= -->
 <!-- MISIÓN Y VISIÓN — dos columnas de texto, sin tarjetas    -->
@@ -207,31 +220,62 @@
         </h2>
         <p class="philosophy-split__body">{{ 'landing.philosophy.body' | translate }}</p>
         <p class="philosophy-split__body">{{ 'landing.philosophy.body2' | translate }}</p>
-        <div class="philosophy-split__cta">
-          <a href="#contacto" class="btn-primary" appOriginFill>
-            {{ 'landing.philosophy.cta' | translate }}
-          </a>
-        </div>
       </div>
 
-      <div class="philosophy-split__founder" data-reveal>
-        <div class="founder-card">
-          <div class="founder-card__image-wrap">
-            <img
-              src="https://lh3.googleusercontent.com/aida/ADBb0ui9XRS_CVf7bIZ7v3yrZnDiDLw4CPgWvIvgyoFRoGi56_9o56evTJLb7OC2rT5qJq61o_JHScdjanrEKlsnRGAs8AiF_g2Rg8ZhWlVbptgXJuEjm_zEhzzNH1uwITX97g-3vAUy8E_jfJHZMuuJgR-fRubLTJKZwhbSxaxAvu4gP8mdrgNFw-1_twkLhGw5GricB9Ejj9aCtRTuV3GaXiezeznarPaimf-KlxMowWRA7HM"
-              [alt]="'landing.philosophy.founderImgAlt' | translate"
-              class="founder-card__img"
-              loading="lazy"
-            >
+      <div class="philosophy-split__doctor" data-reveal>
+        @let doctorKey = doctors[activeDoctorIndex()];
+        <div class="doctor-spotlight">
+          <div class="doctor-spotlight__photo">
+            @if (doctorPhotos[doctorKey]; as photo) {
+              <img
+                [src]="photo"
+                [alt]="'landing.philosophy.doctors.' + doctorKey + '.imgAlt' | translate"
+                class="doctor-spotlight__img"
+                loading="lazy"
+              >
+            } @else {
+              <div class="doctor-spotlight__placeholder" aria-hidden="true">
+                <span class="material-symbols-outlined">person</span>
+              </div>
+            }
           </div>
-          <div class="founder-card__info">
-            <strong class="founder-card__name">{{ 'landing.philosophy.founderName' | translate }}</strong>
-            <span class="founder-card__role">{{ 'landing.philosophy.founderRole' | translate }}</span>
-            <div class="founder-card__badge">
+          <div class="doctor-spotlight__info">
+            <strong class="doctor-spotlight__name">{{ 'landing.philosophy.doctors.' + doctorKey + '.name' | translate }}</strong>
+            <span class="doctor-spotlight__role">{{ 'landing.philosophy.doctors.' + doctorKey + '.role' | translate }}</span>
+            <div class="doctor-spotlight__badge">
               <span class="material-symbols-outlined" aria-hidden="true">workspace_premium</span>
-              <span>{{ 'landing.philosophy.founderCredential' | translate }}</span>
+              <span>{{ 'landing.philosophy.doctors.' + doctorKey + '.credential' | translate }}</span>
             </div>
+            <p class="doctor-spotlight__bio">{{ 'landing.philosophy.doctors.' + doctorKey + '.bio' | translate }}</p>
           </div>
+        </div>
+
+        <div class="doctor-spotlight__nav">
+          <button
+            type="button"
+            class="doctor-spotlight__nav-btn"
+            [attr.aria-label]="'landing.philosophy.doctorsNav.prev' | translate"
+            (click)="prevDoctor()"
+          >
+            <span class="material-symbols-outlined" aria-hidden="true">chevron_left</span>
+          </button>
+          @for (key of doctors; track key; let i = $index) {
+            <button
+              type="button"
+              class="doctor-spotlight__dot"
+              [class.doctor-spotlight__dot--active]="activeDoctorIndex() === i"
+              [attr.aria-label]="'landing.philosophy.doctors.' + key + '.name' | translate"
+              (click)="selectDoctor(i)"
+            ></button>
+          }
+          <button
+            type="button"
+            class="doctor-spotlight__nav-btn"
+            [attr.aria-label]="'landing.philosophy.doctorsNav.next' | translate"
+            (click)="nextDoctor()"
+          >
+            <span class="material-symbols-outlined" aria-hidden="true">chevron_right</span>
+          </button>
         </div>
       </div>
     </div>
@@ -253,10 +297,15 @@
           <span class="material-symbols-outlined contact-item__icon" aria-hidden="true">location_on</span>
           <div>
             <strong class="contact-item__label">{{ 'landing.contact.addressTitle' | translate }}</strong>
-            <address class="contact-item__value">
+            <a
+              href="https://maps.app.goo.gl/t5Nz2xa5k1kMkMeJ9"
+              target="_blank"
+              rel="noopener noreferrer"
+              class="contact-item__value contact-item__link"
+            >
               {{ 'landing.contact.addressLine1' | translate }}<br>
               {{ 'landing.contact.addressLine2' | translate }}
-            </address>
+            </a>
           </div>
         </div>
 
@@ -272,10 +321,12 @@
         </div>
 
         <div class="contact-item">
-          <span class="material-symbols-outlined contact-item__icon" aria-hidden="true">call</span>
+          <svg class="contact-item__icon" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+            <path d="M13.601 2.326A7.85 7.85 0 0 0 7.994 0C3.627 0 .068 3.558.064 7.926c0 1.399.366 2.76 1.057 3.965L0 16l4.204-1.102a7.9 7.9 0 0 0 3.79.965h.004c4.368 0 7.926-3.558 7.93-7.93A7.9 7.9 0 0 0 13.6 2.326zM7.994 14.521a6.6 6.6 0 0 1-3.356-.92l-.24-.144-2.494.654.666-2.433-.156-.251a6.56 6.56 0 0 1-1.007-3.505c0-3.626 2.957-6.584 6.591-6.584a6.56 6.56 0 0 1 4.66 1.931 6.56 6.56 0 0 1 1.928 4.66c-.004 3.639-2.961 6.592-6.592 6.592m3.615-4.934c-.197-.099-1.17-.578-1.353-.646-.182-.065-.315-.099-.445.099-.133.197-.513.646-.627.775-.114.133-.232.148-.43.05-.197-.1-.836-.308-1.592-.985-.588-.526-.985-1.175-1.103-1.372-.114-.198-.011-.304.088-.403.087-.088.197-.232.296-.346.1-.114.133-.198.198-.33.065-.134.034-.248-.015-.347-.05-.099-.445-1.076-.612-1.47-.16-.389-.323-.335-.445-.34-.114-.007-.247-.007-.38-.007a.73.73 0 0 0-.529.247c-.182.198-.691.677-.691 1.654s.71 1.916.81 2.049c.098.133 1.394 2.132 3.383 2.992.47.205.84.326 1.129.418.475.152.904.129 1.246.08.38-.058 1.171-.48 1.337-.943.164-.464.164-.86.114-.943-.049-.084-.182-.133-.38-.232"/>
+          </svg>
           <div>
             <strong class="contact-item__label">{{ 'landing.contact.phoneTitle' | translate }}</strong>
-            <a href="tel:+59157744250" class="contact-item__link">+591 577 44250</a>
+            <a href="https://wa.me/59157744250" target="_blank" rel="noopener noreferrer" class="contact-item__link">+591 577 44250</a>
           </div>
         </div>
 
@@ -283,7 +334,7 @@
           <span class="material-symbols-outlined contact-item__icon" aria-hidden="true">mail</span>
           <div>
             <strong class="contact-item__label">{{ 'landing.contact.emailTitle' | translate }}</strong>
-            <a href="mailto:hola@guizadaaliaga.com" class="contact-item__link">hola&#64;guizadaaliaga.com</a>
+            <a href="mailto:clinicadentalguizadaaliaga@gmail.com" class="contact-item__link">clinicadentalguizadaaliaga&#64;gmail.com</a>
           </div>
         </div>
       </div>
@@ -291,10 +342,10 @@
       <div class="contact-cta">
         <h3 class="contact-cta__title">{{ 'landing.contact.ctaTitle' | translate }}</h3>
         <p class="contact-cta__subtitle">{{ 'landing.contact.ctaSubtitle' | translate }}</p>
-        <a href="#reservar" class="btn-primary" appOriginFill>
+        <button type="button" class="btn-primary" appOriginFill (click)="openBookingModal()">
           <span class="material-symbols-outlined" aria-hidden="true">calendar_month</span>
           {{ 'landing.contact.ctaBtn' | translate }}
-        </a>
+        </button>
       </div>
     </div>
   </div>
@@ -323,10 +374,10 @@
       <nav [attr.aria-label]="'landing.footer.servicesAriaLabel' | translate">
         <h4 class="footer__heading">{{ 'landing.footer.servicesTitle' | translate }}</h4>
         <ul class="footer__links" role="list">
-          <li><a href="#servicios" class="footer__link">{{ 'landing.footer.esthetic' | translate }}</a></li>
-          <li><a href="#servicios" class="footer__link">{{ 'landing.footer.ortho' | translate }}</a></li>
-          <li><a href="#servicios" class="footer__link">{{ 'landing.footer.whitening' | translate }}</a></li>
-          <li><a href="#servicios" class="footer__link">{{ 'landing.footer.implants' | translate }}</a></li>
+          <li><a href="#servicios" class="footer__link">{{ 'landing.services.categories.general.title' | translate }}</a></li>
+          <li><a href="#servicios" class="footer__link">{{ 'landing.services.categories.esthetic.title' | translate }}</a></li>
+          <li><a href="#servicios" class="footer__link">{{ 'landing.services.categories.ortho.title' | translate }}</a></li>
+          <li><a href="#servicios" class="footer__link">{{ 'landing.services.categories.implants.title' | translate }}</a></li>
         </ul>
       </nav>
 
@@ -335,15 +386,7 @@
         <ul class="footer__links" role="list">
           <li><a href="#nosotros" class="footer__link">{{ 'landing.footer.about' | translate }}</a></li>
           <li><a href="#contacto" class="footer__link">{{ 'landing.footer.contact' | translate }}</a></li>
-          <li><a href="#contacto" class="footer__link">{{ 'landing.footer.appointment' | translate }}</a></li>
-        </ul>
-      </nav>
-
-      <nav [attr.aria-label]="'landing.footer.legalAriaLabel' | translate">
-        <h4 class="footer__heading">{{ 'landing.footer.legalTitle' | translate }}</h4>
-        <ul class="footer__links" role="list">
-          <li><a href="#" class="footer__link">{{ 'landing.footer.privacy' | translate }}</a></li>
-          <li><a href="#" class="footer__link">{{ 'landing.footer.terms' | translate }}</a></li>
+          <li><button type="button" class="footer__link" (click)="openBookingModal()">{{ 'landing.footer.appointment' | translate }}</button></li>
         </ul>
       </nav>
     </div>

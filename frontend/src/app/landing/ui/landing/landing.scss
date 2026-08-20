@@ -25,7 +25,10 @@
 
   @media (min-width: 768px) { padding-block: var(--space-section-desktop); }
 
-  &--cream   { background: var(--color-cream); }
+  // Mismo tono crema en las dos variantes claras (--color-cream y
+  // --color-surface son casi idénticos mirados por separado, pero
+  // alternarlos sección tras sección se notaba como un cambio de color).
+  &--cream,
   &--surface { background: var(--color-surface); }
   &--navy    { background: var(--color-navy); }
 
@@ -101,40 +104,6 @@
 
   &:focus-visible {
     outline: 2px solid var(--color-primary);
-    outline-offset: 3px;
-  }
-}
-
-// Variante para el hero claro: contorno navy sobre crema.
-.btn-outline {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-2);
-  padding: var(--space-3) var(--space-6);
-  border: 1.5px solid rgb(26 43 75 / 0.35);
-  color: var(--color-navy);
-  font-family: var(--font-body);
-  font-size: var(--font-size-base);
-  font-weight: 600;
-  border-radius: var(--radius-full);
-  text-decoration: none;
-  background: transparent;
-  cursor: pointer;
-  transition:
-    background 0.25s cubic-bezier(0.16, 1, 0.3, 1),
-    border-color 0.25s cubic-bezier(0.16, 1, 0.3, 1),
-    transform 0.18s cubic-bezier(0.16, 1, 0.3, 1);
-
-  .material-symbols-outlined { font-size: 1.1em; }
-
-  &:hover {
-    background: rgb(26 43 75 / 0.06);
-    border-color: var(--color-navy);
-    transform: translateY(-2px);
-  }
-
-  &:focus-visible {
-    outline: 2px solid var(--color-navy);
     outline-offset: 3px;
   }
 }
@@ -339,7 +308,7 @@
   flex-direction: column;
   align-items: center;
   overflow: hidden;
-  background: var(--color-cream);
+  background: var(--color-surface);
   padding-top: clamp(5.5rem, 11vh, 7rem);
   padding-bottom: var(--space-8);
 
@@ -347,20 +316,6 @@
     position: absolute;
     inset: 0;
     pointer-events: none;
-  }
-
-  &__ghost {
-    position: absolute;
-    top: clamp(3.5rem, 9vh, 6rem);
-    left: 50%;
-    transform: translateX(-50%);
-    font-family: var(--font-headline);
-    font-size: clamp(5rem, 17vw, 15rem);
-    line-height: 1;
-    letter-spacing: -0.03em;
-    white-space: nowrap;
-    color: rgb(26 43 75 / 0.05);
-    user-select: none;
   }
 
   &__glow {
@@ -533,7 +488,7 @@
   margin-inline: auto;
   user-select: none;
   // Sombra proyectada del propio instrumento (no de una caja)
-  filter: drop-shadow(0 14px 22px rgb(26 43 75 / 0.28));
+  filter: drop-shadow(0 14px 22px rgb(0 0 0 / 0.28));
   transition:
     transform 0.45s cubic-bezier(0.16, 1, 0.3, 1),
     filter 0.45s cubic-bezier(0.16, 1, 0.3, 1);
@@ -542,23 +497,80 @@
   // wrapper) y se levanta apenas, con sombra más profunda.
   .fan__item:hover & {
     transform: rotate(calc(var(--r, 0deg) * -1)) translateY(-2rem) scale(1.05);
-    filter: drop-shadow(0 30px 46px rgb(26 43 75 / 0.42));
+    filter: drop-shadow(0 30px 46px rgb(0 0 0 / 0.42));
   }
 }
 
 // ============================================================
-// RESERVA — panel con el selector de 2 semanas embebido
+// RESERVA — modal con el selector de 2 semanas
 // ============================================================
 
-.booking-panel {
+.booking-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-4);
+  background: rgb(0 0 0 / 0.6);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+}
+
+.booking-modal__panel {
+  position: relative;
+  width: 100%;
   max-width: 44rem;
-  margin-inline: auto;
+  max-height: 90vh;
+  overflow-y: auto;
   padding: var(--space-8) var(--space-6);
-  background: var(--color-surface);
   border-radius: var(--radius-xl);
-  box-shadow: var(--shadow-warm);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-xl);
 
   @media (min-width: 768px) { padding: var(--space-10) var(--space-8); }
+}
+
+.booking-modal__close {
+  position: absolute;
+  top: var(--space-4);
+  right: var(--space-4);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  border: none;
+  border-radius: var(--radius-full);
+  background: var(--color-surface-dim);
+  color: var(--color-navy);
+  cursor: pointer;
+  transition: background var(--transition-fast);
+
+  &:hover { background: var(--color-primary-light); }
+
+  &:focus-visible {
+    outline: 3px solid var(--color-primary);
+    outline-offset: 2px;
+  }
+}
+
+.booking-modal__title {
+  font-family: var(--font-headline);
+  font-size: clamp(var(--font-size-xl), 2.5vw, var(--font-size-2xl));
+  font-weight: 400;
+  color: var(--color-navy);
+  margin: 0 0 var(--space-3);
+  padding-right: var(--space-8);
+}
+
+.booking-modal__subtitle {
+  font-size: var(--font-size-base);
+  color: var(--color-text-muted);
+  line-height: 1.65;
+  margin: 0 0 var(--space-6);
+  text-wrap: pretty;
 }
 
 // ============================================================
@@ -650,30 +662,50 @@
     margin: 0;
     text-wrap: pretty;
   }
-
-  &__cta { margin-top: var(--space-2); }
 }
 
-.founder-card {
+.philosophy-split__doctor {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+.doctor-spotlight {
+  display: grid;
   background: rgb(255 255 255 / 0.05);
   border: 1px solid rgb(255 255 255 / 0.14);
   border-radius: var(--radius-lg);
   overflow: hidden;
 
-  &__image-wrap {
-    height: 22rem;
+  &__photo {
+    position: relative;
+    height: 24rem;
     overflow: hidden;
+    background: rgb(0 0 0 / 0.2);
   }
 
   &__img {
+    position: absolute;
+    inset: 0;
     width: 100%;
     height: 100%;
     object-fit: cover;
     object-position: top center;
   }
 
+  &__placeholder {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: rgb(249 246 241 / 0.35);
+
+    .material-symbols-outlined { font-size: 4.5rem; }
+  }
+
   &__info {
-    padding: var(--space-6);
+    padding: var(--space-8);
     display: flex;
     flex-direction: column;
     gap: var(--space-2);
@@ -681,13 +713,13 @@
 
   &__name {
     font-family: var(--font-headline);
-    font-size: var(--font-size-xl);
+    font-size: var(--font-size-2xl);
     color: var(--color-cream);
     letter-spacing: -0.01em;
   }
 
   &__role {
-    font-size: var(--font-size-sm);
+    font-size: var(--font-size-base);
     color: rgb(249 246 241 / 0.5);
   }
 
@@ -706,6 +738,62 @@
     align-self: flex-start;
 
     .material-symbols-outlined { font-size: 1rem; }
+  }
+
+  &__bio {
+    font-size: var(--font-size-base);
+    color: rgb(249 246 241 / 0.7);
+    line-height: 1.7;
+    margin: var(--space-2) 0 0;
+    text-wrap: pretty;
+  }
+
+  &__nav {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-3);
+  }
+
+  &__nav-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.75rem;
+    height: 2.75rem;
+    flex-shrink: 0;
+    border-radius: var(--radius-full);
+    border: 1.5px solid rgb(255 255 255 / 0.18);
+    background: rgb(255 255 255 / 0.06);
+    color: var(--color-cream);
+    cursor: pointer;
+    transition: background 0.2s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+
+    &:hover {
+      background: rgb(232 152 88 / 0.16);
+      border-color: var(--color-primary);
+    }
+
+    &:focus-visible {
+      outline: 2px solid var(--color-primary);
+      outline-offset: 2px;
+    }
+  }
+
+  &__dot {
+    width: 0.5rem;
+    height: 0.5rem;
+    border-radius: var(--radius-full);
+    border: none;
+    padding: 0;
+    background: rgb(255 255 255 / 0.25);
+    cursor: pointer;
+    transition: background 0.2s cubic-bezier(0.16, 1, 0.3, 1), transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+
+    &--active {
+      background: var(--color-primary);
+      transform: scale(1.3);
+    }
   }
 }
 
@@ -747,6 +835,11 @@
     color: var(--color-primary);
     margin-top: 3px;
     flex-shrink: 0;
+  }
+
+  svg.contact-item__icon {
+    width: 1.25rem;
+    height: 1.25rem;
   }
 
   &__label {
@@ -830,7 +923,7 @@
     margin-bottom: var(--space-12);
 
     @media (min-width: 640px)  { grid-template-columns: repeat(2, 1fr); }
-    @media (min-width: 1024px) { grid-template-columns: 2fr 1fr 1fr 1fr; }
+    @media (min-width: 1024px) { grid-template-columns: 2fr 1fr 1fr; }
   }
 
   &__logo {
@@ -871,6 +964,13 @@
   }
 
   &__link {
+    display: block;
+    background: none;
+    border: none;
+    padding: 0;
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
     font-size: var(--font-size-sm);
     color: rgb(249 246 241 / 0.62);
     text-decoration: none;

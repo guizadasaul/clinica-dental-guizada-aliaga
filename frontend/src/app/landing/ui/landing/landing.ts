@@ -77,6 +77,9 @@ export class LandingComponent implements AfterViewInit, OnDestroy {
   protected readonly bookingSlotsByDate = signal<Record<string, string[]>>({});
   protected readonly bookingLoading = signal(true);
   protected readonly bookingError = signal<string | null>(null);
+  // El selector de horarios ya no vive fijo en la landing: se abre en un
+  // modal al apretar "Reservar Cita" (navbar o CTA de contacto).
+  protected readonly bookingModalOpen = signal(false);
   private gsapContext: { revert(): void } | null = null;
   private sporeCleanup: (() => void) | null = null;
 
@@ -227,6 +230,29 @@ export class LandingComponent implements AfterViewInit, OnDestroy {
     },
   ];
 
+  // Los dos odontólogos de la clínica, mostrados de a uno en una tarjeta
+  // grande que se navega con flechas/puntos (ver activeDoctorIndex).
+  protected readonly doctors = ['ariel', 'marylu'] as const;
+  // Fotos recortadas (fondo transparente); null mientras no haya foto real
+  // todavía — cae al ícono de placeholder.
+  protected readonly doctorPhotos: Record<(typeof this.doctors)[number], string | null> = {
+    ariel: 'assets/images/doctors/DrArielGuizada.png',
+    marylu: null,
+  };
+  protected readonly activeDoctorIndex = signal(0);
+
+  protected selectDoctor(index: number): void {
+    this.activeDoctorIndex.set(index);
+  }
+
+  protected prevDoctor(): void {
+    this.activeDoctorIndex.update((i) => (i - 1 + this.doctors.length) % this.doctors.length);
+  }
+
+  protected nextDoctor(): void {
+    this.activeDoctorIndex.update((i) => (i + 1) % this.doctors.length);
+  }
+
   // Sin contenido hardcodeado: se llena entero desde el backend
   // (loadApprovedTestimonials), igual para los testimonios curados que
   // para los que deja la gente por el formulario.
@@ -244,6 +270,21 @@ export class LandingComponent implements AfterViewInit, OnDestroy {
 
   protected dismissNoProfileBanner(): void {
     this.showNoProfileBanner.set(false);
+  }
+
+  protected openBookingModal(): void {
+    this.bookingModalOpen.set(true);
+  }
+
+  protected closeBookingModal(): void {
+    this.bookingModalOpen.set(false);
+  }
+
+  @HostListener('document:keydown.escape')
+  protected onEscape(): void {
+    if (this.bookingModalOpen()) {
+      this.closeBookingModal();
+    }
   }
 
   protected onBookingSlotSelected(slot: string): void {
@@ -417,13 +458,21 @@ export class LandingComponent implements AfterViewInit, OnDestroy {
       vy: number;
       r: number; // radio
       a: number; // opacidad base (ya muy sutil)
-      tone: string; // tinte naranja
+      tone: string; // tinte naranja o negro
       phase: number; // desfase de la deriva
       drift: number; // velocidad de la deriva
     }
 
-    // Naranjas de marca en distintas intensidades → profundidad orgánica.
-    const TONES = ['232, 152, 88', '214, 124, 60', '245, 183, 120'];
+    // Naranjas y negros de marca en distintas intensidades → profundidad
+    // orgánica, mezclados en el mismo campo de partículas.
+    const TONES = [
+      '232, 152, 88',
+      '214, 124, 60',
+      '245, 183, 120',
+      '232, 152, 88',
+      '0, 0, 0',
+      '30, 30, 30',
+    ];
     const spores: Spore[] = [];
 
     // Ruido ~normal (media 0, rango ~[-1, 1]) por suma de uniformes.
