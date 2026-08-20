@@ -452,13 +452,21 @@ export class LandingComponent implements AfterViewInit, OnDestroy {
       vy: number;
       r: number; // radio
       a: number; // opacidad base (ya muy sutil)
-      tone: string; // tinte naranja
+      tone: string; // tinte naranja o negro
       phase: number; // desfase de la deriva
       drift: number; // velocidad de la deriva
     }
 
-    // Naranjas de marca en distintas intensidades → profundidad orgánica.
-    const TONES = ['232, 152, 88', '214, 124, 60', '245, 183, 120'];
+    // Naranjas y negros de marca en distintas intensidades → profundidad
+    // orgánica, mezclados en el mismo campo de partículas.
+    const TONES = [
+      '232, 152, 88',
+      '214, 124, 60',
+      '245, 183, 120',
+      '0, 0, 0',
+      '30, 30, 30',
+      '60, 60, 60',
+    ];
     const spores: Spore[] = [];
 
     // Ruido ~normal (media 0, rango ~[-1, 1]) por suma de uniformes.
