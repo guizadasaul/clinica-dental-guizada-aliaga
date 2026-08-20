@@ -32,7 +32,7 @@
     },
     "mission": {
       "eyebrow": "Nossos Pilares",
-      "title": "Uma Filosofia de Cuidado Integral",
+      "title": "O Que Nos Move",
       "missionTitle": "Nossa Missão",
       "missionText": "Oferecer excelência clínica com um trato profundamente humano, proporcionando a cada paciente um atendimento odontológico integral de alto nível em um ambiente pensado para seu conforto e tranquilidade.",
       "visionTitle": "Nossa Visão",
@@ -40,7 +40,7 @@
     },
     "services": {
       "eyebrow": "Especialidades",
-      "title": "Tratamentos de Vanguarda",
+      "title": "Tratamentos para Cada Sorriso",
       "subtitle": "Cada tratamento é um projeto personalizado, projetado para alcançar os resultados mais naturais e duradouros.",
       "categories": {
         "general": {

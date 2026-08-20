@@ -32,7 +32,7 @@
     },
     "mission": {
       "eyebrow": "Our Pillars",
-      "title": "A Philosophy of Comprehensive Care",
+      "title": "What Drives Us",
       "missionTitle": "Our Mission",
       "missionText": "To provide clinical excellence with a deeply human touch, offering every patient top-level comprehensive dental care in an environment designed for their comfort and peace of mind.",
       "visionTitle": "Our Vision",
@@ -40,7 +40,7 @@
     },
     "services": {
       "eyebrow": "Specialties",
-      "title": "Cutting-Edge Treatments",
+      "title": "Treatments for Every Smile",
       "subtitle": "Each treatment is a personalized project, designed to achieve the most natural and lasting results.",
       "categories": {
         "general": {
