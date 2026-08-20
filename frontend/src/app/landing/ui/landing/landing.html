@@ -196,7 +196,13 @@
       </h2>
     </div>
 
-    <div class="testimonials-block" data-reveal>
+    <!-- Sin data-reveal a propósito: GSAP deja un transform inline en el
+         elemento animado (aunque sea "translate3d(0,0,0)"), y eso lo
+         convierte en containing block de sus descendientes position: fixed
+         — el modal de "Deja un comentario" (dentro de app-testimonial-cta,
+         hijo directo de este div) dejaba de cubrir toda la pantalla y las
+         flechas del carrusel de testimonios quedaban visibles por encima. -->
+    <div class="testimonials-block">
       <app-testimonial-cta />
       @if (testimonials().length) {
         <app-stagger-testimonials [items]="testimonials()" />

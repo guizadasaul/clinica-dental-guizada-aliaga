@@ -2,7 +2,11 @@
   position: absolute;
   bottom: var(--space-4);
   right: var(--space-4);
-  z-index: 20;
+  // Antes empataba con .stagger-testimonials__controls (también z-index: 20),
+  // y con el mismo valor gana el que va después en el DOM (el carrusel) —
+  // las flechas de cambiar testimonio quedaban visibles por encima del
+  // modal de "Deja un comentario". Con más margen no hay ambigüedad.
+  z-index: 30;
 }
 
 .testimonial-trigger {

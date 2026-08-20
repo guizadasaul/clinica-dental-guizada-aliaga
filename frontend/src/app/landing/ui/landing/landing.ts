@@ -402,6 +402,13 @@ export class LandingComponent implements AfterViewInit, OnDestroy {
           duration: 0.75,
           ease: 'power2.out',
           scrollTrigger: { trigger: el, start: 'top 85%', once: true },
+          // Sin esto, el transform inline de GSAP se queda para siempre en
+          // el elemento y lo convierte en "containing block" de sus hijos
+          // position: fixed (ej. el modal de "Deja un comentario" dentro de
+          // .testimonials-block) — el modal deja de cubrir toda la pantalla
+          // y controles de fondo (como las flechas del carrusel) quedan
+          // visibles por encima.
+          clearProps: 'transform,opacity',
         });
       });
 
@@ -418,6 +425,7 @@ export class LandingComponent implements AfterViewInit, OnDestroy {
           ease: 'power2.out',
           stagger: 0.09,
           scrollTrigger: { trigger: group, start: 'top 82%', once: true },
+          clearProps: 'transform,opacity',
         });
       });
     }, root);
