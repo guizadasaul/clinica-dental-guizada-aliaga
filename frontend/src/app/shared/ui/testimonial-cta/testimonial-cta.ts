@@ -1,5 +1,6 @@
 import { ChangeDetectionStrategy, Component, HostListener, signal } from '@angular/core';
 import { TranslatePipe } from '@ngx-translate/core';
+import { OriginFillDirective } from '../../directives/origin-fill.directive';
 import { TestimonialFormComponent } from '../testimonial-form/testimonial-form';
 
 /**
@@ -11,7 +12,7 @@ import { TestimonialFormComponent } from '../testimonial-form/testimonial-form';
   selector: 'app-testimonial-cta',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [TranslatePipe, TestimonialFormComponent],
+  imports: [TranslatePipe, OriginFillDirective, TestimonialFormComponent],
   templateUrl: './testimonial-cta.html',
   styleUrl: './testimonial-cta.scss',
 })
