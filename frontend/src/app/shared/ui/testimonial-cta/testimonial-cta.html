@@ -1,0 +1,30 @@
+<button type="button" class="testimonial-trigger" (click)="toggle()">
+  <span class="material-symbols-outlined" aria-hidden="true">rate_review</span>
+  {{ 'landing.testimonials.form.trigger' | translate }}
+</button>
+
+@if (open()) {
+  <div class="testimonial-modal" (click)="close()">
+    <div
+      class="testimonial-modal__panel"
+      role="dialog"
+      aria-modal="true"
+      [attr.aria-label]="'landing.testimonials.form.title' | translate"
+      (click)="$event.stopPropagation()"
+    >
+      <button
+        type="button"
+        class="testimonial-modal__close"
+        (click)="close()"
+        [attr.aria-label]="'landing.testimonials.form.close' | translate"
+      >
+        <span class="material-symbols-outlined" aria-hidden="true">close</span>
+      </button>
+
+      <h3 class="testimonial-modal__title">{{ 'landing.testimonials.form.title' | translate }}</h3>
+      <p class="testimonial-modal__subtitle">{{ 'landing.testimonials.form.subtitle' | translate }}</p>
+
+      <app-testimonial-form />
+    </div>
+  </div>
+}

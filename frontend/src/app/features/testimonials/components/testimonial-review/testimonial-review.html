@@ -1,0 +1,56 @@
+<div class="testimonial-review">
+  <h2 class="testimonial-review__title">
+    <span class="material-symbols-outlined" aria-hidden="true">rate_review</span>
+    Comentarios pendientes
+  </h2>
+
+  @if (error()) {
+    <p class="testimonial-review__error" role="alert">{{ error() }}</p>
+  }
+
+  @if (loading()) {
+    <p class="testimonial-review__hint">Cargando comentarios...</p>
+  } @else if (pending().length === 0) {
+    <div class="testimonial-review__empty">
+      <span class="material-symbols-outlined">task_alt</span>
+      <p>No hay comentarios pendientes de revisión.</p>
+    </div>
+  } @else {
+    <div class="testimonial-review__list">
+      @for (item of pending(); track item.id) {
+        <div class="review-item">
+          <div class="review-item__head">
+            <div>
+              <p class="review-item__name">{{ item.name }}</p>
+              <span class="review-item__treatment">{{ item.treatment }}</span>
+            </div>
+            <span class="review-item__date">{{ formatDate(item.createdAt) }}</span>
+          </div>
+
+          <p class="review-item__comment">{{ item.comment }}</p>
+
+          <div class="review-item__actions">
+            <button
+              type="button"
+              class="review-item__btn review-item__btn--reject"
+              [disabled]="actingOn().has(item.id)"
+              (click)="onReject(item.id)"
+            >
+              <span class="material-symbols-outlined">close</span>
+              Rechazar
+            </button>
+            <button
+              type="button"
+              class="review-item__btn review-item__btn--approve"
+              [disabled]="actingOn().has(item.id)"
+              (click)="onApprove(item.id)"
+            >
+              <span class="material-symbols-outlined">check</span>
+              Aprobar
+            </button>
+          </div>
+        </div>
+      }
+    </div>
+  }
+</div>

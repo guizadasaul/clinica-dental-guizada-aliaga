@@ -1,0 +1,251 @@
+:host {
+  display: block;
+}
+
+.three-d-carousel {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-8);
+}
+
+.three-d-carousel__stage {
+  width: 100%;
+  height: clamp(22rem, 36vw, 27rem);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  perspective: 2800px;
+  cursor: grab;
+
+  &--dragging {
+    cursor: grabbing;
+  }
+}
+
+.three-d-carousel__track {
+  position: relative;
+  height: 100%;
+  transform-style: preserve-3d;
+  touch-action: pan-y;
+  user-select: none;
+}
+
+.three-d-carousel__card {
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  height: clamp(19rem, 30vw, 23rem);
+  border-radius: var(--radius-xl);
+  backface-visibility: hidden;
+  box-shadow: var(--shadow-lg);
+  transform-style: preserve-3d;
+
+  &--active {
+    box-shadow: var(--shadow-xl);
+  }
+}
+
+// Envoltorio que gira 180° para revelar la cara trasera (descripción) al
+// tocar "Conocer más". Vive en su propio contexto 3D, independiente de la
+// rotación del cilindro que aplica el .three-d-carousel__card.
+.three-d-carousel__card-inner {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  transform-style: preserve-3d;
+  transition: transform 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+
+  &--flipped {
+    transform: rotateY(180deg);
+  }
+}
+
+.three-d-carousel__card-face {
+  position: absolute;
+  inset: 0;
+  backface-visibility: hidden;
+  border-radius: var(--radius-xl);
+  overflow: hidden;
+  padding: var(--space-8);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  color: var(--color-cream);
+
+  &--front {
+    // Velo oscuro sobre la foto del tratamiento para que el texto se lea
+    // bien sin importar la imagen (más fuerte abajo, donde están los chips).
+    background-image:
+      linear-gradient(180deg, rgb(0 0 0 / 0.35) 0%, rgb(0 0 0 / 0.55) 40%, rgb(0 0 0 / 0.92) 100%),
+      var(--card-image);
+    background-size: cover;
+    background-position: center;
+  }
+
+  &--back {
+    background: var(--color-navy);
+    transform: rotateY(180deg);
+  }
+}
+
+.three-d-carousel__hit {
+  position: absolute;
+  inset: 0;
+  border: none;
+  background: transparent;
+  padding: 0;
+  cursor: pointer;
+}
+
+.three-d-carousel__title {
+  position: relative;
+  z-index: 1;
+  font-family: var(--font-headline);
+  font-size: clamp(var(--font-size-xl), 2vw, var(--font-size-2xl));
+  font-weight: 400;
+  margin: 0;
+  line-height: 1.2;
+  letter-spacing: -0.01em;
+  pointer-events: none;
+  text-shadow: 0 1px 4px rgb(0 0 0 / 0.4);
+}
+
+.three-d-carousel__chips {
+  position: relative;
+  z-index: 1;
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  flex: 1;
+  pointer-events: none;
+  align-content: flex-start;
+}
+
+.three-d-carousel__chip {
+  font-size: var(--font-size-sm);
+  line-height: 1.3;
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--radius-full);
+  background: rgb(255 255 255 / 0.16);
+  color: var(--color-cream);
+  border: 1px solid rgb(255 255 255 / 0.22);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+
+.three-d-carousel__link {
+  position: relative;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  font-family: inherit;
+  font-size: var(--font-size-base);
+  font-weight: 600;
+  text-decoration: none;
+  color: var(--color-cream);
+  text-shadow: 0 1px 3px rgb(0 0 0 / 0.4);
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  transition: gap 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+
+  &:hover { gap: var(--space-3); }
+  &:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; border-radius: 2px; }
+
+  .material-symbols-outlined { font-size: 1.125rem; }
+}
+
+.three-d-carousel__back-desc {
+  position: relative;
+  z-index: 1;
+  font-size: var(--font-size-base);
+  line-height: 1.65;
+  margin: 0;
+  flex: 1;
+  pointer-events: none;
+  color: rgb(249 246 241 / 0.85);
+}
+
+.three-d-carousel__back-btn {
+  position: relative;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  font-family: inherit;
+  font-size: var(--font-size-base);
+  font-weight: 600;
+  color: var(--color-cream);
+  opacity: 0.8;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  transition: opacity 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+
+  &:hover { opacity: 1; }
+  &:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; border-radius: 2px; }
+
+  .material-symbols-outlined { font-size: 1.125rem; }
+}
+
+.three-d-carousel__controls {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.three-d-carousel__nav {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.75rem;
+  height: 2.75rem;
+  border-radius: var(--radius-full);
+  border: 1.5px solid var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-navy);
+  cursor: pointer;
+  transition:
+    background 0.2s cubic-bezier(0.16, 1, 0.3, 1),
+    border-color 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+
+  &:hover {
+    background: var(--color-primary-light);
+    border-color: var(--color-primary);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+  }
+}
+
+.three-d-carousel__dot {
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: var(--radius-full);
+  border: none;
+  padding: 0;
+  background: var(--color-border);
+  cursor: pointer;
+  transition: background 0.2s cubic-bezier(0.16, 1, 0.3, 1), transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+
+  &:hover { background: var(--color-primary-light); }
+
+  &--active {
+    background: var(--color-primary);
+    transform: scale(1.3);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+  }
+}

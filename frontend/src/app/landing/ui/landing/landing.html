@@ -27,7 +27,7 @@
       <a routerLink="/auth/login" class="navbar__login-link">
         {{ 'landing.nav.loginCta' | translate }}
       </a>
-      <a href="#reservar" class="btn-primary btn-slide" appMagnetic>
+      <a href="#reservar" class="btn-primary" appOriginFill>
         {{ 'landing.nav.cta' | translate }}
       </a>
     </div>
@@ -154,48 +154,7 @@
       </p>
     </div>
 
-    <div class="bento-grid" data-reveal-group>
-      <!-- Odontología Estética — grande -->
-      <article class="bento-card bento-card--large bento-card--primary" data-reveal-item>
-        <span class="material-symbols-outlined bento-card__symbol" aria-hidden="true">sentiment_very_satisfied</span>
-        <div class="bento-card__content">
-          <span class="bento-card__tag">{{ 'landing.services.tag.featured' | translate }}</span>
-          <h3 class="bento-card__title">{{ 'landing.services.dental.esthetic.title' | translate }}</h3>
-          <p class="bento-card__text">{{ 'landing.services.dental.esthetic.desc' | translate }}</p>
-          <a href="#contacto" class="bento-card__link">
-            {{ 'landing.services.knowMore' | translate }}
-            <span class="material-symbols-outlined" aria-hidden="true">arrow_forward</span>
-          </a>
-        </div>
-      </article>
-
-      <!-- Ortodoncia Invisible -->
-      <article class="bento-card bento-card--mint" data-reveal-item>
-        <span class="material-symbols-outlined bento-card__symbol" aria-hidden="true">straighten</span>
-        <h3 class="bento-card__title">{{ 'landing.services.ortho.title' | translate }}</h3>
-        <p class="bento-card__text">{{ 'landing.services.ortho.desc' | translate }}</p>
-      </article>
-
-      <!-- Blanqueamiento -->
-      <article class="bento-card bento-card--blush" data-reveal-item>
-        <span class="material-symbols-outlined bento-card__symbol" aria-hidden="true">light_mode</span>
-        <h3 class="bento-card__title">{{ 'landing.services.whitening.title' | translate }}</h3>
-        <p class="bento-card__text">{{ 'landing.services.whitening.desc' | translate }}</p>
-      </article>
-
-      <!-- Implantes — grande -->
-      <article class="bento-card bento-card--large bento-card--navy" data-reveal-item>
-        <span class="material-symbols-outlined bento-card__symbol" aria-hidden="true">medical_services</span>
-        <div class="bento-card__content">
-          <h3 class="bento-card__title">{{ 'landing.services.implants.title' | translate }}</h3>
-          <p class="bento-card__text">{{ 'landing.services.implants.desc' | translate }}</p>
-          <a href="#contacto" class="bento-card__link bento-card__link--light">
-            {{ 'landing.services.consultNow' | translate }}
-            <span class="material-symbols-outlined" aria-hidden="true">arrow_forward</span>
-          </a>
-        </div>
-      </article>
-    </div>
+    <app-three-d-carousel [items]="treatments" data-reveal />
   </div>
 </section>
 
@@ -209,40 +168,7 @@
       <p class="section__subtitle">{{ 'landing.work.subtitle' | translate }}</p>
     </div>
 
-    <div class="work-scroll hide-scrollbar" data-reveal-group>
-      @for (item of workItems; track item.id) {
-        <article class="work-card" data-reveal-item="x">
-          <div class="work-card__images">
-            <figure class="work-card__figure">
-              <img
-                [src]="item.beforeUrl"
-                [alt]="item.beforeAlt | translate"
-                class="work-card__img"
-                loading="lazy"
-              >
-              <figcaption class="work-card__caption work-card__caption--before">
-                {{ 'landing.work.before' | translate }}
-              </figcaption>
-            </figure>
-            <div class="work-card__divider" aria-hidden="true">
-              <span class="material-symbols-outlined">compare_arrows</span>
-            </div>
-            <figure class="work-card__figure">
-              <img
-                [src]="item.afterUrl"
-                [alt]="item.afterAlt | translate"
-                class="work-card__img"
-                loading="lazy"
-              >
-              <figcaption class="work-card__caption work-card__caption--after">
-                {{ 'landing.work.after' | translate }}
-              </figcaption>
-            </figure>
-          </div>
-          <p class="work-card__label">{{ item.treatment | translate }}</p>
-        </article>
-      }
-    </div>
+    <app-work-showcase [items]="workItems" />
   </div>
 </section>
 
@@ -257,46 +183,13 @@
       </h2>
     </div>
 
-    <div class="testimonials-editorial">
-      <!-- Testimonio destacado -->
-      <blockquote class="testimonial-featured" data-reveal>
-        <app-logo class="testimonial-mark" tone="color" />
-        <p class="testimonial-featured__quote">{{ testimonials[0].quote | translate }}</p>
-        <footer class="testimonial-featured__footer">
-          <img
-            [src]="testimonials[0].avatarUrl"
-            [alt]="testimonials[0].name"
-            class="testimonial-featured__avatar"
-            loading="lazy"
-          >
-          <div>
-            <cite class="testimonial-featured__name">{{ testimonials[0].name }}</cite>
-            <span class="testimonial-featured__treatment">{{ testimonials[0].treatment | translate }}</span>
-          </div>
-        </footer>
-      </blockquote>
-
-      <!-- Testimonios secundarios -->
-      <div class="testimonial-pair" data-reveal-group>
-        @for (testimonial of testimonials.slice(1); track testimonial.id) {
-          <blockquote class="testimonial-secondary" data-reveal-item>
-            <app-logo class="testimonial-mark" tone="color" />
-            <p class="testimonial-secondary__quote">{{ testimonial.quote | translate }}</p>
-            <footer class="testimonial-secondary__footer">
-              <img
-                [src]="testimonial.avatarUrl"
-                [alt]="testimonial.name"
-                class="testimonial-secondary__avatar"
-                loading="lazy"
-              >
-              <div>
-                <cite class="testimonial-secondary__name">{{ testimonial.name }}</cite>
-                <span class="testimonial-secondary__treatment">{{ testimonial.treatment | translate }}</span>
-              </div>
-            </footer>
-          </blockquote>
-        }
-      </div>
+    <div class="testimonials-block" data-reveal>
+      <app-testimonial-cta />
+      @if (testimonials().length) {
+        <app-stagger-testimonials [items]="testimonials()" />
+      } @else {
+        <p class="testimonials-block__empty">{{ 'landing.testimonials.empty' | translate }}</p>
+      }
     </div>
   </div>
 </section>
@@ -315,7 +208,7 @@
         <p class="philosophy-split__body">{{ 'landing.philosophy.body' | translate }}</p>
         <p class="philosophy-split__body">{{ 'landing.philosophy.body2' | translate }}</p>
         <div class="philosophy-split__cta">
-          <a href="#contacto" class="btn-primary btn-slide" appMagnetic>
+          <a href="#contacto" class="btn-primary" appOriginFill>
             {{ 'landing.philosophy.cta' | translate }}
           </a>
         </div>
@@ -398,7 +291,7 @@
       <div class="contact-cta">
         <h3 class="contact-cta__title">{{ 'landing.contact.ctaTitle' | translate }}</h3>
         <p class="contact-cta__subtitle">{{ 'landing.contact.ctaSubtitle' | translate }}</p>
-        <a href="#reservar" class="btn-primary btn-slide" appMagnetic>
+        <a href="#reservar" class="btn-primary" appOriginFill>
           <span class="material-symbols-outlined" aria-hidden="true">calendar_month</span>
           {{ 'landing.contact.ctaBtn' | translate }}
         </a>

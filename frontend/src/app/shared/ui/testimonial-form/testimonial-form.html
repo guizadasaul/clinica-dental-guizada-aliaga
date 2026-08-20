@@ -1,0 +1,72 @@
+@if (submitted()) {
+  <div class="testimonial-form__success">
+    <span class="material-symbols-outlined" aria-hidden="true">check_circle</span>
+    <p>{{ 'landing.testimonials.form.success' | translate }}</p>
+  </div>
+} @else {
+  <form class="testimonial-form" (ngSubmit)="onSubmit()" novalidate>
+    <div class="testimonial-form__field">
+      <label class="testimonial-form__label">
+        {{ 'landing.testimonials.form.nameLabel' | translate }} <span class="testimonial-form__req">*</span>
+      </label>
+      <input
+        class="testimonial-form__input"
+        type="text"
+        [value]="name()"
+        (input)="name.set($any($event.target).value)"
+        [placeholder]="'landing.testimonials.form.namePlaceholder' | translate"
+        required
+      />
+    </div>
+
+    <div class="testimonial-form__field">
+      <label class="testimonial-form__label">
+        {{ 'landing.testimonials.form.treatmentLabel' | translate }} <span class="testimonial-form__req">*</span>
+      </label>
+      <input
+        class="testimonial-form__input"
+        type="text"
+        [value]="treatment()"
+        (input)="treatment.set($any($event.target).value)"
+        [placeholder]="'landing.testimonials.form.treatmentPlaceholder' | translate"
+        required
+      />
+    </div>
+
+    <div class="testimonial-form__field">
+      <label class="testimonial-form__label">
+        {{ 'landing.testimonials.form.commentLabel' | translate }} <span class="testimonial-form__req">*</span>
+      </label>
+      <textarea
+        class="testimonial-form__input testimonial-form__textarea"
+        rows="5"
+        [value]="comment()"
+        (input)="comment.set($any($event.target).value)"
+        [placeholder]="'landing.testimonials.form.commentPlaceholder' | translate"
+        required
+      ></textarea>
+      <span
+        class="testimonial-form__count"
+        [class.testimonial-form__count--ok]="wordCount() >= minWords && wordCount() <= maxWords"
+      >
+        {{ 'landing.testimonials.form.wordCount' | translate: { count: wordCount(), min: minWords, max: maxWords } }}
+      </span>
+    </div>
+
+    @if (formError()) {
+      <p class="testimonial-form__error">{{ formError() }}</p>
+    }
+
+    <div class="testimonial-form__actions">
+      <button class="testimonial-form__btn" type="submit" [disabled]="submitting()">
+        @if (submitting()) {
+          <span class="testimonial-form__spinner"></span>
+          {{ 'landing.testimonials.form.submitting' | translate }}
+        } @else {
+          {{ 'landing.testimonials.form.submit' | translate }}
+          <span class="material-symbols-outlined" aria-hidden="true">send</span>
+        }
+      </button>
+    </div>
+  </form>
+}

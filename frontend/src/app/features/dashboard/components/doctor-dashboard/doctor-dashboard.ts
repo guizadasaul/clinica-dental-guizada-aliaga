@@ -14,6 +14,7 @@ import { RegisterTreatmentComponent } from '../../../treatments/components/regis
 import { TreatmentHistoryComponent } from '../../../treatments/components/treatment-history/treatment-history';
 import { QuoteBuilderComponent } from '../../../quotes/components/quote-builder/quote-builder';
 import { DoctorAgendaComponent } from '../../../appointments/components/doctor-agenda/doctor-agenda';
+import { TestimonialReviewComponent } from '../../../testimonials/components/testimonial-review/testimonial-review';
 import type { PatientInviteContact } from '../../../patients/models/patient.model';
 
 interface AppointmentSlot {
@@ -42,6 +43,7 @@ interface StatCard {
     TreatmentHistoryComponent,
     QuoteBuilderComponent,
     DoctorAgendaComponent,
+    TestimonialReviewComponent,
   ],
   templateUrl: './doctor-dashboard.html',
   styleUrl: './doctor-dashboard.scss',
