@@ -209,39 +209,51 @@
         <p class="philosophy-split__body">{{ 'landing.philosophy.body2' | translate }}</p>
       </div>
 
-      <div class="philosophy-split__doctors" data-reveal>
-        <div class="doctor-card">
-          <div class="doctor-card__image-wrap">
-            <div class="doctor-card__placeholder" aria-hidden="true">
+      <div class="philosophy-split__doctor" data-reveal>
+        @let doctorKey = doctors[activeDoctorIndex()];
+        <div class="doctor-spotlight">
+          <div class="doctor-spotlight__image-wrap">
+            <div class="doctor-spotlight__placeholder" aria-hidden="true">
               <span class="material-symbols-outlined">person</span>
             </div>
           </div>
-          <div class="doctor-card__info">
-            <strong class="doctor-card__name">{{ 'landing.philosophy.doctors.ariel.name' | translate }}</strong>
-            <span class="doctor-card__role">{{ 'landing.philosophy.doctors.ariel.role' | translate }}</span>
-            <div class="doctor-card__badge">
+          <div class="doctor-spotlight__info">
+            <strong class="doctor-spotlight__name">{{ 'landing.philosophy.doctors.' + doctorKey + '.name' | translate }}</strong>
+            <span class="doctor-spotlight__role">{{ 'landing.philosophy.doctors.' + doctorKey + '.role' | translate }}</span>
+            <div class="doctor-spotlight__badge">
               <span class="material-symbols-outlined" aria-hidden="true">workspace_premium</span>
-              <span>{{ 'landing.philosophy.doctors.ariel.credential' | translate }}</span>
+              <span>{{ 'landing.philosophy.doctors.' + doctorKey + '.credential' | translate }}</span>
             </div>
-            <p class="doctor-card__bio">{{ 'landing.philosophy.doctors.ariel.bio' | translate }}</p>
+            <p class="doctor-spotlight__bio">{{ 'landing.philosophy.doctors.' + doctorKey + '.bio' | translate }}</p>
           </div>
         </div>
 
-        <div class="doctor-card">
-          <div class="doctor-card__image-wrap">
-            <div class="doctor-card__placeholder" aria-hidden="true">
-              <span class="material-symbols-outlined">person</span>
-            </div>
-          </div>
-          <div class="doctor-card__info">
-            <strong class="doctor-card__name">{{ 'landing.philosophy.doctors.marylu.name' | translate }}</strong>
-            <span class="doctor-card__role">{{ 'landing.philosophy.doctors.marylu.role' | translate }}</span>
-            <div class="doctor-card__badge">
-              <span class="material-symbols-outlined" aria-hidden="true">workspace_premium</span>
-              <span>{{ 'landing.philosophy.doctors.marylu.credential' | translate }}</span>
-            </div>
-            <p class="doctor-card__bio">{{ 'landing.philosophy.doctors.marylu.bio' | translate }}</p>
-          </div>
+        <div class="doctor-spotlight__nav">
+          <button
+            type="button"
+            class="doctor-spotlight__nav-btn"
+            [attr.aria-label]="'landing.philosophy.doctorsNav.prev' | translate"
+            (click)="prevDoctor()"
+          >
+            <span class="material-symbols-outlined" aria-hidden="true">chevron_left</span>
+          </button>
+          @for (key of doctors; track key; let i = $index) {
+            <button
+              type="button"
+              class="doctor-spotlight__dot"
+              [class.doctor-spotlight__dot--active]="activeDoctorIndex() === i"
+              [attr.aria-label]="'landing.philosophy.doctors.' + key + '.name' | translate"
+              (click)="selectDoctor(i)"
+            ></button>
+          }
+          <button
+            type="button"
+            class="doctor-spotlight__nav-btn"
+            [attr.aria-label]="'landing.philosophy.doctorsNav.next' | translate"
+            (click)="nextDoctor()"
+          >
+            <span class="material-symbols-outlined" aria-hidden="true">chevron_right</span>
+          </button>
         </div>
       </div>
     </div>

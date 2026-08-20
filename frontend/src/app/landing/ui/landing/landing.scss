@@ -652,30 +652,22 @@
   }
 }
 
-.philosophy-split__doctors {
+.philosophy-split__doctor {
   display: flex;
   flex-direction: column;
-  gap: var(--space-6);
+  gap: var(--space-5);
 }
 
-.doctor-card {
+.doctor-spotlight {
   display: grid;
   background: rgb(255 255 255 / 0.05);
   border: 1px solid rgb(255 255 255 / 0.14);
   border-radius: var(--radius-lg);
   overflow: hidden;
 
-  @media (min-width: 640px) {
-    grid-template-columns: 11rem 1fr;
-  }
-
   &__image-wrap {
-    height: 11rem;
+    height: 18rem;
     overflow: hidden;
-
-    @media (min-width: 640px) {
-      height: 100%;
-    }
   }
 
   &__img {
@@ -694,11 +686,11 @@
     background: rgb(255 255 255 / 0.06);
     color: rgb(249 246 241 / 0.35);
 
-    .material-symbols-outlined { font-size: 3rem; }
+    .material-symbols-outlined { font-size: 4.5rem; }
   }
 
   &__info {
-    padding: var(--space-6);
+    padding: var(--space-8);
     display: flex;
     flex-direction: column;
     gap: var(--space-2);
@@ -706,13 +698,13 @@
 
   &__name {
     font-family: var(--font-headline);
-    font-size: var(--font-size-xl);
+    font-size: var(--font-size-2xl);
     color: var(--color-cream);
     letter-spacing: -0.01em;
   }
 
   &__role {
-    font-size: var(--font-size-sm);
+    font-size: var(--font-size-base);
     color: rgb(249 246 241 / 0.5);
   }
 
@@ -734,11 +726,59 @@
   }
 
   &__bio {
-    font-size: var(--font-size-sm);
+    font-size: var(--font-size-base);
     color: rgb(249 246 241 / 0.7);
     line-height: 1.7;
     margin: var(--space-2) 0 0;
     text-wrap: pretty;
+  }
+
+  &__nav {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-3);
+  }
+
+  &__nav-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.75rem;
+    height: 2.75rem;
+    flex-shrink: 0;
+    border-radius: var(--radius-full);
+    border: 1.5px solid rgb(255 255 255 / 0.18);
+    background: rgb(255 255 255 / 0.06);
+    color: var(--color-cream);
+    cursor: pointer;
+    transition: background 0.2s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+
+    &:hover {
+      background: rgb(232 152 88 / 0.16);
+      border-color: var(--color-primary);
+    }
+
+    &:focus-visible {
+      outline: 2px solid var(--color-primary);
+      outline-offset: 2px;
+    }
+  }
+
+  &__dot {
+    width: 0.5rem;
+    height: 0.5rem;
+    border-radius: var(--radius-full);
+    border: none;
+    padding: 0;
+    background: rgb(255 255 255 / 0.25);
+    cursor: pointer;
+    transition: background 0.2s cubic-bezier(0.16, 1, 0.3, 1), transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+
+    &--active {
+      background: var(--color-primary);
+      transform: scale(1.3);
+    }
   }
 }
 

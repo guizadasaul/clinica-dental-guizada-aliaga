@@ -227,6 +227,23 @@ export class LandingComponent implements AfterViewInit, OnDestroy {
     },
   ];
 
+  // Los dos odontólogos de la clínica, mostrados de a uno en una tarjeta
+  // grande que se navega con flechas/puntos (ver activeDoctorIndex).
+  protected readonly doctors = ['ariel', 'marylu'] as const;
+  protected readonly activeDoctorIndex = signal(0);
+
+  protected selectDoctor(index: number): void {
+    this.activeDoctorIndex.set(index);
+  }
+
+  protected prevDoctor(): void {
+    this.activeDoctorIndex.update((i) => (i - 1 + this.doctors.length) % this.doctors.length);
+  }
+
+  protected nextDoctor(): void {
+    this.activeDoctorIndex.update((i) => (i + 1) % this.doctors.length);
+  }
+
   // Sin contenido hardcodeado: se llena entero desde el backend
   // (loadApprovedTestimonials), igual para los testimonios curados que
   // para los que deja la gente por el formulario.

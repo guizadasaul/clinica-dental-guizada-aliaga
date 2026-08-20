@@ -185,6 +185,10 @@
           "credential": "Specialist in Orthodontics and Dentofacial Orthopedics",
           "bio": "Dra. Marylu Aliaga Calle has more than 15 years of experience in comprehensive dental care, providing professional, patient-centered service since 2008. A graduate of Universidad de Aquino Bolivia (UDABOL), she has strengthened her training with a Diploma in Orthodontics and Dentofacial Orthopedics, as well as a Diploma in Competency-Based Higher Education. Her career includes extensive training in clinical dental supervision, teeth whitening, self-ligating systems, facial mask therapy, and mouthguard fabrication, staying continuously up to date to offer modern, high-quality treatments."
         }
+      },
+      "doctorsNav": {
+        "prev": "Previous doctor",
+        "next": "Next doctor"
       }
     },
     "contact": {

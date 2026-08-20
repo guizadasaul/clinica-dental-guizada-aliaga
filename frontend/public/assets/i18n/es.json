@@ -185,6 +185,10 @@
           "credential": "Especialista en Ortodoncia y Ortopedia Dentofacial",
           "bio": "Dra. Marylu Aliaga Calle cuenta con más de 15 años de experiencia en la atención odontológica integral, brindando un servicio profesional y centrado en el bienestar de sus pacientes desde 2008. Es graduada de la Universidad de Aquino Bolivia (UDABOL) y ha fortalecido su formación con un Diplomado en Ortodoncia y Ortopedia Dentofacial, además de un Diplomado en Educación Superior Basada en Competencias. Su trayectoria incluye múltiples capacitaciones en supervisión clínica odontológica, clareamiento dental, sistemas de autoligado, manejo de máscara facial y confección de protectores bucales, manteniéndose en constante actualización para ofrecer tratamientos modernos y de alta calidad."
         }
+      },
+      "doctorsNav": {
+        "prev": "Doctor anterior",
+        "next": "Siguiente doctor"
       }
     },
     "contact": {
