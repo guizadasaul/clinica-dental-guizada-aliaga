@@ -225,10 +225,19 @@
       <div class="philosophy-split__doctor" data-reveal>
         @let doctorKey = doctors[activeDoctorIndex()];
         <div class="doctor-spotlight">
-          <div class="doctor-spotlight__image-wrap">
-            <div class="doctor-spotlight__placeholder" aria-hidden="true">
-              <span class="material-symbols-outlined">person</span>
-            </div>
+          <div class="doctor-spotlight__photo">
+            @if (doctorPhotos[doctorKey]; as photo) {
+              <img
+                [src]="photo"
+                [alt]="'landing.philosophy.doctors.' + doctorKey + '.imgAlt' | translate"
+                class="doctor-spotlight__img"
+                loading="lazy"
+              >
+            } @else {
+              <div class="doctor-spotlight__placeholder" aria-hidden="true">
+                <span class="material-symbols-outlined">person</span>
+              </div>
+            }
           </div>
           <div class="doctor-spotlight__info">
             <strong class="doctor-spotlight__name">{{ 'landing.philosophy.doctors.' + doctorKey + '.name' | translate }}</strong>
