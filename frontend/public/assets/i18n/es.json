@@ -117,6 +117,21 @@
           "beforeAlt": "Sonrisa antes de la ortodoncia invisible",
           "afterAlt": "Sonrisa después de la ortodoncia invisible",
           "treatment": "Ortodoncia Invisible"
+        },
+        "veneers1": {
+          "beforeAlt": "Sonrisa antes de las carillas dentales",
+          "afterAlt": "Sonrisa después de las carillas dentales",
+          "treatment": "Carillas Dentales"
+        },
+        "resin": {
+          "beforeAlt": "Sonrisa antes de la restauración con resina",
+          "afterAlt": "Sonrisa después de la restauración con resina",
+          "treatment": "Restauración con Resina"
+        },
+        "veneers2": {
+          "beforeAlt": "Sonrisa antes de las carillas dentales",
+          "afterAlt": "Sonrisa después de las carillas dentales",
+          "treatment": "Carillas Dentales"
         }
       }
     },

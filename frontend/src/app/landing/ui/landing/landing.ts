@@ -179,7 +179,6 @@ export class LandingComponent implements AfterViewInit, OnDestroy {
   protected readonly workItems: WorkShowcaseItem[] = [
     {
       id: 1,
-      icon: 'sentiment_very_satisfied',
       titleKey: 'landing.work.items.smile.treatment',
       beforeUrl: 'assets/images/work/Antes1.png',
       beforeAlt: 'landing.work.items.smile.beforeAlt',
@@ -188,7 +187,6 @@ export class LandingComponent implements AfterViewInit, OnDestroy {
     },
     {
       id: 2,
-      icon: 'light_mode',
       titleKey: 'landing.work.items.whitening.treatment',
       beforeUrl: 'assets/images/work/Antes2.png',
       beforeAlt: 'landing.work.items.whitening.beforeAlt',
@@ -197,12 +195,35 @@ export class LandingComponent implements AfterViewInit, OnDestroy {
     },
     {
       id: 3,
-      icon: 'straighten',
       titleKey: 'landing.work.items.ortho.treatment',
       beforeUrl: 'assets/images/work/Antes3.png',
       beforeAlt: 'landing.work.items.ortho.beforeAlt',
       afterUrl: 'assets/images/work/Despues3.png',
       afterAlt: 'landing.work.items.ortho.afterAlt',
+    },
+    {
+      id: 4,
+      titleKey: 'landing.work.items.veneers1.treatment',
+      beforeUrl: 'assets/images/work/Antes4.png',
+      beforeAlt: 'landing.work.items.veneers1.beforeAlt',
+      afterUrl: 'assets/images/work/Despues4.png',
+      afterAlt: 'landing.work.items.veneers1.afterAlt',
+    },
+    {
+      id: 5,
+      titleKey: 'landing.work.items.resin.treatment',
+      beforeUrl: 'assets/images/work/Antes5.png',
+      beforeAlt: 'landing.work.items.resin.beforeAlt',
+      afterUrl: 'assets/images/work/Despues5.png',
+      afterAlt: 'landing.work.items.resin.afterAlt',
+    },
+    {
+      id: 6,
+      titleKey: 'landing.work.items.veneers2.treatment',
+      beforeUrl: 'assets/images/work/Antes6.png',
+      beforeAlt: 'landing.work.items.veneers2.beforeAlt',
+      afterUrl: 'assets/images/work/Despues6.png',
+      afterAlt: 'landing.work.items.veneers2.afterAlt',
     },
   ];
 
