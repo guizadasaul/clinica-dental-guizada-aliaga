@@ -23,13 +23,13 @@
     </ul>
 
     <div class="navbar__actions">
-      <app-lang-switcher />
-      <a routerLink="/auth/login" class="navbar__login-link">
-        {{ 'landing.nav.loginCta' | translate }}
-      </a>
       <button type="button" class="btn-primary" appOriginFill (click)="openBookingModal()">
         {{ 'landing.nav.cta' | translate }}
       </button>
+      <a routerLink="/auth/login" class="navbar__login-link">
+        {{ 'landing.nav.loginCta' | translate }}
+      </a>
+      <app-lang-switcher />
     </div>
   </div>
 </nav>
