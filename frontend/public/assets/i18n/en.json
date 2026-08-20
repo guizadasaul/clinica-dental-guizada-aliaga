@@ -166,15 +166,26 @@
       }
     },
     "philosophy": {
-      "eyebrow": "Who We Are",
+      "eyebrow": "About Us",
       "title": "Guizada Aliaga",
       "body": "Clínica Dental Guizada Aliaga was born on December 24, 2010, in Cochabamba, Bolivia, out of the conviction that dentistry can be both an exact science and an act of human care. From that first practice, we built a space where clinical excellence and the warmth of human care meet in perfect harmony.",
       "body2": "Over the years, that purpose grew into a team of specialists who share the same philosophy: every patient deserves the time, attention, and respect that turn a dental visit into a genuine experience of well-being.",
-      "cta": "Meet the Team",
-      "founderImgAlt": "Dr. María Guizada — Founding Medical Director",
-      "founderName": "Dr. María Guizada",
-      "founderRole": "Founding Medical Director",
-      "founderCredential": "Specialist in Esthetic Dentistry"
+      "doctors": {
+        "ariel": {
+          "imgAlt": "Dr. Ariel Guizada Herbas — Dentist",
+          "name": "Dr. Ariel Guizada Herbas",
+          "role": "Dentist",
+          "credential": "Specialist in Oral Implantology and Oral Surgery",
+          "bio": "Dr. Ariel Guizada Herbas is a dentist with more than 15 years of experience in comprehensive patient care. A graduate of Universidad de Aquino Bolivia (UDABOL), he has furthered his training with postgraduate studies and continuing education courses in Oral Implantology and Oral Surgery. His professional career is defined by a commitment to oral health, personalized care, and ongoing training in dental techniques and treatments, offering his patients a service built on trust, quality, and professionalism."
+        },
+        "marylu": {
+          "imgAlt": "Dra. Marylu Aliaga Calle — Dentist",
+          "name": "Dra. Marylu Aliaga Calle",
+          "role": "Dentist",
+          "credential": "Specialist in Orthodontics and Dentofacial Orthopedics",
+          "bio": "Dra. Marylu Aliaga Calle has more than 15 years of experience in comprehensive dental care, providing professional, patient-centered service since 2008. A graduate of Universidad de Aquino Bolivia (UDABOL), she has strengthened her training with a Diploma in Orthodontics and Dentofacial Orthopedics, as well as a Diploma in Competency-Based Higher Education. Her career includes extensive training in clinical dental supervision, teeth whitening, self-ligating systems, facial mask therapy, and mouthguard fabrication, staying continuously up to date to offer modern, high-quality treatments."
+        }
+      }
     },
     "contact": {
       "eyebrow": "Find Us",

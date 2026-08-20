@@ -207,30 +207,40 @@
         </h2>
         <p class="philosophy-split__body">{{ 'landing.philosophy.body' | translate }}</p>
         <p class="philosophy-split__body">{{ 'landing.philosophy.body2' | translate }}</p>
-        <div class="philosophy-split__cta">
-          <a href="#contacto" class="btn-primary" appOriginFill>
-            {{ 'landing.philosophy.cta' | translate }}
-          </a>
-        </div>
       </div>
 
-      <div class="philosophy-split__founder" data-reveal>
-        <div class="founder-card">
-          <div class="founder-card__image-wrap">
-            <img
-              src="https://lh3.googleusercontent.com/aida/ADBb0ui9XRS_CVf7bIZ7v3yrZnDiDLw4CPgWvIvgyoFRoGi56_9o56evTJLb7OC2rT5qJq61o_JHScdjanrEKlsnRGAs8AiF_g2Rg8ZhWlVbptgXJuEjm_zEhzzNH1uwITX97g-3vAUy8E_jfJHZMuuJgR-fRubLTJKZwhbSxaxAvu4gP8mdrgNFw-1_twkLhGw5GricB9Ejj9aCtRTuV3GaXiezeznarPaimf-KlxMowWRA7HM"
-              [alt]="'landing.philosophy.founderImgAlt' | translate"
-              class="founder-card__img"
-              loading="lazy"
-            >
-          </div>
-          <div class="founder-card__info">
-            <strong class="founder-card__name">{{ 'landing.philosophy.founderName' | translate }}</strong>
-            <span class="founder-card__role">{{ 'landing.philosophy.founderRole' | translate }}</span>
-            <div class="founder-card__badge">
-              <span class="material-symbols-outlined" aria-hidden="true">workspace_premium</span>
-              <span>{{ 'landing.philosophy.founderCredential' | translate }}</span>
+      <div class="philosophy-split__doctors" data-reveal>
+        <div class="doctor-card">
+          <div class="doctor-card__image-wrap">
+            <div class="doctor-card__placeholder" aria-hidden="true">
+              <span class="material-symbols-outlined">person</span>
             </div>
+          </div>
+          <div class="doctor-card__info">
+            <strong class="doctor-card__name">{{ 'landing.philosophy.doctors.ariel.name' | translate }}</strong>
+            <span class="doctor-card__role">{{ 'landing.philosophy.doctors.ariel.role' | translate }}</span>
+            <div class="doctor-card__badge">
+              <span class="material-symbols-outlined" aria-hidden="true">workspace_premium</span>
+              <span>{{ 'landing.philosophy.doctors.ariel.credential' | translate }}</span>
+            </div>
+            <p class="doctor-card__bio">{{ 'landing.philosophy.doctors.ariel.bio' | translate }}</p>
+          </div>
+        </div>
+
+        <div class="doctor-card">
+          <div class="doctor-card__image-wrap">
+            <div class="doctor-card__placeholder" aria-hidden="true">
+              <span class="material-symbols-outlined">person</span>
+            </div>
+          </div>
+          <div class="doctor-card__info">
+            <strong class="doctor-card__name">{{ 'landing.philosophy.doctors.marylu.name' | translate }}</strong>
+            <span class="doctor-card__role">{{ 'landing.philosophy.doctors.marylu.role' | translate }}</span>
+            <div class="doctor-card__badge">
+              <span class="material-symbols-outlined" aria-hidden="true">workspace_premium</span>
+              <span>{{ 'landing.philosophy.doctors.marylu.credential' | translate }}</span>
+            </div>
+            <p class="doctor-card__bio">{{ 'landing.philosophy.doctors.marylu.bio' | translate }}</p>
           </div>
         </div>
       </div>

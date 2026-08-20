@@ -650,19 +650,32 @@
     margin: 0;
     text-wrap: pretty;
   }
-
-  &__cta { margin-top: var(--space-2); }
 }
 
-.founder-card {
+.philosophy-split__doctors {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+
+.doctor-card {
+  display: grid;
   background: rgb(255 255 255 / 0.05);
   border: 1px solid rgb(255 255 255 / 0.14);
   border-radius: var(--radius-lg);
   overflow: hidden;
 
+  @media (min-width: 640px) {
+    grid-template-columns: 11rem 1fr;
+  }
+
   &__image-wrap {
-    height: 22rem;
+    height: 11rem;
     overflow: hidden;
+
+    @media (min-width: 640px) {
+      height: 100%;
+    }
   }
 
   &__img {
@@ -670,6 +683,18 @@
     height: 100%;
     object-fit: cover;
     object-position: top center;
+  }
+
+  &__placeholder {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgb(255 255 255 / 0.06);
+    color: rgb(249 246 241 / 0.35);
+
+    .material-symbols-outlined { font-size: 3rem; }
   }
 
   &__info {
@@ -706,6 +731,14 @@
     align-self: flex-start;
 
     .material-symbols-outlined { font-size: 1rem; }
+  }
+
+  &__bio {
+    font-size: var(--font-size-sm);
+    color: rgb(249 246 241 / 0.7);
+    line-height: 1.7;
+    margin: var(--space-2) 0 0;
+    text-wrap: pretty;
   }
 }
 

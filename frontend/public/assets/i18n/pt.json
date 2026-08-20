@@ -166,15 +166,26 @@
       }
     },
     "philosophy": {
-      "eyebrow": "Quem Somos",
+      "eyebrow": "Sobre Nós",
       "title": "Guizada Aliaga",
       "body": "A Clínica Dental Guizada Aliaga nasceu em 24 de dezembro de 2010, em Cochabamba, Bolívia, da convicção de que a odontologia pode ser tanto uma ciência exata quanto um ato de cuidado humano. Desde aquele primeiro consultório, construímos um espaço onde a excelência clínica e o calor humano se encontram em perfeita harmonia.",
       "body2": "Com os anos, esse propósito se transformou em uma equipe de especialistas que compartilha a mesma filosofia: cada paciente merece o tempo, a atenção e o respeito que transformam uma visita ao dentista em uma experiência genuína de bem-estar.",
-      "cta": "Conhecer a Equipe",
-      "founderImgAlt": "Dra. María Guizada — Diretora Médica Fundadora",
-      "founderName": "Dra. María Guizada",
-      "founderRole": "Diretora Médica Fundadora",
-      "founderCredential": "Especialista em Odontologia Estética"
+      "doctors": {
+        "ariel": {
+          "imgAlt": "Dr. Ariel Guizada Herbas — Odontólogo",
+          "name": "Dr. Ariel Guizada Herbas",
+          "role": "Odontólogo",
+          "credential": "Especialista em Implantodontia e Cirurgia Bucal",
+          "bio": "Dr. Ariel Guizada Herbas é odontólogo com mais de 15 anos de experiência no atendimento integral a pacientes. Formado pela Universidad de Aquino Bolivia (UDABOL), complementou sua formação com pós-graduação e cursos de atualização em Implantodontia e Cirurgia Bucal. Sua trajetória profissional se caracteriza pelo compromisso com a saúde bucal, o atendimento personalizado e a atualização constante em técnicas e tratamentos odontológicos, oferecendo aos pacientes um serviço baseado em confiança, qualidade e profissionalismo."
+        },
+        "marylu": {
+          "imgAlt": "Dra. Marylu Aliaga Calle — Odontóloga",
+          "name": "Dra. Marylu Aliaga Calle",
+          "role": "Odontóloga",
+          "credential": "Especialista em Ortodontia e Ortopedia Dentofacial",
+          "bio": "Dra. Marylu Aliaga Calle tem mais de 15 anos de experiência no atendimento odontológico integral, oferecendo um serviço profissional centrado no bem-estar de seus pacientes desde 2008. É formada pela Universidad de Aquino Bolivia (UDABOL) e fortaleceu sua formação com um Diplomado em Ortodontia e Ortopedia Dentofacial, além de um Diplomado em Educação Superior Baseada em Competências. Sua trajetória inclui diversas capacitações em supervisão clínica odontológica, clareamento dental, sistemas de autoligagem, manejo de máscara facial e confecção de protetores bucais, mantendo-se em constante atualização para oferecer tratamentos modernos e de alta qualidade."
+        }
+      }
     },
     "contact": {
       "eyebrow": "Nos Encontre",
