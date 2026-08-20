@@ -25,7 +25,10 @@
 
   @media (min-width: 768px) { padding-block: var(--space-section-desktop); }
 
-  &--cream   { background: var(--color-cream); }
+  // Mismo tono crema en las dos variantes claras (--color-cream y
+  // --color-surface son casi idénticos mirados por separado, pero
+  // alternarlos sección tras sección se notaba como un cambio de color).
+  &--cream,
   &--surface { background: var(--color-surface); }
   &--navy    { background: var(--color-navy); }
 
@@ -305,7 +308,7 @@
   flex-direction: column;
   align-items: center;
   overflow: hidden;
-  background: var(--color-cream);
+  background: var(--color-surface);
   padding-top: clamp(5.5rem, 11vh, 7rem);
   padding-bottom: var(--space-8);
 
