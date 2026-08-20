@@ -1,0 +1,98 @@
+<div class="three-d-carousel">
+  <div
+    class="three-d-carousel__stage"
+    [class.three-d-carousel__stage--dragging]="isDragging()"
+  >
+    <div
+      class="three-d-carousel__track"
+      [style.width.px]="cylinderWidth()"
+      [style.transform]="'rotateY(' + rotation() + 'deg)'"
+      [style.transition]="isDragging() ? 'none' : settleTransition"
+      (pointerdown)="onPointerDown($event)"
+      (pointermove)="onPointerMove($event)"
+      (pointerup)="onPointerUp($event)"
+      (pointercancel)="onPointerUp($event)"
+    >
+      @for (item of items(); track item.id; let i = $index) {
+        <article
+          class="three-d-carousel__card"
+          [class.three-d-carousel__card--active]="activeIndex() === i"
+          [style.width.px]="faceWidth()"
+          [style.transform]="faceTransform(i)"
+        >
+          <div
+            class="three-d-carousel__card-inner"
+            [class.three-d-carousel__card-inner--flipped]="isFlipped(i)"
+          >
+            <div class="three-d-carousel__card-face three-d-carousel__card-face--front" [style.--card-image]="'url(' + item.image + ')'">
+              <button
+                type="button"
+                class="three-d-carousel__hit"
+                [attr.aria-label]="item.titleKey | translate"
+                (click)="onCardClick(i)"
+              ></button>
+
+              <h3 class="three-d-carousel__title">{{ item.titleKey | translate }}</h3>
+
+              <ul class="three-d-carousel__chips">
+                @for (label of (item.itemsKey | translate); track label) {
+                  <li class="three-d-carousel__chip">{{ label }}</li>
+                }
+              </ul>
+
+              <button type="button" class="three-d-carousel__link" (click)="toggleFlip(i)">
+                {{ 'landing.services.knowMore' | translate }}
+                <span class="material-symbols-outlined" aria-hidden="true">arrow_forward</span>
+              </button>
+            </div>
+
+            <div class="three-d-carousel__card-face three-d-carousel__card-face--back">
+              <button
+                type="button"
+                class="three-d-carousel__hit"
+                [attr.aria-label]="'landing.services.back' | translate"
+                (click)="toggleFlip(i)"
+              ></button>
+
+              <h3 class="three-d-carousel__title">{{ item.titleKey | translate }}</h3>
+              <p class="three-d-carousel__back-desc">{{ item.descriptionKey | translate }}</p>
+
+              <button type="button" class="three-d-carousel__back-btn" (click)="toggleFlip(i)">
+                <span class="material-symbols-outlined" aria-hidden="true">arrow_back</span>
+                {{ 'landing.services.back' | translate }}
+              </button>
+            </div>
+          </div>
+        </article>
+      }
+    </div>
+  </div>
+
+  <div class="three-d-carousel__controls">
+    <button
+      type="button"
+      class="three-d-carousel__nav"
+      [attr.aria-label]="'landing.services.carousel.prev' | translate"
+      (click)="rotateBy(-1)"
+    >
+      <span class="material-symbols-outlined" aria-hidden="true">chevron_left</span>
+    </button>
+    @for (item of items(); track item.id; let i = $index) {
+      <button
+        type="button"
+        class="three-d-carousel__dot"
+        [class.three-d-carousel__dot--active]="activeIndex() === i"
+        [attr.aria-label]="item.titleKey | translate"
+        (click)="onCardClick(i)"
+      ></button>
+    }
+    <button
+      type="button"
+      class="three-d-carousel__nav"
+      [attr.aria-label]="'landing.services.carousel.next' | translate"
+      (click)="rotateBy(1)"
+    >
+      <span class="material-symbols-outlined" aria-hidden="true">chevron_right</span>
+    </button>
+  </div>
+</div>

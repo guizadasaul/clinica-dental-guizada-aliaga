@@ -14,11 +14,24 @@ import { isPlatformBrowser } from '@angular/common';
 import { RouterLink, ActivatedRoute, Router } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
 import { TranslatePipe } from '@ngx-translate/core';
-import { MagneticDirective } from '../../../shared/directives/magnetic.directive';
+import { OriginFillDirective } from '../../../shared/directives/origin-fill.directive';
 import { LangSwitcherComponent } from '../../../shared/ui/lang-switcher/lang-switcher';
 import { WeekSlotPickerComponent } from '../../../features/booking/components/week-slot-picker/week-slot-picker';
 import { BookingService } from '../../../features/booking/services/booking.service';
-import { LogoComponent } from '../../../shared/ui/logo/logo';
+import { TestimonialsService } from '../../../features/testimonials/services/testimonials.service';
+import {
+  CarouselTreatment,
+  ThreeDCarouselComponent,
+} from '../../../shared/ui/three-d-carousel/three-d-carousel';
+import {
+  WorkShowcaseItem,
+  WorkShowcaseComponent,
+} from '../../../shared/ui/work-showcase/work-showcase';
+import {
+  StaggerTestimonial,
+  StaggerTestimonialsComponent,
+} from '../../../shared/ui/stagger-testimonials/stagger-testimonials';
+import { TestimonialCtaComponent } from '../../../shared/ui/testimonial-cta/testimonial-cta';
 
 interface Instrument {
   readonly id: number;
@@ -26,34 +39,21 @@ interface Instrument {
   readonly label: string;
 }
 
-interface WorkItem {
-  readonly id: number;
-  readonly beforeUrl: string;
-  readonly beforeAlt: string;
-  readonly afterUrl: string;
-  readonly afterAlt: string;
-  readonly treatment: string;
-}
-
-interface Testimonial {
-  readonly id: number;
-  readonly quote: string;
-  readonly name: string;
-  readonly treatment: string;
-  readonly avatarUrl: string;
-}
-
-const BEFORE_AFTER_IMG =
-  'https://lh3.googleusercontent.com/aida/ADBb0ujo5kojQwPwAnYW9jMgvrND7YRfpbUCFJy0iIdtvNaiU74nTPjunO9vHU7ZbhsEjsJ8Yd-tQjqLHTWwtkoQ1LmbI6MF_TwK-7uIzF8-CgcwsGTwU29OZFu7TSkNYcnyYhVOqg3q-8SbVM_OLqKiuITLeoh0tNwJFiS7dlndjGX-E-QWKpsD4LBAXsuR3usx0KQqCKihw011Hi32_gz0MGcHfBpaiudh7-UWldhCs2w3zQ2vHkU3xoqRiQVD';
-
-const PATIENT_AVATAR =
-  'https://lh3.googleusercontent.com/aida/ADBb0ui9XRS_CVf7bIZ7v3yrZnDiDLw4CPgWvIvgyoFRoGi56_9o56evTJLb7OC2rT5qJq61o_JHScdjanrEKlsnRGAs8AiF_g2Rg8ZhWlVbptgXJuEjm_zEhzzNH1uwITX97g-3vAUy8E_jfJHZMuuJgR-fRubLTJKZwhbSxaxAvu4gP8mdrgNFw-1_twkLhGw5GricB9Ejj9aCtRTuV3GaXiezeznarPaimf-KlxMowWRA7HM';
-
 @Component({
   selector: 'app-landing',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [RouterLink, MagneticDirective, TranslatePipe, LangSwitcherComponent, WeekSlotPickerComponent, LogoComponent],
+  imports: [
+    RouterLink,
+    OriginFillDirective,
+    TranslatePipe,
+    LangSwitcherComponent,
+    WeekSlotPickerComponent,
+    ThreeDCarouselComponent,
+    WorkShowcaseComponent,
+    StaggerTestimonialsComponent,
+    TestimonialCtaComponent,
+  ],
   templateUrl: './landing.html',
   styleUrl: './landing.scss',
 })
@@ -63,6 +63,7 @@ export class LandingComponent implements AfterViewInit, OnDestroy {
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
   private readonly bookingService = inject(BookingService);
+  private readonly testimonialsService = inject(TestimonialsService);
 
   @ViewChild('spores') private sporeCanvas?: ElementRef<HTMLCanvasElement>;
 
@@ -109,59 +110,110 @@ export class LandingComponent implements AfterViewInit, OnDestroy {
     },
   ];
 
-  protected readonly workItems: WorkItem[] = [
+  protected readonly treatments: CarouselTreatment[] = [
     {
       id: 1,
-      beforeUrl: BEFORE_AFTER_IMG,
-      beforeAlt: 'landing.work.items.smile.beforeAlt',
-      afterUrl: BEFORE_AFTER_IMG,
-      afterAlt: 'landing.work.items.smile.afterAlt',
-      treatment: 'landing.work.items.smile.treatment',
+      titleKey: 'landing.services.categories.general.title',
+      itemsKey: 'landing.services.categories.general.items',
+      descriptionKey: 'landing.services.categories.general.description',
+      image: 'assets/images/treatments/Odontologia_General.png',
     },
     {
       id: 2,
-      beforeUrl: BEFORE_AFTER_IMG,
-      beforeAlt: 'landing.work.items.whitening.beforeAlt',
-      afterUrl: BEFORE_AFTER_IMG,
-      afterAlt: 'landing.work.items.whitening.afterAlt',
-      treatment: 'landing.work.items.whitening.treatment',
+      titleKey: 'landing.services.categories.esthetic.title',
+      itemsKey: 'landing.services.categories.esthetic.items',
+      descriptionKey: 'landing.services.categories.esthetic.description',
+      image: 'assets/images/treatments/Estetica_Dental.png',
     },
     {
       id: 3,
-      beforeUrl: BEFORE_AFTER_IMG,
-      beforeAlt: 'landing.work.items.ortho.beforeAlt',
-      afterUrl: BEFORE_AFTER_IMG,
-      afterAlt: 'landing.work.items.ortho.afterAlt',
-      treatment: 'landing.work.items.ortho.treatment',
+      titleKey: 'landing.services.categories.periodontics.title',
+      itemsKey: 'landing.services.categories.periodontics.items',
+      descriptionKey: 'landing.services.categories.periodontics.description',
+      image: 'assets/images/treatments/Periodoncia.png',
+    },
+    {
+      id: 4,
+      titleKey: 'landing.services.categories.endodontics.title',
+      itemsKey: 'landing.services.categories.endodontics.items',
+      descriptionKey: 'landing.services.categories.endodontics.description',
+      image: 'assets/images/treatments/Endodoncia.png',
+    },
+    {
+      id: 5,
+      titleKey: 'landing.services.categories.surgery.title',
+      itemsKey: 'landing.services.categories.surgery.items',
+      descriptionKey: 'landing.services.categories.surgery.description',
+      image: 'assets/images/treatments/Cirugia_Oral.png',
+    },
+    {
+      id: 6,
+      titleKey: 'landing.services.categories.implants.title',
+      itemsKey: 'landing.services.categories.implants.items',
+      descriptionKey: 'landing.services.categories.implants.description',
+      image: 'assets/images/treatments/Implantologia.png',
+    },
+    {
+      id: 7,
+      titleKey: 'landing.services.categories.prosthetics.title',
+      itemsKey: 'landing.services.categories.prosthetics.items',
+      descriptionKey: 'landing.services.categories.prosthetics.description',
+      image: 'assets/images/treatments/Protesis_Y_Rehabilitacion.png',
+    },
+    {
+      id: 8,
+      titleKey: 'landing.services.categories.ortho.title',
+      itemsKey: 'landing.services.categories.ortho.items',
+      descriptionKey: 'landing.services.categories.ortho.description',
+      image: 'assets/images/treatments/Ortodoncia.png',
+    },
+    {
+      id: 9,
+      titleKey: 'landing.services.categories.rehabilitation.title',
+      itemsKey: 'landing.services.categories.rehabilitation.items',
+      descriptionKey: 'landing.services.categories.rehabilitation.description',
+      image: 'assets/images/treatments/Rehabilitacion_Horal.png',
     },
   ];
 
-  protected readonly testimonials: Testimonial[] = [
+  protected readonly workItems: WorkShowcaseItem[] = [
     {
       id: 1,
-      quote: 'landing.testimonials.items.sofia.quote',
-      name: 'Sofía Miranda',
-      treatment: 'landing.testimonials.items.sofia.treatment',
-      avatarUrl: PATIENT_AVATAR,
+      icon: 'sentiment_very_satisfied',
+      titleKey: 'landing.work.items.smile.treatment',
+      beforeUrl: 'assets/images/work/Antes1.png',
+      beforeAlt: 'landing.work.items.smile.beforeAlt',
+      afterUrl: 'assets/images/work/Despues1.png',
+      afterAlt: 'landing.work.items.smile.afterAlt',
     },
     {
       id: 2,
-      quote: 'landing.testimonials.items.carlos.quote',
-      name: 'Carlos Vega',
-      treatment: 'landing.testimonials.items.carlos.treatment',
-      avatarUrl: PATIENT_AVATAR,
+      icon: 'light_mode',
+      titleKey: 'landing.work.items.whitening.treatment',
+      beforeUrl: 'assets/images/work/Antes2.png',
+      beforeAlt: 'landing.work.items.whitening.beforeAlt',
+      afterUrl: 'assets/images/work/Despues2.png',
+      afterAlt: 'landing.work.items.whitening.afterAlt',
     },
     {
       id: 3,
-      quote: 'landing.testimonials.items.andrea.quote',
-      name: 'Andrea Flores',
-      treatment: 'landing.testimonials.items.andrea.treatment',
-      avatarUrl: PATIENT_AVATAR,
+      icon: 'straighten',
+      titleKey: 'landing.work.items.ortho.treatment',
+      beforeUrl: 'assets/images/work/Antes3.png',
+      beforeAlt: 'landing.work.items.ortho.beforeAlt',
+      afterUrl: 'assets/images/work/Despues3.png',
+      afterAlt: 'landing.work.items.ortho.afterAlt',
     },
   ];
+
+  // Sin contenido hardcodeado: se llena entero desde el backend
+  // (loadApprovedTestimonials), igual para los testimonios curados que
+  // para los que deja la gente por el formulario.
+  protected readonly testimonials = signal<StaggerTestimonial[]>([]);
 
   constructor() {
     void this.loadBookingAvailability();
+    void this.loadApprovedTestimonials();
   }
 
   @HostListener('window:scroll')
@@ -188,6 +240,26 @@ export class LandingComponent implements AfterViewInit, OnDestroy {
       this.bookingError.set('No pudimos cargar los horarios disponibles. Intentá de nuevo más tarde.');
     } finally {
       this.bookingLoading.set(false);
+    }
+  }
+
+  private async loadApprovedTestimonials(): Promise<void> {
+    try {
+      const approved = await firstValueFrom(this.testimonialsService.getApproved());
+      // El comentario/tratamiento reales no son claves de traducción: al no
+      // existir esa clave en los JSON de i18n, el pipe `translate` devuelve
+      // el texto tal cual (comportamiento estándar de ngx-translate), que es
+      // justo lo que queremos para contenido escrito por pacientes.
+      const mapped: StaggerTestimonial[] = approved.map((t) => ({
+        id: t.id,
+        quoteKey: t.comment,
+        name: t.name,
+        treatmentKey: t.treatment,
+      }));
+      this.testimonials.set(mapped);
+    } catch {
+      // Si falla, la sección de testimonios queda vacía — no hay contenido
+      // hardcodeado de respaldo a propósito (todo vive en la base).
     }
   }
 

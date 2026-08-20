@@ -42,29 +42,59 @@
       "eyebrow": "Specialties",
       "title": "Cutting-Edge Treatments",
       "subtitle": "Each treatment is a personalized project, designed to achieve the most natural and lasting results.",
-      "tag": {
-        "featured": "Featured Treatment"
-      },
-      "dental": {
+      "categories": {
+        "general": {
+          "title": "General Dentistry",
+          "items": ["Dental checkup", "Cleaning & prophylaxis", "Cavity treatment", "Dental sealants", "Fluoride treatment"],
+          "description": "We care for your dental health with preventive and restorative treatments to keep your smile healthy."
+        },
         "esthetic": {
-          "title": "Esthetic Dentistry",
-          "desc": "Smile design and comprehensive health. We transform your smile with state-of-the-art techniques adapted to your unique facial anatomy."
+          "title": "Cosmetic Dentistry",
+          "items": ["Laser teeth whitening", "Aesthetic resin restorations"],
+          "description": "We enhance the look of your smile with treatments designed for whiter teeth and a natural aesthetic."
+        },
+        "periodontics": {
+          "title": "Periodontics",
+          "items": ["Dental cleaning", "Scaling", "Gum treatment", "Gingivectomy"],
+          "description": "We prevent and treat gum disease to keep your mouth healthy and free of inflammation."
+        },
+        "endodontics": {
+          "title": "Endodontics",
+          "items": ["Root canal treatment", "Root canal retreatment"],
+          "description": "We treat infections and injuries inside the tooth to preserve it and relieve pain."
+        },
+        "surgery": {
+          "title": "Oral Surgery",
+          "items": ["Simple extraction", "Surgical extraction", "Wisdom tooth extraction", "Frenectomy", "Apicoectomy"],
+          "description": "We perform surgical procedures to resolve different issues affecting your oral health."
+        },
+        "implants": {
+          "title": "Implantology",
+          "items": ["Dental implants"],
+          "description": "We replace missing teeth with implants that restore function and aesthetics to your smile."
+        },
+        "prosthetics": {
+          "title": "Dental Prosthetics",
+          "items": ["Partial denture", "Full denture", "Flexible denture", "Dental crowns"],
+          "description": "We restore damaged or missing teeth to recover function, comfort, and the appearance of your smile."
+        },
+        "ortho": {
+          "title": "Orthodontics",
+          "items": ["Metal braces", "Ceramic braces", "Expansion plates", "Retention plates"],
+          "description": "We correct tooth position and improve your bite for a more aligned, healthier smile."
+        },
+        "rehabilitation": {
+          "title": "Oral Rehabilitation",
+          "items": ["Porcelain crowns", "Fiberglass posts", "Temporary crowns"],
+          "description": "Recover the function, aesthetics, and harmony of your smile with treatments personalized for damaged or missing teeth."
         }
       },
-      "ortho": {
-        "title": "Invisible Orthodontics",
-        "desc": "Discreet and comfortable dental alignment with high-precision 3D technology."
-      },
-      "whitening": {
-        "title": "Teeth Whitening",
-        "desc": "Visible results from the first session with our advanced LED technology."
-      },
-      "implants": {
-        "title": "Dental Implants",
-        "desc": "Permanent functional and aesthetic restoration using the highest quality biocompatible materials. A definitive solution for a complete smile."
-      },
       "knowMore": "Learn more",
-      "consultNow": "Consult now"
+      "back": "Back",
+      "carousel": {
+        "prev": "Previous treatment",
+        "next": "Next treatment"
+      }
     },
     "work": {
       "eyebrow": "Real Results",
@@ -94,18 +124,29 @@
       "eyebrow": "What They Say",
       "title": "Our Patients",
       "stars": "5 stars",
-      "items": {
-        "sofia": {
-          "quote": "The experience exceeded all my expectations. From the moment I walked in, I felt in an atmosphere of absolute calm and professionalism. The result of my smile design is incredibly natural.",
-          "treatment": "Smile Design"
-        },
-        "carlos": {
-          "quote": "I never thought going to the dentist could be so enjoyable. The team is extraordinary and the results are exactly what I dreamed of. My new smile changed my life.",
-          "treatment": "Invisible Orthodontics"
-        },
-        "andrea": {
-          "quote": "World-class care in Santa Cruz. Every detail of the treatment was planned with precision and care. Undoubtedly the best investment I have ever made.",
-          "treatment": "Dental Implants"
+      "prev": "Previous testimonial",
+      "next": "Next testimonial",
+      "empty": "There are no published comments yet. Be the first to tell us about your experience!",
+      "form": {
+        "trigger": "Leave a comment",
+        "close": "Close",
+        "title": "Tell us about your experience",
+        "subtitle": "Your comment will be published after being reviewed by our team.",
+        "nameLabel": "Full name",
+        "namePlaceholder": "E.g.: Maria Garcia",
+        "treatmentLabel": "Treatment received",
+        "treatmentPlaceholder": "E.g.: Teeth Whitening",
+        "commentLabel": "Your comment",
+        "commentPlaceholder": "Tell us about your experience with us...",
+        "wordCount": "{{count}}/{{min}} words minimum ({{max}} maximum)",
+        "submit": "Submit comment",
+        "submitting": "Submitting...",
+        "success": "Thanks for your comment! It will be published after being reviewed.",
+        "errors": {
+          "name": "Please enter your full name.",
+          "treatment": "Tell us which treatment you received.",
+          "comment": "Your comment has {{count}} words — it needs between {{min}} and {{max}}.",
+          "generic": "We couldn't send your comment. Please try again later."
         }
       }
     },

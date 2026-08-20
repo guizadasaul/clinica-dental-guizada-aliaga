@@ -10,6 +10,7 @@ import { AppointmentsModule } from './appointments/appointments.module';
 import { PaymentsModule } from './payments/payments.module';
 import { ExchangeRateModule } from './exchange-rate/exchange-rate.module';
 import { QuotesModule } from './quotes/quotes.module';
+import { TestimonialsModule } from './testimonials/testimonials.module';
 
 @Module({
   imports: [
@@ -22,6 +23,7 @@ import { QuotesModule } from './quotes/quotes.module';
     AppointmentsModule,
     PaymentsModule,
     QuotesModule,
+    TestimonialsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

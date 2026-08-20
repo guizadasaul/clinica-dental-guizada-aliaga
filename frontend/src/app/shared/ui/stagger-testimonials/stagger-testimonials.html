@@ -1,0 +1,40 @@
+<div class="stagger-testimonials" [style.height.px]="stageHeight()">
+  @for (item of slots(); track item.slotId; let i = $index) {
+    <button
+      type="button"
+      class="stagger-card"
+      [class.stagger-card--active]="position(i) === 0"
+      [style.width.px]="card().width"
+      [style.height.px]="card().height"
+      [style.transform]="cardTransform(position(i))"
+      (click)="handleMove(position(i))"
+    >
+      <span class="stagger-card__fold" aria-hidden="true"></span>
+
+      <app-logo class="stagger-card__mark" [tone]="position(i) === 0 ? 'light' : 'color'" />
+
+      <p class="stagger-card__quote">&ldquo;{{ item.quoteKey | translate }}&rdquo;</p>
+
+      <p class="stagger-card__by">— {{ item.name }}, {{ item.treatmentKey | translate }}</p>
+    </button>
+  }
+
+  <div class="stagger-testimonials__controls">
+    <button
+      type="button"
+      class="stagger-nav"
+      [attr.aria-label]="'landing.testimonials.prev' | translate"
+      (click)="handleMove(-1)"
+    >
+      <span class="material-symbols-outlined" aria-hidden="true">chevron_left</span>
+    </button>
+    <button
+      type="button"
+      class="stagger-nav"
+      [attr.aria-label]="'landing.testimonials.next' | translate"
+      (click)="handleMove(1)"
+    >
+      <span class="material-symbols-outlined" aria-hidden="true">chevron_right</span>
+    </button>
+  </div>
+</div>

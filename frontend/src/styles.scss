@@ -26,26 +26,40 @@ body {
 // Los scroll-reveals de la landing viven en el componente (GSAP +
 // ScrollTrigger sobre [data-reveal] / [data-reveal-group]).
 
-// === BOTÓN SLIDE SHINE ===
-.btn-slide {
+// === BOTÓN ORIGIN FILL ===
+// Círculo que se expande desde el punto de origen (cursor, tap o foco de
+// teclado) hasta cubrir el botón. Estructura DOM armada por
+// OriginFillDirective (shared/directives/origin-fill.directive.ts).
+.origin-fill {
   position: relative;
   overflow: hidden;
+  isolation: isolate;
+}
 
-  &::after {
-    content: '';
-    position: absolute;
-    top: -50%;
-    left: -60%;
-    width: 30%;
-    height: 200%;
-    background: linear-gradient(to right, transparent, rgb(255 255 255 / 0.25), transparent);
-    transform: skewX(-20deg);
-    transition: left 0.5s ease;
-  }
+.origin-fill__content {
+  position: relative;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
 
-  &:hover::after {
-    left: 130%;
-  }
+.origin-fill__cover {
+  position: absolute;
+  top: var(--origin-fill-y, 50%);
+  left: var(--origin-fill-x, 50%);
+  width: var(--origin-fill-size, 0px);
+  height: var(--origin-fill-size, 0px);
+  transform: translate(-50%, -50%) scale(0);
+  transform-origin: center;
+  border-radius: 9999px;
+  background: var(--color-navy);
+  pointer-events: none;
+  transition: transform 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.origin-fill--active .origin-fill__cover {
+  transform: translate(-50%, -50%) scale(1);
 }
 
 // === SCROLLBAR OCULTO ===

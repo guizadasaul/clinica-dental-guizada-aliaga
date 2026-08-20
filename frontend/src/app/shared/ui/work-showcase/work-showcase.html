@@ -1,0 +1,42 @@
+<div class="work-panels" data-reveal-group>
+  @for (item of items(); track item.id; let i = $index) {
+    <button
+      type="button"
+      class="work-panel"
+      [class.work-panel--active]="activeIndex() === i"
+      [attr.aria-pressed]="activeIndex() === i"
+      [attr.aria-label]="item.titleKey | translate"
+      data-reveal-item="x"
+      (click)="select(i)"
+    >
+      @if (activeIndex() === i) {
+        <div class="work-panel__compare">
+          <figure class="work-panel__figure">
+            <img [src]="item.beforeUrl" [alt]="item.beforeAlt | translate" class="work-panel__img" loading="lazy" />
+            <figcaption class="work-panel__tag">{{ 'landing.work.before' | translate }}</figcaption>
+          </figure>
+          <figure class="work-panel__figure">
+            <img [src]="item.afterUrl" [alt]="item.afterAlt | translate" class="work-panel__img" loading="lazy" />
+            <figcaption class="work-panel__tag work-panel__tag--after">{{ 'landing.work.after' | translate }}</figcaption>
+          </figure>
+        </div>
+      } @else {
+        <img
+          [src]="item.afterUrl"
+          [alt]="item.afterAlt | translate"
+          class="work-panel__img work-panel__img--preview"
+          loading="lazy"
+        />
+      }
+
+      <div class="work-panel__scrim"></div>
+
+      <div class="work-panel__label">
+        <span class="work-panel__icon">
+          <span class="material-symbols-outlined" aria-hidden="true">{{ item.icon }}</span>
+        </span>
+        <span class="work-panel__title">{{ item.titleKey | translate }}</span>
+      </div>
+    </button>
+  }
+</div>

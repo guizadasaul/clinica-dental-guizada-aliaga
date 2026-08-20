@@ -21,6 +21,12 @@ enum TreatmentScope {
   none
 }
 
+enum TestimonialStatus {
+  pending
+  approved
+  rejected
+}
+
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
 model appointments {
   id                    String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
@@ -236,6 +242,18 @@ model tooth_procedures {
   @@index([procedure_date], map: "idx_tooth_procedures_date")
   @@index([patient_id, tooth_number], map: "idx_tooth_procedures_patient_tooth")
   @@index([application_group_id], map: "idx_tooth_procedures_application_group")
+}
+
+model testimonials {
+  id         String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name       String            @db.VarChar(100)
+  treatment  String            @db.VarChar(150)
+  comment    String
+  status     TestimonialStatus @default(pending)
+  created_at DateTime          @default(now()) @db.Timestamptz(6)
+  updated_at DateTime          @default(now()) @db.Timestamptz(6)
+
+  @@index([status], map: "idx_testimonials_status")
 }
 
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.

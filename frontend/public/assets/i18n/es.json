@@ -42,29 +42,59 @@
       "eyebrow": "Especialidades",
       "title": "Tratamientos de Vanguardia",
       "subtitle": "Cada tratamiento es un proyecto personalizado, diseñado para alcanzar los resultados más naturales y duraderos.",
-      "tag": {
-        "featured": "Tratamiento Principal"
-      },
-      "dental": {
+      "categories": {
+        "general": {
+          "title": "Odontología General",
+          "items": ["Consulta odontológica", "Limpieza y profilaxis", "Tratamiento de caries", "Sellantes dentales", "Fluorización"],
+          "description": "Cuidamos la salud de tus dientes con tratamientos preventivos y restaurativos para mantener una sonrisa sana."
+        },
         "esthetic": {
-          "title": "Odontología Estética",
-          "desc": "Diseño de sonrisa y salud integral. Transformamos tu sonrisa con técnicas de última generación adaptadas a tu anatomía facial única."
+          "title": "Estética Dental",
+          "items": ["Blanqueamiento dental láser", "Restauraciones estéticas con resina"],
+          "description": "Mejoramos la apariencia de tu sonrisa con tratamientos diseñados para lograr dientes más blancos y una estética natural."
+        },
+        "periodontics": {
+          "title": "Periodoncia",
+          "items": ["Limpieza dental", "Destartraje", "Tratamiento de encías", "Gingivectomía"],
+          "description": "Prevenimos y tratamos enfermedades de las encías para mantener una boca saludable y libre de inflamación."
+        },
+        "endodontics": {
+          "title": "Endodoncia",
+          "items": ["Tratamiento de conducto", "Retratamiento de conducto"],
+          "description": "Tratamos las infecciones y lesiones del interior del diente para conservarlo y aliviar el dolor."
+        },
+        "surgery": {
+          "title": "Cirugía Oral",
+          "items": ["Extracción simple", "Extracción quirúrgica", "Extracción de tercer molar", "Frenectomía", "Apicectomía"],
+          "description": "Realizamos procedimientos quirúrgicos para solucionar diferentes problemas que afectan la salud bucal."
+        },
+        "implants": {
+          "title": "Implantología",
+          "items": ["Implantes dentales"],
+          "description": "Recuperamos dientes perdidos mediante implantes que permiten devolver funcionalidad y estética a tu sonrisa."
+        },
+        "prosthetics": {
+          "title": "Prótesis Dental",
+          "items": ["Prótesis parcial", "Prótesis total", "Prótesis flexible", "Coronas dentales"],
+          "description": "Restauramos dientes dañados o ausentes para recuperar la función, comodidad y apariencia de tu sonrisa."
+        },
+        "ortho": {
+          "title": "Ortodoncia",
+          "items": ["Brackets metálicos", "Brackets estéticos", "Placas de expansión", "Placas de contención"],
+          "description": "Corregimos la posición de los dientes y mejoramos la mordida para conseguir una sonrisa más alineada y saludable."
+        },
+        "rehabilitation": {
+          "title": "Rehabilitación Oral",
+          "items": ["Coronas de porcelana", "Pernos de fibra de vidrio", "Coronas provisionales"],
+          "description": "Recupera la función, estética y armonía de tu sonrisa con tratamientos personalizados para dientes dañados o ausentes."
         }
       },
-      "ortho": {
-        "title": "Ortodoncia Invisible",
-        "desc": "Alineación dental discreta y cómoda con tecnología 3D de alta precisión."
-      },
-      "whitening": {
-        "title": "Blanqueamiento Dental",
-        "desc": "Resultados visibles desde la primera sesión con nuestra tecnología LED avanzada."
-      },
-      "implants": {
-        "title": "Implantes Dentales",
-        "desc": "Restauración funcional y estética permanente utilizando materiales biocompatibles de la más alta calidad. Una solución definitiva para una sonrisa completa."
-      },
       "knowMore": "Conocer más",
-      "consultNow": "Consultar ahora"
+      "back": "Volver",
+      "carousel": {
+        "prev": "Tratamiento anterior",
+        "next": "Siguiente tratamiento"
+      }
     },
     "work": {
       "eyebrow": "Resultados Reales",
@@ -94,18 +124,29 @@
       "eyebrow": "Lo que Dicen",
       "title": "Nuestros Pacientes",
       "stars": "5 estrellas",
-      "items": {
-        "sofia": {
-          "quote": "La experiencia superó todas mis expectativas. Desde el momento en que entré, me sentí en un ambiente de absoluta calma y profesionalismo. El resultado de mi diseño de sonrisa es increíblemente natural.",
-          "treatment": "Diseño de Sonrisa"
-        },
-        "carlos": {
-          "quote": "Jamás pensé que ir al dentista podría ser tan agradable. El equipo es extraordinario y los resultados son exactamente lo que soñaba. Mi nueva sonrisa cambió mi vida.",
-          "treatment": "Ortodoncia Invisible"
-        },
-        "andrea": {
-          "quote": "Atención de clase mundial en Santa Cruz. Cada detalle del tratamiento estuvo planeado con precisión y cariño. Sin duda la mejor inversión que he hecho.",
-          "treatment": "Implantes Dentales"
+      "prev": "Testimonio anterior",
+      "next": "Siguiente testimonio",
+      "empty": "Todavía no hay comentarios publicados. ¡Sé el primero en contarnos tu experiencia!",
+      "form": {
+        "trigger": "Deja un comentario",
+        "close": "Cerrar",
+        "title": "Contanos tu experiencia",
+        "subtitle": "Tu comentario se publica después de ser revisado por el equipo.",
+        "nameLabel": "Nombre completo",
+        "namePlaceholder": "Ej: María García",
+        "treatmentLabel": "Tratamiento recibido",
+        "treatmentPlaceholder": "Ej: Blanqueamiento Dental",
+        "commentLabel": "Tu comentario",
+        "commentPlaceholder": "Contanos cómo fue tu experiencia con nosotros...",
+        "wordCount": "{{count}}/{{min}} palabras mínimo ({{max}} máximo)",
+        "submit": "Enviar comentario",
+        "submitting": "Enviando...",
+        "success": "¡Gracias por tu comentario! Se publicará después de ser revisado.",
+        "errors": {
+          "name": "Ingresá tu nombre completo.",
+          "treatment": "Contanos qué tratamiento recibiste.",
+          "comment": "Tu comentario tiene {{count}} palabras — necesita entre {{min}} y {{max}}.",
+          "generic": "No pudimos enviar tu comentario. Intentá de nuevo más tarde."
         }
       }
     },
