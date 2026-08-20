@@ -27,9 +27,9 @@
       <a routerLink="/auth/login" class="navbar__login-link">
         {{ 'landing.nav.loginCta' | translate }}
       </a>
-      <a href="#reservar" class="btn-primary" appOriginFill>
+      <button type="button" class="btn-primary" appOriginFill (click)="openBookingModal()">
         {{ 'landing.nav.cta' | translate }}
-      </a>
+      </button>
     </div>
   </div>
 </nav>
@@ -95,18 +95,31 @@
 </section>
 
 <!-- ========================================================= -->
-<!-- RESERVA — selector de 2 semanas embebido, sin necesidad   -->
-<!-- de cuenta. Elegir un horario lleva a /reservar con ese    -->
-<!-- horario ya en hold.                                       -->
+<!-- RESERVA — modal con el selector de 2 semanas, sin necesidad -->
+<!-- de cuenta. Se abre desde "Reservar Cita" (navbar/contacto). -->
+<!-- Elegir un horario lleva a /reservar con ese horario en hold. -->
 <!-- ========================================================= -->
-<section id="reservar" class="section section--cream" aria-labelledby="booking-title">
-  <div class="container">
-    <div class="section__header" data-reveal>
-      <h2 id="booking-title" class="section__title">{{ 'landing.booking.title' | translate }}</h2>
-      <p class="section__subtitle">{{ 'landing.booking.subtitle' | translate }}</p>
-    </div>
+@if (bookingModalOpen()) {
+  <div class="booking-modal" (click)="closeBookingModal()">
+    <div
+      class="booking-modal__panel"
+      role="dialog"
+      aria-modal="true"
+      [attr.aria-label]="'landing.booking.title' | translate"
+      (click)="$event.stopPropagation()"
+    >
+      <button
+        type="button"
+        class="booking-modal__close"
+        (click)="closeBookingModal()"
+        [attr.aria-label]="'landing.booking.close' | translate"
+      >
+        <span class="material-symbols-outlined" aria-hidden="true">close</span>
+      </button>
 
-    <div class="booking-panel" data-reveal>
+      <h2 class="booking-modal__title">{{ 'landing.booking.title' | translate }}</h2>
+      <p class="booking-modal__subtitle">{{ 'landing.booking.subtitle' | translate }}</p>
+
       <app-week-slot-picker
         [slotsByDate]="bookingSlotsByDate()"
         [loading]="bookingLoading()"
@@ -115,7 +128,7 @@
       />
     </div>
   </div>
-</section>
+}
 
 <!-- ========================================================= -->
 <!-- MISIÓN Y VISIÓN — dos columnas de texto, sin tarjetas    -->
@@ -313,10 +326,10 @@
       <div class="contact-cta">
         <h3 class="contact-cta__title">{{ 'landing.contact.ctaTitle' | translate }}</h3>
         <p class="contact-cta__subtitle">{{ 'landing.contact.ctaSubtitle' | translate }}</p>
-        <a href="#reservar" class="btn-primary" appOriginFill>
+        <button type="button" class="btn-primary" appOriginFill (click)="openBookingModal()">
           <span class="material-symbols-outlined" aria-hidden="true">calendar_month</span>
           {{ 'landing.contact.ctaBtn' | translate }}
-        </a>
+        </button>
       </div>
     </div>
   </div>

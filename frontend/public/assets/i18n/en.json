@@ -235,7 +235,8 @@
     },
     "booking": {
       "title": "Book your consultation",
-      "subtitle": "Real availability for this week and next, in 30-minute slots. Pick what works for you and confirm with a simple QR payment."
+      "subtitle": "Real availability for this week and next, in 30-minute slots. Pick what works for you and confirm with a simple QR payment.",
+      "close": "Close"
     }
   }
 }

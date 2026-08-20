@@ -77,6 +77,9 @@ export class LandingComponent implements AfterViewInit, OnDestroy {
   protected readonly bookingSlotsByDate = signal<Record<string, string[]>>({});
   protected readonly bookingLoading = signal(true);
   protected readonly bookingError = signal<string | null>(null);
+  // El selector de horarios ya no vive fijo en la landing: se abre en un
+  // modal al apretar "Reservar Cita" (navbar o CTA de contacto).
+  protected readonly bookingModalOpen = signal(false);
   private gsapContext: { revert(): void } | null = null;
   private sporeCleanup: (() => void) | null = null;
 
@@ -261,6 +264,21 @@ export class LandingComponent implements AfterViewInit, OnDestroy {
 
   protected dismissNoProfileBanner(): void {
     this.showNoProfileBanner.set(false);
+  }
+
+  protected openBookingModal(): void {
+    this.bookingModalOpen.set(true);
+  }
+
+  protected closeBookingModal(): void {
+    this.bookingModalOpen.set(false);
+  }
+
+  @HostListener('document:keydown.escape')
+  protected onEscape(): void {
+    if (this.bookingModalOpen()) {
+      this.closeBookingModal();
+    }
   }
 
   protected onBookingSlotSelected(slot: string): void {

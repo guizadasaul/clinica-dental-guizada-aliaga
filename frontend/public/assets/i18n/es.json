@@ -235,7 +235,8 @@
     },
     "booking": {
       "title": "Reservá tu consulta",
-      "subtitle": "Horarios reales de esta semana y la próxima, en bloques de 30 minutos. Elegí el que te acomode y confirmá con un pago simple por QR."
+      "subtitle": "Horarios reales de esta semana y la próxima, en bloques de 30 minutos. Elegí el que te acomode y confirmá con un pago simple por QR.",
+      "close": "Cerrar"
     }
   }
 }

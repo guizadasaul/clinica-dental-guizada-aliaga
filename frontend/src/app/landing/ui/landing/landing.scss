@@ -547,18 +547,75 @@
 }
 
 // ============================================================
-// RESERVA — panel con el selector de 2 semanas embebido
+// RESERVA — modal con el selector de 2 semanas
 // ============================================================
 
-.booking-panel {
+.booking-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-4);
+  background: rgb(28 27 31 / 0.6);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+}
+
+.booking-modal__panel {
+  position: relative;
+  width: 100%;
   max-width: 44rem;
-  margin-inline: auto;
+  max-height: 90vh;
+  overflow-y: auto;
   padding: var(--space-8) var(--space-6);
-  background: var(--color-surface);
   border-radius: var(--radius-xl);
-  box-shadow: var(--shadow-warm);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-xl);
 
   @media (min-width: 768px) { padding: var(--space-10) var(--space-8); }
+}
+
+.booking-modal__close {
+  position: absolute;
+  top: var(--space-4);
+  right: var(--space-4);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  border: none;
+  border-radius: var(--radius-full);
+  background: var(--color-surface-dim);
+  color: var(--color-navy);
+  cursor: pointer;
+  transition: background var(--transition-fast);
+
+  &:hover { background: var(--color-primary-light); }
+
+  &:focus-visible {
+    outline: 3px solid var(--color-primary);
+    outline-offset: 2px;
+  }
+}
+
+.booking-modal__title {
+  font-family: var(--font-headline);
+  font-size: clamp(var(--font-size-xl), 2.5vw, var(--font-size-2xl));
+  font-weight: 400;
+  color: var(--color-navy);
+  margin: 0 0 var(--space-3);
+  padding-right: var(--space-8);
+}
+
+.booking-modal__subtitle {
+  font-size: var(--font-size-base);
+  color: var(--color-text-muted);
+  line-height: 1.65;
+  margin: 0 0 var(--space-6);
+  text-wrap: pretty;
 }
 
 // ============================================================
