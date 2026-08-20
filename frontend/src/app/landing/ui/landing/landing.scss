@@ -105,40 +105,6 @@
   }
 }
 
-// Variante para el hero claro: contorno navy sobre crema.
-.btn-outline {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-2);
-  padding: var(--space-3) var(--space-6);
-  border: 1.5px solid rgb(26 43 75 / 0.35);
-  color: var(--color-navy);
-  font-family: var(--font-body);
-  font-size: var(--font-size-base);
-  font-weight: 600;
-  border-radius: var(--radius-full);
-  text-decoration: none;
-  background: transparent;
-  cursor: pointer;
-  transition:
-    background 0.25s cubic-bezier(0.16, 1, 0.3, 1),
-    border-color 0.25s cubic-bezier(0.16, 1, 0.3, 1),
-    transform 0.18s cubic-bezier(0.16, 1, 0.3, 1);
-
-  .material-symbols-outlined { font-size: 1.1em; }
-
-  &:hover {
-    background: rgb(26 43 75 / 0.06);
-    border-color: var(--color-navy);
-    transform: translateY(-2px);
-  }
-
-  &:focus-visible {
-    outline: 2px solid var(--color-navy);
-    outline-offset: 3px;
-  }
-}
-
 // ============================================================
 // NAVBAR
 // ============================================================
@@ -349,20 +315,6 @@
     pointer-events: none;
   }
 
-  &__ghost {
-    position: absolute;
-    top: clamp(3.5rem, 9vh, 6rem);
-    left: 50%;
-    transform: translateX(-50%);
-    font-family: var(--font-headline);
-    font-size: clamp(5rem, 17vw, 15rem);
-    line-height: 1;
-    letter-spacing: -0.03em;
-    white-space: nowrap;
-    color: rgb(26 43 75 / 0.05);
-    user-select: none;
-  }
-
   &__glow {
     position: absolute;
     inset-inline: 0;
@@ -533,7 +485,7 @@
   margin-inline: auto;
   user-select: none;
   // Sombra proyectada del propio instrumento (no de una caja)
-  filter: drop-shadow(0 14px 22px rgb(26 43 75 / 0.28));
+  filter: drop-shadow(0 14px 22px rgb(0 0 0 / 0.28));
   transition:
     transform 0.45s cubic-bezier(0.16, 1, 0.3, 1),
     filter 0.45s cubic-bezier(0.16, 1, 0.3, 1);
@@ -542,7 +494,7 @@
   // wrapper) y se levanta apenas, con sombra más profunda.
   .fan__item:hover & {
     transform: rotate(calc(var(--r, 0deg) * -1)) translateY(-2rem) scale(1.05);
-    filter: drop-shadow(0 30px 46px rgb(26 43 75 / 0.42));
+    filter: drop-shadow(0 30px 46px rgb(0 0 0 / 0.42));
   }
 }
 
@@ -558,7 +510,7 @@
   align-items: center;
   justify-content: center;
   padding: var(--space-4);
-  background: rgb(28 27 31 / 0.6);
+  background: rgb(0 0 0 / 0.6);
   backdrop-filter: blur(4px);
   -webkit-backdrop-filter: blur(4px);
 }
