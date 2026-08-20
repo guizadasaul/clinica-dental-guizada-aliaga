@@ -365,10 +365,10 @@
       <nav [attr.aria-label]="'landing.footer.servicesAriaLabel' | translate">
         <h4 class="footer__heading">{{ 'landing.footer.servicesTitle' | translate }}</h4>
         <ul class="footer__links" role="list">
-          <li><a href="#servicios" class="footer__link">{{ 'landing.footer.esthetic' | translate }}</a></li>
-          <li><a href="#servicios" class="footer__link">{{ 'landing.footer.ortho' | translate }}</a></li>
-          <li><a href="#servicios" class="footer__link">{{ 'landing.footer.whitening' | translate }}</a></li>
-          <li><a href="#servicios" class="footer__link">{{ 'landing.footer.implants' | translate }}</a></li>
+          <li><a href="#servicios" class="footer__link">{{ 'landing.services.categories.general.title' | translate }}</a></li>
+          <li><a href="#servicios" class="footer__link">{{ 'landing.services.categories.esthetic.title' | translate }}</a></li>
+          <li><a href="#servicios" class="footer__link">{{ 'landing.services.categories.ortho.title' | translate }}</a></li>
+          <li><a href="#servicios" class="footer__link">{{ 'landing.services.categories.implants.title' | translate }}</a></li>
         </ul>
       </nav>
 
@@ -377,15 +377,7 @@
         <ul class="footer__links" role="list">
           <li><a href="#nosotros" class="footer__link">{{ 'landing.footer.about' | translate }}</a></li>
           <li><a href="#contacto" class="footer__link">{{ 'landing.footer.contact' | translate }}</a></li>
-          <li><a href="#contacto" class="footer__link">{{ 'landing.footer.appointment' | translate }}</a></li>
-        </ul>
-      </nav>
-
-      <nav [attr.aria-label]="'landing.footer.legalAriaLabel' | translate">
-        <h4 class="footer__heading">{{ 'landing.footer.legalTitle' | translate }}</h4>
-        <ul class="footer__links" role="list">
-          <li><a href="#" class="footer__link">{{ 'landing.footer.privacy' | translate }}</a></li>
-          <li><a href="#" class="footer__link">{{ 'landing.footer.terms' | translate }}</a></li>
+          <li><button type="button" class="footer__link" (click)="openBookingModal()">{{ 'landing.footer.appointment' | translate }}</button></li>
         </ul>
       </nav>
     </div>
