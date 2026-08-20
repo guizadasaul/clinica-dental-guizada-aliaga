@@ -463,9 +463,9 @@ export class LandingComponent implements AfterViewInit, OnDestroy {
       '232, 152, 88',
       '214, 124, 60',
       '245, 183, 120',
+      '232, 152, 88',
       '0, 0, 0',
       '30, 30, 30',
-      '60, 60, 60',
     ];
     const spores: Spore[] = [];
 
