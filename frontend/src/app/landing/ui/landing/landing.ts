@@ -7,6 +7,7 @@ import {
   ElementRef,
   ViewChild,
   signal,
+  effect,
   inject,
   PLATFORM_ID,
 } from '@angular/core';
@@ -16,6 +17,7 @@ import { firstValueFrom } from 'rxjs';
 import { TranslatePipe } from '@ngx-translate/core';
 import { OriginFillDirective } from '../../../shared/directives/origin-fill.directive';
 import { LangSwitcherComponent } from '../../../shared/ui/lang-switcher/lang-switcher';
+import { ScrollLockService } from '../../../shared/services/scroll-lock.service';
 import { WeekSlotPickerComponent } from '../../../features/booking/components/week-slot-picker/week-slot-picker';
 import { BookingService } from '../../../features/booking/services/booking.service';
 import { TestimonialsService } from '../../../features/testimonials/services/testimonials.service';
@@ -64,6 +66,7 @@ export class LandingComponent implements AfterViewInit, OnDestroy {
   private readonly router = inject(Router);
   private readonly bookingService = inject(BookingService);
   private readonly testimonialsService = inject(TestimonialsService);
+  private readonly scrollLock = inject(ScrollLockService);
 
   @ViewChild('spores') private sporeCanvas?: ElementRef<HTMLCanvasElement>;
 
@@ -261,6 +264,14 @@ export class LandingComponent implements AfterViewInit, OnDestroy {
   constructor() {
     void this.loadBookingAvailability();
     void this.loadApprovedTestimonials();
+
+    effect((onCleanup) => {
+      if (!this.bookingModalOpen()) {
+        return;
+      }
+      this.scrollLock.lock();
+      onCleanup(() => this.scrollLock.unlock());
+    });
   }
 
   @HostListener('window:scroll')
@@ -402,6 +413,13 @@ export class LandingComponent implements AfterViewInit, OnDestroy {
           duration: 0.75,
           ease: 'power2.out',
           scrollTrigger: { trigger: el, start: 'top 85%', once: true },
+          // Sin esto, el transform inline de GSAP se queda para siempre en
+          // el elemento y lo convierte en "containing block" de sus hijos
+          // position: fixed (ej. el modal de "Deja un comentario" dentro de
+          // .testimonials-block) — el modal deja de cubrir toda la pantalla
+          // y controles de fondo (como las flechas del carrusel) quedan
+          // visibles por encima.
+          clearProps: 'transform,opacity',
         });
       });
 
@@ -418,6 +436,7 @@ export class LandingComponent implements AfterViewInit, OnDestroy {
           ease: 'power2.out',
           stagger: 0.09,
           scrollTrigger: { trigger: group, start: 'top 82%', once: true },
+          clearProps: 'transform,opacity',
         });
       });
     }, root);

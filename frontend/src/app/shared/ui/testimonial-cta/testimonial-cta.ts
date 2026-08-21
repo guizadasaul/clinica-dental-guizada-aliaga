@@ -1,6 +1,7 @@
-import { ChangeDetectionStrategy, Component, HostListener, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, HostListener, effect, inject, signal } from '@angular/core';
 import { TranslatePipe } from '@ngx-translate/core';
 import { OriginFillDirective } from '../../directives/origin-fill.directive';
+import { ScrollLockService } from '../../services/scroll-lock.service';
 import { TestimonialFormComponent } from '../testimonial-form/testimonial-form';
 
 /**
@@ -17,7 +18,19 @@ import { TestimonialFormComponent } from '../testimonial-form/testimonial-form';
   styleUrl: './testimonial-cta.scss',
 })
 export class TestimonialCtaComponent {
+  private readonly scrollLock = inject(ScrollLockService);
+
   protected readonly open = signal(false);
+
+  constructor() {
+    effect((onCleanup) => {
+      if (!this.open()) {
+        return;
+      }
+      this.scrollLock.lock();
+      onCleanup(() => this.scrollLock.unlock());
+    });
+  }
 
   protected toggle(): void {
     this.open.update((value) => !value);
