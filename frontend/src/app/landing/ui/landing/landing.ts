@@ -7,6 +7,7 @@ import {
   ElementRef,
   ViewChild,
   signal,
+  effect,
   inject,
   PLATFORM_ID,
 } from '@angular/core';
@@ -16,6 +17,7 @@ import { firstValueFrom } from 'rxjs';
 import { TranslatePipe } from '@ngx-translate/core';
 import { OriginFillDirective } from '../../../shared/directives/origin-fill.directive';
 import { LangSwitcherComponent } from '../../../shared/ui/lang-switcher/lang-switcher';
+import { ScrollLockService } from '../../../shared/services/scroll-lock.service';
 import { WeekSlotPickerComponent } from '../../../features/booking/components/week-slot-picker/week-slot-picker';
 import { BookingService } from '../../../features/booking/services/booking.service';
 import { TestimonialsService } from '../../../features/testimonials/services/testimonials.service';
@@ -64,6 +66,7 @@ export class LandingComponent implements AfterViewInit, OnDestroy {
   private readonly router = inject(Router);
   private readonly bookingService = inject(BookingService);
   private readonly testimonialsService = inject(TestimonialsService);
+  private readonly scrollLock = inject(ScrollLockService);
 
   @ViewChild('spores') private sporeCanvas?: ElementRef<HTMLCanvasElement>;
 
@@ -261,6 +264,14 @@ export class LandingComponent implements AfterViewInit, OnDestroy {
   constructor() {
     void this.loadBookingAvailability();
     void this.loadApprovedTestimonials();
+
+    effect((onCleanup) => {
+      if (!this.bookingModalOpen()) {
+        return;
+      }
+      this.scrollLock.lock();
+      onCleanup(() => this.scrollLock.unlock());
+    });
   }
 
   @HostListener('window:scroll')
