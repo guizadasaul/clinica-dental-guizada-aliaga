@@ -47,47 +47,86 @@
       "categories": {
         "general": {
           "title": "General Dentistry",
-          "items": ["Dental checkup", "Cleaning & prophylaxis", "Cavity treatment", "Dental sealants", "Fluoride treatment"],
+          "items": [
+            "Dental checkup",
+            "Cleaning & prophylaxis",
+            "Cavity treatment",
+            "Dental sealants",
+            "Fluoride treatment"
+          ],
           "description": "We care for your dental health with preventive and restorative treatments to keep your smile healthy."
         },
         "esthetic": {
           "title": "Cosmetic Dentistry",
-          "items": ["Laser teeth whitening", "Aesthetic resin restorations"],
+          "items": [
+            "Laser teeth whitening",
+            "Aesthetic resin restorations"
+          ],
           "description": "We enhance the look of your smile with treatments designed for whiter teeth and a natural aesthetic."
         },
         "periodontics": {
           "title": "Periodontics",
-          "items": ["Dental cleaning", "Scaling", "Gum treatment", "Gingivectomy"],
+          "items": [
+            "Dental cleaning",
+            "Scaling",
+            "Gum treatment",
+            "Gingivectomy"
+          ],
           "description": "We prevent and treat gum disease to keep your mouth healthy and free of inflammation."
         },
         "endodontics": {
           "title": "Endodontics",
-          "items": ["Root canal treatment", "Root canal retreatment"],
+          "items": [
+            "Root canal treatment",
+            "Root canal retreatment"
+          ],
           "description": "We treat infections and injuries inside the tooth to preserve it and relieve pain."
         },
         "surgery": {
           "title": "Oral Surgery",
-          "items": ["Simple extraction", "Surgical extraction", "Wisdom tooth extraction", "Frenectomy", "Apicoectomy"],
+          "items": [
+            "Simple extraction",
+            "Surgical extraction",
+            "Wisdom tooth extraction",
+            "Frenectomy",
+            "Apicoectomy"
+          ],
           "description": "We perform surgical procedures to resolve different issues affecting your oral health."
         },
         "implants": {
           "title": "Implantology",
-          "items": ["Dental implants"],
+          "items": [
+            "Dental implants"
+          ],
           "description": "We replace missing teeth with implants that restore function and aesthetics to your smile."
         },
         "prosthetics": {
           "title": "Dental Prosthetics",
-          "items": ["Partial denture", "Full denture", "Flexible denture", "Dental crowns"],
+          "items": [
+            "Partial denture",
+            "Full denture",
+            "Flexible denture",
+            "Dental crowns"
+          ],
           "description": "We restore damaged or missing teeth to recover function, comfort, and the appearance of your smile."
         },
         "ortho": {
           "title": "Orthodontics",
-          "items": ["Metal braces", "Ceramic braces", "Expansion plates", "Retention plates"],
+          "items": [
+            "Metal braces",
+            "Ceramic braces",
+            "Expansion plates",
+            "Retention plates"
+          ],
           "description": "We correct tooth position and improve your bite for a more aligned, healthier smile."
         },
         "rehabilitation": {
           "title": "Oral Rehabilitation",
-          "items": ["Porcelain crowns", "Fiberglass posts", "Temporary crowns"],
+          "items": [
+            "Porcelain crowns",
+            "Fiberglass posts",
+            "Temporary crowns"
+          ],
           "description": "Recover the function, aesthetics, and harmony of your smile with treatments personalized for damaged or missing teeth."
         }
       },
@@ -163,7 +202,12 @@
           "name": "Please enter your full name.",
           "treatment": "Tell us which treatment you received.",
           "comment": "Your comment has {{count}} words — it needs between {{min}} and {{max}}.",
-          "generic": "We couldn't send your comment. Please try again later."
+          "generic": "We couldn't send your comment. Please try again later.",
+          "nameInvalidChars": "The name can only contain letters.",
+          "treatmentInvalid": "The treatment has characters that aren't allowed.",
+          "commentHtml": "Your comment can't contain HTML tags.",
+          "commentUrl": "Your comment can't contain links.",
+          "commentSpam": "Your comment has too many repeated characters."
         }
       }
     },
@@ -230,7 +274,63 @@
     "booking": {
       "title": "Book your consultation",
       "subtitle": "Real availability for this week and next, in 30-minute slots. Pick what works for you and confirm with a simple QR payment.",
-      "close": "Close"
+      "close": "Close",
+      "guestContact": {
+        "nameLabel": "Full name",
+        "namePlaceholder": "E.g. María García",
+        "phoneLabel": "Phone / WhatsApp",
+        "emailLabel": "Email",
+        "emailOptional": "(optional)",
+        "emailPlaceholder": "E.g. maria@email.com",
+        "submit": "Continue",
+        "submitting": "Saving...",
+        "errors": {
+          "nameEmpty": "Enter your full name.",
+          "nameSingleWord": "We need a first and last name (e.g. Juan Claros).",
+          "nameInvalidChars": "The name can only contain letters.",
+          "nameTooLong": "The name is too long.",
+          "phone": "Enter a valid phone number.",
+          "email": "Enter a valid email, or leave it empty."
+        }
+      }
+    }
+  },
+  "shared": {
+    "phoneInput": {
+      "countryAriaLabel": "Country",
+      "searchPlaceholder": "Search country or code",
+      "noResults": "No results",
+      "numberAriaLabel": "Phone number",
+      "exampleHint": "E.g.: {{number}} ({{count}} digits)",
+      "errors": {
+        "tooShort": "Number too short.",
+        "tooLong": "Number too long.",
+        "invalid": "Invalid phone number."
+      }
+    }
+  },
+  "auth": {
+    "login": {
+      "title": "Sign in",
+      "subtitle": "Access the clinic management system",
+      "identifierLabel": "Email or phone",
+      "passwordLabel": "Password",
+      "showPassword": "Show password",
+      "hidePassword": "Hide password",
+      "forgotPassword": "Forgot your password?",
+      "submit": "Sign in",
+      "submitting": "Signing in...",
+      "orContinueWith": "or continue with",
+      "googleButton": "Continue with Google",
+      "googleButtonLoading": "Connecting...",
+      "backToHome": "Back to home",
+      "resetSuccess": "Your password was updated. Sign in with your new password.",
+      "errors": {
+        "required": "Email/phone and password are required.",
+        "invalidIdentifier": "Enter a valid email or phone number.",
+        "generic": "We couldn't sign you in.",
+        "googleFailed": "We couldn't sign you in with Google. Please try again."
+      }
     }
   }
 }

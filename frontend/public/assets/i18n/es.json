@@ -47,47 +47,86 @@
       "categories": {
         "general": {
           "title": "Odontología General",
-          "items": ["Consulta odontológica", "Limpieza y profilaxis", "Tratamiento de caries", "Sellantes dentales", "Fluorización"],
+          "items": [
+            "Consulta odontológica",
+            "Limpieza y profilaxis",
+            "Tratamiento de caries",
+            "Sellantes dentales",
+            "Fluorización"
+          ],
           "description": "Cuidamos la salud de tus dientes con tratamientos preventivos y restaurativos para mantener una sonrisa sana."
         },
         "esthetic": {
           "title": "Estética Dental",
-          "items": ["Blanqueamiento dental láser", "Restauraciones estéticas con resina"],
+          "items": [
+            "Blanqueamiento dental láser",
+            "Restauraciones estéticas con resina"
+          ],
           "description": "Mejoramos la apariencia de tu sonrisa con tratamientos diseñados para lograr dientes más blancos y una estética natural."
         },
         "periodontics": {
           "title": "Periodoncia",
-          "items": ["Limpieza dental", "Destartraje", "Tratamiento de encías", "Gingivectomía"],
+          "items": [
+            "Limpieza dental",
+            "Destartraje",
+            "Tratamiento de encías",
+            "Gingivectomía"
+          ],
           "description": "Prevenimos y tratamos enfermedades de las encías para mantener una boca saludable y libre de inflamación."
         },
         "endodontics": {
           "title": "Endodoncia",
-          "items": ["Tratamiento de conducto", "Retratamiento de conducto"],
+          "items": [
+            "Tratamiento de conducto",
+            "Retratamiento de conducto"
+          ],
           "description": "Tratamos las infecciones y lesiones del interior del diente para conservarlo y aliviar el dolor."
         },
         "surgery": {
           "title": "Cirugía Oral",
-          "items": ["Extracción simple", "Extracción quirúrgica", "Extracción de tercer molar", "Frenectomía", "Apicectomía"],
+          "items": [
+            "Extracción simple",
+            "Extracción quirúrgica",
+            "Extracción de tercer molar",
+            "Frenectomía",
+            "Apicectomía"
+          ],
           "description": "Realizamos procedimientos quirúrgicos para solucionar diferentes problemas que afectan la salud bucal."
         },
         "implants": {
           "title": "Implantología",
-          "items": ["Implantes dentales"],
+          "items": [
+            "Implantes dentales"
+          ],
           "description": "Recuperamos dientes perdidos mediante implantes que permiten devolver funcionalidad y estética a tu sonrisa."
         },
         "prosthetics": {
           "title": "Prótesis Dental",
-          "items": ["Prótesis parcial", "Prótesis total", "Prótesis flexible", "Coronas dentales"],
+          "items": [
+            "Prótesis parcial",
+            "Prótesis total",
+            "Prótesis flexible",
+            "Coronas dentales"
+          ],
           "description": "Restauramos dientes dañados o ausentes para recuperar la función, comodidad y apariencia de tu sonrisa."
         },
         "ortho": {
           "title": "Ortodoncia",
-          "items": ["Brackets metálicos", "Brackets estéticos", "Placas de expansión", "Placas de contención"],
+          "items": [
+            "Brackets metálicos",
+            "Brackets estéticos",
+            "Placas de expansión",
+            "Placas de contención"
+          ],
           "description": "Corregimos la posición de los dientes y mejoramos la mordida para conseguir una sonrisa más alineada y saludable."
         },
         "rehabilitation": {
           "title": "Rehabilitación Oral",
-          "items": ["Coronas de porcelana", "Pernos de fibra de vidrio", "Coronas provisionales"],
+          "items": [
+            "Coronas de porcelana",
+            "Pernos de fibra de vidrio",
+            "Coronas provisionales"
+          ],
           "description": "Recupera la función, estética y armonía de tu sonrisa con tratamientos personalizados para dientes dañados o ausentes."
         }
       },
@@ -163,7 +202,12 @@
           "name": "Ingresá tu nombre completo.",
           "treatment": "Contanos qué tratamiento recibiste.",
           "comment": "Tu comentario tiene {{count}} palabras — necesita entre {{min}} y {{max}}.",
-          "generic": "No pudimos enviar tu comentario. Intentá de nuevo más tarde."
+          "generic": "No pudimos enviar tu comentario. Intentá de nuevo más tarde.",
+          "nameInvalidChars": "El nombre solo puede tener letras.",
+          "treatmentInvalid": "El tratamiento tiene caracteres no permitidos.",
+          "commentHtml": "Tu comentario no puede contener etiquetas HTML.",
+          "commentUrl": "Tu comentario no puede contener links.",
+          "commentSpam": "Tu comentario tiene caracteres repetidos de más."
         }
       }
     },
@@ -230,7 +274,63 @@
     "booking": {
       "title": "Reservá tu consulta",
       "subtitle": "Horarios reales de esta semana y la próxima, en bloques de 30 minutos. Elegí el que te acomode y confirmá con un pago simple por QR.",
-      "close": "Cerrar"
+      "close": "Cerrar",
+      "guestContact": {
+        "nameLabel": "Nombre completo",
+        "namePlaceholder": "Ej: María García",
+        "phoneLabel": "Teléfono / WhatsApp",
+        "emailLabel": "Correo electrónico",
+        "emailOptional": "(opcional)",
+        "emailPlaceholder": "Ej: maria@correo.com",
+        "submit": "Continuar",
+        "submitting": "Guardando...",
+        "errors": {
+          "nameEmpty": "Ingresá tu nombre completo.",
+          "nameSingleWord": "Necesitamos nombre y apellido (ej: Juan Claros).",
+          "nameInvalidChars": "El nombre solo puede tener letras.",
+          "nameTooLong": "El nombre es demasiado largo.",
+          "phone": "Ingresá un número de teléfono válido.",
+          "email": "Ingresá un correo válido, o dejalo vacío."
+        }
+      }
+    }
+  },
+  "shared": {
+    "phoneInput": {
+      "countryAriaLabel": "País",
+      "searchPlaceholder": "Buscar país o código",
+      "noResults": "Sin resultados",
+      "numberAriaLabel": "Número de teléfono",
+      "exampleHint": "Ej: {{number}} ({{count}} dígitos)",
+      "errors": {
+        "tooShort": "Número demasiado corto.",
+        "tooLong": "Número demasiado largo.",
+        "invalid": "Número de teléfono inválido."
+      }
+    }
+  },
+  "auth": {
+    "login": {
+      "title": "Iniciar sesión",
+      "subtitle": "Accedé al sistema de gestión clínica",
+      "identifierLabel": "Correo o teléfono",
+      "passwordLabel": "Contraseña",
+      "showPassword": "Mostrar contraseña",
+      "hidePassword": "Ocultar contraseña",
+      "forgotPassword": "¿Olvidaste tu contraseña?",
+      "submit": "Iniciar sesión",
+      "submitting": "Ingresando...",
+      "orContinueWith": "o continuar con",
+      "googleButton": "Continuar con Google",
+      "googleButtonLoading": "Conectando...",
+      "backToHome": "Volver al inicio",
+      "resetSuccess": "Tu contraseña fue actualizada. Iniciá sesión con tu nueva contraseña.",
+      "errors": {
+        "required": "Correo/teléfono y contraseña son obligatorios.",
+        "invalidIdentifier": "Ingresá un correo o un teléfono válido.",
+        "generic": "No se pudo iniciar sesión.",
+        "googleFailed": "No se pudo iniciar sesión con Google. Intentá nuevamente."
+      }
     }
   }
 }
