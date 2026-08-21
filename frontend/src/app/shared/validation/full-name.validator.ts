@@ -20,9 +20,45 @@ const PERSON_NAME_MAX_LENGTH = 100;
 
 export type NameValidationError = 'empty' | 'single-word' | 'invalid-chars' | 'too-long' | null;
 
-/** Colapsa espacios repetidos y recorta — se aplica antes de validar y antes de guardar. */
+// Partículas que en español van en minúscula cuando NO encabezan el nombre
+// ("Juan de la Cruz", "María del Carmen"), pero se capitalizan si lo abren
+// ("De la Cruz Pérez"). Sin esto, un title-case ingenuo devolvería
+// "Juan De La Cruz", que está mal escrito.
+const LOWERCASE_PARTICLES = new Set([
+  'de', 'del', 'la', 'las', 'los', 'da', 'das', 'do', 'dos',
+  'van', 'von', 'der', 'di', 'du',
+]);
+
+// Capitaliza la primera letra de la palabra y también la que sigue a un guion
+// o a un apóstrofo: "perez-gomez" → "Perez-Gomez", "o'connor" → "O'Connor".
+function capitalizeWord(word: string): string {
+  return word.replace(
+    /(^|[-'\u2019])(\p{L})/gu,
+    (_match, separator: string, letter: string) => separator + letter.toUpperCase(),
+  );
+}
+
+/**
+ * Normaliza un nombre para que se guarde siempre igual, sin importar cómo lo
+ * haya tipeado el visitante: recorta, colapsa espacios repetidos y aplica
+ * mayúscula inicial por palabra. "  adrian   MeRcAdO " → "Adrian Mercado".
+ *
+ * Se aplica antes de validar Y antes de guardar, en las dos puntas. Usa
+ * toLowerCase()/toUpperCase() sin locale a propósito: la variante con locale
+ * solo cambia para turco/azerí y podría dar resultados distintos en Node y en
+ * el browser, y acá lo que importa es que las dos puntas coincidan exacto.
+ */
 export function normalizeFullName(value: string): string {
-  return value.trim().replace(/\s+/g, ' ');
+  const collapsed = value.trim().replace(/\s+/g, ' ');
+  if (collapsed === '') return '';
+
+  return collapsed
+    .toLowerCase()
+    .split(' ')
+    .map((word, index) =>
+      index > 0 && LOWERCASE_PARTICLES.has(word) ? word : capitalizeWord(word),
+    )
+    .join(' ');
 }
 
 /** Regla estricta: nombre + apellido (≥2 palabras). Usada en la reserva de cita. */

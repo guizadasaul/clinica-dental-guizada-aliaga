@@ -97,3 +97,27 @@ describe('validatePersonName', () => {
     expect(validatePersonName(tooLong)).toBe('too-long');
   });
 });
+
+describe('normalizeFullName — mayúsculas', () => {
+  // El nombre se guarda siempre igual sin importar cómo lo tipeó el visitante.
+  // Las partículas ("de", "la", "del") quedan en minúscula salvo que abran el
+  // nombre, porque "Juan De La Cruz" está mal escrito en español.
+  // Espejo de api/src/shared/validators/full-name.validator.spec.ts.
+  it.each([
+    ['Adrian MeRcAdO', 'Adrian Mercado'],
+    ['  adrian   mercado  ', 'Adrian Mercado'],
+    ['MARÍA JOSÉ GUTIÉRREZ', 'María José Gutiérrez'],
+    ['pérez-gómez ana', 'Pérez-Gómez Ana'],
+    ["o'connor smith", "O'Connor Smith"],
+    ['juan de la cruz', 'Juan de la Cruz'],
+    ['maría DEL carmen rojas', 'María del Carmen Rojas'],
+    ['de la cruz pérez', 'De la Cruz Pérez'],
+    ['laura', 'Laura'],  ])('normaliza "%s" a "%s"', (entrada, esperado) => {
+    expect(normalizeFullName(entrada)).toBe(esperado);
+  });
+
+  it('deja el resultado válido para las dos reglas', () => {
+    expect(validateFullName('adrian MeRcAdO')).toBeNull();
+    expect(validatePersonName('laura')).toBeNull();
+  });
+});

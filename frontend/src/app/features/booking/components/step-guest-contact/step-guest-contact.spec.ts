@@ -109,8 +109,10 @@ describe('StepGuestContactComponent', () => {
     await settle(fixture);
 
     expect(el(fixture, ERROR)).toBeNull();
+    // El nombre sale con mayúscula inicial por palabra, no como lo tipeó el
+    // visitante — se guarda siempre igual (ver normalizeFullName).
     expect(emitted).toEqual([
-      { fullName: 'maria garcia', phone: '+59177842665', email: 'maria@correo.com' },
+      { fullName: 'Maria Garcia', phone: '+59177842665', email: 'maria@correo.com' },
     ]);
   });
 
