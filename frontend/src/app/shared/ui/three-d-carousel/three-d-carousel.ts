@@ -7,6 +7,8 @@ import {
   signal,
 } from '@angular/core';
 import { TranslatePipe } from '@ngx-translate/core';
+import { MOBILE_BREAKPOINT, TABLET_BREAKPOINT } from '../../constants/breakpoints.constants';
+import { SwipeGesture } from '../../utils/swipe-gesture.util';
 
 export interface CarouselTreatment {
   readonly id: number;
@@ -18,12 +20,18 @@ export interface CarouselTreatment {
 }
 
 const DESKTOP_FACE_WIDTH = 320;
+const TABLET_FACE_WIDTH = 280;
 const MOBILE_FACE_WIDTH = 250;
-const MOBILE_BREAKPOINT = 640;
 const DRAG_ROTATION_FACTOR = 0.18;
 const FLICK_ROTATION_FACTOR = 45;
 const CLICK_DRAG_THRESHOLD = 6;
 const SETTLE_TRANSITION = 'transform 0.6s cubic-bezier(0.16, 1, 0.3, 1)';
+
+function resolveFaceWidth(viewportWidth: number): number {
+  if (viewportWidth < MOBILE_BREAKPOINT) return MOBILE_FACE_WIDTH;
+  if (viewportWidth < TABLET_BREAKPOINT) return TABLET_FACE_WIDTH;
+  return DESKTOP_FACE_WIDTH;
+}
 
 /**
  * Carrusel 3D de tratamientos: cilindro de tarjetas que rota con drag/flick
@@ -48,9 +56,7 @@ export class ThreeDCarouselComponent {
   protected readonly isDragging = signal(false);
   protected readonly flippedIndices = signal<ReadonlySet<number>>(new Set());
   protected readonly faceWidth = signal(
-    typeof window !== 'undefined' && window.innerWidth < MOBILE_BREAKPOINT
-      ? MOBILE_FACE_WIDTH
-      : DESKTOP_FACE_WIDTH,
+    typeof window !== 'undefined' ? resolveFaceWidth(window.innerWidth) : DESKTOP_FACE_WIDTH,
   );
 
   protected readonly faceAngle = computed(() => 360 / (this.items().length || 1));
@@ -60,15 +66,12 @@ export class ThreeDCarouselComponent {
   protected readonly radius = computed(() => this.cylinderWidth() / (2 * Math.PI));
   protected readonly settleTransition = SETTLE_TRANSITION;
 
-  private pointerId: number | null = null;
-  private lastX = 0;
-  private lastTime = 0;
-  private velocity = 0;
-  private dragDistance = 0;
+  private readonly swipe = new SwipeGesture();
+  private lastDragDistance = 0;
 
   @HostListener('window:resize')
   protected onResize(): void {
-    this.faceWidth.set(window.innerWidth < MOBILE_BREAKPOINT ? MOBILE_FACE_WIDTH : DESKTOP_FACE_WIDTH);
+    this.faceWidth.set(resolveFaceWidth(window.innerWidth));
   }
 
   protected faceTransform(index: number): string {
@@ -85,50 +88,35 @@ export class ThreeDCarouselComponent {
       return;
     }
 
-    this.pointerId = event.pointerId;
-    this.lastX = event.clientX;
-    this.lastTime = performance.now();
-    this.velocity = 0;
-    this.dragDistance = 0;
     this.isDragging.set(true);
-    try {
-      (event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);
-    } catch {
-      // Puntero ya inactivo (p. ej. multi-touch rápido): el drag sigue
-      // funcionando vía los listeners normales, solo sin captura.
-    }
+    this.swipe.start(event, event.currentTarget as HTMLElement);
   }
 
   protected onPointerMove(event: PointerEvent): void {
-    if (this.pointerId !== event.pointerId) return;
+    const move = this.swipe.move(event);
+    if (!move) return;
 
-    const now = performance.now();
-    const dt = Math.max(now - this.lastTime, 1);
-    const dx = event.clientX - this.lastX;
-
-    this.velocity = dx / dt;
-    this.dragDistance += Math.abs(dx);
-    this.rotation.update((value) => value + dx * DRAG_ROTATION_FACTOR);
-    this.lastX = event.clientX;
-    this.lastTime = now;
+    this.rotation.update((value) => value + move.dx * DRAG_ROTATION_FACTOR);
   }
 
   protected onPointerUp(event: PointerEvent): void {
-    if (this.pointerId !== event.pointerId) return;
-    this.pointerId = null;
-    this.isDragging.set(false);
+    const result = this.swipe.end(event);
+    if (!result) return;
 
-    const flick = this.velocity * FLICK_ROTATION_FACTOR;
+    this.isDragging.set(false);
+    this.lastDragDistance = result.distance;
+
+    const flick = result.velocity * FLICK_ROTATION_FACTOR;
     if (Math.abs(flick) > 2) {
       this.rotation.update((value) => value + flick);
     }
-    if (this.dragDistance > CLICK_DRAG_THRESHOLD) {
+    if (result.distance > CLICK_DRAG_THRESHOLD) {
       this.syncActiveIndexToRotation();
     }
   }
 
   protected onCardClick(index: number): void {
-    if (this.dragDistance > CLICK_DRAG_THRESHOLD) return;
+    if (this.lastDragDistance > CLICK_DRAG_THRESHOLD) return;
     this.focusCard(index);
   }
 

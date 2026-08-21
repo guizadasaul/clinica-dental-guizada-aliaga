@@ -3,12 +3,14 @@
     "nav": {
       "ariaLabel": "Navegação principal",
       "logoAriaLabel": "Ir para o início",
-      "logoName": "Guizada Aliaga",
+      "logoName": "Guizada-Aliaga",
       "services": "Serviços",
       "about": "Sobre Nós",
       "contact": "Contato",
       "cta": "Agendar Consulta",
-      "loginCta": "Entrar"
+      "loginCta": "Entrar",
+      "openMenuAriaLabel": "Abrir menu de navegação",
+      "closeMenuAriaLabel": "Fechar menu de navegação"
     },
     "hero": {
       "label": "Excelência Clínica Boutique",
@@ -167,8 +169,8 @@
     },
     "philosophy": {
       "eyebrow": "Sobre Nós",
-      "title": "Guizada Aliaga",
-      "body": "A Clínica Dental Guizada Aliaga nasceu em 24 de dezembro de 2010, em Cochabamba, Bolívia, da convicção de que a odontologia pode ser tanto uma ciência exata quanto um ato de cuidado humano. Desde aquele primeiro consultório, construímos um espaço onde a excelência clínica e o calor humano se encontram em perfeita harmonia.",
+      "title": "Guizada-Aliaga",
+      "body": "A Clínica Dental Guizada-Aliaga nasceu em 24 de dezembro de 2010, em Cochabamba, Bolívia, da convicção de que a odontologia pode ser tanto uma ciência exata quanto um ato de cuidado humano. Desde aquele primeiro consultório, construímos um espaço onde a excelência clínica e o calor humano se encontram em perfeita harmonia.",
       "body2": "Essa mesma convicção é sustentada, desde o primeiro dia, pelos dois odontólogos que dirigem a clínica: cada paciente merece o tempo, a atenção e o respeito que transformam uma visita ao dentista em uma experiência genuína de bem-estar.",
       "doctors": {
         "ariel": {
@@ -207,7 +209,7 @@
       "ctaBtn": "Agendar Minha Consulta Agora"
     },
     "footer": {
-      "logoName": "Guizada Aliaga",
+      "logoName": "Guizada-Aliaga",
       "tagline1": "Dê à sua vida,",
       "tagline2": "um sorriso melhor.",
       "servicesAriaLabel": "Serviços",
@@ -217,7 +219,7 @@
       "about": "Sobre Nós",
       "contact": "Contato",
       "appointment": "Agendar Consulta",
-      "copyright": "© 2026 Clínica Guizada Aliaga. Todos os direitos reservados."
+      "copyright": "© 2026 Clínica Guizada-Aliaga. Todos os direitos reservados."
     },
     "noProfileBanner": {
       "title": "Você ainda não tem uma conta de paciente",

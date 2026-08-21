@@ -7,6 +7,14 @@
   // las flechas de cambiar testimonio quedaban visibles por encima del
   // modal de "Deja un comentario". Con más margen no hay ambigüedad.
   z-index: 30;
+
+  // .stagger-testimonials__controls (flechas prev/next) también está
+  // bottom + centrado. En desktop el contenedor es ancho y no se tocan,
+  // pero en mobile el centro queda cerca del borde derecho y este botón
+  // les queda encima — lo subimos por arriba de esa fila.
+  @media (max-width: 640px) {
+    bottom: calc(var(--space-4) + 3.25rem + var(--space-2));
+  }
 }
 
 .testimonial-trigger {
@@ -57,6 +65,14 @@
   border-radius: var(--radius-xl);
   background: var(--color-surface);
   box-shadow: var(--shadow-xl);
+
+  // Con el padding + gaps de desktop, el formulario entero apenas entraba
+  // en la altura de un celular (peor todavía con el teclado abierto) —
+  // menos aire acá y en el formulario (ver testimonial-form.scss).
+  @media (max-width: 640px) {
+    padding: var(--space-5);
+    max-height: 85vh;
+  }
 }
 
 .testimonial-modal__close {
@@ -100,4 +116,9 @@
   line-height: 1.65;
   margin: 0 0 var(--space-6);
   text-wrap: pretty;
+
+  @media (max-width: 640px) {
+    margin: 0 0 var(--space-4);
+    font-size: var(--font-size-sm);
+  }
 }

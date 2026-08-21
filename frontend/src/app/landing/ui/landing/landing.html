@@ -8,6 +8,17 @@
   [attr.aria-label]="'landing.nav.ariaLabel' | translate"
 >
   <div class="navbar__inner">
+    <button
+      type="button"
+      class="navbar__toggle"
+      aria-controls="mobile-nav-panel"
+      [attr.aria-expanded]="mobileMenuOpen()"
+      [attr.aria-label]="(mobileMenuOpen() ? 'landing.nav.closeMenuAriaLabel' : 'landing.nav.openMenuAriaLabel') | translate"
+      (click)="toggleMobileMenu()"
+    >
+      <span class="material-symbols-outlined" aria-hidden="true">{{ mobileMenuOpen() ? 'close' : 'menu' }}</span>
+    </button>
+
     <a href="/" class="navbar__logo" [attr.aria-label]="'landing.nav.logoAriaLabel' | translate">
       <img
         class="navbar__logo-img"
@@ -33,6 +44,50 @@
     </div>
   </div>
 </nav>
+
+<!--
+  Fuera de <nav> a propósito: .navbar gana backdrop-filter en
+  .navbar--scrolled, y un backdrop-filter en un ancestro crea un nuevo
+  containing block para descendientes position:fixed — el panel/backdrop
+  quedaban encajonados dentro de la franja de 4.5rem del navbar (en vez de
+  cubrir toda la pantalla) apenas se abría el menú habiendo scrolleado.
+-->
+@if (mobileMenuOpen()) {
+  <div class="navbar__mobile-backdrop" (click)="closeMobileMenu()"></div>
+  <div
+    id="mobile-nav-panel"
+    class="navbar__mobile-panel"
+    role="dialog"
+    aria-modal="true"
+    [attr.aria-label]="'landing.nav.ariaLabel' | translate"
+  >
+    <div class="navbar__mobile-header">
+      <a href="/" class="navbar__mobile-logo" [attr.aria-label]="'landing.nav.logoAriaLabel' | translate" (click)="closeMobileMenu()">
+        <img src="assets/images/LogoHorizontal.png" [alt]="'landing.nav.logoName' | translate" />
+      </a>
+    </div>
+
+    <ul class="navbar__mobile-links" role="list">
+      <li><a href="#servicios" class="navbar__mobile-link" (click)="navigateToMobileSection($event, 'servicios')">{{ 'landing.nav.services' | translate }}</a></li>
+      <li><a href="#nosotros" class="navbar__mobile-link" (click)="navigateToMobileSection($event, 'nosotros')">{{ 'landing.nav.about' | translate }}</a></li>
+      <li><a href="#contacto" class="navbar__mobile-link" (click)="navigateToMobileSection($event, 'contacto')">{{ 'landing.nav.contact' | translate }}</a></li>
+    </ul>
+    <div class="navbar__mobile-actions">
+      <app-lang-switcher class="navbar__mobile-lang" />
+      <a routerLink="/auth/login" class="navbar__mobile-login-link" (click)="closeMobileMenu()">
+        {{ 'landing.nav.loginCta' | translate }}
+      </a>
+      <button
+        type="button"
+        class="btn-primary"
+        appOriginFill
+        (click)="closeMobileMenu(); openBookingModal()"
+      >
+        {{ 'landing.nav.cta' | translate }}
+      </button>
+    </div>
+  </div>
+}
 
 @if (showNoProfileBanner()) {
   <div class="no-profile-banner" role="status">

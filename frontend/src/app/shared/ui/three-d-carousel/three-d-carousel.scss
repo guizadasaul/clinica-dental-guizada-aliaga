@@ -1,3 +1,5 @@
+@use 'breakpoints' as bp;
+
 :host {
   display: block;
 }
@@ -15,6 +17,12 @@
   display: flex;
   align-items: center;
   justify-content: center;
+  // El track (ver .three-d-carousel__track) tiene un ancho "crudo" pre-3D
+  // de cientos/miles de px según la cantidad de tarjetas; el perspective +
+  // rotateY lo hace lucir compacto, pero sin este overflow:hidden el
+  // scrollWidth real de esa caja se propaga y genera scroll horizontal de
+  // toda la landing en mobile.
+  overflow: hidden;
   perspective: 2800px;
   cursor: grab;
 
@@ -87,6 +95,15 @@
     background: var(--color-navy);
     transform: rotateY(180deg);
   }
+
+  // En desktop las tarjetas son anchas y los chips casi nunca pasan de una
+  // línea, así que "Conocer más"/"Volver" quedan alineados solo con
+  // .chips/.back-desc en flex:1. En mobile la tarjeta es angosta (más
+  // ancho ocupado = más líneas de chips) y esa altura variable corría el
+  // botón de tarjeta a tarjeta — acá abajo se fija su posición.
+  @include bp.down('sm') {
+    padding-bottom: calc(var(--space-8) + 2.5rem);
+  }
 }
 
 .three-d-carousel__hit {
@@ -123,6 +140,15 @@
   flex: 1;
   pointer-events: none;
   align-content: flex-start;
+
+  // El botón de abajo pasa a position:absolute en mobile (ver &__link) —
+  // si un tratamiento trae muchos chips y no entran, se recortan en vez
+  // de estirar la tarjeta y correr el botón. Gap más chico acá también
+  // ayuda a que entren más líneas antes de llegar a ese límite.
+  @include bp.down('sm') {
+    overflow: hidden;
+    gap: var(--space-1);
+  }
 }
 
 .three-d-carousel__chip {
@@ -135,6 +161,15 @@
   border: 1px solid rgb(255 255 255 / 0.22);
   backdrop-filter: blur(6px);
   -webkit-backdrop-filter: blur(6px);
+
+  // Tratamientos con 5 ítems y alguno largo (p.ej. Cirugía Oral) no entraban
+  // en el alto disponible de una tarjeta angosta (250px) y el último chip
+  // quedaba cortado contra el botón "Conocer más". Chips más chicos en
+  // mobile bajan la cantidad de líneas necesarias.
+  @include bp.down('sm') {
+    font-size: var(--font-size-xs);
+    padding: 0.125rem var(--space-2);
+  }
 }
 
 .three-d-carousel__link {
@@ -159,6 +194,13 @@
   &:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; border-radius: 2px; }
 
   .material-symbols-outlined { font-size: 1.125rem; }
+
+  @include bp.down('sm') {
+    position: absolute;
+    left: var(--space-8);
+    right: var(--space-8);
+    bottom: var(--space-8);
+  }
 }
 
 .three-d-carousel__back-desc {
@@ -170,6 +212,10 @@
   flex: 1;
   pointer-events: none;
   color: rgb(249 246 241 / 0.85);
+
+  @include bp.down('sm') {
+    overflow: hidden;
+  }
 }
 
 .three-d-carousel__back-btn {
@@ -193,6 +239,13 @@
   &:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; border-radius: 2px; }
 
   .material-symbols-outlined { font-size: 1.125rem; }
+
+  @include bp.down('sm') {
+    position: absolute;
+    left: var(--space-8);
+    right: var(--space-8);
+    bottom: var(--space-8);
+  }
 }
 
 .three-d-carousel__controls {
