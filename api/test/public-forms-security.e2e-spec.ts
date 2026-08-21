@@ -117,4 +117,44 @@ describe('Public forms security (e2e) — CLI-36', () => {
       await prisma.testimonials.delete({ where: { id } });
     });
   });
+
+  // Regresión de CLI-36: el forbidNonWhitelisted global habría roto este
+  // endpoint en producción. El POST real de BANECO trae bastante más que
+  // { payment: { qrId } }, y el banco puede sumar campos sin avisarnos.
+  // Se verifica que NO devuelva 400 por propiedades no declaradas — el
+  // resultado del negocio (qrId inexistente) es otra cosa.
+  describe('POST /payments/baneco/webhook (payload de un tercero)', () => {
+    const banecoPayload = {
+      payment: {
+        qrId: 'QR-INEXISTENTE-E2E',
+        transactionId: 'TX-999',
+        amount: 250.0,
+        currency: 'BOB',
+        paymentDate: '2026-08-21',
+        senderName: 'Juan Perez',
+        senderAccount: '1234567890',
+        branchCode: '001',
+      },
+      notificationId: 'notif-abc',
+      sentAt: '2026-08-21T13:00:00Z',
+    };
+
+    it('acepta campos no declarados en vez de rechazarlos con 400', async () => {
+      const res = await request(app.getHttpServer())
+        .post('/payments/baneco/webhook')
+        .send(banecoPayload);
+
+      expect(res.status).not.toBe(400);
+      expect(JSON.stringify(res.body)).not.toContain('should not exist');
+    });
+
+    it('sigue rechazando un payload al que le falta lo obligatorio', async () => {
+      const res = await request(app.getHttpServer())
+        .post('/payments/baneco/webhook')
+        .send({ payment: { transactionId: 'TX-1' } });
+
+      expect(res.status).toBe(400);
+    });
+  });
+
 });
