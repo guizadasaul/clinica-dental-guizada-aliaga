@@ -3,12 +3,14 @@
     "nav": {
       "ariaLabel": "Main navigation",
       "logoAriaLabel": "Go to home",
-      "logoName": "Guizada Aliaga",
+      "logoName": "Guizada-Aliaga",
       "services": "Services",
       "about": "About Us",
       "contact": "Contact",
       "cta": "Book Now",
-      "loginCta": "Log In"
+      "loginCta": "Log In",
+      "openMenuAriaLabel": "Open navigation menu",
+      "closeMenuAriaLabel": "Close navigation menu"
     },
     "hero": {
       "label": "Boutique Clinical Excellence",
@@ -167,8 +169,8 @@
     },
     "philosophy": {
       "eyebrow": "About Us",
-      "title": "Guizada Aliaga",
-      "body": "Clínica Dental Guizada Aliaga was born on December 24, 2010, in Cochabamba, Bolivia, out of the conviction that dentistry can be both an exact science and an act of human care. From that first practice, we built a space where clinical excellence and the warmth of human care meet in perfect harmony.",
+      "title": "Guizada-Aliaga",
+      "body": "Clínica Dental Guizada-Aliaga was born on December 24, 2010, in Cochabamba, Bolivia, out of the conviction that dentistry can be both an exact science and an act of human care. From that first practice, we built a space where clinical excellence and the warmth of human care meet in perfect harmony.",
       "body2": "That same conviction has been upheld from day one by the two dentists who lead the practice: every patient deserves the time, attention, and respect that turn a dental visit into a genuine experience of well-being.",
       "doctors": {
         "ariel": {
@@ -207,7 +209,7 @@
       "ctaBtn": "Book My Appointment Now"
     },
     "footer": {
-      "logoName": "Guizada Aliaga",
+      "logoName": "Guizada-Aliaga",
       "tagline1": "Give your life,",
       "tagline2": "a better smile.",
       "servicesAriaLabel": "Services",
@@ -217,7 +219,7 @@
       "about": "About Us",
       "contact": "Contact",
       "appointment": "Book Appointment",
-      "copyright": "© 2026 Clínica Guizada Aliaga. All rights reserved."
+      "copyright": "© 2026 Clínica Guizada-Aliaga. All rights reserved."
     },
     "noProfileBanner": {
       "title": "You don't have a patient account yet",

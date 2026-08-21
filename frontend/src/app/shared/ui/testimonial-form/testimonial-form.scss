@@ -8,6 +8,13 @@
   gap: var(--space-5);
   font-family: var(--font-body);
 
+  // El modal ya reduce su propio padding en mobile (ver testimonial-cta)
+  // — acá además achicamos el aire entre campos y el alto del textarea
+  // para que el formulario entero no quede más alto que la pantalla.
+  @media (max-width: 640px) {
+    gap: var(--space-3);
+  }
+
   &__field {
     display: flex;
     flex-direction: column;
@@ -35,6 +42,10 @@
     outline: none;
     transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
 
+    @media (max-width: 640px) {
+      padding: var(--space-2) var(--space-3);
+    }
+
     &::placeholder { color: var(--color-gray-400); }
 
     &:focus {
@@ -47,6 +58,13 @@
     resize: vertical;
     min-height: 8rem;
     line-height: 1.6;
+
+    // El HTML trae rows="5", que fija un alto intrínseco propio — min-height
+    // solo no alcanza para achicarlo, hace falta pisarlo con height.
+    @media (max-width: 640px) {
+      height: 5.5rem;
+      min-height: 5.5rem;
+    }
   }
 
   &__count {

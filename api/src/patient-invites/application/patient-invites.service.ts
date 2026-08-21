@@ -76,7 +76,7 @@ export class PatientInvitesService {
       return {};
     }
 
-    const message = `Hola ${contact.fullName}, completá tu registro en Clínica Guizada Aliaga acá: ${inviteUrl}`;
+    const message = `Hola ${contact.fullName}, completá tu registro en Clínica Guizada-Aliaga acá: ${inviteUrl}`;
     return { whatsappUrl: buildWhatsappUrl(contact.phone!, message) };
   }
 

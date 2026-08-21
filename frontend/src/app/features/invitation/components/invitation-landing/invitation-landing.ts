@@ -6,13 +6,12 @@ import { firstValueFrom } from 'rxjs';
 import { AuthService } from '../../../../auth/application/auth.service';
 import { PatientInvitesService } from '../../../patient-invites/services/patient-invites.service';
 import { looksLikePhone, normalizePhone } from '../../../../auth/application/phone.util';
-import { LogoComponent } from '../../../../shared/ui/logo/logo';
 
 @Component({
   selector: 'app-invitation-landing',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [RouterLink, FormsModule, LogoComponent],
+  imports: [RouterLink, FormsModule],
   templateUrl: './invitation-landing.html',
   styleUrl: './invitation-landing.scss',
 })

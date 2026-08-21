@@ -2,13 +2,12 @@ import { Component, ChangeDetectionStrategy, signal, inject, OnInit } from '@ang
 import { FormsModule } from '@angular/forms';
 import { RouterLink, Router } from '@angular/router';
 import { AuthService } from '../../application/auth.service';
-import { LogoComponent } from '../../../shared/ui/logo/logo';
 
 @Component({
   selector: 'app-reset-password',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [RouterLink, FormsModule, LogoComponent],
+  imports: [RouterLink, FormsModule],
   templateUrl: './reset-password.html',
   styleUrl: './reset-password.scss',
 })

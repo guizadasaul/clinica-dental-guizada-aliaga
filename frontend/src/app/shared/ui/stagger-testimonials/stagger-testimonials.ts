@@ -1,6 +1,8 @@
 import { ChangeDetectionStrategy, Component, HostListener, computed, effect, input, signal } from '@angular/core';
 import { TranslatePipe } from '@ngx-translate/core';
 import { LogoComponent } from '../logo/logo';
+import { MOBILE_BREAKPOINT, TABLET_BREAKPOINT } from '../../constants/breakpoints.constants';
+import { SwipeGesture } from '../../utils/swipe-gesture.util';
 
 export interface StaggerTestimonial {
   readonly id: string;
@@ -20,8 +22,19 @@ interface CardDimensions {
 }
 
 const DESKTOP_CARD: CardDimensions = { width: 340, height: 440 };
+const TABLET_CARD: CardDimensions = { width: 300, height: 410 };
 const MOBILE_CARD: CardDimensions = { width: 270, height: 380 };
-const MOBILE_BREAKPOINT = 640;
+
+// Debajo de este desplazamiento neto, un swipe se trata como click normal
+// de la tarjeta (ver onCardClick). Por encima, cambia de tarjeta.
+const CLICK_DRAG_THRESHOLD = 6;
+const SWIPE_TRIGGER_THRESHOLD = 40;
+
+function resolveCard(viewportWidth: number): CardDimensions {
+  if (viewportWidth < MOBILE_BREAKPOINT) return MOBILE_CARD;
+  if (viewportWidth < TABLET_BREAKPOINT) return TABLET_CARD;
+  return DESKTOP_CARD;
+}
 
 /**
  * Pila de testimonios escalonados: tarjetas superpuestas en abanico, la
@@ -44,9 +57,13 @@ export class StaggerTestimonialsComponent {
 
   protected readonly slots = signal<StaggerSlot[]>([]);
   protected readonly card = signal<CardDimensions>(
-    typeof window !== 'undefined' && window.innerWidth < MOBILE_BREAKPOINT ? MOBILE_CARD : DESKTOP_CARD,
+    typeof window !== 'undefined' ? resolveCard(window.innerWidth) : DESKTOP_CARD,
   );
   protected readonly stageHeight = computed(() => this.card().height + 200);
+  protected readonly isDragging = signal(false);
+
+  private readonly swipe = new SwipeGesture();
+  private lastDragDistance = 0;
 
   constructor() {
     // Suma a slots los items() nuevos (por id) sin tocar la posición/rotación
@@ -67,7 +84,42 @@ export class StaggerTestimonialsComponent {
 
   @HostListener('window:resize')
   protected onResize(): void {
-    this.card.set(window.innerWidth < MOBILE_BREAKPOINT ? MOBILE_CARD : DESKTOP_CARD);
+    this.card.set(resolveCard(window.innerWidth));
+  }
+
+  protected onPointerDown(event: PointerEvent): void {
+    // Los botones prev/next tienen su propio (click); no arrancamos el
+    // drag ahí para no pisarles el click nativo (mismo criterio que el
+    // carrusel 3D de servicios con sus botones internos).
+    if ((event.target as HTMLElement).closest('.stagger-nav')) {
+      return;
+    }
+
+    this.isDragging.set(true);
+    this.swipe.start(event, event.currentTarget as HTMLElement);
+  }
+
+  protected onPointerMove(event: PointerEvent): void {
+    this.swipe.move(event);
+  }
+
+  protected onPointerUp(event: PointerEvent): void {
+    const result = this.swipe.end(event);
+    if (!result) return;
+
+    this.isDragging.set(false);
+    this.lastDragDistance = result.distance;
+
+    if (Math.abs(result.netDx) > SWIPE_TRIGGER_THRESHOLD) {
+      // Swipe a la izquierda (netDx negativo) trae la siguiente tarjeta,
+      // igual que el botón "next".
+      this.handleMove(result.netDx < 0 ? 1 : -1);
+    }
+  }
+
+  protected onCardClick(index: number): void {
+    if (this.lastDragDistance > CLICK_DRAG_THRESHOLD) return;
+    this.handleMove(this.position(index));
   }
 
   protected position(index: number): number {

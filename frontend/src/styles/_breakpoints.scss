@@ -1,0 +1,38 @@
+// src/styles/_breakpoints.scss
+// Breakpoints centralizados — evita repetir literales `px` sueltos en cada
+// @media de cada componente. Deben mantenerse sincronizados a mano con
+// frontend/src/app/shared/constants/breakpoints.constants.ts (Sass y TS no
+// comparten valores sin tooling adicional).
+
+$breakpoints: (
+  'xs': 480px,
+  'sm': 640px,
+  'md': 768px,
+  'lg': 1024px,
+  'xl': 1280px,
+);
+
+@function bp($name) {
+  @return map-get($breakpoints, $name);
+}
+
+@mixin up($name) {
+  @media (min-width: bp($name)) {
+    @content;
+  }
+}
+
+@mixin down($name) {
+  @media (max-width: bp($name) - 1px) {
+    @content;
+  }
+}
+
+// Mobile landscape real (p.ej. celular rotado): el viewport es bajo aunque
+// el ancho supere el breakpoint "md", así que un @media solo por ancho
+// categoriza mal estos casos como desktop.
+@mixin landscape-short {
+  @media (max-height: 500px) and (orientation: landscape) {
+    @content;
+  }
+}

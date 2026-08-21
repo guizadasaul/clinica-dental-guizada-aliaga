@@ -83,6 +83,7 @@ export class LandingComponent implements AfterViewInit, OnDestroy {
   // El selector de horarios ya no vive fijo en la landing: se abre en un
   // modal al apretar "Reservar Cita" (navbar o CTA de contacto).
   protected readonly bookingModalOpen = signal(false);
+  protected readonly mobileMenuOpen = signal(false);
   private gsapContext: { revert(): void } | null = null;
   private sporeCleanup: (() => void) | null = null;
 
@@ -272,6 +273,14 @@ export class LandingComponent implements AfterViewInit, OnDestroy {
       this.scrollLock.lock();
       onCleanup(() => this.scrollLock.unlock());
     });
+
+    effect((onCleanup) => {
+      if (!this.mobileMenuOpen()) {
+        return;
+      }
+      this.scrollLock.lock();
+      onCleanup(() => this.scrollLock.unlock());
+    });
   }
 
   @HostListener('window:scroll')
@@ -291,8 +300,33 @@ export class LandingComponent implements AfterViewInit, OnDestroy {
     this.bookingModalOpen.set(false);
   }
 
+  protected toggleMobileMenu(): void {
+    this.mobileMenuOpen.update((open) => !open);
+  }
+
+  protected closeMobileMenu(): void {
+    this.mobileMenuOpen.set(false);
+  }
+
+  // El scroll-lock se libera vía effect() (ver constructor), que corre
+  // async respecto al click. Si dejamos que el <a href="#..."> navegue
+  // nativo en el mismo click que cierra el menú, el navegador intenta
+  // saltar al ancla mientras el overflow:hidden del lock todavía está
+  // puesto y el salto no hace nada. Por eso interceptamos y reintentamos
+  // el scroll en un tick posterior, cuando el lock ya se liberó.
+  protected navigateToMobileSection(event: MouseEvent, sectionId: string): void {
+    event.preventDefault();
+    this.closeMobileMenu();
+    setTimeout(() => {
+      document.getElementById(sectionId)?.scrollIntoView();
+    });
+  }
+
   @HostListener('document:keydown.escape')
   protected onEscape(): void {
+    if (this.mobileMenuOpen()) {
+      this.closeMobileMenu();
+    }
     if (this.bookingModalOpen()) {
       this.closeBookingModal();
     }

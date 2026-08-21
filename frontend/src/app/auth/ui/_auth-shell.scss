@@ -27,15 +27,12 @@
     margin-bottom: var(--space-2);
   }
 
-  &__logo-symbol {
-    height: 1.75rem;
-  }
-
-  &__logo-text {
-    font-family: var(--font-headline);
-    font-size: var(--font-size-lg);
-    color: var(--color-navy);
-    font-weight: 600;
+  &__logo-img {
+    // El wordmark ya viene con la tipografía correcta horneada en el PNG
+    // (el mismo que usa el navbar) — evita tener que matchear una fuente
+    // web aparte para el texto "Guizada-Aliaga".
+    height: 2rem;
+    width: auto;
   }
 
   &__title {

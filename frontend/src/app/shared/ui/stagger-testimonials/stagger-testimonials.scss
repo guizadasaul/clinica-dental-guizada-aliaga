@@ -8,6 +8,14 @@
   overflow: hidden;
   border-radius: var(--radius-xl);
   background: var(--color-surface-dim);
+  cursor: grab;
+  // Deja que el scroll vertical de la página siga andando mientras se
+  // capturan los gestos horizontales (swipe entre tarjetas).
+  touch-action: pan-y;
+
+  &--dragging {
+    cursor: grabbing;
+  }
 }
 
 .stagger-card {

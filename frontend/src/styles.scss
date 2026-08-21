@@ -10,6 +10,9 @@ html {
   font-family: var(--font-body);
   background: var(--color-bg);
   color: var(--color-text);
+  // Red de seguridad: ningún elemento interno debería poder generar scroll
+  // horizontal de página (ver overflow del carrusel 3D de servicios).
+  overflow-x: hidden;
 }
 
 *, *::before, *::after {
@@ -18,6 +21,7 @@ html {
 
 body {
   margin: 0;
+  overflow-x: hidden;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }

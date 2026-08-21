@@ -3,6 +3,8 @@
 // .reveal, .animate-*, .hide-scrollbar, .origin-fill → styles.scss
 // ============================================================
 
+@use 'breakpoints' as bp;
+
 :host {
   display: block;
 }
@@ -87,6 +89,10 @@
 .btn-primary {
   display: inline-flex;
   align-items: center;
+  // El panel mobile estira este botón a lo ancho (&__mobile-actions es
+  // align-items:stretch); sin justify-content el texto quedaba pegado a
+  // la izquierda del botón ya ensanchado, en vez de centrado.
+  justify-content: center;
   white-space: nowrap;
   gap: var(--space-2);
   padding: var(--space-3) var(--space-6);
@@ -201,13 +207,17 @@
   }
 
   &__actions {
-    display: flex;
+    // <768px el logo quedaba aplastado contra selector de idioma + CTA +
+    // login — los tres se mudan al panel mobile (&__mobile-actions) y en
+    // el header de abajo solo quedan hamburguesa (izquierda) + logo.
+    display: none;
     align-items: center;
     gap: var(--space-3);
+
+    @include bp.up('md') { display: flex; }
   }
 
   &__login-link {
-    display: none;
     font-size: var(--font-size-sm);
     font-weight: 500;
     color: var(--color-text-muted);
@@ -216,7 +226,165 @@
 
     &:hover { color: var(--color-navy); }
 
+    // &__actions ya está oculto <768px — este umbral propio (640px) solo
+    // importa dentro del rango ≥768px, donde siempre es true; queda como
+    // estaba para no tocar el comportamiento de desktop.
+    display: none;
+
     @media (min-width: 640px) { display: inline-block; }
+  }
+
+  // Hamburguesa — ahora vive a la izquierda del logo (primer hijo de
+  // &__inner en el HTML), visible solo <768px, espejo de cómo &__links
+  // aparece a partir de ahí.
+  &__toggle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.75rem;
+    height: 2.75rem;
+    border-radius: var(--radius-full);
+    border: 1.5px solid var(--color-border);
+    background: var(--color-surface);
+    color: var(--color-navy);
+    cursor: pointer;
+    transition: background 0.2s ease, border-color 0.2s ease;
+
+    .material-symbols-outlined { font-size: 1.5rem; }
+
+    &:hover {
+      background: var(--color-primary-light);
+      border-color: var(--color-primary);
+    }
+
+    &:focus-visible {
+      outline: 2px solid var(--color-primary);
+      outline-offset: 2px;
+    }
+
+    @include bp.up('md') { display: none; }
+  }
+}
+
+// PANEL MOBILE — reemplaza a &__links por debajo de 768px, mismo idioma
+// visual que el dropdown de lang-switcher (fondo crema, sombra, animación).
+.navbar__mobile-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 45;
+  background: rgb(0 0 0 / 0.35);
+  animation: navbar-backdrop-in 0.15s ease;
+}
+
+.navbar__mobile-panel {
+  position: fixed;
+  // top:0 (no 4.5rem) para que el fondo del drawer llegue hasta arriba de
+  // la pantalla — así la hamburguesa/X de &__inner (z-index:50, por
+  // encima del panel) queda visualmente "dentro" del drawer en vez de
+  // suelta encima de él. El padding-top de acá abajo compensa esa franja
+  // para que el contenido (logo, links) no arranque tapado por la barra.
+  inset-block: 0;
+  left: 0;
+  // Drawer angosto, no un dropdown a todo el ancho — sale del mismo lado
+  // donde está la hamburguesa. Nunca más de la mitad de la pantalla.
+  width: min(50vw, 18rem);
+  z-index: 46;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+  padding: var(--space-6);
+  padding-top: calc(4.5rem + var(--space-6));
+  overflow-y: auto;
+  background: var(--color-cream);
+  box-shadow: var(--shadow-lg);
+  animation: drawer-in 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+
+  @include bp.up('md') { display: none; }
+}
+
+.navbar__mobile-header {
+  display: flex;
+  align-items: center;
+  padding-bottom: var(--space-4);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.navbar__mobile-logo {
+  display: flex;
+  align-items: center;
+
+  img {
+    display: block;
+    height: 2.1rem;
+    width: auto;
+  }
+}
+
+.navbar__mobile-links {
+  display: flex;
+  flex-direction: column;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  gap: var(--space-4);
+}
+
+.navbar__mobile-link {
+  display: block;
+  padding-block: var(--space-2);
+  font-size: var(--font-size-lg);
+  font-weight: 500;
+  color: var(--color-text);
+  text-decoration: none;
+
+  &:hover { color: var(--color-primary-dark); }
+
+  &:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 4px;
+    border-radius: 2px;
+  }
+}
+
+.navbar__mobile-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--space-4);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--color-border);
+}
+
+.navbar__mobile-lang {
+  // El resto de &__mobile-actions se estira (align-items: stretch), pero
+  // el selector de idioma es un botón chico de ancho fijo — centrado en
+  // vez de un host invisible ocupando todo el ancho.
+  align-self: center;
+}
+
+.navbar__mobile-login-link {
+  font-size: var(--font-size-base);
+  font-weight: 500;
+  color: var(--color-text-muted);
+  text-decoration: none;
+  text-align: center;
+
+  &:hover { color: var(--color-navy); }
+}
+
+@keyframes navbar-backdrop-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes drawer-in {
+  from {
+    opacity: 0;
+    transform: translateX(-1rem);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
   }
 }
 
@@ -311,6 +479,13 @@
   background: var(--color-surface);
   padding-top: clamp(5.5rem, 11vh, 7rem);
   padding-bottom: var(--space-8);
+
+  // El slogan queda pegado arriba, justo debajo del navbar, con mucho aire
+  // vacío antes del abanico (que además ahora tiene su altura topeada en
+  // mobile — ver .hero__fan). Bajarlo reparte mejor ese espacio libre.
+  @media (max-width: 640px) {
+    padding-top: clamp(8rem, 20vh, 11rem);
+  }
 
   &__backdrop {
     position: absolute;
@@ -442,7 +617,33 @@
   @media (max-width: 640px) {
     --fan-card-w: clamp(6rem, 22vw, 9rem);
     --fan-h: clamp(20rem, 46vh, 30rem);
-    min-height: calc(var(--fan-h) * 0.7);
+    // En mobile el .hero (100svh) suele dejar mucho más espacio libre que
+    // el título+abanico necesitan (relación de aspecto angosta y alta), y
+    // como .hero__fan es flex:1 1 auto, sin este techo crece hasta llenar
+    // ese sobrante — más alto que --fan-h — y los instrumentos dejan de
+    // recortarse (se ven completos en vez del "solo puntas" de desktop).
+    // 0.85 en vez del 0.6 de desktop: en mobile se pidió ver un poco más
+    // de cada instrumento, no solo las puntas.
+    min-height: calc(var(--fan-h) * 0.85);
+    max-height: calc(var(--fan-h) * 0.85);
+    // Con la altura ya topeada, el sobrante de flex-grow que sobra queda
+    // "suelto" después del abanico (hueco vacío antes de la sección
+    // siguiente) salvo que lo absorbamos como margen ARRIBA — así el
+    // abanico se mantiene pegado al borde inferior del hero, igual que en
+    // desktop, y el aire de más queda entre el título y el abanico.
+    margin-top: auto;
+  }
+
+  // Mobile landscape (celular rotado, ancho >640px pero viewport bajo): el
+  // breakpoint de arriba es por ancho y no aplica acá, así que sin esto
+  // --fan-h se queda en el piso desktop (30rem) y se come casi toda una
+  // pantalla de ~375px de alto.
+  @include bp.landscape-short {
+    --fan-card-w: clamp(5rem, 16vw, 8rem);
+    --fan-h: clamp(14rem, 46vh, 22rem);
+    min-height: calc(var(--fan-h) * 0.75);
+    max-height: calc(var(--fan-h) * 0.75);
+    margin-top: auto;
   }
 }
 
@@ -679,9 +880,17 @@
 
   &__photo {
     position: relative;
-    height: 28rem;
+    // .philosophy-split solo pasa a 2 columnas en 1024px (más abajo en
+    // este archivo), así que toda pantalla <1024px — incluidas tablets —
+    // usa esta altura. clamp() la achica en viewports angostos/bajos en
+    // vez de quedar fija en 28rem en todos ellos.
+    height: clamp(16rem, 46vw, 28rem);
     overflow: hidden;
     background: rgb(0 0 0 / 0.2);
+
+    @include bp.landscape-short {
+      height: 14rem;
+    }
   }
 
   &__img {

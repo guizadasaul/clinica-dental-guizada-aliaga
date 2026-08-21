@@ -1,4 +1,12 @@
-<div class="stagger-testimonials" [style.height.px]="stageHeight()">
+<div
+  class="stagger-testimonials"
+  [style.height.px]="stageHeight()"
+  [class.stagger-testimonials--dragging]="isDragging()"
+  (pointerdown)="onPointerDown($event)"
+  (pointermove)="onPointerMove($event)"
+  (pointerup)="onPointerUp($event)"
+  (pointercancel)="onPointerUp($event)"
+>
   @for (item of slots(); track item.slotId; let i = $index) {
     <button
       type="button"
@@ -7,7 +15,7 @@
       [style.width.px]="card().width"
       [style.height.px]="card().height"
       [style.transform]="cardTransform(position(i))"
-      (click)="handleMove(position(i))"
+      (click)="onCardClick(i)"
     >
       <span class="stagger-card__fold" aria-hidden="true"></span>
 
