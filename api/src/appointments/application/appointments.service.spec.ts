@@ -58,6 +58,9 @@ describe('AppointmentsService', () => {
   let service: AppointmentsService;
 
   beforeEach(async () => {
+    // Congela el reloj antes de MONDAY para que holdSlot() no rechace los
+    // slots fijos de este spec como "pasados" a medida que el tiempo avanza.
+    jest.useFakeTimers().setSystemTime(new Date('2026-08-14T12:00:00-04:00'));
     jest.clearAllMocks();
     const module = await Test.createTestingModule({
       providers: [
@@ -66,6 +69,10 @@ describe('AppointmentsService', () => {
       ],
     }).compile();
     service = module.get(AppointmentsService);
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
   });
 
   describe('getAvailability', () => {
@@ -197,7 +204,11 @@ describe('AppointmentsService', () => {
 
       expect(mockRepo.updateGuestContact).toHaveBeenCalledWith(
         'appt-1',
-        { fullName: 'Juana Perez', phone: '70011122', email: 'juana@example.com' },
+        {
+          fullName: 'Juana Perez',
+          phone: '70011122',
+          email: 'juana@example.com',
+        },
         expect.any(Date),
       );
     });
