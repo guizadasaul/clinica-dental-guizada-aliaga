@@ -2,6 +2,17 @@
   display: block;
 }
 
+// Honeypot anti-bot: fuera de pantalla por posición (no display:none / visibility:hidden,
+// que muchos bots saltean al leer computed style), pero perfectamente "visible" para
+// cualquier bot que solo mire el DOM.
+.testimonial-form__honeypot {
+  position: absolute;
+  left: -9999px;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+}
+
 .testimonial-form {
   display: flex;
   flex-direction: column;

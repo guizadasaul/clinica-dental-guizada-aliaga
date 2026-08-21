@@ -47,47 +47,86 @@
       "categories": {
         "general": {
           "title": "Odontologia Geral",
-          "items": ["Consulta odontológica", "Limpeza e profilaxia", "Tratamento de cáries", "Selantes dentários", "Aplicação de flúor"],
+          "items": [
+            "Consulta odontológica",
+            "Limpeza e profilaxia",
+            "Tratamento de cáries",
+            "Selantes dentários",
+            "Aplicação de flúor"
+          ],
           "description": "Cuidamos da saúde dos seus dentes com tratamentos preventivos e restauradores para manter um sorriso saudável."
         },
         "esthetic": {
           "title": "Odontologia Estética",
-          "items": ["Clareamento dental a laser", "Restaurações estéticas em resina"],
+          "items": [
+            "Clareamento dental a laser",
+            "Restaurações estéticas em resina"
+          ],
           "description": "Melhoramos a aparência do seu sorriso com tratamentos pensados para dentes mais brancos e uma estética natural."
         },
         "periodontics": {
           "title": "Periodontia",
-          "items": ["Limpeza dental", "Raspagem", "Tratamento de gengivas", "Gengivectomia"],
+          "items": [
+            "Limpeza dental",
+            "Raspagem",
+            "Tratamento de gengivas",
+            "Gengivectomia"
+          ],
           "description": "Prevenimos e tratamos doenças gengivais para manter uma boca saudável e livre de inflamação."
         },
         "endodontics": {
           "title": "Endodontia",
-          "items": ["Tratamento de canal", "Retratamento de canal"],
+          "items": [
+            "Tratamento de canal",
+            "Retratamento de canal"
+          ],
           "description": "Tratamos infecções e lesões no interior do dente para preservá-lo e aliviar a dor."
         },
         "surgery": {
           "title": "Cirurgia Oral",
-          "items": ["Extração simples", "Extração cirúrgica", "Extração do siso", "Frenectomia", "Apicectomia"],
+          "items": [
+            "Extração simples",
+            "Extração cirúrgica",
+            "Extração do siso",
+            "Frenectomia",
+            "Apicectomia"
+          ],
           "description": "Realizamos procedimentos cirúrgicos para resolver diferentes problemas que afetam a saúde bucal."
         },
         "implants": {
           "title": "Implantodontia",
-          "items": ["Implantes dentários"],
+          "items": [
+            "Implantes dentários"
+          ],
           "description": "Recuperamos dentes perdidos por meio de implantes que devolvem função e estética ao seu sorriso."
         },
         "prosthetics": {
           "title": "Prótese Dentária",
-          "items": ["Prótese parcial", "Prótese total", "Prótese flexível", "Coroas dentárias"],
+          "items": [
+            "Prótese parcial",
+            "Prótese total",
+            "Prótese flexível",
+            "Coroas dentárias"
+          ],
           "description": "Restauramos dentes danificados ou ausentes para recuperar a função, o conforto e a aparência do seu sorriso."
         },
         "ortho": {
           "title": "Ortodontia",
-          "items": ["Aparelho metálico", "Aparelho estético", "Placas de expansão", "Placas de contenção"],
+          "items": [
+            "Aparelho metálico",
+            "Aparelho estético",
+            "Placas de expansão",
+            "Placas de contenção"
+          ],
           "description": "Corrigimos a posição dos dentes e melhoramos a mordida para um sorriso mais alinhado e saudável."
         },
         "rehabilitation": {
           "title": "Reabilitação Oral",
-          "items": ["Coroas de porcelana", "Pinos de fibra de vidro", "Coroas provisórias"],
+          "items": [
+            "Coroas de porcelana",
+            "Pinos de fibra de vidro",
+            "Coroas provisórias"
+          ],
           "description": "Recupere a função, a estética e a harmonia do seu sorriso com tratamentos personalizados para dentes danificados ou ausentes."
         }
       },
@@ -163,7 +202,12 @@
           "name": "Digite seu nome completo.",
           "treatment": "Conte-nos qual tratamento você recebeu.",
           "comment": "Seu comentário tem {{count}} palavras — precisa ter entre {{min}} e {{max}}.",
-          "generic": "Não conseguimos enviar seu comentário. Tente novamente mais tarde."
+          "generic": "Não conseguimos enviar seu comentário. Tente novamente mais tarde.",
+          "nameInvalidChars": "O nome só pode ter letras.",
+          "treatmentInvalid": "O tratamento tem caracteres não permitidos.",
+          "commentHtml": "Seu comentário não pode conter tags HTML.",
+          "commentUrl": "Seu comentário não pode conter links.",
+          "commentSpam": "Seu comentário tem caracteres repetidos demais."
         }
       }
     },
@@ -230,7 +274,63 @@
     "booking": {
       "title": "Agende sua consulta",
       "subtitle": "Horários reais desta semana e da próxima, em blocos de 30 minutos. Escolha o que funciona para você e confirme com um pagamento simples por QR.",
-      "close": "Fechar"
+      "close": "Fechar",
+      "guestContact": {
+        "nameLabel": "Nome completo",
+        "namePlaceholder": "Ex: María García",
+        "phoneLabel": "Telefone / WhatsApp",
+        "emailLabel": "E-mail",
+        "emailOptional": "(opcional)",
+        "emailPlaceholder": "Ex: maria@email.com",
+        "submit": "Continuar",
+        "submitting": "Salvando...",
+        "errors": {
+          "nameEmpty": "Informe seu nome completo.",
+          "nameSingleWord": "Precisamos de nome e sobrenome (ex: Juan Claros).",
+          "nameInvalidChars": "O nome só pode ter letras.",
+          "nameTooLong": "O nome é muito longo.",
+          "phone": "Informe um número de telefone válido.",
+          "email": "Informe um e-mail válido, ou deixe em branco."
+        }
+      }
+    }
+  },
+  "shared": {
+    "phoneInput": {
+      "countryAriaLabel": "País",
+      "searchPlaceholder": "Buscar país ou código",
+      "noResults": "Nenhum resultado",
+      "numberAriaLabel": "Número de telefone",
+      "exampleHint": "Ex.: {{number}} ({{count}} dígitos)",
+      "errors": {
+        "tooShort": "Número muito curto.",
+        "tooLong": "Número muito longo.",
+        "invalid": "Número de telefone inválido."
+      }
+    }
+  },
+  "auth": {
+    "login": {
+      "title": "Entrar",
+      "subtitle": "Acesse o sistema de gestão da clínica",
+      "identifierLabel": "E-mail ou telefone",
+      "passwordLabel": "Senha",
+      "showPassword": "Mostrar senha",
+      "hidePassword": "Ocultar senha",
+      "forgotPassword": "Esqueceu sua senha?",
+      "submit": "Entrar",
+      "submitting": "Entrando...",
+      "orContinueWith": "ou continuar com",
+      "googleButton": "Continuar com o Google",
+      "googleButtonLoading": "Conectando...",
+      "backToHome": "Voltar ao início",
+      "resetSuccess": "Sua senha foi atualizada. Entre com a nova senha.",
+      "errors": {
+        "required": "E-mail/telefone e senha são obrigatórios.",
+        "invalidIdentifier": "Informe um e-mail ou telefone válido.",
+        "generic": "Não foi possível entrar.",
+        "googleFailed": "Não foi possível entrar com o Google. Tente novamente."
+      }
     }
   }
 }

@@ -5,6 +5,21 @@
   </div>
 } @else {
   <form class="testimonial-form" (ngSubmit)="onSubmit()" novalidate>
+    <!-- Honeypot anti-bot: oculto por posición fuera de pantalla (no display:none,
+         que muchos bots saltean), fuera del tab order y oculto para lectores de
+         pantalla. Un humano nunca lo completa; si llega con contenido, es un bot
+         (ver TestimonialsService.create() en el backend). -->
+    <div class="testimonial-form__honeypot">
+      <input
+        type="text"
+        tabindex="-1"
+        aria-hidden="true"
+        autocomplete="off"
+        [value]="website()"
+        (input)="website.set($any($event.target).value)"
+      />
+    </div>
+
     <div class="testimonial-form__field">
       <label class="testimonial-form__label">
         {{ 'landing.testimonials.form.nameLabel' | translate }} <span class="testimonial-form__req">*</span>

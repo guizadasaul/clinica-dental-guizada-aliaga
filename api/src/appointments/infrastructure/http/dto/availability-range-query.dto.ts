@@ -1,4 +1,12 @@
-import { IsOptional, IsString, Matches } from 'class-validator';
+import { Type } from 'class-transformer';
+import {
+  IsInt,
+  IsOptional,
+  IsString,
+  Matches,
+  Max,
+  Min,
+} from 'class-validator';
 
 export class AvailabilityRangeQueryDto {
   @IsString()
@@ -7,9 +15,14 @@ export class AvailabilityRangeQueryDto {
   })
   from!: string;
 
-  // String a propósito (el ValidationPipe global no usa transform: true) —
-  // el service la parsea y la acota a [1, 14].
+  // Con transform:true (ver api/src/app.config.ts) y enableImplicitConversion:false,
+  // el ValidationPipe ya no hace `new Number(...)` automático — @Type(() => Number)
+  // es el que convierte el string de query a number antes de que corran los
+  // validadores. El controller ya no necesita el `Number(query.days)` manual.
   @IsOptional()
-  @Matches(/^([1-9]|1[0-4])$/, { message: 'days debe ser un entero entre 1 y 14' })
-  days?: string;
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(14)
+  days?: number;
 }

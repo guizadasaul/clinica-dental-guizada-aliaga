@@ -1,0 +1,72 @@
+<div class="phone-input">
+  <div class="phone-input__country">
+    <button
+      type="button"
+      class="phone-input__trigger"
+      aria-haspopup="listbox"
+      [attr.aria-expanded]="open()"
+      [attr.aria-label]="'shared.phoneInput.countryAriaLabel' | translate"
+      [disabled]="disabled()"
+      (click)="toggle()"
+    >
+      <span class="phone-input__flag" aria-hidden="true">{{ selectedCountry().flag }}</span>
+      <span class="phone-input__code">+{{ callingCode() }}</span>
+      <span
+        class="material-symbols-outlined phone-input__chevron"
+        [class.phone-input__chevron--open]="open()"
+        aria-hidden="true"
+      >
+        expand_more
+      </span>
+    </button>
+
+    @if (open()) {
+      <div class="phone-input__dropdown">
+        <input
+          class="phone-input__search"
+          type="text"
+          [attr.aria-label]="'shared.phoneInput.searchPlaceholder' | translate"
+          [placeholder]="'shared.phoneInput.searchPlaceholder' | translate"
+          [value]="search()"
+          (input)="search.set($any($event.target).value)"
+          (click)="$event.stopPropagation()"
+        />
+        <ul class="phone-input__list" role="listbox">
+          @for (option of filteredCountries(); track option.code) {
+            <li
+              class="phone-input__option"
+              [class.phone-input__option--active]="option.code === country()"
+              role="option"
+              [attr.aria-selected]="option.code === country()"
+              (click)="selectCountry(option.code)"
+            >
+              <span class="phone-input__flag" aria-hidden="true">{{ option.flag }}</span>
+              <span class="phone-input__option-name">{{ option.name }}</span>
+              <span class="phone-input__option-code">+{{ option.callingCode }}</span>
+            </li>
+          } @empty {
+            <li class="phone-input__empty">{{ 'shared.phoneInput.noResults' | translate }}</li>
+          }
+        </ul>
+      </div>
+    }
+  </div>
+
+  <input
+    class="phone-input__national"
+    type="text"
+    inputmode="numeric"
+    autocomplete="tel-national"
+    [attr.aria-label]="'shared.phoneInput.numberAriaLabel' | translate"
+    [value]="national()"
+    [attr.maxlength]="maxNationalLength()"
+    [disabled]="disabled()"
+    (input)="onNationalInput($event)"
+    (blur)="onBlur()"
+  />
+</div>
+
+<p class="phone-input__hint">{{ exampleHint() }}</p>
+@if (errorMessage()) {
+  <p class="phone-input__error">{{ errorMessage() }}</p>
+}

@@ -90,8 +90,8 @@ export class InvitationLandingComponent implements OnInit {
       this.errorMessage.set('Correo/teléfono y contraseña son obligatorios.');
       return;
     }
-    if (password.length < 6) {
-      this.errorMessage.set('La contraseña debe tener al menos 6 caracteres.');
+    if (password.length < 8) {
+      this.errorMessage.set('La contraseña debe tener al menos 8 caracteres.');
       return;
     }
     if (password !== this.confirmPassword()) {

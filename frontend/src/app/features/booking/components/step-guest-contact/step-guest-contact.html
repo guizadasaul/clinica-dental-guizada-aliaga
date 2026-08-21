@@ -1,36 +1,36 @@
 <form class="guest-contact" (ngSubmit)="onSubmit()" novalidate>
   <div class="guest-contact__field">
-    <label class="guest-contact__label">Nombre completo <span class="guest-contact__req">*</span></label>
+    <label class="guest-contact__label">
+      {{ 'landing.booking.guestContact.nameLabel' | translate }} <span class="guest-contact__req">*</span>
+    </label>
     <input
       class="guest-contact__input"
       type="text"
       [value]="fullName()"
       (input)="fullName.set($any($event.target).value)"
-      placeholder="Ej: María García"
-      required
-    />
-  </div>
-  <div class="guest-contact__field">
-    <label class="guest-contact__label">Teléfono / WhatsApp <span class="guest-contact__req">*</span></label>
-    <input
-      class="guest-contact__input"
-      type="tel"
-      [value]="phone()"
-      (input)="phone.set($any($event.target).value)"
-      placeholder="Ej: 70012345"
+      [placeholder]="'landing.booking.guestContact.namePlaceholder' | translate"
+      maxlength="200"
       required
     />
   </div>
   <div class="guest-contact__field">
     <label class="guest-contact__label">
-      Correo electrónico <span class="guest-contact__optional">(opcional)</span>
+      {{ 'landing.booking.guestContact.phoneLabel' | translate }} <span class="guest-contact__req">*</span>
+    </label>
+    <app-phone-input [disabled]="loading()" (changed)="onPhoneChanged($event)" />
+  </div>
+  <div class="guest-contact__field">
+    <label class="guest-contact__label">
+      {{ 'landing.booking.guestContact.emailLabel' | translate }}
+      <span class="guest-contact__optional">{{ 'landing.booking.guestContact.emailOptional' | translate }}</span>
     </label>
     <input
       class="guest-contact__input"
       type="email"
       [value]="email()"
       (input)="email.set($any($event.target).value)"
-      placeholder="Ej: maria@correo.com"
+      [placeholder]="'landing.booking.guestContact.emailPlaceholder' | translate"
+      maxlength="255"
     />
   </div>
 
@@ -42,9 +42,9 @@
     <button class="guest-contact__btn" type="submit" [disabled]="loading()">
       @if (loading()) {
         <span class="guest-contact__spinner"></span>
-        Guardando...
+        {{ 'landing.booking.guestContact.submitting' | translate }}
       } @else {
-        Continuar
+        {{ 'landing.booking.guestContact.submit' | translate }}
         <span class="material-symbols-outlined">arrow_forward</span>
       }
     </button>

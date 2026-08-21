@@ -36,6 +36,7 @@
             class="auth-form__input"
             type="text"
             autocomplete="username"
+            maxlength="254"
             [value]="identifier()"
             (input)="identifier.set($any($event.target).value)"
           />
@@ -49,6 +50,7 @@
               class="auth-form__input auth-form__input--with-toggle"
               [type]="passwordVisible() ? 'text' : 'password'"
               autocomplete="new-password"
+              maxlength="72"
               [value]="password()"
               (input)="password.set($any($event.target).value)"
             />

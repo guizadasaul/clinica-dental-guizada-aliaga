@@ -30,6 +30,19 @@ export default tseslint.config(
       '@typescript-eslint/no-floating-promises': 'warn',
       '@typescript-eslint/no-unsafe-argument': 'warn',
       "prettier/prettier": ["error", { endOfLine: "auto" }],
+      // Segunda red además de scripts/check-no-raw-sql.mjs (CLI-36): las
+      // variantes *Unsafe de Prisma reciben SQL crudo como string, no
+      // parametrizan. $queryRaw/$executeRaw (tagged templates) sí parametrizan
+      // y quedan permitidos.
+      'no-restricted-syntax': [
+        'error',
+        {
+          selector:
+            "MemberExpression[property.name=/^\\$(query|execute)RawUnsafe$/]",
+          message:
+            'No uses $queryRawUnsafe/$executeRawUnsafe (SQL crudo, sin parametrizar). Usá $queryRaw/$executeRaw (tagged template).',
+        },
+      ],
     },
   },
 );

@@ -32,6 +32,10 @@ services:
       # por nombre de servicio, no por localhost.
       DATABASE_URL: postgresql://postgres:postgres@db:5432/GuizadaAliaga?schema=public
       PORT: 2999
+      # Mismo motivo que DATABASE_URL: dentro de Docker el frontend se sirve
+      # desde el host, en localhost:4200 (mapeado desde el contenedor), así
+      # que el origen sigue siendo ese aunque la API corra en otro contenedor.
+      CORS_ORIGINS: http://localhost:4200
     ports:
       - "2999:2999"
     volumes:

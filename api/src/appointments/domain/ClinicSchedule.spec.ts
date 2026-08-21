@@ -1,23 +1,29 @@
 import { buildSlotsForDate, isValidSlot } from './ClinicSchedule';
 
 const MONDAY = '2026-08-17';
+const SATURDAY = '2026-08-22';
 const SUNDAY = '2026-08-16';
 
 describe('ClinicSchedule', () => {
   describe('buildSlotsForDate', () => {
-    it('returns 16 slots for a weekday (2 blocks x 4h x 30min)', () => {
+    it('returns 14 slots for a weekday (3h morning + 4h afternoon, 30min)', () => {
       const slots = buildSlotsForDate(MONDAY);
-      expect(slots).toHaveLength(16);
+      expect(slots).toHaveLength(14);
     });
 
-    it('returns no slots inside the lunch gap (13:00-15:00)', () => {
+    it('returns no slots inside the midday gap (12:00-15:00)', () => {
       const slots = buildSlotsForDate(MONDAY);
       const inGap = slots.some((s) => {
         const hourUtc = new Date(s.toISOString()).getUTCHours();
-        // 13:00-15:00 local (UTC-4) == 17:00-19:00 UTC
-        return hourUtc >= 17 && hourUtc < 19;
+        // 12:00-15:00 local (UTC-4) == 16:00-19:00 UTC
+        return hourUtc >= 16 && hourUtc < 19;
       });
       expect(inGap).toBe(false);
+    });
+
+    it('returns 6 slots on Saturday (single block, 09:00-12:00)', () => {
+      const slots = buildSlotsForDate(SATURDAY);
+      expect(slots).toHaveLength(6);
     });
 
     it('returns no slots on a closed weekday (Sunday)', () => {
@@ -30,11 +36,15 @@ describe('ClinicSchedule', () => {
   });
 
   describe('isValidSlot', () => {
-    it('accepts the first slot of the morning block', () => {
+    it('accepts the first slot of the weekday morning block', () => {
       expect(isValidSlot(new Date(`${MONDAY}T09:00:00-04:00`))).toBe(true);
     });
 
-    it('accepts the last slot of the afternoon block', () => {
+    it('accepts the last slot of the weekday morning block (11:30)', () => {
+      expect(isValidSlot(new Date(`${MONDAY}T11:30:00-04:00`))).toBe(true);
+    });
+
+    it('accepts the last slot of the weekday afternoon block (18:30)', () => {
       expect(isValidSlot(new Date(`${MONDAY}T18:30:00-04:00`))).toBe(true);
     });
 
@@ -42,7 +52,11 @@ describe('ClinicSchedule', () => {
       expect(isValidSlot(new Date(`${MONDAY}T08:30:00-04:00`))).toBe(false);
     });
 
-    it('rejects a time inside the lunch gap', () => {
+    it('rejects noon (12:00), the old boundary — morning now closes at 12:00', () => {
+      expect(isValidSlot(new Date(`${MONDAY}T12:00:00-04:00`))).toBe(false);
+    });
+
+    it('rejects a time inside the midday gap', () => {
       expect(isValidSlot(new Date(`${MONDAY}T13:00:00-04:00`))).toBe(false);
     });
 
@@ -56,6 +70,22 @@ describe('ClinicSchedule', () => {
 
     it('rejects any time on a closed weekday', () => {
       expect(isValidSlot(new Date(`${SUNDAY}T10:00:00-04:00`))).toBe(false);
+    });
+
+    it('accepts the first slot of Saturday morning', () => {
+      expect(isValidSlot(new Date(`${SATURDAY}T09:00:00-04:00`))).toBe(true);
+    });
+
+    it('accepts the last slot of Saturday morning (11:30)', () => {
+      expect(isValidSlot(new Date(`${SATURDAY}T11:30:00-04:00`))).toBe(true);
+    });
+
+    it('rejects a Saturday afternoon slot — Saturday has no afternoon block', () => {
+      expect(isValidSlot(new Date(`${SATURDAY}T15:00:00-04:00`))).toBe(false);
+    });
+
+    it('rejects Saturday at/after its shorter closing time (12:00)', () => {
+      expect(isValidSlot(new Date(`${SATURDAY}T12:00:00-04:00`))).toBe(false);
     });
   });
 });

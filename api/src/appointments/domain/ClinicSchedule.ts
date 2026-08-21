@@ -1,17 +1,48 @@
 /**
  * Horario de atención de la clínica (Bolivia, UTC-4, sin horario de verano).
- * Placeholder razonable — no viene especificado en la issue. Ajustar acá si
- * cambian los bloques/duración de turno.
+ * Lunes a viernes: 09:00–12:00 y 15:00–19:00 (con turnos de 30 min, el
+ * último arranca a las 18:30). Sábados: 09:00–12:00 (último turno 11:30).
+ * Domingo cerrado. Coincide con lo que ya muestra el pie de la landing
+ * (`landing.contact.hoursWeekdays` / `hoursSaturday` en los i18n).
  */
 export const CLINIC_TIMEZONE = 'America/La_Paz';
 export const CLINIC_UTC_OFFSET = '-04:00';
 export const SLOT_MINUTES = 30;
-export const CLINIC_BLOCKS = [
-  { start: '09:00', end: '13:00' },
-  { start: '15:00', end: '19:00' },
-] as const;
-/** 0 = domingo, ..., 6 = sábado (Date#getDay / Intl weekday numbering base) */
-const CLOSED_WEEKDAYS = new Set([0]);
+
+interface ScheduleBlock {
+  start: string;
+  end: string;
+}
+
+const WEEKDAY_BLOCKS: Record<number, readonly ScheduleBlock[]> = {
+  // 0 = domingo, ..., 6 = sábado (Date#getDay / Intl weekday numbering base)
+  1: [
+    { start: '09:00', end: '12:00' },
+    { start: '15:00', end: '19:00' },
+  ], // lunes
+  2: [
+    { start: '09:00', end: '12:00' },
+    { start: '15:00', end: '19:00' },
+  ], // martes
+  3: [
+    { start: '09:00', end: '12:00' },
+    { start: '15:00', end: '19:00' },
+  ], // miércoles
+  4: [
+    { start: '09:00', end: '12:00' },
+    { start: '15:00', end: '19:00' },
+  ], // jueves
+  5: [
+    { start: '09:00', end: '12:00' },
+    { start: '15:00', end: '19:00' },
+  ], // viernes
+  6: [{ start: '09:00', end: '12:00' }], // sábado
+  // domingo (0): sin entrada — sin bloques, cerrado.
+};
+
+function blocksForWeekday(weekday: number): readonly ScheduleBlock[] {
+  return WEEKDAY_BLOCKS[weekday] ?? [];
+}
 
 interface LocalDateParts {
   year: number;
@@ -69,12 +100,9 @@ export function buildSlotsForDate(date: string): Date[] {
   const weekday = toLocalParts(
     new Date(`${date}T12:00:00${CLINIC_UTC_OFFSET}`),
   ).weekday;
-  if (CLOSED_WEEKDAYS.has(weekday)) {
-    return [];
-  }
 
   const slots: Date[] = [];
-  for (const block of CLINIC_BLOCKS) {
+  for (const block of blocksForWeekday(weekday)) {
     const [startH, startM] = block.start.split(':').map(Number);
     const [endH, endM] = block.end.split(':').map(Number);
     const blockStartMinutes = startH * 60 + startM;
@@ -96,11 +124,11 @@ export function isValidSlot(slot: Date): boolean {
     return false;
   }
   const { weekday, hour, minute } = toLocalParts(slot);
-  if (CLOSED_WEEKDAYS.has(weekday) || minute % SLOT_MINUTES !== 0) {
+  if (minute % SLOT_MINUTES !== 0) {
     return false;
   }
   const minutesOfDay = hour * 60 + minute;
-  return CLINIC_BLOCKS.some((block) => {
+  return blocksForWeekday(weekday).some((block) => {
     const [startH, startM] = block.start.split(':').map(Number);
     const [endH, endM] = block.end.split(':').map(Number);
     return (
