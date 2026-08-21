@@ -3,13 +3,12 @@ import { FormsModule } from '@angular/forms';
 import { RouterLink, Router, ActivatedRoute } from '@angular/router';
 import { AuthService } from '../../application/auth.service';
 import { looksLikePhone, normalizePhone } from '../../application/phone.util';
-import { LogoComponent } from '../../../shared/ui/logo/logo';
 
 @Component({
   selector: 'app-login',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [RouterLink, FormsModule, LogoComponent],
+  imports: [RouterLink, FormsModule],
   templateUrl: './login.html',
   styleUrl: './login.scss',
 })

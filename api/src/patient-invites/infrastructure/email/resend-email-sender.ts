@@ -37,7 +37,7 @@ export class ResendEmailSender implements EmailSender {
         body: JSON.stringify({
           from: fromEmail,
           to: params.to,
-          subject: 'Completá tu registro en Clínica Guizada Aliaga',
+          subject: 'Completá tu registro en Clínica Guizada-Aliaga',
           html: this.buildHtml(params),
         }),
       });
@@ -58,7 +58,7 @@ export class ResendEmailSender implements EmailSender {
   private buildHtml(params: SendInviteEmailParams): string {
     return `
       <p>Hola ${params.patientDisplayName},</p>
-      <p>Completá tu registro en Clínica Guizada Aliaga haciendo clic en el siguiente enlace:</p>
+      <p>Completá tu registro en Clínica Guizada-Aliaga haciendo clic en el siguiente enlace:</p>
       <p><a href="${params.inviteUrl}">${params.inviteUrl}</a></p>
       <p>Este enlace vence en 30 días.</p>
     `.trim();
