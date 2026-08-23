@@ -5,6 +5,7 @@ import type { ClinicalExam } from './ClinicalExam';
 import type { PatientWithUser } from './PatientWithUser';
 import type { OdontogramEntry } from './OdontogramEntry';
 import type { ToothProcedure } from './ToothProcedure';
+import type { DentalExam, DentalExamVersionSummary } from './DentalExam';
 
 export interface CreatePatientData {
   firstName: string;
@@ -85,12 +86,28 @@ export interface ClinicalExamData {
 export interface OdontogramEntryData {
   toothNumber: number;
   toothType?: string;
-  diagnosisType: string;
   toothCondition: string;
   diagnosisDescription: string;
   xrayRequested?: boolean;
   treatmentId?: string;
   customPrice?: number;
+  notes?: string;
+}
+
+export interface DentalExamFindingData {
+  diagnosisId: string;
+  toothNumber?: number;
+  toothType?: string;
+  applicationGroupId?: string;
+  modifierValue?: string;
+  description?: string;
+  xrayRequested?: boolean;
+  notes?: string;
+}
+
+export interface CreateDentalExamData {
+  findings: DentalExamFindingData[];
+  changeReason?: string;
   notes?: string;
 }
 
@@ -120,14 +137,18 @@ export interface IPatientRepository {
     patientId: string,
     data: MedicalHistoryData,
   ): Promise<MedicalHistory>;
+  findMedicalHistory(patientId: string): Promise<MedicalHistory | null>;
   upsertHygieneHabits(
     patientId: string,
     data: HygieneHabitsData,
   ): Promise<HygieneHabits>;
+  findHygieneHabits(patientId: string): Promise<HygieneHabits | null>;
   createClinicalExam(
     patientId: string,
     data: ClinicalExamData,
   ): Promise<ClinicalExam>;
+  /** El examen clínico más reciente (upsert por día — puede haber uno distinto por fecha). */
+  findLatestClinicalExam(patientId: string): Promise<ClinicalExam | null>;
   createOdontogramEntries(
     patientId: string,
     entries: OdontogramEntryData[],
@@ -143,6 +164,18 @@ export interface IPatientRepository {
     patientId: string,
     entries: OdontogramEntryData[],
   ): Promise<OdontogramEntry[]>;
+  /** Append-only: siempre crea la versión max(version)+1, nunca actualiza una existente. */
+  createDentalExam(
+    patientId: string,
+    recordedBy: string,
+    data: CreateDentalExamData,
+  ): Promise<DentalExam>;
+  findDentalExamVersions(
+    patientId: string,
+  ): Promise<DentalExamVersionSummary[]>;
+  findCurrentDentalExam(patientId: string): Promise<DentalExam | null>;
+  /** null si el examId no existe o no pertenece al paciente. */
+  findDentalExam(patientId: string, examId: string): Promise<DentalExam | null>;
 }
 
 export const PatientRepository = Symbol('IPatientRepository');

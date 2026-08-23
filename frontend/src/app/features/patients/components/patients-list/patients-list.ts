@@ -27,7 +27,7 @@ export class PatientsListComponent {
   // precargar el paso 1 en vez de abrirlo en blanco sobre una ficha existente
   // ("Registrar diagnóstico" no crea un paciente, edita uno que ya tiene datos).
   readonly registerDiagnosis = output<Patient>();
-  readonly viewClinicalRecord = output<string>();
+  readonly viewClinicalRecord = output<Patient>();
   readonly registerTreatment = output<string>();
   readonly viewHistory = output<string>();
   readonly buildQuote = output<string>();
@@ -104,9 +104,9 @@ export class PatientsListComponent {
     this.registerDiagnosis.emit(patient);
   }
 
-  protected onViewClinicalRecord(patientId: string): void {
+  protected onViewClinicalRecord(patient: Patient): void {
     this.openMenuFor.set(null);
-    this.viewClinicalRecord.emit(patientId);
+    this.viewClinicalRecord.emit(patient);
   }
 
   protected toggleMenu(userId: string, trigger: HTMLElement): void {

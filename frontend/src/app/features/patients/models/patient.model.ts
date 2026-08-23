@@ -76,7 +76,6 @@ export interface OdontogramEntry {
   patientId: string;
   toothNumber: number;
   toothType: string;
-  diagnosisType: string;
   toothCondition: string;
   diagnosisDescription: string;
   xrayRequested: boolean;
@@ -94,7 +93,7 @@ export interface PatientWithUser {
   phone: string | null;
   createdAt: string;
   patient: Patient | null;
-  odontogramEntriesCount: number;
+  dentalExamsCount: number;
   hasAccount: boolean;
 }
 

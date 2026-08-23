@@ -24,11 +24,28 @@ export type BrushingFrequency = (typeof BRUSHING_FREQUENCIES)[number];
 export const TOOTH_TYPES = ['permanent', 'deciduous'] as const;
 export type ToothType = (typeof TOOTH_TYPES)[number];
 
-// Certeza epistemológica del diagnóstico (no la condición visual del
-// diente) — ver el comentario de
-// prisma/migrations/20260623_add_tooth_condition/migration.sql.
-export const DIAGNOSIS_TYPES = ['presuntivo', 'definitivo'] as const;
-export type DiagnosisType = (typeof DIAGNOSIS_TYPES)[number];
+// Valores posibles de dental_exam_findings.modifier_value cuando el
+// diagnóstico elegido tiene modifier = 'black_class' (clasificación de Black
+// para caries y obturaciones). Fijos por la odontología — no configurables
+// desde el catálogo (CLI-40).
+export const BLACK_CLASSES = [
+  'clase_i',
+  'clase_ii',
+  'clase_iii',
+  'clase_iv',
+  'clase_v',
+] as const;
+export type BlackClass = (typeof BLACK_CLASSES)[number];
+
+// Valores posibles cuando el diagnóstico tiene modifier = 'mobility_grade'
+// (grados de movilidad dental I–IV).
+export const MOBILITY_GRADES = [
+  'grado_i',
+  'grado_ii',
+  'grado_iii',
+  'grado_iv',
+] as const;
+export type MobilityGrade = (typeof MOBILITY_GRADES)[number];
 
 // Alineado con el CHECK odontogram_entries_tooth_condition_check
 // (prisma/migrations/20260623_add_tooth_condition).

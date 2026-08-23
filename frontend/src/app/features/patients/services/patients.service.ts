@@ -3,6 +3,7 @@ import { HttpClient } from '@angular/common/http';
 import type { Observable } from 'rxjs';
 import { environment } from '../../../../environments/environment';
 import type { PatientWithUser, Patient, PatientProfileStatus, MedicalHistory, HygieneHabits, ClinicalExam, OdontogramEntry } from '../models/patient.model';
+import type { DentalExam, DentalExamVersionSummary } from '../models/dental-exam.model';
 import type {
   CreatePatientRequest,
   UpdatePatientRequest,
@@ -11,6 +12,7 @@ import type {
   CreateClinicalExamRequest,
   CreateOdontogramEntriesRequest,
 } from '../models/patient.request';
+import type { CreateDentalExamRequest } from '../models/dental-exam.request';
 
 @Injectable({ providedIn: 'root' })
 export class PatientsService {
@@ -41,12 +43,24 @@ export class PatientsService {
     return this.http.post<MedicalHistory>(`${this.base}/${patientId}/medical-history`, data);
   }
 
+  getMedicalHistory(patientId: string): Observable<MedicalHistory | null> {
+    return this.http.get<MedicalHistory | null>(`${this.base}/${patientId}/medical-history`);
+  }
+
   createHygieneHabits(patientId: string, data: CreateHygieneHabitsRequest): Observable<HygieneHabits> {
     return this.http.post<HygieneHabits>(`${this.base}/${patientId}/hygiene-habits`, data);
   }
 
+  getHygieneHabits(patientId: string): Observable<HygieneHabits | null> {
+    return this.http.get<HygieneHabits | null>(`${this.base}/${patientId}/hygiene-habits`);
+  }
+
   createClinicalExam(patientId: string, data: CreateClinicalExamRequest): Observable<ClinicalExam> {
     return this.http.post<ClinicalExam>(`${this.base}/${patientId}/clinical-exams`, data);
+  }
+
+  getLatestClinicalExam(patientId: string): Observable<ClinicalExam | null> {
+    return this.http.get<ClinicalExam | null>(`${this.base}/${patientId}/clinical-exams/latest`);
   }
 
   getOdontogramEntries(patientId: string): Observable<OdontogramEntry[]> {
@@ -55,5 +69,21 @@ export class PatientsService {
 
   createOdontogramEntries(patientId: string, data: CreateOdontogramEntriesRequest): Observable<OdontogramEntry[]> {
     return this.http.post<OdontogramEntry[]>(`${this.base}/${patientId}/odontogram-entries`, data);
+  }
+
+  createDentalExam(patientId: string, data: CreateDentalExamRequest): Observable<DentalExam> {
+    return this.http.post<DentalExam>(`${this.base}/${patientId}/dental-exams`, data);
+  }
+
+  getDentalExamVersions(patientId: string): Observable<DentalExamVersionSummary[]> {
+    return this.http.get<DentalExamVersionSummary[]>(`${this.base}/${patientId}/dental-exams`);
+  }
+
+  getCurrentDentalExam(patientId: string): Observable<DentalExam | null> {
+    return this.http.get<DentalExam | null>(`${this.base}/${patientId}/dental-exams/current`);
+  }
+
+  getDentalExam(patientId: string, examId: string): Observable<DentalExam> {
+    return this.http.get<DentalExam>(`${this.base}/${patientId}/dental-exams/${examId}`);
   }
 }

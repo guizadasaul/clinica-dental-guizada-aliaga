@@ -27,7 +27,6 @@ import {
 } from '../../../../shared/validators/transforms.js';
 import { NoHtml } from '../../../../shared/validators/text-safety.validator.js';
 import {
-  DIAGNOSIS_TYPES,
   TOOTH_CONDITIONS,
   TOOTH_TYPES,
 } from '../../../../shared/validators/clinical-options.js';
@@ -111,9 +110,6 @@ export class CreateOdontogramEntryDto {
   @MaxLength(20)
   @IsConsistentToothType()
   toothType?: string;
-
-  @IsIn(DIAGNOSIS_TYPES)
-  diagnosisType: string;
 
   @IsIn(TOOTH_CONDITIONS)
   toothCondition: string;

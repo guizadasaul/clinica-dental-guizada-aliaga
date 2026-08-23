@@ -22,6 +22,12 @@ export interface TreatmentScopeSelection {
   readonly toothNumbers: number[];
 }
 
+// Colores para odontogram_entries.tooth_condition — las filas que
+// createToothProcedure genera al aplicar un tratamiento de arcada/boca
+// completa (CLI-15). Sin relación con el catálogo de diagnósticos real de
+// la clínica (CLI-40, ver features/diagnoses/): tooth_condition es un
+// campo aparte, más simple, que solo indica el estado visual del diente
+// para colorear el mini-odontograma de este picker.
 const DIAGNOSIS_OPTIONS: { value: string; label: string; color: string }[] = [
   { value: 'sano', label: 'Sano', color: '#16a34a' },
   { value: 'caries', label: 'Caries', color: '#dc2626' },

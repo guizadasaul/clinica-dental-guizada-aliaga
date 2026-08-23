@@ -10,6 +10,7 @@ import {
   ClinicalExamData,
   OdontogramEntryData,
   CreateToothProcedureData,
+  CreateDentalExamData,
 } from '../../domain/PatientRepository';
 import type { Patient } from '../../domain/Patient';
 import type { MedicalHistory } from '../../domain/MedicalHistory';
@@ -18,9 +19,21 @@ import type { ClinicalExam } from '../../domain/ClinicalExam';
 import type { PatientWithUser } from '../../domain/PatientWithUser';
 import type { OdontogramEntry } from '../../domain/OdontogramEntry';
 import type { ToothProcedure } from '../../domain/ToothProcedure';
+import type {
+  DentalExam,
+  DentalExamVersionSummary,
+} from '../../domain/DentalExam';
 import { PatientMapper } from './patient.mapper';
 import { OdontogramEntryMapper } from './odontogram-entry.mapper';
 import { ToothProcedureMapper } from './tooth-procedure.mapper';
+import { DentalExamMapper } from './dental-exam.mapper';
+
+const DENTAL_EXAM_INCLUDE = {
+  users: true,
+  dental_exam_findings: {
+    include: { diagnoses: { include: { diagnosis_categories: true } } },
+  },
+} as const;
 
 /**
  * Fecha de hoy sin componente horario, para columnas `@db.Date` (exam_date,
@@ -41,7 +54,7 @@ export class PrismaPatientsRepository implements IPatientRepository {
       include: {
         patients: {
           include: {
-            _count: { select: { odontogram_entries: true } },
+            _count: { select: { dental_exams: true } },
           },
         },
       },
@@ -194,6 +207,13 @@ export class PrismaPatientsRepository implements IPatientRepository {
     return PatientMapper.toDomainMedicalHistory(record);
   }
 
+  async findMedicalHistory(patientId: string): Promise<MedicalHistory | null> {
+    const record = await this.prisma.medical_history.findUnique({
+      where: { patient_id: patientId },
+    });
+    return record ? PatientMapper.toDomainMedicalHistory(record) : null;
+  }
+
   async upsertHygieneHabits(
     patientId: string,
     data: HygieneHabitsData,
@@ -223,6 +243,13 @@ export class PrismaPatientsRepository implements IPatientRepository {
     return PatientMapper.toDomainHygieneHabits(record);
   }
 
+  async findHygieneHabits(patientId: string): Promise<HygieneHabits | null> {
+    const record = await this.prisma.hygiene_habits.findUnique({
+      where: { patient_id: patientId },
+    });
+    return record ? PatientMapper.toDomainHygieneHabits(record) : null;
+  }
+
   /**
    * Upsert por (patient_id, exam_date) — reenviar el paso 4 el mismo día
    * actualiza el examen de hoy en vez de duplicarlo; el histórico entre días
@@ -250,6 +277,16 @@ export class PrismaPatientsRepository implements IPatientRepository {
     return PatientMapper.toDomainClinicalExam(record);
   }
 
+  async findLatestClinicalExam(
+    patientId: string,
+  ): Promise<ClinicalExam | null> {
+    const record = await this.prisma.clinical_exams.findFirst({
+      where: { patient_id: patientId },
+      orderBy: { exam_date: 'desc' },
+    });
+    return record ? PatientMapper.toDomainClinicalExam(record) : null;
+  }
+
   /**
    * Reemplazo transaccional, acotado a las entries del chart
    * (`treatment_id IS NULL`). El DELETE nunca toca las entries generadas por
@@ -271,7 +308,6 @@ export class PrismaPatientsRepository implements IPatientRepository {
             patient_id: patientId,
             tooth_number: e.toothNumber,
             tooth_type: e.toothType ?? 'permanent',
-            diagnosis_type: e.diagnosisType,
             tooth_condition: e.toothCondition ?? 'sano',
             diagnosis_description: e.diagnosisDescription,
             xray_requested: e.xrayRequested ?? false,
@@ -346,7 +382,6 @@ export class PrismaPatientsRepository implements IPatientRepository {
               patient_id: patientId,
               tooth_number: e.toothNumber,
               tooth_type: e.toothType ?? 'permanent',
-              diagnosis_type: e.diagnosisType,
               tooth_condition: e.toothCondition ?? 'sano',
               diagnosis_description: e.diagnosisDescription,
               xray_requested: e.xrayRequested ?? false,
@@ -359,5 +394,82 @@ export class PrismaPatientsRepository implements IPatientRepository {
       ),
     );
     return records.map((r) => OdontogramEntryMapper.toDomain(r));
+  }
+
+  /**
+   * Append-only: nunca actualiza ni borra una versión existente. version =
+   * max(version) + 1 dentro de la misma transacción — dos guardados
+   * concurrentes sobre el mismo paciente chocan contra el
+   * @@unique([patient_id, version]) en vez de pisarse en silencio.
+   */
+  async createDentalExam(
+    patientId: string,
+    recordedBy: string,
+    data: CreateDentalExamData,
+  ): Promise<DentalExam> {
+    const record = await this.prisma.transaction(async (tx) => {
+      const last = await tx.dental_exams.findFirst({
+        where: { patient_id: patientId },
+        orderBy: { version: 'desc' },
+        select: { version: true },
+      });
+      return tx.dental_exams.create({
+        data: {
+          patient_id: patientId,
+          version: (last?.version ?? 0) + 1,
+          recorded_by: recordedBy,
+          change_reason: data.changeReason ?? null,
+          notes: data.notes ?? null,
+          dental_exam_findings: {
+            create: data.findings.map((f) => ({
+              diagnosis_id: f.diagnosisId,
+              tooth_number: f.toothNumber ?? null,
+              tooth_type: f.toothType ?? null,
+              application_group_id: f.applicationGroupId ?? null,
+              modifier_value: f.modifierValue ?? null,
+              description: f.description ?? null,
+              xray_requested: f.xrayRequested ?? false,
+              notes: f.notes ?? null,
+            })),
+          },
+        },
+        include: DENTAL_EXAM_INCLUDE,
+      });
+    });
+    return DentalExamMapper.toDomain(record);
+  }
+
+  async findDentalExamVersions(
+    patientId: string,
+  ): Promise<DentalExamVersionSummary[]> {
+    const records = await this.prisma.dental_exams.findMany({
+      where: { patient_id: patientId },
+      orderBy: { version: 'desc' },
+      include: {
+        users: true,
+        _count: { select: { dental_exam_findings: true } },
+      },
+    });
+    return records.map((r) => DentalExamMapper.toVersionSummary(r));
+  }
+
+  async findCurrentDentalExam(patientId: string): Promise<DentalExam | null> {
+    const record = await this.prisma.dental_exams.findFirst({
+      where: { patient_id: patientId },
+      orderBy: { version: 'desc' },
+      include: DENTAL_EXAM_INCLUDE,
+    });
+    return record ? DentalExamMapper.toDomain(record) : null;
+  }
+
+  async findDentalExam(
+    patientId: string,
+    examId: string,
+  ): Promise<DentalExam | null> {
+    const record = await this.prisma.dental_exams.findFirst({
+      where: { id: examId, patient_id: patientId },
+      include: DENTAL_EXAM_INCLUDE,
+    });
+    return record ? DentalExamMapper.toDomain(record) : null;
   }
 }

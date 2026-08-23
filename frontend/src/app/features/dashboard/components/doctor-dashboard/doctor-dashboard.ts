@@ -14,6 +14,7 @@ import { PatientWizardComponent } from '../../../patients/components/patient-wiz
 import { PatientInvitePanelComponent } from '../../../patients/components/patient-invite-panel/patient-invite-panel';
 import { RegisterTreatmentComponent } from '../../../treatments/components/register-treatment/register-treatment';
 import { TreatmentHistoryComponent } from '../../../treatments/components/treatment-history/treatment-history';
+import { ClinicalRecordViewComponent } from '../../../patients/components/clinical-record-view/clinical-record-view';
 import { QuoteBuilderComponent } from '../../../quotes/components/quote-builder/quote-builder';
 import { DoctorAgendaComponent } from '../../../appointments/components/doctor-agenda/doctor-agenda';
 import { AppointmentsService } from '../../../appointments/services/appointments.service';
@@ -62,6 +63,7 @@ interface AppointmentSlot {
     PatientInvitePanelComponent,
     RegisterTreatmentComponent,
     TreatmentHistoryComponent,
+    ClinicalRecordViewComponent,
     QuoteBuilderComponent,
     DoctorAgendaComponent,
     TestimonialReviewComponent,
@@ -82,11 +84,14 @@ export class DoctorDashboardComponent {
   protected readonly selectedPatientId = signal<string | null>(null);
   /** Solo se usa para precargar el paso 1 ("Registrar diagnóstico") — null en cualquier otro flujo del wizard. */
   protected readonly selectedPatientForDiagnosis = signal<Patient | null>(null);
-  protected readonly wizardStartStep = signal(5);
+  /** Paso donde arranca el wizard al editar — 4 (examen dental) por defecto. */
+  protected readonly wizardStartStep = signal(4);
   protected readonly selectedPatientForTreatment = signal<string | null>(null);
   protected readonly selectedPatientForHistory = signal<string | null>(null);
   protected readonly selectedPatientForQuote = signal<string | null>(null);
   protected readonly selectedPatientForInvite = signal<PatientInviteContact | null>(null);
+  /** "Ver historia clínica" — resumen de solo lectura, no reusa el wizard editable (CLI-40). */
+  protected readonly selectedPatientForClinicalRecord = signal<Patient | null>(null);
   protected readonly inviteSuccessMessage = signal<string | null>(null);
   private inviteSuccessTimeout: ReturnType<typeof setTimeout> | null = null;
 
@@ -96,7 +101,8 @@ export class DoctorDashboardComponent {
       this.selectedPatientForTreatment() === null &&
       this.selectedPatientForHistory() === null &&
       this.selectedPatientForQuote() === null &&
-      this.selectedPatientForInvite() === null,
+      this.selectedPatientForInvite() === null &&
+      this.selectedPatientForClinicalRecord() === null,
   );
 
   protected readonly showInviteFlow = computed(
@@ -113,6 +119,10 @@ export class DoctorDashboardComponent {
 
   protected readonly showQuoteFlow = computed(
     () => this.selectedPatientForQuote() !== null,
+  );
+
+  protected readonly showClinicalRecordFlow = computed(
+    () => this.selectedPatientForClinicalRecord() !== null,
   );
 
   protected readonly firstName = computed(() => {
@@ -175,6 +185,7 @@ export class DoctorDashboardComponent {
     this.selectedPatientId.set(null);
     this.selectedPatientForInvite.set(null);
     this.selectedPatientForDiagnosis.set(null);
+    this.selectedPatientForClinicalRecord.set(null);
   }
 
   protected onOpenOdontogram(patientId: string): void {
@@ -182,7 +193,8 @@ export class DoctorDashboardComponent {
     this.selectedUserId.set(null);
     this.selectedPatientForInvite.set(null);
     this.selectedPatientForDiagnosis.set(null);
-    this.wizardStartStep.set(5);
+    this.selectedPatientForClinicalRecord.set(null);
+    this.wizardStartStep.set(4);
   }
 
   protected onRegisterDiagnosis(patient: Patient): void {
@@ -190,15 +202,24 @@ export class DoctorDashboardComponent {
     this.selectedUserId.set(null);
     this.selectedPatientForInvite.set(null);
     this.selectedPatientForDiagnosis.set(patient);
+    this.selectedPatientForClinicalRecord.set(null);
     this.wizardStartStep.set(1);
   }
 
-  protected onViewClinicalRecord(patientId: string): void {
-    this.selectedPatientId.set(patientId);
+  /** Resumen de solo lectura — no abre el wizard editable (CLI-40). */
+  protected onViewClinicalRecord(patient: Patient): void {
+    this.selectedPatientForClinicalRecord.set(patient);
     this.selectedUserId.set(null);
-    this.selectedPatientForInvite.set(null);
+    this.selectedPatientId.set(null);
     this.selectedPatientForDiagnosis.set(null);
-    this.wizardStartStep.set(2);
+    this.selectedPatientForInvite.set(null);
+    this.selectedPatientForTreatment.set(null);
+    this.selectedPatientForHistory.set(null);
+    this.selectedPatientForQuote.set(null);
+  }
+
+  protected onClinicalRecordClose(): void {
+    this.selectedPatientForClinicalRecord.set(null);
   }
 
   protected onWizardComplete(): void {
@@ -221,6 +242,7 @@ export class DoctorDashboardComponent {
     this.selectedPatientForHistory.set(null);
     this.selectedPatientForQuote.set(null);
     this.selectedPatientForInvite.set(null);
+    this.selectedPatientForClinicalRecord.set(null);
   }
 
   protected onTreatmentDone(): void {
@@ -239,6 +261,7 @@ export class DoctorDashboardComponent {
     this.selectedPatientForTreatment.set(null);
     this.selectedPatientForQuote.set(null);
     this.selectedPatientForInvite.set(null);
+    this.selectedPatientForClinicalRecord.set(null);
   }
 
   protected onHistoryClose(): void {
@@ -253,6 +276,7 @@ export class DoctorDashboardComponent {
     this.selectedPatientForTreatment.set(null);
     this.selectedPatientForHistory.set(null);
     this.selectedPatientForInvite.set(null);
+    this.selectedPatientForClinicalRecord.set(null);
   }
 
   protected onQuoteClose(): void {
@@ -267,6 +291,7 @@ export class DoctorDashboardComponent {
     this.selectedPatientForTreatment.set(null);
     this.selectedPatientForHistory.set(null);
     this.selectedPatientForQuote.set(null);
+    this.selectedPatientForClinicalRecord.set(null);
   }
 
   protected onInviteSent(channel: InviteChannel): void {

@@ -28,7 +28,6 @@ function makeMockPrismaService(mockTx: ReturnType<typeof makeMockTx>) {
 
 const entry: OdontogramEntryData = {
   toothNumber: 11,
-  diagnosisType: 'definitivo',
   toothCondition: 'sano',
   diagnosisDescription: 'Diente sano',
 };

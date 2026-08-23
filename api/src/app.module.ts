@@ -13,6 +13,7 @@ import { PaymentsModule } from './payments/payments.module';
 import { ExchangeRateModule } from './exchange-rate/exchange-rate.module';
 import { QuotesModule } from './quotes/quotes.module';
 import { TestimonialsModule } from './testimonials/testimonials.module';
+import { DiagnosesModule } from './diagnoses/diagnoses.module';
 
 @Module({
   imports: [
@@ -27,6 +28,7 @@ import { TestimonialsModule } from './testimonials/testimonials.module';
     PrismaModule,
     AuthModule,
     ExchangeRateModule,
+    DiagnosesModule,
     PatientsModule,
     TreatmentsModule,
     AppointmentsModule,

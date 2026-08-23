@@ -3,7 +3,6 @@ export interface OdontogramEntry {
   patientId: string;
   toothNumber: number;
   toothType: string;
-  diagnosisType: string;
   toothCondition: string;
   diagnosisDescription: string;
   xrayRequested: boolean;

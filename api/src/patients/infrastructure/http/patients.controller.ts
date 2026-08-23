@@ -24,6 +24,7 @@ import { CreateHygieneHabitsDto } from './dto/create-hygiene-habits.dto.js';
 import { CreateClinicalExamDto } from './dto/create-clinical-exam.dto.js';
 import { CreateOdontogramEntriesDto } from './dto/create-odontogram-entries.dto.js';
 import { CreateToothProcedureDto } from './dto/create-tooth-procedure.dto.js';
+import { CreateDentalExamDto } from './dto/create-dental-exam.dto.js';
 
 @Controller('patients')
 @UseGuards(SupabaseAuthGuard, RolesGuard)
@@ -131,6 +132,12 @@ export class PatientsController {
     });
   }
 
+  @Get(':id/medical-history')
+  @Roles(UserRole.ODONTOLOGIST)
+  findMedicalHistory(@Param('id', ParseUUIDPipe) id: string) {
+    return this.patientsService.findMedicalHistory(id);
+  }
+
   @Post(':id/hygiene-habits')
   @Roles(UserRole.ODONTOLOGIST)
   @HttpCode(HttpStatus.OK)
@@ -148,6 +155,12 @@ export class PatientsController {
     });
   }
 
+  @Get(':id/hygiene-habits')
+  @Roles(UserRole.ODONTOLOGIST)
+  findHygieneHabits(@Param('id', ParseUUIDPipe) id: string) {
+    return this.patientsService.findHygieneHabits(id);
+  }
+
   @Post(':id/clinical-exams')
   @Roles(UserRole.ODONTOLOGIST)
   @HttpCode(HttpStatus.CREATED)
@@ -162,6 +175,12 @@ export class PatientsController {
       halitosis: dto.halitosis,
       occlusion: dto.occlusion,
     });
+  }
+
+  @Get(':id/clinical-exams/latest')
+  @Roles(UserRole.ODONTOLOGIST)
+  findLatestClinicalExam(@Param('id', ParseUUIDPipe) id: string) {
+    return this.patientsService.findLatestClinicalExam(id);
   }
 
   @Get(':patientId/odontogram-entries')
@@ -182,7 +201,6 @@ export class PatientsController {
       dto.entries.map((e) => ({
         toothNumber: e.toothNumber,
         toothType: e.toothType,
-        diagnosisType: e.diagnosisType,
         toothCondition: e.toothCondition,
         diagnosisDescription: e.diagnosisDescription,
         xrayRequested: e.xrayRequested,
@@ -225,5 +243,49 @@ export class PatientsController {
   @Roles(UserRole.ODONTOLOGIST)
   findToothProcedures(@Param('patientId', ParseUUIDPipe) patientId: string) {
     return this.patientsService.findToothProcedures(patientId);
+  }
+
+  @Post(':patientId/dental-exams')
+  @Roles(UserRole.ODONTOLOGIST)
+  @HttpCode(HttpStatus.CREATED)
+  createDentalExam(
+    @Param('patientId', ParseUUIDPipe) patientId: string,
+    @CurrentUser() currentUser: AuthenticatedUser,
+    @Body() dto: CreateDentalExamDto,
+  ) {
+    return this.patientsService.createDentalExam(patientId, currentUser.uid, {
+      findings: dto.findings.map((f) => ({
+        diagnosisCode: f.diagnosisCode,
+        toothNumbers: f.toothNumbers,
+        modifierValue: f.modifierValue,
+        description: f.description,
+        xrayRequested: f.xrayRequested,
+        notes: f.notes,
+      })),
+      changeReason: dto.changeReason,
+      notes: dto.notes,
+    });
+  }
+
+  @Get(':patientId/dental-exams')
+  @Roles(UserRole.ODONTOLOGIST)
+  findDentalExamVersions(@Param('patientId', ParseUUIDPipe) patientId: string) {
+    return this.patientsService.findDentalExamVersions(patientId);
+  }
+
+  // Antes de :examId — si no, Nest matchea "current" contra el param.
+  @Get(':patientId/dental-exams/current')
+  @Roles(UserRole.ODONTOLOGIST)
+  findCurrentDentalExam(@Param('patientId', ParseUUIDPipe) patientId: string) {
+    return this.patientsService.findCurrentDentalExam(patientId);
+  }
+
+  @Get(':patientId/dental-exams/:examId')
+  @Roles(UserRole.ODONTOLOGIST)
+  findDentalExam(
+    @Param('patientId', ParseUUIDPipe) patientId: string,
+    @Param('examId', ParseUUIDPipe) examId: string,
+  ) {
+    return this.patientsService.findDentalExam(patientId, examId);
   }
 }

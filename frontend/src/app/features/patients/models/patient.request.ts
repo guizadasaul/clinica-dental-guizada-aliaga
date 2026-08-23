@@ -79,7 +79,6 @@ export interface CreateClinicalExamRequest {
 export interface CreateOdontogramEntryRequest {
   toothNumber: number;
   toothType?: string;
-  diagnosisType: string;
   toothCondition: string;
   diagnosisDescription: string;
   xrayRequested?: boolean;

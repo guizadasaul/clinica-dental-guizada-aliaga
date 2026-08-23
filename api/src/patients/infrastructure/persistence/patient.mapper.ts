@@ -90,7 +90,7 @@ export class PatientMapper {
 
   static toDomainPatientWithUser(
     u: users & {
-      patients: (patients & { _count: { odontogram_entries: number } }) | null;
+      patients: (patients & { _count: { dental_exams: number } }) | null;
     },
   ): PatientWithUser {
     return new PatientWithUser(
@@ -100,7 +100,7 @@ export class PatientMapper {
       u.phone ?? null,
       u.created_at,
       u.patients ? PatientMapper.toDomainPatient(u.patients) : null,
-      u.patients?._count.odontogram_entries ?? 0,
+      u.patients?._count.dental_exams ?? 0,
       u.auth_user_id !== null,
     );
   }
