@@ -13,16 +13,16 @@
     />
   } @else {
     <div class="agenda__nav">
-      <button type="button" class="agenda__nav-btn" (click)="onPrevDay()" aria-label="Día anterior">
+      <button type="button" class="agenda__nav-btn" (click)="onPrevPage()" aria-label="Página anterior">
         <span class="material-symbols-outlined">chevron_left</span>
       </button>
       <div class="agenda__nav-center">
-        <span class="agenda__nav-label">{{ selectedDateLabel() }}</span>
-        @if (!isToday()) {
+        <span class="agenda__nav-label">{{ rangeLabel() }}</span>
+        @if (!isCurrentWeekVisible()) {
           <button type="button" class="agenda__nav-today" (click)="onToday()">Hoy</button>
         }
       </div>
-      <button type="button" class="agenda__nav-btn" (click)="onNextDay()" aria-label="Día siguiente">
+      <button type="button" class="agenda__nav-btn" (click)="onNextPage()" aria-label="Página siguiente">
         <span class="material-symbols-outlined">chevron_right</span>
       </button>
     </div>
@@ -33,32 +33,120 @@
 
     @if (loading()) {
       <p class="agenda__hint">Cargando agenda...</p>
-    } @else if (appointments().length === 0) {
-      <div class="agenda__empty">
-        <span class="material-symbols-outlined">event_busy</span>
-        <p>No hay citas confirmadas para este día.</p>
-      </div>
     } @else {
-      <div class="agenda__list">
-        @for (appt of appointments(); track appt.id) {
-          <div class="agenda-item">
-            <div class="agenda-item__time">{{ formatDatetime(appt.appointmentDatetime) }}</div>
-            <div class="agenda-item__body">
-              <p class="agenda-item__patient">{{ patientLabel(appt) }}</p>
-              <p class="agenda-item__phone">{{ patientPhone(appt) }}</p>
+      <div class="agenda-grid-wrap">
+        <div
+          class="agenda-grid"
+          [style.gridTemplateColumns]="gridTemplateColumns"
+        >
+          <div class="agenda-grid__corner"></div>
+          @for (day of dayHeaders(); track day.date) {
+            <div class="agenda-grid__day-header" [class.agenda-grid__day-header--today]="day.isToday">
+              <span class="agenda-grid__day-weekday">{{ day.weekday }}</span>
+              <span class="agenda-grid__day-num">{{ day.dayNum }}</span>
             </div>
-            <div class="agenda-item__actions">
-              <button
-                class="agenda-item__btn agenda-item__btn--primary"
-                type="button"
-                (click)="onOpenHistory(appt)"
-              >
-                <span class="material-symbols-outlined">folder_open</span>
-                Historial clínico
-              </button>
-            </div>
+          }
+
+          <div class="agenda-grid__gutter" [style.height.px]="gridHeightPx">
+            @for (mark of hourMarks; track mark.offset) {
+              <span class="agenda-grid__hour-label" [style.top.px]="mark.offset">{{ mark.label }}</span>
+            }
           </div>
-        }
+
+          @for (day of dayHeaders(); track day.date) {
+            @if (day.isWeekend) {
+              <div class="agenda-grid__day-col agenda-grid__day-col--split" [style.height.px]="gridHeightPx">
+                <div class="agenda-mini-panel" [style.height.px]="panelViewportPx">
+                  <div class="agenda-mini-panel__inner" [style.height.px]="gridHeightPx">
+                    @for (slot of panelSlotLabels; track slot.offset) {
+                      <div
+                        class="agenda-mini-panel__line"
+                        [class.agenda-mini-panel__line--hour]="slot.isHour"
+                        [style.top.px]="slot.offset"
+                      >
+                        @if (slot.isHour) {
+                          <span class="agenda-mini-panel__label">{{ slot.label }}</span>
+                        }
+                      </div>
+                    }
+                    @for (appt of appointmentsFor(day.date); track appt.id) {
+                      <button
+                        type="button"
+                        class="agenda-slot"
+                        [style.top.px]="apptTopPx(appt)"
+                        [style.height.px]="ROW_HEIGHT_PX"
+                        (click)="onOpenHistory(appt)"
+                      >
+                        <span class="agenda-slot__time">{{ formatDatetime(appt.appointmentDatetime) }}</span>
+                        <span class="agenda-slot__patient">{{ patientLabel(appt) }}</span>
+                      </button>
+                    }
+                  </div>
+                </div>
+                <div
+                  class="agenda-mini-panel__divider"
+                  [class.agenda-mini-panel__divider--today]="day.weekendSecond!.isToday"
+                >
+                  <span class="agenda-grid__day-weekday">{{ day.weekendSecond!.weekday }}</span>
+                  <span class="agenda-grid__day-num">{{ day.weekendSecond!.dayNum }}</span>
+                </div>
+                <div class="agenda-mini-panel" [style.height.px]="panelViewportPx">
+                  <div class="agenda-mini-panel__inner" [style.height.px]="gridHeightPx">
+                    @for (slot of panelSlotLabels; track slot.offset) {
+                      <div
+                        class="agenda-mini-panel__line"
+                        [class.agenda-mini-panel__line--hour]="slot.isHour"
+                        [style.top.px]="slot.offset"
+                      >
+                        @if (slot.isHour) {
+                          <span class="agenda-mini-panel__label">{{ slot.label }}</span>
+                        }
+                      </div>
+                    }
+                    @for (appt of appointmentsFor(day.weekendSecond!.date); track appt.id) {
+                      <button
+                        type="button"
+                        class="agenda-slot"
+                        [style.top.px]="apptTopPx(appt)"
+                        [style.height.px]="ROW_HEIGHT_PX"
+                        (click)="onOpenHistory(appt)"
+                      >
+                        <span class="agenda-slot__time">{{ formatDatetime(appt.appointmentDatetime) }}</span>
+                        <span class="agenda-slot__patient">{{ patientLabel(appt) }}</span>
+                      </button>
+                    }
+                  </div>
+                </div>
+              </div>
+            } @else {
+              <div
+                class="agenda-grid__day-col"
+                [class.agenda-grid__day-col--today]="day.isToday"
+                [style.height.px]="gridHeightPx"
+              >
+                @for (line of gridLines; track line.offset) {
+                  <div
+                    class="agenda-grid__line"
+                    [class.agenda-grid__line--hour]="line.isHour"
+                    [style.top.px]="line.offset"
+                  ></div>
+                }
+                @for (appt of appointmentsFor(day.date); track appt.id) {
+                  <button
+                    type="button"
+                    class="agenda-slot"
+                    [style.top.px]="apptTopPx(appt)"
+                    [style.height.px]="ROW_HEIGHT_PX"
+                    (click)="onOpenHistory(appt)"
+                  >
+                    <span class="agenda-slot__time">{{ formatDatetime(appt.appointmentDatetime) }}</span>
+                    <span class="agenda-slot__patient">{{ patientLabel(appt) }}</span>
+                  </button>
+                }
+              </div>
+            }
+          }
+        </div>
       </div>
     }
   }

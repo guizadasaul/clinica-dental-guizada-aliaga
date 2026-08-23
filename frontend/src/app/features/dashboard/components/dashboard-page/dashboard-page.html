@@ -7,8 +7,7 @@
   <!-- Sidebar -->
   <aside class="sidebar" [class.sidebar--open]="sidebarOpen()">
     <div class="sidebar__brand">
-      <app-logo class="sidebar__brand-symbol" tone="light" />
-      <span class="sidebar__brand-name">Guizada-Aliaga</span>
+      <app-logo class="sidebar__brand-symbol" tone="light-full" />
     </div>
 
     <nav class="sidebar__nav" aria-label="Navegación principal">
@@ -53,8 +52,7 @@
       <button type="button" class="topbar__menu-btn" (click)="toggleSidebar()" aria-label="Abrir menú">
         <span class="material-symbols-outlined">menu</span>
       </button>
-      <app-logo class="topbar__brand-symbol" tone="light" />
-      <span class="topbar__brand-name">Guizada-Aliaga</span>
+      <app-logo class="topbar__brand-symbol" tone="light-full" />
     </header>
 
     <!-- Dashboard content by role -->
@@ -66,7 +64,7 @@
     } @else if (role() === 'patient') {
       <app-patient-dashboard [activeNav]="activeNav()" (navChange)="setActive($event)" />
     } @else if (role() === 'odontologist') {
-      <app-doctor-dashboard [activeNav]="activeNav()" />
+      <app-doctor-dashboard [activeNav]="activeNav()" (navChange)="setActive($event)" />
     }
   </div>
 </div>

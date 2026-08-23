@@ -3,9 +3,11 @@ import {
   ChangeDetectionStrategy,
   inject,
   input,
+  output,
   signal,
   computed,
 } from '@angular/core';
+import { firstValueFrom } from 'rxjs';
 import { AuthService } from '../../../../auth/application/auth.service';
 import { PatientsListComponent } from '../../../patients/components/patients-list/patients-list';
 import { PatientWizardComponent } from '../../../patients/components/patient-wizard/patient-wizard';
@@ -14,21 +16,34 @@ import { RegisterTreatmentComponent } from '../../../treatments/components/regis
 import { TreatmentHistoryComponent } from '../../../treatments/components/treatment-history/treatment-history';
 import { QuoteBuilderComponent } from '../../../quotes/components/quote-builder/quote-builder';
 import { DoctorAgendaComponent } from '../../../appointments/components/doctor-agenda/doctor-agenda';
+import { AppointmentsService } from '../../../appointments/services/appointments.service';
+import type { AppointmentAgendaItem } from '../../../appointments/models/appointment.model';
 import { TestimonialReviewComponent } from '../../../testimonials/components/testimonial-review/testimonial-review';
 import type { PatientInviteContact } from '../../../patients/models/patient.model';
+
+const TIME_FORMATTER = new Intl.DateTimeFormat('es-BO', {
+  timeZone: 'America/La_Paz',
+  hour: '2-digit',
+  minute: '2-digit',
+});
+
+function laPazDateString(date: Date): string {
+  return new Intl.DateTimeFormat('en-CA', { timeZone: 'America/La_Paz' }).format(date);
+}
+
+// Bolivia es UTC-4 fijo, sin horario de verano — sumar días de calendario en
+// UTC es seguro (mismo truco que usa el backend, api/src/appointments).
+function addDaysToDateString(date: string, days: number): string {
+  const [year, month, day] = date.split('-').map(Number);
+  const next = new Date(Date.UTC(year, month - 1, day));
+  next.setUTCDate(next.getUTCDate() + days);
+  return next.toISOString().slice(0, 10);
+}
 
 interface AppointmentSlot {
   readonly time: string;
   readonly patientName: string;
-  readonly treatment: string;
-  readonly status: 'confirmed' | 'pending' | 'done';
-}
-
-interface StatCard {
-  readonly icon: string;
-  readonly value: string | number;
-  readonly label: string;
-  readonly color: string;
+  readonly phone: string;
 }
 
 @Component({
@@ -50,13 +65,16 @@ interface StatCard {
 })
 export class DoctorDashboardComponent {
   private readonly authService = inject(AuthService);
+  private readonly appointmentsService = inject(AppointmentsService);
 
   readonly activeNav = input<string>('home');
+  readonly navChange = output<string>();
 
   protected readonly user = this.authService.currentUser;
 
   protected readonly selectedUserId = signal<string | null>(null);
   protected readonly selectedPatientId = signal<string | null>(null);
+  protected readonly wizardStartStep = signal(5);
   protected readonly selectedPatientForTreatment = signal<string | null>(null);
   protected readonly selectedPatientForHistory = signal<string | null>(null);
   protected readonly selectedPatientForQuote = signal<string | null>(null);
@@ -108,19 +126,39 @@ export class DoctorDashboardComponent {
     }),
   );
 
-  protected readonly stats: StatCard[] = [
-    { icon: 'group', value: 0, label: 'Pacientes hoy', color: 'navy' },
-    { icon: 'event_available', value: 0, label: 'Citas confirmadas', color: 'success' },
-    { icon: 'pending_actions', value: 0, label: 'Pendientes', color: 'warning' },
-  ];
+  protected readonly appointments = signal<AppointmentSlot[]>([]);
 
-  protected readonly appointments: AppointmentSlot[] = [];
+  constructor() {
+    void this.loadTodayAgenda();
+  }
 
-  protected readonly statusLabel: Record<AppointmentSlot['status'], string> = {
-    confirmed: 'Confirmada',
-    pending: 'Pendiente',
-    done: 'Completada',
-  };
+  private async loadTodayAgenda(): Promise<void> {
+    const from = laPazDateString(new Date());
+    const to = addDaysToDateString(from, 1);
+    try {
+      const result = await firstValueFrom(
+        this.appointmentsService.getAgenda({ status: 'confirmed', from, to }),
+      );
+      this.appointments.set(result.map((a) => this.toAppointmentSlot(a)));
+    } catch {
+      this.appointments.set([]);
+    }
+  }
+
+  private toAppointmentSlot(a: AppointmentAgendaItem): AppointmentSlot {
+    const patientName = a.patientFirstName
+      ? `${a.patientFirstName} ${a.patientLastNamePaternal ?? ''}`.trim()
+      : (a.guestFullName ?? 'Paciente sin datos');
+    return {
+      time: TIME_FORMATTER.format(new Date(a.appointmentDatetime)),
+      patientName,
+      phone: a.patientPhone ?? a.guestPhone ?? '—',
+    };
+  }
+
+  protected onGoToPatients(): void {
+    this.navChange.emit('patients');
+  }
 
   protected onStartWizard(userId: string): void {
     this.selectedUserId.set(userId);
@@ -132,6 +170,21 @@ export class DoctorDashboardComponent {
     this.selectedPatientId.set(patientId);
     this.selectedUserId.set(null);
     this.selectedPatientForInvite.set(null);
+    this.wizardStartStep.set(5);
+  }
+
+  protected onRegisterDiagnosis(patientId: string): void {
+    this.selectedPatientId.set(patientId);
+    this.selectedUserId.set(null);
+    this.selectedPatientForInvite.set(null);
+    this.wizardStartStep.set(1);
+  }
+
+  protected onViewClinicalRecord(patientId: string): void {
+    this.selectedPatientId.set(patientId);
+    this.selectedUserId.set(null);
+    this.selectedPatientForInvite.set(null);
+    this.wizardStartStep.set(2);
   }
 
   protected onWizardComplete(): void {

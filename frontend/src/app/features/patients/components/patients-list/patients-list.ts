@@ -1,6 +1,7 @@
 import {
   Component,
   ChangeDetectionStrategy,
+  HostListener,
   inject,
   output,
   signal,
@@ -22,10 +23,22 @@ export class PatientsListComponent {
 
   readonly startWizard = output<string>();
   readonly openOdontogram = output<string>();
+  readonly registerDiagnosis = output<string>();
+  readonly viewClinicalRecord = output<string>();
   readonly registerTreatment = output<string>();
   readonly viewHistory = output<string>();
   readonly buildQuote = output<string>();
   readonly sendInvite = output<PatientInviteContact>();
+
+  protected readonly openMenuFor = signal<string | null>(null);
+
+  @HostListener('document:click', ['$event'])
+  onDocumentClick(event: MouseEvent): void {
+    const target = event.target as HTMLElement;
+    if (!target.closest('.patients-list__menu-wrap')) {
+      this.openMenuFor.set(null);
+    }
+  }
 
   protected readonly patients = toSignal(
     this.patientsService.getAll(),
@@ -38,10 +51,9 @@ export class PatientsListComponent {
     const q = this.filter().toLowerCase().trim();
     if (!q) { return this.patients(); }
     return this.patients().filter((p) => {
-      const name = (p.displayName ?? '').toLowerCase();
-      const email = (p.email ?? '').toLowerCase();
-      const dni = (p.patient?.dni ?? '').toLowerCase();
-      return name.includes(q) || email.includes(q) || dni.includes(q);
+      const name = this.fullName(p).toLowerCase();
+      const phone = this.phoneLabel(p).toLowerCase();
+      return name.includes(q) || phone.includes(q);
     });
   });
 
@@ -52,12 +64,31 @@ export class PatientsListComponent {
     return p.displayName ?? 'Sin nombre';
   }
 
+  protected phoneLabel(p: PatientWithUser): string {
+    return p.patient?.phone ?? p.phone ?? '—';
+  }
+
   protected onRegister(userId: string): void {
     this.startWizard.emit(userId);
   }
 
   protected onOpenOdontogram(patientId: string): void {
+    this.openMenuFor.set(null);
     this.openOdontogram.emit(patientId);
+  }
+
+  protected onRegisterDiagnosis(patientId: string): void {
+    this.openMenuFor.set(null);
+    this.registerDiagnosis.emit(patientId);
+  }
+
+  protected onViewClinicalRecord(patientId: string): void {
+    this.openMenuFor.set(null);
+    this.viewClinicalRecord.emit(patientId);
+  }
+
+  protected toggleMenu(userId: string): void {
+    this.openMenuFor.update((current) => (current === userId ? null : userId));
   }
 
   protected onRegisterTreatment(patientId: string): void {
