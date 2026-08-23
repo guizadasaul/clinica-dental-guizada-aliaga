@@ -3,50 +3,180 @@
     <h3 class="step-form__section-title">Datos personales</h3>
     <div class="step-form__grid step-form__grid--3">
       <div class="step-form__field">
-        <label class="step-form__label">Nombre <span class="step-form__req">*</span></label>
-        <input class="step-form__input" type="text" [value]="firstName()" (input)="firstName.set($any($event.target).value)" placeholder="Ej: María" required />
+        <label class="step-form__label" for="firstName">Nombre <span class="step-form__req">*</span></label>
+        <input
+          id="firstName"
+          class="step-form__input"
+          [class.step-form__input--invalid]="firstName.showError()"
+          type="text"
+          [value]="firstName.value()"
+          (input)="firstName.set($any($event.target).value)"
+          (blur)="firstName.markTouched()"
+          maxlength="100"
+          placeholder="Ej: María"
+          [attr.aria-invalid]="firstName.showError() || null"
+          [attr.aria-describedby]="firstName.showError() ? 'firstName-err' : null"
+        />
+        @if (firstName.showError()) {
+          <p class="step-form__field-error" id="firstName-err" role="alert">{{ firstName.error() }}</p>
+        }
       </div>
       <div class="step-form__field">
-        <label class="step-form__label">Apellido paterno <span class="step-form__req">*</span></label>
-        <input class="step-form__input" type="text" [value]="lastNamePaternal()" (input)="lastNamePaternal.set($any($event.target).value)" placeholder="Ej: García" required />
+        <label class="step-form__label" for="lastNamePaternal">Apellido paterno <span class="step-form__req">*</span></label>
+        <input
+          id="lastNamePaternal"
+          class="step-form__input"
+          [class.step-form__input--invalid]="lastNamePaternal.showError()"
+          type="text"
+          [value]="lastNamePaternal.value()"
+          (input)="lastNamePaternal.set($any($event.target).value)"
+          (blur)="lastNamePaternal.markTouched()"
+          maxlength="100"
+          placeholder="Ej: García"
+          [attr.aria-invalid]="lastNamePaternal.showError() || null"
+          [attr.aria-describedby]="lastNamePaternal.showError() ? 'lastNamePaternal-err' : null"
+        />
+        @if (lastNamePaternal.showError()) {
+          <p class="step-form__field-error" id="lastNamePaternal-err" role="alert">{{ lastNamePaternal.error() }}</p>
+        }
       </div>
       <div class="step-form__field">
-        <label class="step-form__label">Apellido materno</label>
-        <input class="step-form__input" type="text" [value]="lastNameMaternal()" (input)="lastNameMaternal.set($any($event.target).value)" placeholder="Ej: López" />
+        <label class="step-form__label" for="lastNameMaternal">Apellido materno</label>
+        <input
+          id="lastNameMaternal"
+          class="step-form__input"
+          [class.step-form__input--invalid]="lastNameMaternal.showError()"
+          type="text"
+          [value]="lastNameMaternal.value()"
+          (input)="lastNameMaternal.set($any($event.target).value)"
+          (blur)="lastNameMaternal.markTouched()"
+          maxlength="100"
+          placeholder="Ej: López"
+          [attr.aria-invalid]="lastNameMaternal.showError() || null"
+          [attr.aria-describedby]="lastNameMaternal.showError() ? 'lastNameMaternal-err' : null"
+        />
+        @if (lastNameMaternal.showError()) {
+          <p class="step-form__field-error" id="lastNameMaternal-err" role="alert">{{ lastNameMaternal.error() }}</p>
+        }
       </div>
       <div class="step-form__field">
-        <label class="step-form__label">Fecha de nacimiento <span class="step-form__req">*</span></label>
-        <input class="step-form__input" type="date" [value]="birthDate()" (input)="birthDate.set($any($event.target).value)" required />
+        <label class="step-form__label" for="birthDate">Fecha de nacimiento <span class="step-form__req">*</span></label>
+        <input
+          id="birthDate"
+          class="step-form__input"
+          [class.step-form__input--invalid]="birthDate.showError()"
+          type="date"
+          [value]="birthDate.value()"
+          (input)="birthDate.set($any($event.target).value)"
+          (blur)="birthDate.markTouched()"
+          [attr.aria-invalid]="birthDate.showError() || null"
+          [attr.aria-describedby]="birthDate.showError() ? 'birthDate-err' : null"
+        />
+        @if (birthDate.showError()) {
+          <p class="step-form__field-error" id="birthDate-err" role="alert">{{ birthDate.error() }}</p>
+        }
       </div>
       <div class="step-form__field">
-        <label class="step-form__label">Lugar de nacimiento</label>
-        <input class="step-form__input" type="text" [value]="birthPlace()" (input)="birthPlace.set($any($event.target).value)" placeholder="Ej: Cochabamba" />
+        <label class="step-form__label" for="birthPlace">Lugar de nacimiento <span class="step-form__req">*</span></label>
+        <input
+          id="birthPlace"
+          class="step-form__input"
+          [class.step-form__input--invalid]="birthPlace.showError()"
+          type="text"
+          [value]="birthPlace.value()"
+          (input)="birthPlace.set($any($event.target).value)"
+          (blur)="birthPlace.markTouched()"
+          maxlength="150"
+          placeholder="Ej: Cochabamba"
+          [attr.aria-invalid]="birthPlace.showError() || null"
+          [attr.aria-describedby]="birthPlace.showError() ? 'birthPlace-err' : null"
+        />
+        @if (birthPlace.showError()) {
+          <p class="step-form__field-error" id="birthPlace-err" role="alert">{{ birthPlace.error() }}</p>
+        }
       </div>
       <div class="step-form__field">
-        <label class="step-form__label">Sexo</label>
-        <select class="step-form__input" [value]="sex()" (change)="sex.set($any($event.target).value)">
+        <label class="step-form__label" for="sex">Sexo <span class="step-form__req">*</span></label>
+        <select
+          id="sex"
+          class="step-form__input"
+          [class.step-form__input--invalid]="sex.showError()"
+          [value]="sex.value()"
+          (change)="sex.set($any($event.target).value)"
+          (blur)="sex.markTouched()"
+          [attr.aria-invalid]="sex.showError() || null"
+          [attr.aria-describedby]="sex.showError() ? 'sex-err' : null"
+        >
           <option value="">Seleccionar</option>
           <option value="masculino">Masculino</option>
           <option value="femenino">Femenino</option>
           <option value="otro">Otro</option>
         </select>
+        @if (sex.showError()) {
+          <p class="step-form__field-error" id="sex-err" role="alert">{{ sex.error() }}</p>
+        }
       </div>
       <div class="step-form__field">
-        <label class="step-form__label">Ocupación</label>
-        <input class="step-form__input" type="text" [value]="occupation()" (input)="occupation.set($any($event.target).value)" placeholder="Ej: Docente" />
+        <label class="step-form__label" for="occupation">Ocupación <span class="step-form__req">*</span></label>
+        <input
+          id="occupation"
+          class="step-form__input"
+          [class.step-form__input--invalid]="occupation.showError()"
+          type="text"
+          [value]="occupation.value()"
+          (input)="occupation.set($any($event.target).value)"
+          (blur)="occupation.markTouched()"
+          maxlength="150"
+          placeholder="Ej: Docente"
+          [attr.aria-invalid]="occupation.showError() || null"
+          [attr.aria-describedby]="occupation.showError() ? 'occupation-err' : null"
+        />
+        @if (occupation.showError()) {
+          <p class="step-form__field-error" id="occupation-err" role="alert">{{ occupation.error() }}</p>
+        }
       </div>
       <div class="step-form__field">
-        <label class="step-form__label">DNI</label>
-        <input class="step-form__input" type="text" [value]="dni()" (input)="dni.set($any($event.target).value)" placeholder="Ej: 12345678" />
+        <label class="step-form__label" for="dni">DNI <span class="step-form__req">*</span></label>
+        <input
+          id="dni"
+          class="step-form__input"
+          [class.step-form__input--invalid]="dni.showError()"
+          type="text"
+          [value]="dni.value()"
+          (input)="dni.set($any($event.target).value)"
+          (blur)="dni.markTouched()"
+          maxlength="20"
+          placeholder="Ej: 12345678"
+          [attr.aria-invalid]="dni.showError() || null"
+          [attr.aria-describedby]="dni.showError() ? 'dni-err' : null"
+        />
+        @if (dni.showError()) {
+          <p class="step-form__field-error" id="dni-err" role="alert">{{ dni.error() }}</p>
+        }
       </div>
       <div class="step-form__field">
         <label class="step-form__label">Teléfono</label>
-        <input class="step-form__input" type="tel" [value]="phone()" (input)="phone.set($any($event.target).value)" placeholder="Ej: 70012345" />
+        <app-phone-input [value]="phoneE164()" [disabled]="loading()" (changed)="onPhoneChanged($event)" />
       </div>
     </div>
     <div class="step-form__field step-form__field--full">
-      <label class="step-form__label">Dirección</label>
-      <input class="step-form__input" type="text" [value]="address()" (input)="address.set($any($event.target).value)" placeholder="Ej: Av. Heroínas 456, Zona Centro" />
+      <label class="step-form__label" for="address">Dirección <span class="step-form__req">*</span></label>
+      <input
+        id="address"
+        class="step-form__input"
+        [class.step-form__input--invalid]="address.showError()"
+        type="text"
+        [value]="address.value()"
+        (input)="address.set($any($event.target).value)"
+        (blur)="address.markTouched()"
+        maxlength="300"
+        placeholder="Ej: Av. Heroínas 456, Zona Centro"
+        [attr.aria-invalid]="address.showError() || null"
+        [attr.aria-describedby]="address.showError() ? 'address-err' : null"
+      />
+      @if (address.showError()) {
+        <p class="step-form__field-error" id="address-err" role="alert">{{ address.error() }}</p>
+      }
     </div>
   </div>
 
@@ -54,16 +184,53 @@
     <h3 class="step-form__section-title">Contacto de emergencia</h3>
     <div class="step-form__grid step-form__grid--3">
       <div class="step-form__field">
-        <label class="step-form__label">Nombre completo</label>
-        <input class="step-form__input" type="text" [value]="emergencyContactName()" (input)="emergencyContactName.set($any($event.target).value)" placeholder="Ej: Carlos García" />
+        <label class="step-form__label" for="emergencyContactName">Nombre completo <span class="step-form__req">*</span></label>
+        <input
+          id="emergencyContactName"
+          class="step-form__input"
+          [class.step-form__input--invalid]="emergencyContactName.showError()"
+          type="text"
+          [value]="emergencyContactName.value()"
+          (input)="emergencyContactName.set($any($event.target).value)"
+          (blur)="emergencyContactName.markTouched()"
+          [attr.maxlength]="emergencyContactNameMaxLength"
+          placeholder="Ej: Carlos García"
+          [attr.aria-invalid]="emergencyContactName.showError() || null"
+          [attr.aria-describedby]="emergencyContactName.showError() ? 'emergencyContactName-err' : null"
+        />
+        @if (emergencyContactName.showError()) {
+          <p class="step-form__field-error" id="emergencyContactName-err" role="alert">{{ emergencyContactName.error() }}</p>
+        }
       </div>
       <div class="step-form__field">
-        <label class="step-form__label">Teléfono</label>
-        <input class="step-form__input" type="tel" [value]="emergencyContactPhone()" (input)="emergencyContactPhone.set($any($event.target).value)" placeholder="Ej: 70098765" />
+        <label class="step-form__label">Teléfono <span class="step-form__req">*</span></label>
+        <app-phone-input
+          [value]="emergencyContactPhoneE164()"
+          [disabled]="loading()"
+          (changed)="onEmergencyContactPhoneChanged($event)"
+        />
+        @if (submitted() && !emergencyContactPhoneOk()) {
+          <p class="step-form__field-error" role="alert">El teléfono del contacto de emergencia es obligatorio.</p>
+        }
       </div>
       <div class="step-form__field">
-        <label class="step-form__label">Parentesco</label>
-        <input class="step-form__input" type="text" [value]="emergencyContactRelationship()" (input)="emergencyContactRelationship.set($any($event.target).value)" placeholder="Ej: Esposo/a" />
+        <label class="step-form__label" for="emergencyContactRelationship">Parentesco <span class="step-form__req">*</span></label>
+        <input
+          id="emergencyContactRelationship"
+          class="step-form__input"
+          [class.step-form__input--invalid]="emergencyContactRelationship.showError()"
+          type="text"
+          [value]="emergencyContactRelationship.value()"
+          (input)="emergencyContactRelationship.set($any($event.target).value)"
+          (blur)="emergencyContactRelationship.markTouched()"
+          maxlength="100"
+          placeholder="Ej: Esposo/a"
+          [attr.aria-invalid]="emergencyContactRelationship.showError() || null"
+          [attr.aria-describedby]="emergencyContactRelationship.showError() ? 'emergencyContactRelationship-err' : null"
+        />
+        @if (emergencyContactRelationship.showError()) {
+          <p class="step-form__field-error" id="emergencyContactRelationship-err" role="alert">{{ emergencyContactRelationship.error() }}</p>
+        }
       </div>
     </div>
   </div>
@@ -72,20 +239,78 @@
     <h3 class="step-form__section-title">Antecedentes odontológicos</h3>
     <div class="step-form__grid step-form__grid--2">
       <div class="step-form__field">
-        <label class="step-form__label">Motivo de consulta</label>
-        <textarea class="step-form__input step-form__input--textarea" [value]="consultationReason()" (input)="consultationReason.set($any($event.target).value)" placeholder="Describe el motivo principal..." rows="3"></textarea>
+        <label class="step-form__label" for="consultationReason">Motivo de consulta</label>
+        <textarea
+          id="consultationReason"
+          class="step-form__input step-form__input--textarea"
+          [class.step-form__input--invalid]="consultationReason.showError()"
+          [value]="consultationReason.value()"
+          (input)="consultationReason.set($any($event.target).value)"
+          (blur)="consultationReason.markTouched()"
+          maxlength="1000"
+          placeholder="Describe el motivo principal..."
+          rows="3"
+          [attr.aria-invalid]="consultationReason.showError() || null"
+          [attr.aria-describedby]="consultationReason.showError() ? 'consultationReason-err' : null"
+        ></textarea>
+        @if (consultationReason.showError()) {
+          <p class="step-form__field-error" id="consultationReason-err" role="alert">{{ consultationReason.error() }}</p>
+        }
       </div>
       <div class="step-form__field">
-        <label class="step-form__label">Historial familiar</label>
-        <textarea class="step-form__input step-form__input--textarea" [value]="familyHistory()" (input)="familyHistory.set($any($event.target).value)" placeholder="Enfermedades hereditarias, etc." rows="3"></textarea>
+        <label class="step-form__label" for="familyHistory">Historial familiar</label>
+        <textarea
+          id="familyHistory"
+          class="step-form__input step-form__input--textarea"
+          [class.step-form__input--invalid]="familyHistory.showError()"
+          [value]="familyHistory.value()"
+          (input)="familyHistory.set($any($event.target).value)"
+          (blur)="familyHistory.markTouched()"
+          maxlength="1000"
+          placeholder="Enfermedades hereditarias, etc."
+          rows="3"
+          [attr.aria-invalid]="familyHistory.showError() || null"
+          [attr.aria-describedby]="familyHistory.showError() ? 'familyHistory-err' : null"
+        ></textarea>
+        @if (familyHistory.showError()) {
+          <p class="step-form__field-error" id="familyHistory-err" role="alert">{{ familyHistory.error() }}</p>
+        }
       </div>
       <div class="step-form__field">
-        <label class="step-form__label">Última visita al dentista</label>
-        <input class="step-form__input" type="date" [value]="lastDentistVisit()" (input)="lastDentistVisit.set($any($event.target).value)" />
+        <label class="step-form__label" for="lastDentistVisit">Última visita al dentista</label>
+        <input
+          id="lastDentistVisit"
+          class="step-form__input"
+          [class.step-form__input--invalid]="lastDentistVisit.showError()"
+          type="date"
+          [value]="lastDentistVisit.value()"
+          (input)="lastDentistVisit.set($any($event.target).value)"
+          (blur)="lastDentistVisit.markTouched()"
+          [attr.aria-invalid]="lastDentistVisit.showError() || null"
+          [attr.aria-describedby]="lastDentistVisit.showError() ? 'lastDentistVisit-err' : null"
+        />
+        @if (lastDentistVisit.showError()) {
+          <p class="step-form__field-error" id="lastDentistVisit-err" role="alert">{{ lastDentistVisit.error() }}</p>
+        }
       </div>
       <div class="step-form__field">
-        <label class="step-form__label">Tratamiento previo</label>
-        <input class="step-form__input" type="text" [value]="lastVisitTreatment()" (input)="lastVisitTreatment.set($any($event.target).value)" placeholder="Ej: Extracción molar" />
+        <label class="step-form__label" for="lastVisitTreatment">Tratamiento previo</label>
+        <input
+          id="lastVisitTreatment"
+          class="step-form__input"
+          [class.step-form__input--invalid]="lastVisitTreatment.showError()"
+          type="text"
+          [value]="lastVisitTreatment.value()"
+          (input)="lastVisitTreatment.set($any($event.target).value)"
+          (blur)="lastVisitTreatment.markTouched()"
+          maxlength="500"
+          placeholder="Ej: Extracción molar"
+          [attr.aria-invalid]="lastVisitTreatment.showError() || null"
+          [attr.aria-describedby]="lastVisitTreatment.showError() ? 'lastVisitTreatment-err' : null"
+        />
+        @if (lastVisitTreatment.showError()) {
+          <p class="step-form__field-error" id="lastVisitTreatment-err" role="alert">{{ lastVisitTreatment.error() }}</p>
+        }
       </div>
     </div>
   </div>

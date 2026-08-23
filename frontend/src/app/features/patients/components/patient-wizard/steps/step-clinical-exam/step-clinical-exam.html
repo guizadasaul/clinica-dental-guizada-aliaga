@@ -24,8 +24,23 @@
   <div class="step-form__section">
     <h3 class="step-form__section-title">Oclusión</h3>
     <div class="step-form__field" style="max-width: 500px;">
-      <label class="step-form__label">Descripción de la oclusión</label>
-      <input class="step-form__input" type="text" [value]="occlusion()" (input)="occlusion.set($any($event.target).value)" placeholder="Ej: Clase I, mordida abierta, etc." />
+      <label class="step-form__label" for="occlusion">Descripción de la oclusión</label>
+      <input
+        id="occlusion"
+        class="step-form__input"
+        [class.step-form__input--invalid]="occlusion.showError()"
+        type="text"
+        [value]="occlusion.value()"
+        (input)="occlusion.set($any($event.target).value)"
+        (blur)="occlusion.markTouched()"
+        maxlength="200"
+        placeholder="Ej: Clase I, mordida abierta, etc."
+        [attr.aria-invalid]="occlusion.showError() || null"
+        [attr.aria-describedby]="occlusion.showError() ? 'occlusion-err' : null"
+      />
+      @if (occlusion.showError()) {
+        <p class="step-form__field-error" id="occlusion-err" role="alert">{{ occlusion.error() }}</p>
+      }
     </div>
   </div>
 

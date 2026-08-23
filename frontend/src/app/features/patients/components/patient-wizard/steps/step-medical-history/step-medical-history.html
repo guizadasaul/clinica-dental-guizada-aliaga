@@ -49,16 +49,61 @@
     <h3 class="step-form__section-title">Información adicional</h3>
     <div class="step-form__grid step-form__grid--2">
       <div class="step-form__field">
-        <label class="step-form__label">Otras enfermedades</label>
-        <textarea class="step-form__input step-form__input--textarea" [value]="otherDiseases()" (input)="otherDiseases.set($any($event.target).value)" placeholder="Describe otras enfermedades relevantes..." rows="3"></textarea>
+        <label class="step-form__label" for="otherDiseases">Otras enfermedades</label>
+        <textarea
+          id="otherDiseases"
+          class="step-form__input step-form__input--textarea"
+          [class.step-form__input--invalid]="otherDiseases.showError()"
+          [value]="otherDiseases.value()"
+          (input)="otherDiseases.set($any($event.target).value)"
+          (blur)="otherDiseases.markTouched()"
+          maxlength="1000"
+          placeholder="Describe otras enfermedades relevantes..."
+          rows="3"
+          [attr.aria-invalid]="otherDiseases.showError() || null"
+          [attr.aria-describedby]="otherDiseases.showError() ? 'otherDiseases-err' : null"
+        ></textarea>
+        @if (otherDiseases.showError()) {
+          <p class="step-form__field-error" id="otherDiseases-err" role="alert">{{ otherDiseases.error() }}</p>
+        }
       </div>
       <div class="step-form__field">
-        <label class="step-form__label">Medicamentos actuales</label>
-        <textarea class="step-form__input step-form__input--textarea" [value]="currentMedications()" (input)="currentMedications.set($any($event.target).value)" placeholder="Lista los medicamentos que toma actualmente..." rows="3"></textarea>
+        <label class="step-form__label" for="currentMedications">Medicamentos actuales</label>
+        <textarea
+          id="currentMedications"
+          class="step-form__input step-form__input--textarea"
+          [class.step-form__input--invalid]="currentMedications.showError()"
+          [value]="currentMedications.value()"
+          (input)="currentMedications.set($any($event.target).value)"
+          (blur)="currentMedications.markTouched()"
+          maxlength="1000"
+          placeholder="Lista los medicamentos que toma actualmente..."
+          rows="3"
+          [attr.aria-invalid]="currentMedications.showError() || null"
+          [attr.aria-describedby]="currentMedications.showError() ? 'currentMedications-err' : null"
+        ></textarea>
+        @if (currentMedications.showError()) {
+          <p class="step-form__field-error" id="currentMedications-err" role="alert">{{ currentMedications.error() }}</p>
+        }
       </div>
       <div class="step-form__field">
-        <label class="step-form__label">Período de gestación</label>
-        <input class="step-form__input" type="text" [value]="gestationPeriod()" (input)="gestationPeriod.set($any($event.target).value)" placeholder="Ej: 20 semanas / No aplica" />
+        <label class="step-form__label" for="gestationPeriod">Período de gestación</label>
+        <input
+          id="gestationPeriod"
+          class="step-form__input"
+          [class.step-form__input--invalid]="gestationPeriod.showError()"
+          type="text"
+          [value]="gestationPeriod.value()"
+          (input)="gestationPeriod.set($any($event.target).value)"
+          (blur)="gestationPeriod.markTouched()"
+          maxlength="100"
+          placeholder="Ej: 20 semanas / No aplica"
+          [attr.aria-invalid]="gestationPeriod.showError() || null"
+          [attr.aria-describedby]="gestationPeriod.showError() ? 'gestationPeriod-err' : null"
+        />
+        @if (gestationPeriod.showError()) {
+          <p class="step-form__field-error" id="gestationPeriod-err" role="alert">{{ gestationPeriod.error() }}</p>
+        }
       </div>
       <div class="step-form__field">
         <label class="step-form__label">¿Reacciones a la anestesia?</label>

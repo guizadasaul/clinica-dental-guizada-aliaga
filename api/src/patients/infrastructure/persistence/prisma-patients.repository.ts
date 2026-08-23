@@ -22,6 +22,15 @@ import { PatientMapper } from './patient.mapper';
 import { OdontogramEntryMapper } from './odontogram-entry.mapper';
 import { ToothProcedureMapper } from './tooth-procedure.mapper';
 
+/**
+ * Fecha de hoy sin componente horario, para columnas `@db.Date` (exam_date,
+ * entry_date, birth_date). Igual que como se construyen esos valores en el
+ * resto de la app a partir de un string ISO "yyyy-mm-dd" (`new Date(iso)`).
+ */
+function todayDateOnly(): Date {
+  return new Date(new Date().toISOString().slice(0, 10));
+}
+
 @Injectable()
 export class PrismaPatientsRepository implements IPatientRepository {
   constructor(private readonly prisma: PrismaService) {}
@@ -214,34 +223,51 @@ export class PrismaPatientsRepository implements IPatientRepository {
     return PatientMapper.toDomainHygieneHabits(record);
   }
 
+  /**
+   * Upsert por (patient_id, exam_date) — reenviar el paso 4 el mismo día
+   * actualiza el examen de hoy en vez de duplicarlo; el histórico entre días
+   * se preserva. Requiere el índice único agregado en la migración CLI-39.
+   */
   async createClinicalExam(
     patientId: string,
     data: ClinicalExamData,
   ): Promise<ClinicalExam> {
-    const record = await this.prisma.clinical_exams.create({
-      data: {
-        patient_id: patientId,
-        tartar: data.tartar ?? false,
-        saburra: data.saburra ?? false,
-        bacterial_plaque: data.bacterialPlaque ?? false,
-        halitosis: data.halitosis ?? false,
-        occlusion: data.occlusion ?? null,
+    const examDate = todayDateOnly();
+    const fields = {
+      tartar: data.tartar ?? false,
+      saburra: data.saburra ?? false,
+      bacterial_plaque: data.bacterialPlaque ?? false,
+      halitosis: data.halitosis ?? false,
+      occlusion: data.occlusion ?? null,
+    };
+    const record = await this.prisma.clinical_exams.upsert({
+      where: {
+        patient_id_exam_date: { patient_id: patientId, exam_date: examDate },
       },
+      create: { patient_id: patientId, exam_date: examDate, ...fields },
+      update: fields,
     });
     return PatientMapper.toDomainClinicalExam(record);
   }
 
+  /**
+   * Reemplazo transaccional, acotado a las entries del chart
+   * (`treatment_id IS NULL`). El DELETE nunca toca las entries generadas por
+   * `createToothProcedure` (`treatment_id NOT NULL`) — antes de este cambio
+   * el deleteMany era global y se llevaba puesto el historial de
+   * procedimientos cada vez que el doctor reguardaba el odontograma.
+   */
   async createOdontogramEntries(
     patientId: string,
     entries: OdontogramEntryData[],
   ): Promise<OdontogramEntry[]> {
-    await this.prisma.odontogram_entries.deleteMany({
-      where: { patient_id: patientId },
-    });
-    const records = await Promise.all(
-      entries.map((e) =>
-        this.prisma.odontogram_entries.create({
-          data: {
+    return this.prisma.transaction(async (tx) => {
+      await tx.odontogram_entries.deleteMany({
+        where: { patient_id: patientId, treatment_id: null },
+      });
+      if (entries.length > 0) {
+        await tx.odontogram_entries.createMany({
+          data: entries.map((e) => ({
             patient_id: patientId,
             tooth_number: e.toothNumber,
             tooth_type: e.toothType ?? 'permanent',
@@ -252,11 +278,14 @@ export class PrismaPatientsRepository implements IPatientRepository {
             treatment_id: e.treatmentId ?? null,
             custom_price: e.customPrice != null ? e.customPrice : null,
             notes: e.notes ?? null,
-          },
-        }),
-      ),
-    );
-    return records.map((r) => OdontogramEntryMapper.toDomain(r));
+          })),
+        });
+      }
+      const records = await tx.odontogram_entries.findMany({
+        where: { patient_id: patientId },
+      });
+      return records.map((r) => OdontogramEntryMapper.toDomain(r));
+    });
   }
 
   async findOdontogramEntries(patientId: string): Promise<OdontogramEntry[]> {

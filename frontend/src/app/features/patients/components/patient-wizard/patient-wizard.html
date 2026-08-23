@@ -69,6 +69,7 @@
       @if (currentStep() === 1) {
         <app-step-patient-data
           [loading]="loading()"
+          [existingPatient]="existingPatient()"
           (submitStep)="onStep1Submit($event)"
         />
       }

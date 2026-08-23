@@ -70,6 +70,25 @@
       min-height: 80px;
       font-family: inherit;
     }
+
+    // Error por campo (CLI-39) — borde rojo en el input inválido. `&__error`
+    // (más abajo) se conserva tal cual para los errores de red/formulario.
+    &--invalid {
+      border-color: #dc2626;
+
+      &:focus {
+        border-color: #dc2626;
+        box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.1);
+      }
+    }
+  }
+
+  // Mensaje de error debajo del input inválido — texto chico rojo, sin caja
+  // (a diferencia de `&__error`, que sí lleva fondo/borde para errores de red).
+  &__field-error {
+    color: #dc2626;
+    font-size: 0.8125rem;
+    margin: 0;
   }
 
   &__checkgrid {

@@ -19,7 +19,7 @@ import { DoctorAgendaComponent } from '../../../appointments/components/doctor-a
 import { AppointmentsService } from '../../../appointments/services/appointments.service';
 import type { AppointmentAgendaItem } from '../../../appointments/models/appointment.model';
 import { TestimonialReviewComponent } from '../../../testimonials/components/testimonial-review/testimonial-review';
-import type { PatientInviteContact } from '../../../patients/models/patient.model';
+import type { Patient, PatientInviteContact } from '../../../patients/models/patient.model';
 import type { InviteChannel } from '../../../patient-invites/services/patient-invites.service';
 
 const INVITE_SUCCESS_MESSAGE: Record<InviteChannel, string> = {
@@ -80,6 +80,8 @@ export class DoctorDashboardComponent {
 
   protected readonly selectedUserId = signal<string | null>(null);
   protected readonly selectedPatientId = signal<string | null>(null);
+  /** Solo se usa para precargar el paso 1 ("Registrar diagnóstico") — null en cualquier otro flujo del wizard. */
+  protected readonly selectedPatientForDiagnosis = signal<Patient | null>(null);
   protected readonly wizardStartStep = signal(5);
   protected readonly selectedPatientForTreatment = signal<string | null>(null);
   protected readonly selectedPatientForHistory = signal<string | null>(null);
@@ -172,19 +174,22 @@ export class DoctorDashboardComponent {
     this.selectedUserId.set(userId);
     this.selectedPatientId.set(null);
     this.selectedPatientForInvite.set(null);
+    this.selectedPatientForDiagnosis.set(null);
   }
 
   protected onOpenOdontogram(patientId: string): void {
     this.selectedPatientId.set(patientId);
     this.selectedUserId.set(null);
     this.selectedPatientForInvite.set(null);
+    this.selectedPatientForDiagnosis.set(null);
     this.wizardStartStep.set(5);
   }
 
-  protected onRegisterDiagnosis(patientId: string): void {
-    this.selectedPatientId.set(patientId);
+  protected onRegisterDiagnosis(patient: Patient): void {
+    this.selectedPatientId.set(patient.id);
     this.selectedUserId.set(null);
     this.selectedPatientForInvite.set(null);
+    this.selectedPatientForDiagnosis.set(patient);
     this.wizardStartStep.set(1);
   }
 
@@ -192,23 +197,27 @@ export class DoctorDashboardComponent {
     this.selectedPatientId.set(patientId);
     this.selectedUserId.set(null);
     this.selectedPatientForInvite.set(null);
+    this.selectedPatientForDiagnosis.set(null);
     this.wizardStartStep.set(2);
   }
 
   protected onWizardComplete(): void {
     this.selectedUserId.set(null);
     this.selectedPatientId.set(null);
+    this.selectedPatientForDiagnosis.set(null);
   }
 
   protected onWizardCancel(): void {
     this.selectedUserId.set(null);
     this.selectedPatientId.set(null);
+    this.selectedPatientForDiagnosis.set(null);
   }
 
   protected onRegisterTreatment(patientId: string): void {
     this.selectedPatientForTreatment.set(patientId);
     this.selectedUserId.set(null);
     this.selectedPatientId.set(null);
+    this.selectedPatientForDiagnosis.set(null);
     this.selectedPatientForHistory.set(null);
     this.selectedPatientForQuote.set(null);
     this.selectedPatientForInvite.set(null);
@@ -226,6 +235,7 @@ export class DoctorDashboardComponent {
     this.selectedPatientForHistory.set(patientId);
     this.selectedUserId.set(null);
     this.selectedPatientId.set(null);
+    this.selectedPatientForDiagnosis.set(null);
     this.selectedPatientForTreatment.set(null);
     this.selectedPatientForQuote.set(null);
     this.selectedPatientForInvite.set(null);
@@ -239,6 +249,7 @@ export class DoctorDashboardComponent {
     this.selectedPatientForQuote.set(patientId);
     this.selectedUserId.set(null);
     this.selectedPatientId.set(null);
+    this.selectedPatientForDiagnosis.set(null);
     this.selectedPatientForTreatment.set(null);
     this.selectedPatientForHistory.set(null);
     this.selectedPatientForInvite.set(null);
@@ -252,6 +263,7 @@ export class DoctorDashboardComponent {
     this.selectedPatientForInvite.set(payload);
     this.selectedUserId.set(null);
     this.selectedPatientId.set(null);
+    this.selectedPatientForDiagnosis.set(null);
     this.selectedPatientForTreatment.set(null);
     this.selectedPatientForHistory.set(null);
     this.selectedPatientForQuote.set(null);

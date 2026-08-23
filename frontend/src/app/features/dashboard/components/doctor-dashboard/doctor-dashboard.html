@@ -132,6 +132,7 @@
     <app-patient-wizard
       [userId]="selectedUserId() ?? ''"
       [existingPatientId]="selectedPatientId()"
+      [existingPatient]="selectedPatientForDiagnosis()"
       [startStep]="wizardStartStep()"
       (wizardComplete)="onWizardComplete()"
       (cancel)="onWizardCancel()"

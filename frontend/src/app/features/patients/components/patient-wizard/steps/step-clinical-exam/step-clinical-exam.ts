@@ -6,6 +6,8 @@ import {
   signal,
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { field, allValid, touchAll } from '../../../../../../shared/validation/field';
+import { normalizeText, optionalTextError } from '../../../../../../shared/validation/text.validator';
 import type { CreateClinicalExamRequest } from '../../../../models/patient.request';
 
 @Component({
@@ -25,15 +27,21 @@ export class StepClinicalExamComponent {
   protected readonly saburra = signal(false);
   protected readonly bacterialPlaque = signal(false);
   protected readonly halitosis = signal(false);
-  protected readonly occlusion = signal('');
+  // Texto libre a propósito (decisión clínica, no limpieza) — sin opciones
+  // cerradas. Mínimo de 3 caracteres cuando hay contenido.
+  protected readonly occlusion = field<string>('', (v: string) => optionalTextError(v, 200, 3));
 
   protected onSubmit(): void {
+    touchAll(this.occlusion);
+    if (!allValid(this.occlusion)) {
+      return;
+    }
     this.submitStep.emit({
       tartar: this.tartar(),
       saburra: this.saburra(),
       bacterialPlaque: this.bacterialPlaque(),
       halitosis: this.halitosis(),
-      occlusion: this.occlusion().trim() || undefined,
+      occlusion: normalizeText(this.occlusion.value()) || undefined,
     });
   }
 

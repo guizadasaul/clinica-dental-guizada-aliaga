@@ -127,33 +127,6 @@
           </button>
         </div>
 
-        <!-- Tooth type -->
-        <div class="odontogram-step__panel-field">
-          <label class="odontogram-step__panel-label">Tipo de diente</label>
-          <div class="step-form__radio-row">
-            <label class="step-form__radio">
-              <input
-                type="radio"
-                name="toothType"
-                value="permanent"
-                [checked]="panelToothType() === 'permanent'"
-                (change)="panelToothType.set('permanent')"
-              />
-              Permanente
-            </label>
-            <label class="step-form__radio">
-              <input
-                type="radio"
-                name="toothType"
-                value="deciduous"
-                [checked]="panelToothType() === 'deciduous'"
-                (change)="panelToothType.set('deciduous')"
-              />
-              Deciduo (temporal)
-            </label>
-          </div>
-        </div>
-
         <!-- Diagnosis type: presuntivo / definitivo -->
         <div class="odontogram-step__panel-field">
           <label class="odontogram-step__panel-label">
@@ -208,11 +181,19 @@
           <textarea
             id="diagnosisDesc"
             class="step-form__input step-form__input--textarea"
+            [class.step-form__input--invalid]="panelDescription.showError()"
             placeholder="Describí el estado del diente..."
-            [value]="panelDescription()"
+            [value]="panelDescription.value()"
             (input)="panelDescription.set($any($event.target).value)"
+            (blur)="panelDescription.markTouched()"
+            maxlength="500"
             rows="3"
+            [attr.aria-invalid]="panelDescription.showError() || null"
+            [attr.aria-describedby]="panelDescription.showError() ? 'diagnosisDesc-err' : null"
           ></textarea>
+          @if (panelDescription.showError()) {
+            <p class="step-form__field-error" id="diagnosisDesc-err" role="alert">{{ panelDescription.error() }}</p>
+          }
         </div>
 
         <!-- X-ray -->
@@ -233,11 +214,19 @@
           <textarea
             id="diagnosisNotes"
             class="step-form__input step-form__input--textarea"
+            [class.step-form__input--invalid]="panelNotes.showError()"
             placeholder="Observaciones adicionales..."
-            [value]="panelNotes()"
+            [value]="panelNotes.value()"
             (input)="panelNotes.set($any($event.target).value)"
+            (blur)="panelNotes.markTouched()"
+            maxlength="500"
             rows="2"
+            [attr.aria-invalid]="panelNotes.showError() || null"
+            [attr.aria-describedby]="panelNotes.showError() ? 'diagnosisNotes-err' : null"
           ></textarea>
+          @if (panelNotes.showError()) {
+            <p class="step-form__field-error" id="diagnosisNotes-err" role="alert">{{ panelNotes.error() }}</p>
+          }
         </div>
 
         @if (formError()) {
