@@ -38,7 +38,7 @@ function buildWhatsappMessage(fullName: string, inviteUrl: string): string {
   return [
     `¡Hola *${fullName}*!`,
     '',
-    'Te escribimos del equipo de *Clínica Guizada-Aliaga* para invitarte a completar tu registro. Así vas a poder ver tus citas, tu historial clínico y tus presupuestos, todo desde un solo lugar.',
+    'Te escribimos del equipo de *Clínica Dental Guizada-Aliaga* para invitarte a completar tu registro. Así vas a poder ver tus citas, tu historial clínico y tus presupuestos, todo desde un solo lugar.',
     '',
     'Completá tu registro acá:',
     inviteUrl,
