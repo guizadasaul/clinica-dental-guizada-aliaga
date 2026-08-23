@@ -240,9 +240,11 @@
   }
 
   &__menu {
-    position: absolute;
-    top: calc(100% + var(--space-2));
-    right: 0;
+    // `fixed` (posición calculada en JS) en vez de `absolute` dentro de la
+    // fila — `.patients-list__table-wrap` tiene `overflow-x: auto`, y por
+    // spec de CSS eso fuerza `overflow-y` a `auto` también, recortando
+    // cualquier `absolute` que quisiera salir de esa caja.
+    position: fixed;
     min-width: 12rem;
     background: #fff;
     border: 1px solid var(--color-border);
@@ -251,7 +253,7 @@
     list-style: none;
     margin: 0;
     padding: var(--space-1);
-    z-index: 20;
+    z-index: 200;
     animation: patients-list-menu-in 0.15s ease;
   }
 

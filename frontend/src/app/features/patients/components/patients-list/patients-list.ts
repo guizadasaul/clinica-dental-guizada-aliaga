@@ -31,12 +31,31 @@ export class PatientsListComponent {
   readonly sendInvite = output<PatientInviteContact>();
 
   protected readonly openMenuFor = signal<string | null>(null);
+  // El menú se posiciona con `fixed` + coordenadas calculadas en JS (no
+  // `absolute` dentro de la fila) porque `.patients-list__table-wrap` tiene
+  // `overflow-x: auto` — por spec de CSS eso fuerza `overflow-y` a `auto`
+  // también, así que cualquier menú `absolute` que se quisiera salir de esa
+  // caja quedaba recortado.
+  protected readonly menuPosition = signal<{ top: number; right: number } | null>(null);
 
   @HostListener('document:click', ['$event'])
   onDocumentClick(event: MouseEvent): void {
     const target = event.target as HTMLElement;
     if (!target.closest('.patients-list__menu-wrap')) {
       this.openMenuFor.set(null);
+      this.menuPosition.set(null);
+    }
+  }
+
+  // El menú es `fixed`, con coordenadas calculadas al abrirlo — si la página
+  // (o la tabla, que scrollea horizontal) se mueve mientras está abierto,
+  // esas coordenadas quedan desactualizadas. Más simple cerrarlo que
+  // recalcular en cada scroll.
+  @HostListener('window:scroll')
+  onWindowScroll(): void {
+    if (this.openMenuFor() !== null) {
+      this.openMenuFor.set(null);
+      this.menuPosition.set(null);
     }
   }
 
@@ -87,8 +106,18 @@ export class PatientsListComponent {
     this.viewClinicalRecord.emit(patientId);
   }
 
-  protected toggleMenu(userId: string): void {
-    this.openMenuFor.update((current) => (current === userId ? null : userId));
+  protected toggleMenu(userId: string, trigger: HTMLElement): void {
+    const isClosing = this.openMenuFor() === userId;
+    this.openMenuFor.set(isClosing ? null : userId);
+    if (isClosing) {
+      this.menuPosition.set(null);
+      return;
+    }
+    const rect = trigger.getBoundingClientRect();
+    this.menuPosition.set({
+      top: rect.bottom + 8,
+      right: window.innerWidth - rect.right,
+    });
   }
 
   protected onRegisterTreatment(patientId: string): void {

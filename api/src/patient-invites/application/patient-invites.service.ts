@@ -5,7 +5,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { randomBytes, createHash } from 'node:crypto';
-import { INVITE_TTL_DAYS, InviteChannel } from '../domain/PatientInvite.js';
+import { INVITE_TTL_MINUTES, InviteChannel } from '../domain/PatientInvite.js';
 import { PatientInviteRepository } from '../domain/PatientInviteRepository.js';
 import type {
   IPatientInviteRepository,
@@ -26,6 +26,25 @@ function hashToken(rawToken: string): string {
 function buildWhatsappUrl(phone: string, message: string): string {
   const normalized = toE164Bolivia(phone).slice(1);
   return `https://wa.me/${normalized}?text=${encodeURIComponent(message)}`;
+}
+
+// WhatsApp no soporta HTML — *negrita* y _cursiva_ son su propio markdown.
+// Sin emojis a propósito: wa.me/api.whatsapp.com corrompe a "�" cualquier
+// carácter de 3+ bytes en UTF-8 (emojis, ⏳, etc.) al procesar el parámetro
+// `text` — verificado navegando directo a api.whatsapp.com/send con una URL
+// armada a mano, sin pasar por nuestro código. Los acentos españoles (2
+// bytes) sí sobreviven, por eso el resto del mensaje no se ve afectado.
+function buildWhatsappMessage(fullName: string, inviteUrl: string): string {
+  return [
+    `¡Hola *${fullName}*!`,
+    '',
+    'Te escribimos del equipo de *Clínica Guizada-Aliaga* para invitarte a completar tu registro. Así vas a poder ver tus citas, tu historial clínico y tus presupuestos, todo desde un solo lugar.',
+    '',
+    'Completá tu registro acá:',
+    inviteUrl,
+    '',
+    '_Por tu seguridad, este enlace vence en 5 minutos._',
+  ].join('\n');
 }
 
 @Injectable()
@@ -57,9 +76,12 @@ export class PatientInvitesService {
 
     const rawToken = randomBytes(32).toString('base64url');
     const tokenHash = hashToken(rawToken);
-    const expiresAt = new Date(
-      Date.now() + INVITE_TTL_DAYS * 24 * 60 * 60 * 1000,
-    );
+    const now = new Date();
+    const expiresAt = new Date(now.getTime() + INVITE_TTL_MINUTES * 60 * 1000);
+    // Cualquier invite pendiente anterior de este patient (mismo canal u
+    // otro) muere apenas se manda uno nuevo — nunca conviven dos links
+    // válidos en paralelo.
+    await this.inviteRepo.invalidatePendingForPatient(patientId, now);
     await this.inviteRepo.create({ patientId, channel, tokenHash, expiresAt });
 
     const frontendUrl = (
@@ -76,7 +98,7 @@ export class PatientInvitesService {
       return {};
     }
 
-    const message = `Hola ${contact.fullName}, completá tu registro en Clínica Guizada-Aliaga acá: ${inviteUrl}`;
+    const message = buildWhatsappMessage(contact.fullName, inviteUrl);
     return { whatsappUrl: buildWhatsappUrl(contact.phone!, message) };
   }
 

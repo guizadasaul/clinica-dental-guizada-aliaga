@@ -1,3 +1,18 @@
+@if (inviteSuccessMessage()) {
+  <div class="invite-toast" role="status">
+    <span class="material-symbols-outlined invite-toast__icon" aria-hidden="true">check_circle</span>
+    <p class="invite-toast__text">{{ inviteSuccessMessage() }}</p>
+    <button
+      type="button"
+      class="invite-toast__close"
+      aria-label="Cerrar aviso"
+      (click)="dismissInviteSuccess()"
+    >
+      <span class="material-symbols-outlined" aria-hidden="true">close</span>
+    </button>
+  </div>
+}
+
 @if (activeNav() === 'home') {
   <div class="doctor">
     <!-- Header -->
@@ -8,7 +23,16 @@
         <p class="doctor__subtitle">Este es tu panel clínico de hoy.</p>
       </div>
       <div class="doctor__badge" aria-hidden="true">
-        <span class="material-symbols-outlined">stethoscope</span>
+        @if (user()?.photoURL) {
+          <img
+            class="doctor__badge-photo"
+            [src]="user()!.photoURL!"
+            [alt]="user()!.displayName ?? 'Doctor'"
+            referrerpolicy="no-referrer"
+          />
+        } @else {
+          <span class="material-symbols-outlined">stethoscope</span>
+        }
       </div>
     </header>
 
@@ -85,8 +109,8 @@
       [initialLastNamePaternal]="selectedPatientForInvite()!.lastNamePaternal"
       [initialPhone]="selectedPatientForInvite()!.phone"
       [initialEmail]="selectedPatientForInvite()!.email"
-      (sent)="onInviteDone()"
-      (cancel)="onInviteDone()"
+      (sent)="onInviteSent($event)"
+      (cancel)="onInviteCancel()"
     />
   } @else if (showTreatmentFlow()) {
     <app-register-treatment

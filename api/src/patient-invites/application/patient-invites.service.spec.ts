@@ -6,6 +6,7 @@ import { EmailSender } from '../domain/EmailSender';
 
 const mockInviteRepo = {
   create: jest.fn(),
+  invalidatePendingForPatient: jest.fn(),
   redeemByTokenHash: jest.fn(),
   findPatientContactInfo: jest.fn(),
   isTokenValid: jest.fn(),
@@ -114,6 +115,30 @@ describe('PatientInvitesService', () => {
       expect(result.whatsappUrl).toContain('https://wa.me/59170011122?text=');
     });
 
+    it('invalidates any pending invite for the patient before creating the new one', async () => {
+      mockInviteRepo.findPatientContactInfo.mockResolvedValue(
+        CONTACT_WITH_BOTH,
+      );
+      mockInviteRepo.create.mockResolvedValue({});
+      const callOrder: string[] = [];
+      mockInviteRepo.invalidatePendingForPatient.mockImplementation(() => {
+        callOrder.push('invalidate');
+        return Promise.resolve();
+      });
+      mockInviteRepo.create.mockImplementation(() => {
+        callOrder.push('create');
+        return Promise.resolve({});
+      });
+
+      await service.createInvite('patient-1', 'email');
+
+      expect(mockInviteRepo.invalidatePendingForPatient).toHaveBeenCalledWith(
+        'patient-1',
+        expect.any(Date),
+      );
+      expect(callOrder).toEqual(['invalidate', 'create']);
+    });
+
     it('stores only the hash of the raw token, never the raw token itself', async () => {
       mockInviteRepo.findPatientContactInfo.mockResolvedValue(
         CONTACT_WITH_BOTH,
@@ -127,6 +152,23 @@ describe('PatientInvitesService', () => {
       ][];
       const [[createArg]] = calls;
       expect(createArg.tokenHash).toMatch(/^[0-9a-f]{64}$/); // sha256 hex digest
+    });
+
+    it('expires the invite 5 minutes from creation', async () => {
+      mockInviteRepo.findPatientContactInfo.mockResolvedValue(
+        CONTACT_WITH_BOTH,
+      );
+      mockInviteRepo.create.mockResolvedValue({});
+      const before = Date.now();
+
+      await service.createInvite('patient-1', 'email');
+
+      const after = Date.now();
+      const calls = mockInviteRepo.create.mock.calls as [{ expiresAt: Date }][];
+      const [[createArg]] = calls;
+      const ttlMs = createArg.expiresAt.getTime() - before;
+      expect(ttlMs).toBeGreaterThanOrEqual(5 * 60 * 1000);
+      expect(ttlMs).toBeLessThanOrEqual(5 * 60 * 1000 + (after - before));
     });
   });
 

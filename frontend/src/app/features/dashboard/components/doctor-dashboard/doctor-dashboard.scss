@@ -90,6 +90,13 @@
   }
 }
 
+.doctor__badge-photo {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
 // ─── Section ─────────────────────────────────────────────────────────────────
 
 .doctor__section {
@@ -298,5 +305,77 @@
   .doctor-action:hover & {
     color: var(--color-text-muted);
     right: var(--space-3);
+  }
+}
+
+// ─── Invite success toast ──────────────────────────────────────────────────
+
+.invite-toast {
+  position: sticky;
+  top: var(--space-4);
+  z-index: 20;
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  margin: var(--space-4) var(--space-8) 0;
+  padding: var(--space-4) var(--space-4);
+  background: var(--color-success-light);
+  border: 1px solid var(--color-success);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
+  animation: invite-toast-in var(--transition-base);
+
+  @media (max-width: 767px) {
+    margin: var(--space-4) var(--space-4) 0;
+  }
+}
+
+.invite-toast__icon {
+  color: var(--color-success);
+  font-size: 22px;
+  flex-shrink: 0;
+}
+
+.invite-toast__text {
+  flex: 1;
+  font-family: var(--font-body);
+  font-size: var(--font-size-sm);
+  color: var(--color-text);
+  margin: 0;
+  line-height: 1.4;
+}
+
+.invite-toast__close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  border-radius: var(--radius-full);
+  transition: background var(--transition-fast);
+
+  .material-symbols-outlined {
+    font-size: 18px;
+  }
+
+  &:hover {
+    background: rgb(0 0 0 / 0.06);
+  }
+}
+
+@keyframes invite-toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
   }
 }

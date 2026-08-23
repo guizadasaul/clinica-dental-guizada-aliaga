@@ -4,7 +4,7 @@ export const InviteChannel = {
 } as const;
 export type InviteChannel = (typeof InviteChannel)[keyof typeof InviteChannel];
 
-export const INVITE_TTL_DAYS = 30;
+export const INVITE_TTL_MINUTES = 5;
 
 export class PatientInvite {
   constructor(

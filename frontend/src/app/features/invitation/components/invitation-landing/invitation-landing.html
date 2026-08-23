@@ -13,12 +13,12 @@
       </span>
       <h1 class="login-card__title">Revisá tu correo</h1>
       <p class="login-card__subtitle">
-        Te enviamos un correo de confirmación a <strong>{{ identifier() }}</strong>. Hacé clic en el enlace para activar tu cuenta y completar tu registro.
+        Te enviamos un correo de confirmación a <strong>{{ email() }}</strong>. Hacé clic en el enlace para activar tu cuenta y completar tu registro.
       </p>
     } @else if (valid()) {
       <h1 class="login-card__title">Completá tu registro</h1>
       <p class="login-card__subtitle">
-        Creá tu cuenta para acceder a tu ficha y turnos.
+        Creá tu cuenta para ver tus citas y tu historial.
       </p>
 
       @if (errorMessage()) {
@@ -28,19 +28,51 @@
         </div>
       }
 
+      <div class="channel-toggle" role="tablist" aria-label="Elegí cómo registrarte">
+        <button
+          type="button"
+          role="tab"
+          class="channel-toggle__btn"
+          [class.channel-toggle__btn--active]="mode() === 'email'"
+          [attr.aria-selected]="mode() === 'email'"
+          (click)="setMode('email')"
+        >
+          <span class="material-symbols-outlined" aria-hidden="true">mail</span>
+          Correo
+        </button>
+        <button
+          type="button"
+          role="tab"
+          class="channel-toggle__btn"
+          [class.channel-toggle__btn--active]="mode() === 'phone'"
+          [attr.aria-selected]="mode() === 'phone'"
+          (click)="setMode('phone')"
+        >
+          <span class="material-symbols-outlined" aria-hidden="true">call</span>
+          Teléfono
+        </button>
+      </div>
+
       <form class="auth-form" (ngSubmit)="onSubmit()" novalidate>
-        <div class="auth-form__field">
-          <label class="auth-form__label" for="invite-identifier">Correo o teléfono</label>
-          <input
-            id="invite-identifier"
-            class="auth-form__input"
-            type="text"
-            autocomplete="username"
-            maxlength="254"
-            [value]="identifier()"
-            (input)="identifier.set($any($event.target).value)"
-          />
-        </div>
+        @if (mode() === 'email') {
+          <div class="auth-form__field">
+            <label class="auth-form__label" for="invite-email">Correo</label>
+            <input
+              id="invite-email"
+              class="auth-form__input"
+              type="email"
+              autocomplete="username"
+              maxlength="254"
+              [value]="email()"
+              (input)="email.set($any($event.target).value)"
+            />
+          </div>
+        } @else {
+          <div class="auth-form__field">
+            <label class="auth-form__label" for="invite-phone">Teléfono</label>
+            <app-phone-input id="invite-phone" (changed)="onPhoneChanged($event)" />
+          </div>
+        }
 
         <div class="auth-form__field">
           <label class="auth-form__label" for="invite-password">Contraseña</label>
@@ -79,7 +111,7 @@
           />
         </div>
 
-        <button type="submit" class="auth-form__submit" [disabled]="formLoading()">
+        <button type="submit" class="auth-form__submit" [disabled]="formLoading() || !canSubmit()">
           @if (formLoading()) {
             <span class="auth-form__submit-spinner" aria-hidden="true"></span>
             Creando cuenta...

@@ -20,6 +20,12 @@ import { AppointmentsService } from '../../../appointments/services/appointments
 import type { AppointmentAgendaItem } from '../../../appointments/models/appointment.model';
 import { TestimonialReviewComponent } from '../../../testimonials/components/testimonial-review/testimonial-review';
 import type { PatientInviteContact } from '../../../patients/models/patient.model';
+import type { InviteChannel } from '../../../patient-invites/services/patient-invites.service';
+
+const INVITE_SUCCESS_MESSAGE: Record<InviteChannel, string> = {
+  email: 'Correo enviado correctamente. El paciente recibirá el link de registro en su casilla.',
+  whatsapp: 'Mensaje de WhatsApp listo para enviar.',
+};
 
 const TIME_FORMATTER = new Intl.DateTimeFormat('es-BO', {
   timeZone: 'America/La_Paz',
@@ -79,6 +85,8 @@ export class DoctorDashboardComponent {
   protected readonly selectedPatientForHistory = signal<string | null>(null);
   protected readonly selectedPatientForQuote = signal<string | null>(null);
   protected readonly selectedPatientForInvite = signal<PatientInviteContact | null>(null);
+  protected readonly inviteSuccessMessage = signal<string | null>(null);
+  private inviteSuccessTimeout: ReturnType<typeof setTimeout> | null = null;
 
   protected readonly showWizard = computed(
     () =>
@@ -249,7 +257,31 @@ export class DoctorDashboardComponent {
     this.selectedPatientForQuote.set(null);
   }
 
-  protected onInviteDone(): void {
+  protected onInviteSent(channel: InviteChannel): void {
     this.selectedPatientForInvite.set(null);
+    this.showInviteSuccess(INVITE_SUCCESS_MESSAGE[channel]);
+  }
+
+  protected onInviteCancel(): void {
+    this.selectedPatientForInvite.set(null);
+  }
+
+  protected dismissInviteSuccess(): void {
+    this.inviteSuccessMessage.set(null);
+    if (this.inviteSuccessTimeout !== null) {
+      clearTimeout(this.inviteSuccessTimeout);
+      this.inviteSuccessTimeout = null;
+    }
+  }
+
+  private showInviteSuccess(message: string): void {
+    if (this.inviteSuccessTimeout !== null) {
+      clearTimeout(this.inviteSuccessTimeout);
+    }
+    this.inviteSuccessMessage.set(message);
+    this.inviteSuccessTimeout = setTimeout(() => {
+      this.inviteSuccessMessage.set(null);
+      this.inviteSuccessTimeout = null;
+    }, 6000);
   }
 }
