@@ -1,7 +1,10 @@
 import { Component, ChangeDetectionStrategy, computed, effect, inject, input, output, signal } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 import { PatientsService } from '../../services/patients.service';
-import { PatientInvitesService } from '../../../patient-invites/services/patient-invites.service';
+import {
+  PatientInvitesService,
+  type InviteChannel,
+} from '../../../patient-invites/services/patient-invites.service';
 
 @Component({
   selector: 'app-patient-invite-panel',
@@ -19,7 +22,7 @@ export class PatientInvitePanelComponent {
   readonly initialLastNamePaternal = input('');
   readonly initialPhone = input<string | null>(null);
   readonly initialEmail = input<string | null>(null);
-  readonly sent = output<void>();
+  readonly sent = output<InviteChannel>();
   readonly cancel = output<void>();
 
   protected readonly firstName = signal('');
@@ -89,7 +92,7 @@ export class PatientInvitePanelComponent {
     this.sendError.set(null);
     try {
       await firstValueFrom(this.patientInvitesService.createInvite(this.patientId(), 'email'));
-      this.sent.emit();
+      this.sent.emit('email');
     } catch {
       this.sendError.set('No pudimos enviar el email. Intentá de nuevo.');
     } finally {
@@ -107,7 +110,7 @@ export class PatientInvitePanelComponent {
       if (result.whatsappUrl) {
         window.open(result.whatsappUrl, '_blank');
       }
-      this.sent.emit();
+      this.sent.emit('whatsapp');
     } catch {
       this.sendError.set('No pudimos armar el mensaje de WhatsApp. Intentá de nuevo.');
     } finally {
