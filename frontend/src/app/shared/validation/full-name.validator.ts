@@ -16,7 +16,9 @@ export const PERSON_NAME_RE = new RegExp(`^${WORD}(?:\\s+${WORD})*$`, 'u');
 // la regex — cada palabra mide ≥2 y FULL_NAME_RE exige dos separadas por espacio.
 // Solo hace falta chequear el máximo a mano.
 const FULL_NAME_MAX_LENGTH = 200;
-const PERSON_NAME_MAX_LENGTH = 100;
+// Exportado: CLI-39 lo necesita para alinear el `maxlength` del HTML (y sus
+// propios mensajes de error) con el mismo límite que ya aplica `validatePersonName`.
+export const PERSON_NAME_MAX_LENGTH = 100;
 
 export type NameValidationError = 'empty' | 'single-word' | 'invalid-chars' | 'too-long' | null;
 

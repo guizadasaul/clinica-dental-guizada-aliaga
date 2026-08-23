@@ -1,11 +1,29 @@
 import {
-  IsString,
-  IsOptional,
   IsDateString,
+  IsIn,
+  IsNotEmpty,
+  IsOptional,
+  IsString,
   IsUUID,
   MaxLength,
   MinLength,
 } from 'class-validator';
+import {
+  EmptyToUndefined,
+  NormalizeDni,
+  NormalizeName,
+  Trim,
+} from '../../../../shared/validators/transforms.js';
+import { IsPersonName } from '../../../../shared/validators/full-name.validator.js';
+import { IsDni } from '../../../../shared/validators/dni.validator.js';
+import { IsE164Phone } from '../../../../shared/validators/phone.validator.js';
+import { NoHtml } from '../../../../shared/validators/text-safety.validator.js';
+import {
+  IsAgeWithin,
+  IsNotBefore,
+  IsNotFutureDate,
+} from '../../../../shared/validators/date.validator.js';
+import { SEXES } from '../../../../shared/validators/clinical-options.js';
 
 export class CreatePatientDto {
   @IsOptional()
@@ -13,80 +31,158 @@ export class CreatePatientDto {
   userId?: string;
 
   @IsString()
-  @MinLength(1)
+  @NormalizeName()
+  @IsPersonName()
+  @MinLength(3)
   @MaxLength(100)
   firstName: string;
 
   @IsString()
-  @MinLength(1)
+  @NormalizeName()
+  @IsPersonName()
+  @MinLength(3)
   @MaxLength(100)
   lastNamePaternal: string;
 
   @IsOptional()
+  @EmptyToUndefined()
   @IsString()
+  @NormalizeName()
+  @IsPersonName()
+  @MinLength(3)
   @MaxLength(100)
   lastNameMaternal?: string;
 
+  // No puede ser futura ni corresponder a una edad fuera de 0-120 años.
   @IsDateString()
+  @IsNotFutureDate()
+  @IsAgeWithin(0, 120)
   birthDate: string;
 
-  @IsOptional()
+  // Obligatorio (antes opcional) — pedido explícito: la ficha del paciente
+  // no queda completa sin lugar de nacimiento, sexo, ocupación, DNI,
+  // dirección ni contacto de emergencia.
+  @EmptyToUndefined()
+  @Trim()
   @IsString()
+  @IsNotEmpty({ message: 'birthPlace es obligatorio' })
+  @MinLength(3)
   @MaxLength(150)
-  birthPlace?: string;
+  @NoHtml()
+  birthPlace: string;
 
-  @IsOptional()
-  @IsString()
-  @MaxLength(20)
-  sex?: string;
+  // El <select> ya usa códigos ASCII estables — no cambian, solo se cierran.
+  @EmptyToUndefined()
+  @Trim()
+  @IsNotEmpty({ message: 'sex es obligatorio' })
+  @IsIn(SEXES)
+  sex: string;
 
-  @IsOptional()
+  @EmptyToUndefined()
+  @Trim()
   @IsString()
+  @IsNotEmpty({ message: 'occupation es obligatorio' })
+  @MinLength(3)
   @MaxLength(150)
-  occupation?: string;
+  @NoHtml()
+  occupation: string;
 
-  @IsOptional()
+  // MaxLength(300) es nuevo — antes era TEXT sin límite ni en el DTO ni en
+  // Postgres.
+  @EmptyToUndefined()
+  @Trim()
   @IsString()
-  address?: string;
+  @IsNotEmpty({ message: 'address es obligatorio' })
+  @MinLength(3)
+  @MaxLength(300)
+  @NoHtml()
+  address: string;
 
+  // Salida siempre en E.164 (la emite <app-phone-input> en el frontend).
+  // @MaxLength(20) por la columna VARCHAR(20), no por el formato en sí.
+  // El teléfono del PACIENTE (a diferencia del de emergencia) sigue opcional
+  // — no estaba en la lista de campos que pasan a obligatorios.
   @IsOptional()
-  @IsString()
+  @EmptyToUndefined()
+  @Trim()
+  @IsE164Phone()
   @MaxLength(20)
   phone?: string;
 
-  @IsOptional()
+  // Obligatorio: el contacto de emergencia completo (nombre, teléfono,
+  // parentesco) pasa a exigirse junto con los demás campos de la ficha.
+  @EmptyToUndefined()
   @IsString()
+  @NormalizeName()
+  @IsPersonName()
+  @MinLength(3)
   @MaxLength(200)
-  emergencyContactName?: string;
+  emergencyContactName: string;
 
-  @IsOptional()
-  @IsString()
+  @EmptyToUndefined()
+  @Trim()
+  @IsNotEmpty({ message: 'emergencyContactPhone es obligatorio' })
+  @IsE164Phone()
   @MaxLength(20)
-  emergencyContactPhone?: string;
+  emergencyContactPhone: string;
 
-  @IsOptional()
+  @EmptyToUndefined()
+  @Trim()
   @IsString()
+  @IsNotEmpty({ message: 'emergencyContactRelationship es obligatorio' })
+  @MinLength(3)
   @MaxLength(100)
-  emergencyContactRelationship?: string;
+  @NoHtml()
+  emergencyContactRelationship: string;
 
+  // MaxLength(1000) es nuevo. Sigue opcional — no estaba en la lista de
+  // campos obligatorios — pero si viene con contenido exige un mínimo de 3
+  // caracteres, igual que el resto del texto libre del wizard.
   @IsOptional()
+  @EmptyToUndefined()
+  @Trim()
   @IsString()
+  @MinLength(3)
+  @MaxLength(1000)
+  @NoHtml()
   consultationReason?: string;
 
+  // No puede ser futura ni anterior al nacimiento del paciente.
   @IsOptional()
+  @EmptyToUndefined()
   @IsDateString()
+  @IsNotFutureDate()
+  @IsNotBefore('birthDate')
   lastDentistVisit?: string;
 
+  // MaxLength(500) es nuevo.
   @IsOptional()
+  @EmptyToUndefined()
+  @Trim()
   @IsString()
+  @MinLength(3)
+  @MaxLength(500)
+  @NoHtml()
   lastVisitTreatment?: string;
 
+  // MaxLength(1000) es nuevo.
   @IsOptional()
+  @EmptyToUndefined()
+  @Trim()
   @IsString()
+  @MinLength(3)
+  @MaxLength(1000)
+  @NoHtml()
   familyHistory?: string;
 
-  @IsOptional()
-  @IsString()
+  // dni es @unique en la base — normalizado (mayúsculas, sin puntos ni
+  // espacios ni guiones) para que "12.345.678" y "12345678" no convivan
+  // como pacientes distintos. Obligatorio (antes opcional); DNI_RE ya exige
+  // 5-15 caracteres, por encima del mínimo de 3 del resto del texto libre.
+  @EmptyToUndefined()
+  @NormalizeDni()
+  @IsNotEmpty({ message: 'dni es obligatorio' })
+  @IsDni()
   @MaxLength(20)
-  dni?: string;
+  dni: string;
 }

@@ -15,7 +15,7 @@ import { StepMedicalHistoryComponent } from './steps/step-medical-history/step-m
 import { StepHygieneHabitsComponent } from './steps/step-hygiene-habits/step-hygiene-habits';
 import { StepClinicalExamComponent } from './steps/step-clinical-exam/step-clinical-exam';
 import { StepOdontogramComponent } from './steps/step-odontogram/step-odontogram';
-import type { OdontogramEntry } from '../../models/patient.model';
+import type { OdontogramEntry, Patient } from '../../models/patient.model';
 import type {
   CreatePatientRequest,
   CreateMedicalHistoryRequest,
@@ -56,6 +56,9 @@ export class PatientWizardComponent {
 
   readonly userId = input('');
   readonly existingPatientId = input<string | null>(null);
+  /** Paciente ya cargado (viene de patients-list.html, que ya tiene el objeto completo en el
+   * template) — permite precargar el paso 1 en vez de abrirlo en blanco sobre una ficha existente. */
+  readonly existingPatient = input<Patient | null>(null);
   /** Paso donde arranca al editar un paciente existente — 5 (odontograma) por defecto. La agenda del doctor pasa 2 para abrir el historial clínico completo. */
   readonly startStep = input(5);
   readonly wizardComplete = output<void>();
@@ -104,6 +107,32 @@ export class PatientWizardComponent {
     }
   }
 
+  /**
+   * class-validator devuelve el 400 como `{ message: string | string[], ... }`
+   * (un string por regla que falló). Antes los 5 `catch` se comían ese detalle
+   * y mostraban siempre el mismo mensaje genérico, incluso para un DNI
+   * duplicado (409) o una fecha futura (400) — ahora se muestra lo que mandó
+   * el backend, y solo se cae al genérico si la respuesta no trae nada usable.
+   */
+  private extractErrorMessage(err: unknown, fallback: string): string {
+    if (err && typeof err === 'object' && 'error' in err) {
+      const body = (err as { error?: unknown }).error;
+      if (body && typeof body === 'object' && 'message' in body) {
+        const message = (body as { message?: unknown }).message;
+        if (typeof message === 'string' && message.trim()) {
+          return message;
+        }
+        if (Array.isArray(message)) {
+          const lines = message.filter((m): m is string => typeof m === 'string' && m.trim() !== '');
+          if (lines.length > 0) {
+            return lines.join(' ');
+          }
+        }
+      }
+    }
+    return fallback;
+  }
+
   protected onCancel(): void {
     this.cancel.emit();
   }
@@ -120,8 +149,8 @@ export class PatientWizardComponent {
       );
       this.patientId.set(patient.id);
       this.currentStep.set(2);
-    } catch {
-      this.error.set('Error al guardar los datos del paciente. Intente nuevamente.');
+    } catch (err) {
+      this.error.set(this.extractErrorMessage(err, 'Error al guardar los datos del paciente. Intente nuevamente.'));
     } finally {
       this.loading.set(false);
     }
@@ -135,8 +164,8 @@ export class PatientWizardComponent {
     try {
       await firstValueFrom(this.patientsService.createMedicalHistory(id, data));
       this.currentStep.set(3);
-    } catch {
-      this.error.set('Error al guardar el historial médico. Intente nuevamente.');
+    } catch (err) {
+      this.error.set(this.extractErrorMessage(err, 'Error al guardar el historial médico. Intente nuevamente.'));
     } finally {
       this.loading.set(false);
     }
@@ -150,8 +179,8 @@ export class PatientWizardComponent {
     try {
       await firstValueFrom(this.patientsService.createHygieneHabits(id, data));
       this.currentStep.set(4);
-    } catch {
-      this.error.set('Error al guardar los hábitos de higiene. Intente nuevamente.');
+    } catch (err) {
+      this.error.set(this.extractErrorMessage(err, 'Error al guardar los hábitos de higiene. Intente nuevamente.'));
     } finally {
       this.loading.set(false);
     }
@@ -165,8 +194,8 @@ export class PatientWizardComponent {
     try {
       await firstValueFrom(this.patientsService.createClinicalExam(id, data));
       this.currentStep.set(5);
-    } catch {
-      this.error.set('Error al guardar el examen clínico. Intente nuevamente.');
+    } catch (err) {
+      this.error.set(this.extractErrorMessage(err, 'Error al guardar el examen clínico. Intente nuevamente.'));
     } finally {
       this.loading.set(false);
     }
@@ -182,8 +211,8 @@ export class PatientWizardComponent {
         await firstValueFrom(this.patientsService.createOdontogramEntries(id, { entries }));
       }
       this.done.set(true);
-    } catch {
-      this.error.set('Error al guardar el odontograma. Intente nuevamente.');
+    } catch (err) {
+      this.error.set(this.extractErrorMessage(err, 'Error al guardar el odontograma. Intente nuevamente.'));
     } finally {
       this.loading.set(false);
     }

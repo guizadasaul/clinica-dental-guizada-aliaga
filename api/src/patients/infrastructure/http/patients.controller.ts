@@ -110,7 +110,7 @@ export class PatientsController {
   @Roles(UserRole.ODONTOLOGIST)
   @HttpCode(HttpStatus.OK)
   upsertMedicalHistory(
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: CreateMedicalHistoryDto,
   ) {
     return this.patientsService.upsertMedicalHistory(id, {
@@ -135,7 +135,7 @@ export class PatientsController {
   @Roles(UserRole.ODONTOLOGIST)
   @HttpCode(HttpStatus.OK)
   upsertHygieneHabits(
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: CreateHygieneHabitsDto,
   ) {
     return this.patientsService.upsertHygieneHabits(id, {
@@ -152,7 +152,7 @@ export class PatientsController {
   @Roles(UserRole.ODONTOLOGIST)
   @HttpCode(HttpStatus.CREATED)
   createClinicalExam(
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: CreateClinicalExamDto,
   ) {
     return this.patientsService.createClinicalExam(id, {

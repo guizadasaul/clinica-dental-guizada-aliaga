@@ -9,7 +9,7 @@ import {
 } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { PatientsService } from '../../services/patients.service';
-import type { PatientWithUser, PatientInviteContact } from '../../models/patient.model';
+import type { Patient, PatientWithUser, PatientInviteContact } from '../../models/patient.model';
 
 @Component({
   selector: 'app-patients-list',
@@ -23,7 +23,10 @@ export class PatientsListComponent {
 
   readonly startWizard = output<string>();
   readonly openOdontogram = output<string>();
-  readonly registerDiagnosis = output<string>();
+  // Emite el Patient completo (no solo el id): step-patient-data lo usa para
+  // precargar el paso 1 en vez de abrirlo en blanco sobre una ficha existente
+  // ("Registrar diagnóstico" no crea un paciente, edita uno que ya tiene datos).
+  readonly registerDiagnosis = output<Patient>();
   readonly viewClinicalRecord = output<string>();
   readonly registerTreatment = output<string>();
   readonly viewHistory = output<string>();
@@ -96,9 +99,9 @@ export class PatientsListComponent {
     this.openOdontogram.emit(patientId);
   }
 
-  protected onRegisterDiagnosis(patientId: string): void {
+  protected onRegisterDiagnosis(patient: Patient): void {
     this.openMenuFor.set(null);
-    this.registerDiagnosis.emit(patientId);
+    this.registerDiagnosis.emit(patient);
   }
 
   protected onViewClinicalRecord(patientId: string): void {

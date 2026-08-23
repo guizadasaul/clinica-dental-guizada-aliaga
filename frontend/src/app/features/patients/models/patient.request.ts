@@ -4,19 +4,21 @@ export interface CreatePatientRequest {
   lastNamePaternal: string;
   lastNameMaternal?: string;
   birthDate: string;
-  birthPlace?: string;
-  sex?: string;
-  occupation?: string;
-  address?: string;
+  birthPlace: string;
+  sex: string;
+  occupation: string;
+  address: string;
+  // El teléfono del PACIENTE sigue opcional — a diferencia del contacto de
+  // emergencia, no está en la lista de campos obligatorios.
   phone?: string;
-  emergencyContactName?: string;
-  emergencyContactPhone?: string;
-  emergencyContactRelationship?: string;
+  emergencyContactName: string;
+  emergencyContactPhone: string;
+  emergencyContactRelationship: string;
   consultationReason?: string;
   lastDentistVisit?: string;
   lastVisitTreatment?: string;
   familyHistory?: string;
-  dni?: string;
+  dni: string;
 }
 
 export interface UpdatePatientRequest {

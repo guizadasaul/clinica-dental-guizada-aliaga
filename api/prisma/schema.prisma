@@ -67,6 +67,11 @@ model clinical_exams {
   exam_date        DateTime @default(dbgenerated("CURRENT_DATE")) @db.Date
   created_at       DateTime @default(now()) @db.Timestamptz(6)
   patients         patients @relation(fields: [patient_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  // Un examen clínico por paciente por día — createClinicalExam hace upsert
+  // sobre esta clave (CLI-39). Reenviar el paso 4 el mismo día actualiza en
+  // vez de duplicar.
+  @@unique([patient_id, exam_date], map: "clinical_exams_patient_id_exam_date_key")
 }
 
 model hygiene_habits {

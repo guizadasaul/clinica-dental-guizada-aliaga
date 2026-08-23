@@ -18,6 +18,9 @@ import {
   LOWER_DECIDUOUS_TEETH,
 } from '../../../../../../shared/constants/dental-chart.constants';
 import type { ToothDef } from '../../../../../../shared/constants/dental-chart.constants';
+import { field, allValid, touchAll } from '../../../../../../shared/validation/field';
+import { normalizeText, requiredTextError, optionalTextError } from '../../../../../../shared/validation/text.validator';
+import { toothTypeFor } from '../../../../../../shared/validation/tooth.validator';
 
 interface ToothEntry extends CreateOdontogramEntryRequest {
   readonly toothNumber: number;
@@ -39,18 +42,10 @@ const DIAGNOSIS_OPTIONS: { value: string; label: string; color: string }[] = [
   { value: 'otro', label: 'Otro', color: '#374151' },
 ];
 
-function isDeciduousNumber(toothNumber: number): boolean {
-  const quadrant = Math.floor(toothNumber / 10);
-  return quadrant >= 5 && quadrant <= 8;
-}
-
-function buildSanoEntries(
-  teeth: ToothDef[],
-  toothType: 'permanent' | 'deciduous',
-): ToothEntry[] {
+function buildSanoEntries(teeth: ToothDef[]): ToothEntry[] {
   return teeth.map((t) => ({
     toothNumber: t.number,
-    toothType,
+    toothType: toothTypeFor(t.number) ?? 'permanent',
     diagnosisType: 'presuntivo',
     toothCondition: 'sano',
     diagnosisDescription: 'Diente sano',
@@ -59,15 +54,15 @@ function buildSanoEntries(
 
 function buildEntriesFromExisting(
   teeth: ToothDef[],
-  toothType: 'permanent' | 'deciduous',
   byTooth: Map<number, OdontogramEntry>,
 ): ToothEntry[] {
   return teeth.map((t) => {
     const existing = byTooth.get(t.number);
+    const toothType = toothTypeFor(t.number) ?? 'permanent';
     if (existing) {
       return {
         toothNumber: t.number,
-        toothType: (existing.toothType as 'permanent' | 'deciduous') ?? toothType,
+        toothType,
         diagnosisType: existing.diagnosisType,
         toothCondition: existing.toothCondition,
         diagnosisDescription: existing.diagnosisDescription,
@@ -106,13 +101,13 @@ export class StepOdontogramComponent {
   protected readonly odontogramUrl = '/assets/svg/odontogram.svg';
 
   private readonly permanentEntries = signal<ToothEntry[]>([
-    ...buildSanoEntries(UPPER_TEETH, 'permanent'),
-    ...buildSanoEntries(LOWER_TEETH, 'permanent'),
+    ...buildSanoEntries(UPPER_TEETH),
+    ...buildSanoEntries(LOWER_TEETH),
   ]);
 
   private readonly deciduousEntries = signal<ToothEntry[]>([
-    ...buildSanoEntries(UPPER_DECIDUOUS_TEETH, 'deciduous'),
-    ...buildSanoEntries(LOWER_DECIDUOUS_TEETH, 'deciduous'),
+    ...buildSanoEntries(UPPER_DECIDUOUS_TEETH),
+    ...buildSanoEntries(LOWER_DECIDUOUS_TEETH),
   ]);
 
   /** Every tooth (both dentitions) — the chart now shows them all at once. */
@@ -129,12 +124,13 @@ export class StepOdontogramComponent {
   protected readonly selectedTooth = signal<OdontogramCell | null>(null);
   protected readonly formError = signal<string | null>(null);
 
-  protected readonly panelToothType = signal<'permanent' | 'deciduous'>('permanent');
   protected readonly panelDiagnosisType = signal<'presuntivo' | 'definitivo'>('presuntivo');
   protected readonly panelToothCondition = signal('sano');
-  protected readonly panelDescription = signal('');
+  // @Length(3, 500) del DTO — antes solo se chequeaba "no vacío".
+  protected readonly panelDescription = field<string>('', (v: string) => requiredTextError(v, 500, { minLength: 3 }));
   protected readonly panelXray = signal(false);
-  protected readonly panelNotes = signal('');
+  // Mínimo de 3 caracteres cuando hay contenido (campo sigue opcional).
+  protected readonly panelNotes = field<string>('', (v: string) => optionalTextError(v, 500, 3));
 
   protected readonly entriesMap = computed(() => {
     const map = new Map<number, ToothEntry>();
@@ -152,19 +148,24 @@ export class StepOdontogramComponent {
       if (this.entriesInitialized || existing.length === 0) { return; }
       this.entriesInitialized = true;
 
+      // Preferimos la entry con treatmentId == null (el diagnóstico del chart)
+      // sobre la que trae un tratamiento — findOdontogramEntries ordena por
+      // created_at desc, así que sin este criterio se prefería la más nueva
+      // sin importar su origen (ver corrección del plan CLI-39).
       const byTooth = new Map<number, OdontogramEntry>();
       for (const e of existing) {
-        if (!byTooth.has(e.toothNumber)) {
+        const current = byTooth.get(e.toothNumber);
+        if (!current || (current.treatmentId != null && e.treatmentId == null)) {
           byTooth.set(e.toothNumber, e);
         }
       }
       this.permanentEntries.set([
-        ...buildEntriesFromExisting(UPPER_TEETH, 'permanent', byTooth),
-        ...buildEntriesFromExisting(LOWER_TEETH, 'permanent', byTooth),
+        ...buildEntriesFromExisting(UPPER_TEETH, byTooth),
+        ...buildEntriesFromExisting(LOWER_TEETH, byTooth),
       ]);
       this.deciduousEntries.set([
-        ...buildEntriesFromExisting(UPPER_DECIDUOUS_TEETH, 'deciduous', byTooth),
-        ...buildEntriesFromExisting(LOWER_DECIDUOUS_TEETH, 'deciduous', byTooth),
+        ...buildEntriesFromExisting(UPPER_DECIDUOUS_TEETH, byTooth),
+        ...buildEntriesFromExisting(LOWER_DECIDUOUS_TEETH, byTooth),
       ]);
     }, { allowSignalWrites: true });
   }
@@ -209,19 +210,17 @@ export class StepOdontogramComponent {
     this.selectedTooth.set(cell);
     this.formError.set(null);
     if (existing) {
-      this.panelToothType.set((existing.toothType as 'permanent' | 'deciduous') ?? cell.dentition);
       this.panelDiagnosisType.set((existing.diagnosisType as 'presuntivo' | 'definitivo') ?? 'presuntivo');
       this.panelToothCondition.set(existing.toothCondition ?? 'sano');
-      this.panelDescription.set(existing.diagnosisDescription);
+      this.panelDescription.reset(existing.diagnosisDescription);
       this.panelXray.set(existing.xrayRequested ?? false);
-      this.panelNotes.set(existing.notes ?? '');
+      this.panelNotes.reset(existing.notes ?? '');
     } else {
-      this.panelToothType.set(cell.dentition);
       this.panelDiagnosisType.set('presuntivo');
       this.panelToothCondition.set('sano');
-      this.panelDescription.set('');
+      this.panelDescription.reset('');
       this.panelXray.set(false);
-      this.panelNotes.set('');
+      this.panelNotes.reset('');
     }
   }
 
@@ -231,8 +230,8 @@ export class StepOdontogramComponent {
   }
 
   protected onPanelAdd(): void {
-    if (!this.panelDescription().trim()) {
-      this.formError.set('La descripción es obligatoria.');
+    touchAll(this.panelDescription, this.panelNotes);
+    if (!allValid(this.panelDescription, this.panelNotes)) {
       return;
     }
     const tooth = this.selectedTooth();
@@ -240,12 +239,12 @@ export class StepOdontogramComponent {
 
     const newEntry: ToothEntry = {
       toothNumber: tooth.number,
-      toothType: this.panelToothType(),
+      toothType: toothTypeFor(tooth.number) ?? tooth.dentition,
       diagnosisType: this.panelDiagnosisType(),
       toothCondition: this.panelToothCondition(),
-      diagnosisDescription: this.panelDescription().trim(),
+      diagnosisDescription: normalizeText(this.panelDescription.value()),
       xrayRequested: this.panelXray(),
-      notes: this.panelNotes().trim() || undefined,
+      notes: normalizeText(this.panelNotes.value()) || undefined,
     };
 
     this.updateEntriesFor(tooth.dentition, (prev) => {
@@ -258,13 +257,13 @@ export class StepOdontogramComponent {
   }
 
   protected removeEntry(toothNumber: number): void {
-    const dentition = isDeciduousNumber(toothNumber) ? 'deciduous' : 'permanent';
-    this.updateEntriesFor(dentition, (prev) =>
+    const toothType = toothTypeFor(toothNumber) ?? 'permanent';
+    this.updateEntriesFor(toothType, (prev) =>
       prev.map((e) =>
         e.toothNumber === toothNumber
           ? {
               toothNumber,
-              toothType: dentition,
+              toothType,
               diagnosisType: 'presuntivo',
               toothCondition: 'sano',
               diagnosisDescription: 'Diente sano',
@@ -291,13 +290,15 @@ export class StepOdontogramComponent {
 
   protected onSubmit(): void {
     if (this.selectedTooth()) {
-      if (!this.panelDescription().trim()) {
-        this.formError.set('La descripción es obligatoria antes de guardar.');
+      touchAll(this.panelDescription, this.panelNotes);
+      if (!allValid(this.panelDescription, this.panelNotes)) {
+        this.formError.set('Corregí los errores del diagnóstico actual antes de guardar.');
         return;
       }
       this.onPanelAdd();
     }
 
+    this.formError.set(null);
     const allEntries = [...this.permanentEntries(), ...this.deciduousEntries()];
     this.submitStep.emit(
       allEntries.map((e) => ({

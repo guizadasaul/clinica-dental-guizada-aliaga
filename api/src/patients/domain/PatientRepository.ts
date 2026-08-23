@@ -59,7 +59,9 @@ export interface MedicalHistoryData {
   sti?: boolean;
   otherDiseases?: string;
   gestationPeriod?: string;
-  anesthesiaReactions?: boolean;
+  // Tri-estado (Sí / No / No sabe) — `null` es un valor legítimo, distinto
+  // de "no enviado" (`undefined`).
+  anesthesiaReactions?: boolean | null;
   currentMedications?: string;
 }
 

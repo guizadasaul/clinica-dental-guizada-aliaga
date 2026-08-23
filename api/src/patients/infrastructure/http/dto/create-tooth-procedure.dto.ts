@@ -9,8 +9,15 @@ import {
   IsDateString,
   IsString,
   Max,
+  MaxLength,
   Min,
+  MinLength,
 } from 'class-validator';
+import {
+  EmptyToUndefined,
+  Trim,
+} from '../../../../shared/validators/transforms.js';
+import { NoHtml } from '../../../../shared/validators/text-safety.validator.js';
 
 export class CreateToothProcedureDto {
   /**
@@ -56,6 +63,11 @@ export class CreateToothProcedureDto {
   surfaceOcclusal?: boolean;
 
   @IsOptional()
+  @EmptyToUndefined()
+  @Trim()
   @IsString()
+  @MinLength(3)
+  @MaxLength(500)
+  @NoHtml()
   notes?: string;
 }

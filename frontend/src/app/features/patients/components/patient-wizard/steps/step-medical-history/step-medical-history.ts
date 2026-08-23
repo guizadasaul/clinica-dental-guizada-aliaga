@@ -6,6 +6,8 @@ import {
   signal,
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { field, allValid, touchAll } from '../../../../../../shared/validation/field';
+import { normalizeText, optionalTextError } from '../../../../../../shared/validation/text.validator';
 import type { CreateMedicalHistoryRequest } from '../../../../models/patient.request';
 
 @Component({
@@ -31,12 +33,18 @@ export class StepMedicalHistoryComponent {
   protected readonly hemorrhages = signal(false);
   protected readonly anemia = signal(false);
   protected readonly sti = signal(false);
-  protected readonly otherDiseases = signal('');
-  protected readonly gestationPeriod = signal('');
+  // Mínimo de 3 caracteres cuando hay contenido — una sola letra o un solo
+  // número no alcanzan como respuesta real (campos siguen siendo opcionales).
+  protected readonly otherDiseases = field<string>('', (v: string) => optionalTextError(v, 1000, 3));
+  protected readonly gestationPeriod = field<string>('', (v: string) => optionalTextError(v, 100, 3));
   protected readonly anesthesiaReactions = signal<boolean | null>(null);
-  protected readonly currentMedications = signal('');
+  protected readonly currentMedications = field<string>('', (v: string) => optionalTextError(v, 1000, 3));
 
   protected onSubmit(): void {
+    touchAll(this.otherDiseases, this.gestationPeriod, this.currentMedications);
+    if (!allValid(this.otherDiseases, this.gestationPeriod, this.currentMedications)) {
+      return;
+    }
     this.submitStep.emit({
       hasAllergies: this.hasAllergies(),
       kidneyProblems: this.kidneyProblems(),
@@ -48,10 +56,10 @@ export class StepMedicalHistoryComponent {
       hemorrhages: this.hemorrhages(),
       anemia: this.anemia(),
       sti: this.sti(),
-      otherDiseases: this.otherDiseases().trim() || undefined,
-      gestationPeriod: this.gestationPeriod().trim() || undefined,
+      otherDiseases: normalizeText(this.otherDiseases.value()) || undefined,
+      gestationPeriod: normalizeText(this.gestationPeriod.value()) || undefined,
       anesthesiaReactions: this.anesthesiaReactions() ?? undefined,
-      currentMedications: this.currentMedications().trim() || undefined,
+      currentMedications: normalizeText(this.currentMedications.value()) || undefined,
     });
   }
 

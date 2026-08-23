@@ -3,7 +3,7 @@
     <h3 class="step-form__section-title">Hábitos de higiene bucal</h3>
     <div class="step-form__checkgrid">
       <label class="step-form__check">
-        <input type="checkbox" [checked]="usesToothbrush()" (change)="usesToothbrush.set($any($event.target).checked)" />
+        <input type="checkbox" [checked]="usesToothbrush()" (change)="onUsesToothbrushChange($any($event.target).checked)" />
         <span>Usa cepillo dental</span>
       </label>
       <label class="step-form__check">
@@ -26,15 +26,25 @@
 
     @if (usesToothbrush()) {
       <div class="step-form__field" style="margin-top: 1rem; max-width: 320px;">
-        <label class="step-form__label">Frecuencia de cepillado</label>
-        <select class="step-form__input" [value]="brushingFrequency()" (change)="brushingFrequency.set($any($event.target).value)">
+        <label class="step-form__label" for="brushingFrequency">Frecuencia de cepillado <span class="step-form__req">*</span></label>
+        <select
+          id="brushingFrequency"
+          class="step-form__input"
+          [class.step-form__input--invalid]="brushingFrequency.showError()"
+          [value]="brushingFrequency.value()"
+          (change)="brushingFrequency.set($any($event.target).value)"
+          (blur)="brushingFrequency.markTouched()"
+          [attr.aria-invalid]="brushingFrequency.showError() || null"
+          [attr.aria-describedby]="brushingFrequency.showError() ? 'brushingFrequency-err' : null"
+        >
           <option value="">Seleccionar</option>
-          <option value="1 vez al día">1 vez al día</option>
-          <option value="2 veces al día">2 veces al día</option>
-          <option value="3 veces al día">3 veces al día</option>
-          <option value="Más de 3 veces al día">Más de 3 veces al día</option>
-          <option value="Ocasionalmente">Ocasionalmente</option>
+          @for (opt of brushingFrequencyOptions; track opt.value) {
+            <option [value]="opt.value">{{ opt.label }}</option>
+          }
         </select>
+        @if (brushingFrequency.showError()) {
+          <p class="step-form__field-error" id="brushingFrequency-err" role="alert">{{ brushingFrequency.error() }}</p>
+        }
       </div>
     }
   </div>
