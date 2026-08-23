@@ -115,13 +115,18 @@
                         aria-haspopup="menu"
                         [attr.aria-expanded]="openMenuFor() === p.userId"
                         aria-label="Más acciones"
-                        (click)="toggleMenu(p.userId)"
+                        (click)="toggleMenu(p.userId, $any($event.currentTarget))"
                       >
                         <span class="material-symbols-outlined">more_vert</span>
                       </button>
 
-                      @if (openMenuFor() === p.userId) {
-                        <ul class="patients-list__menu" role="menu">
+                      @if (openMenuFor() === p.userId && menuPosition()) {
+                        <ul
+                          class="patients-list__menu"
+                          role="menu"
+                          [style.top.px]="menuPosition()!.top"
+                          [style.right.px]="menuPosition()!.right"
+                        >
                           <li
                             class="patients-list__menu-item"
                             role="menuitem"

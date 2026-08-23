@@ -267,7 +267,7 @@
     },
     "noProfileBanner": {
       "title": "Todavía no tenés una cuenta de paciente",
-      "body": "Reservá tu primera consulta para crear tu ficha.",
+      "body": "Reservá tu primera consulta para crear tu cuenta de paciente.",
       "cta": "Ver horarios disponibles",
       "dismissAriaLabel": "Cerrar aviso"
     },
