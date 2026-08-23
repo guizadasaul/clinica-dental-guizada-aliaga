@@ -92,7 +92,7 @@ export class PaymentsService {
     const qr = await this.gateway.generateQr({
       transactionId,
       amount: consultation.basePrice,
-      description: 'Consulta inicial - Clínica Guizada-Aliaga',
+      description: 'Consulta inicial - Clínica Dental Guizada-Aliaga',
       dueDate: new Date(),
     });
 

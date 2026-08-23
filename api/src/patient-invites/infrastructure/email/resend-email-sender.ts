@@ -44,7 +44,7 @@ export class ResendEmailSender implements EmailSender {
         body: JSON.stringify({
           from: fromEmail,
           to: params.to,
-          subject: 'Completá tu registro en Clínica Guizada-Aliaga',
+          subject: 'Completá tu registro en Clínica Dental Guizada-Aliaga',
           html: this.buildHtml(params),
           text: this.buildText(params),
           attachments: [
@@ -86,7 +86,7 @@ export class ResendEmailSender implements EmailSender {
   </head>
   <body style="margin:0; padding:0; background-color:#f3ede1; font-family:'Source Sans 3', Arial, Helvetica, sans-serif;">
     <span style="display:none; visibility:hidden; opacity:0; overflow:hidden; height:0; width:0; max-height:0; max-width:0; mso-hide:all;">
-      ${name}, completá tu registro en Clínica Guizada-Aliaga en solo un minuto.
+      ${name}, completá tu registro en Clínica Dental Guizada-Aliaga en solo un minuto.
     </span>
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#f3ede1;">
       <tr>
@@ -104,7 +104,7 @@ export class ResendEmailSender implements EmailSender {
                 <img
                   src="cid:${CLINIC_LOGO_CONTENT_ID}"
                   width="200"
-                  alt="Clínica Guizada-Aliaga"
+                  alt="Clínica Dental Guizada-Aliaga"
                   style="display:block; width:200px; max-width:60%; height:auto; border:0;"
                 />
               </td>
@@ -123,7 +123,7 @@ export class ResendEmailSender implements EmailSender {
                   Hola ${name},
                 </p>
                 <p style="margin:0 0 24px; font-size:16px; line-height:1.6; color:#1c1b1f;">
-                  El equipo de <strong>Clínica Guizada-Aliaga</strong> te invita a completar tu registro para que puedas
+                  El equipo de <strong>Clínica Dental Guizada-Aliaga</strong> te invita a completar tu registro para que puedas
                   ver tus citas, tu historial clínico y tus presupuestos desde un solo lugar. Es rápido y te toma
                   menos de un minuto.
                 </p>
@@ -176,7 +176,7 @@ export class ResendEmailSender implements EmailSender {
             <tr>
               <td style="padding:28px 40px 36px;">
                 <p style="margin:0 0 4px; font-family:Georgia, 'Libre Caslon Text', serif; font-size:15px; font-weight:700; color:#1c1b1f;">
-                  Clínica Guizada-Aliaga
+                  Clínica Dental Guizada-Aliaga
                 </p>
                 <p style="margin:0 0 16px; font-size:13px; line-height:1.5; color:#4d4640;">
                   Edificio Guizada, 1er piso — Carmela Serruto entre Suárez Miranda y Waldo Ballivián<br />
@@ -188,7 +188,7 @@ export class ResendEmailSender implements EmailSender {
                   <a href="mailto:clinicadentalguizadaaliaga@gmail.com" style="color:#4d4640; text-decoration:underline;">clinicadentalguizadaaliaga@gmail.com</a>
                 </p>
                 <p style="margin:0; font-size:12px; line-height:1.5; color:#9b9488;">
-                  Recibiste este correo porque un profesional de Clínica Guizada-Aliaga registró tu contacto para
+                  Recibiste este correo porque un profesional de Clínica Dental Guizada-Aliaga registró tu contacto para
                   invitarte a crear tu cuenta. Si creés que fue un error, podés ignorar este mensaje.
                 </p>
               </td>
@@ -196,7 +196,7 @@ export class ResendEmailSender implements EmailSender {
           </table>
 
           <p style="margin:20px 0 0; font-size:12px; color:#9b9488; text-align:center;">
-            © ${new Date().getFullYear()} Clínica Guizada-Aliaga. Todos los derechos reservados.
+            © ${new Date().getFullYear()} Clínica Dental Guizada-Aliaga. Todos los derechos reservados.
           </p>
         </td>
       </tr>
@@ -210,14 +210,14 @@ export class ResendEmailSender implements EmailSender {
     return `
 Hola ${params.patientDisplayName},
 
-El equipo de Clínica Guizada-Aliaga te invita a completar tu registro para que puedas ver tus citas, tu historial clínico y tus presupuestos desde un solo lugar.
+El equipo de Clínica Dental Guizada-Aliaga te invita a completar tu registro para que puedas ver tus citas, tu historial clínico y tus presupuestos desde un solo lugar.
 
 Completá tu registro acá: ${params.inviteUrl}
 
 Por tu seguridad, este enlace vence en 5 minutos.
 
 —
-Clínica Guizada-Aliaga
+Clínica Dental Guizada-Aliaga
 Edificio Guizada, 1er piso — Carmela Serruto entre Suárez Miranda y Waldo Ballivián, Quillacollo, Cochabamba
 +591 577 44250 · clinicadentalguizadaaliaga@gmail.com
     `.trim();
