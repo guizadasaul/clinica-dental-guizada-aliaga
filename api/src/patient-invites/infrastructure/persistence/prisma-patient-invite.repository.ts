@@ -31,6 +31,16 @@ export class PrismaPatientInviteRepository implements IPatientInviteRepository {
     );
   }
 
+  async invalidatePendingForPatient(
+    patientId: string,
+    now: Date,
+  ): Promise<void> {
+    await this.prisma.patient_invites.updateMany({
+      where: { patient_id: patientId, used_at: null },
+      data: { used_at: now },
+    });
+  }
+
   async redeemByTokenHash(
     tokenHash: string,
     now: Date,

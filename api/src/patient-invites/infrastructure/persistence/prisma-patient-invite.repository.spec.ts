@@ -32,6 +32,19 @@ describe('PrismaPatientInviteRepository', () => {
     );
   });
 
+  describe('invalidatePendingForPatient', () => {
+    it('marks every pending invite of the patient as used, regardless of channel', async () => {
+      prismaMock.patient_invites.updateMany.mockResolvedValue({ count: 2 });
+
+      await repo.invalidatePendingForPatient('patient-1', NOW);
+
+      expect(prismaMock.patient_invites.updateMany).toHaveBeenCalledWith({
+        where: { patient_id: 'patient-1', used_at: null },
+        data: { used_at: NOW },
+      });
+    });
+  });
+
   describe('redeemByTokenHash', () => {
     it('claims the invite with a conditional UPDATE (WHERE token_hash AND used_at IS NULL AND expires_at > now)', async () => {
       prismaMock.patient_invites.updateMany
