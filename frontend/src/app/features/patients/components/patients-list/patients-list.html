@@ -10,7 +10,7 @@
         <input
           class="patients-list__search"
           type="text"
-          placeholder="Buscar por nombre, email o DNI..."
+          placeholder="Buscar por nombre o teléfono..."
           [value]="filter()"
           (input)="filter.set($any($event.target).value)"
         />
@@ -34,8 +34,7 @@
         <thead>
           <tr>
             <th>Paciente</th>
-            <th>Email</th>
-            <th>DNI</th>
+            <th>Nro Teléfono</th>
             <th>Estado</th>
             <th>Acción</th>
           </tr>
@@ -51,15 +50,16 @@
                   <span>{{ fullName(p) }}</span>
                 </div>
               </td>
-              <td class="patients-list__cell">{{ p.email ?? '—' }}</td>
-              <td class="patients-list__cell">{{ p.patient?.dni ?? '—' }}</td>
+              <td class="patients-list__cell">{{ phoneLabel(p) }}</td>
               <td class="patients-list__cell">
                 @if (!p.patient) {
                   <span class="patients-list__badge patients-list__badge--pending">Sin ficha</span>
                 } @else if (p.odontogramEntriesCount === 0) {
-                  <span class="patients-list__badge patients-list__badge--warning">Sin odontograma</span>
+                  <span class="patients-list__badge patients-list__badge--warning">Sin diagnóstico</span>
+                } @else if (!p.hasAccount) {
+                  <span class="patients-list__badge patients-list__badge--warning">Pendiente de cuenta</span>
                 } @else {
-                  <span class="patients-list__badge patients-list__badge--complete">Completo</span>
+                  <span class="patients-list__badge patients-list__badge--complete">Paciente activo</span>
                 }
               </td>
               <td class="patients-list__cell patients-list__cell--actions">
@@ -72,58 +72,86 @@
                     <span class="material-symbols-outlined">add_circle</span>
                     Registrar
                   </button>
-                } @else if (p.odontogramEntriesCount === 0) {
-                  <button
-                    class="patients-list__btn patients-list__btn--complete"
-                    type="button"
-                    (click)="onOpenOdontogram(p.patient!.id)"
-                  >
-                    <span class="material-symbols-outlined">dentistry</span>
-                    Completar ficha
-                  </button>
                 } @else {
-                  <button
-                    class="patients-list__btn patients-list__btn--edit"
-                    type="button"
-                    (click)="onOpenOdontogram(p.patient!.id)"
-                  >
-                    <span class="material-symbols-outlined">edit</span>
-                    Editar diagnóstico
-                  </button>
-                  <button
-                    class="patients-list__btn patients-list__btn--treatment"
-                    type="button"
-                    (click)="onRegisterTreatment(p.patient!.id)"
-                  >
-                    <span class="material-symbols-outlined">healing</span>
-                    Tratamiento
-                  </button>
-                  <button
-                    class="patients-list__btn patients-list__btn--history"
-                    type="button"
-                    (click)="onViewHistory(p.patient!.id)"
-                  >
-                    <span class="material-symbols-outlined">history</span>
-                    Ver historial
-                  </button>
-                  <button
-                    class="patients-list__btn patients-list__btn--quote"
-                    type="button"
-                    (click)="onBuildQuote(p.patient!.id)"
-                  >
-                    <span class="material-symbols-outlined">receipt_long</span>
-                    Presupuesto
-                  </button>
-                }
-                @if (p.patient && !p.hasAccount) {
-                  <button
-                    class="patients-list__btn patients-list__btn--invite"
-                    type="button"
-                    (click)="onSendInvite(p)"
-                  >
-                    <span class="material-symbols-outlined">person_add</span>
-                    Enviar registro
-                  </button>
+                  @if (p.odontogramEntriesCount === 0) {
+                    <button
+                      class="patients-list__btn"
+                      type="button"
+                      (click)="onRegisterDiagnosis(p.patient!.id)"
+                    >
+                      <span class="material-symbols-outlined">dentistry</span>
+                      Registrar diagnóstico
+                    </button>
+                  } @else {
+                    <button
+                      class="patients-list__btn"
+                      type="button"
+                      (click)="onRegisterTreatment(p.patient!.id)"
+                    >
+                      <span class="material-symbols-outlined">healing</span>
+                      Tratamiento
+                    </button>
+                    <button
+                      class="patients-list__btn"
+                      type="button"
+                      (click)="onViewHistory(p.patient!.id)"
+                    >
+                      <span class="material-symbols-outlined">history</span>
+                      Historial
+                    </button>
+                    <button
+                      class="patients-list__btn"
+                      type="button"
+                      (click)="onBuildQuote(p.patient!.id)"
+                    >
+                      <span class="material-symbols-outlined">receipt_long</span>
+                      Presupuesto
+                    </button>
+
+                    <div class="patients-list__menu-wrap">
+                      <button
+                        class="patients-list__menu-trigger"
+                        type="button"
+                        aria-haspopup="menu"
+                        [attr.aria-expanded]="openMenuFor() === p.userId"
+                        aria-label="Más acciones"
+                        (click)="toggleMenu(p.userId)"
+                      >
+                        <span class="material-symbols-outlined">more_vert</span>
+                      </button>
+
+                      @if (openMenuFor() === p.userId) {
+                        <ul class="patients-list__menu" role="menu">
+                          <li
+                            class="patients-list__menu-item"
+                            role="menuitem"
+                            (click)="onOpenOdontogram(p.patient!.id)"
+                          >
+                            <span class="material-symbols-outlined">edit</span>
+                            Editar diagnóstico
+                          </li>
+                          <li
+                            class="patients-list__menu-item"
+                            role="menuitem"
+                            (click)="onViewClinicalRecord(p.patient!.id)"
+                          >
+                            <span class="material-symbols-outlined">medical_information</span>
+                            Ver historia clínica
+                          </li>
+                        </ul>
+                      }
+                    </div>
+                  }
+                  @if (!p.hasAccount) {
+                    <button
+                      class="patients-list__btn"
+                      type="button"
+                      (click)="onSendInvite(p)"
+                    >
+                      <span class="material-symbols-outlined">person_add</span>
+                      Enviar registro
+                    </button>
+                  }
                 }
               </td>
             </tr>

@@ -22,7 +22,7 @@
             @if (currentStep() > step.number || done()) {
               <span class="material-symbols-outlined">check</span>
             } @else {
-              <span class="material-symbols-outlined">{{ step.icon }}</span>
+              <span class="wizard__step-num">{{ step.number }}</span>
             }
           </div>
           <span class="wizard__step-label">{{ step.label }}</span>

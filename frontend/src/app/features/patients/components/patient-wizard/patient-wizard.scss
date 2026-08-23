@@ -101,6 +101,13 @@
     .material-symbols-outlined { font-size: 1.125rem; }
   }
 
+  &__step-num {
+    font-family: var(--font-headline);
+    font-size: 0.9375rem;
+    font-weight: 700;
+    line-height: 1;
+  }
+
   &__step-label {
     font-size: 0.6875rem;
     color: #9ca3af;

@@ -27,15 +27,14 @@ import type {
 interface WizardStep {
   readonly number: number;
   readonly label: string;
-  readonly icon: string;
 }
 
 const STEPS: WizardStep[] = [
-  { number: 1, label: 'Datos del paciente', icon: 'person' },
-  { number: 2, label: 'Historial médico', icon: 'medical_information' },
-  { number: 3, label: 'Hábitos de higiene', icon: 'dental' },
-  { number: 4, label: 'Examen clínico', icon: 'stethoscope' },
-  { number: 5, label: 'Odontograma', icon: 'dentistry' },
+  { number: 1, label: 'Datos del paciente' },
+  { number: 2, label: 'Historial médico' },
+  { number: 3, label: 'Hábitos de higiene' },
+  { number: 4, label: 'Examen clínico' },
+  { number: 5, label: 'Odontograma' },
 ];
 
 @Component({
@@ -74,7 +73,13 @@ export class PatientWizardComponent {
     if (!this.isEditMode()) {
       return 'Registro de nuevo paciente';
     }
-    return this.startStep() === 5 ? 'Completar odontograma' : 'Completar historial clínico';
+    if (this.startStep() === 5) {
+      return 'Completar odontograma';
+    }
+    if (this.startStep() === 1) {
+      return 'Registrar diagnóstico';
+    }
+    return 'Completar historial clínico';
   });
 
   protected readonly existingOdontogramEntries = signal<OdontogramEntry[]>([]);
@@ -107,8 +112,11 @@ export class PatientWizardComponent {
     this.loading.set(true);
     this.error.set(null);
     try {
+      const existingId = this.existingPatientId();
       const patient = await firstValueFrom(
-        this.patientsService.createPatient({ ...data, userId: this.userId() }),
+        existingId
+          ? this.patientsService.updatePatient(existingId, data)
+          : this.patientsService.createPatient({ ...data, userId: this.userId() }),
       );
       this.patientId.set(patient.id);
       this.currentStep.set(2);
