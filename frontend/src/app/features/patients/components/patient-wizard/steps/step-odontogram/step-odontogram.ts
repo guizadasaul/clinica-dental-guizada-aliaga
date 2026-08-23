@@ -8,308 +8,366 @@ import {
   effect,
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import type { OdontogramEntry } from '../../../../models/patient.model';
-import type { CreateOdontogramEntryRequest } from '../../../../models/patient.request';
+import { DatePipe } from '@angular/common';
+import type {
+  DentalExam,
+  DentalExamFinding,
+  DentalExamVersionSummary,
+} from '../../../../models/dental-exam.model';
+import type {
+  CreateDentalExamFindingRequest,
+  CreateDentalExamRequest,
+} from '../../../../models/dental-exam.request';
+import type { DiagnosisCategory, Diagnosis, DiagnosisScope } from '../../../../../diagnoses/models/diagnosis.model';
 import { ODONTOGRAM_CELLS, type OdontogramCell } from './odontogram-cells';
-import {
-  UPPER_TEETH,
-  LOWER_TEETH,
-  UPPER_DECIDUOUS_TEETH,
-  LOWER_DECIDUOUS_TEETH,
-} from '../../../../../../shared/constants/dental-chart.constants';
-import type { ToothDef } from '../../../../../../shared/constants/dental-chart.constants';
 import { field, allValid, touchAll } from '../../../../../../shared/validation/field';
-import { normalizeText, requiredTextError, optionalTextError } from '../../../../../../shared/validation/text.validator';
-import { toothTypeFor } from '../../../../../../shared/validation/tooth.validator';
+import { normalizeText, optionalTextError, requiredTextError } from '../../../../../../shared/validation/text.validator';
+import { BLACK_CLASSES, MOBILITY_GRADES } from '../../../../../../shared/validation/clinical-options';
+import { modifierLabel } from '../../../../models/dental-exam-display.util';
 
-interface ToothEntry extends CreateOdontogramEntryRequest {
-  readonly toothNumber: number;
-  diagnosisType: string;
-  toothCondition: string;
-  diagnosisDescription: string;
+/** Un hallazgo tal como lo arma el doctor en el panel, antes de mandarlo al backend. */
+interface FindingDraft {
+  readonly key: string;
+  readonly diagnosisCode: string;
+  readonly diagnosisName: string;
+  readonly categoryName: string;
+  readonly scope: DiagnosisScope;
+  readonly color: string;
+  readonly toothNumbers: number[];
+  readonly modifierValue: string | null;
+  readonly description: string;
+  readonly xrayRequested: boolean;
+  readonly notes: string | null;
 }
 
-const DIAGNOSIS_OPTIONS: { value: string; label: string; color: string }[] = [
-  { value: 'sano', label: 'Sano', color: '#16a34a' },
-  { value: 'caries', label: 'Caries', color: '#dc2626' },
-  { value: 'restauracion', label: 'Restauración', color: '#2563eb' },
-  { value: 'corona', label: 'Corona', color: '#d97706' },
-  { value: 'ausente', label: 'Ausente', color: '#9ca3af' },
-  { value: 'extraccion', label: 'Extracción', color: '#7c3aed' },
-  { value: 'endodoncia', label: 'Endodoncia', color: '#ea580c' },
-  { value: 'fractura', label: 'Fractura', color: '#ca8a04' },
-  { value: 'periodoncia', label: 'Periodoncia', color: '#0891b2' },
-  { value: 'otro', label: 'Otro', color: '#374151' },
-];
-
-function buildSanoEntries(teeth: ToothDef[]): ToothEntry[] {
-  return teeth.map((t) => ({
-    toothNumber: t.number,
-    toothType: toothTypeFor(t.number) ?? 'permanent',
-    diagnosisType: 'presuntivo',
-    toothCondition: 'sano',
-    diagnosisDescription: 'Diente sano',
-  }));
+function localKey(): string {
+  return `f-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
-function buildEntriesFromExisting(
-  teeth: ToothDef[],
-  byTooth: Map<number, OdontogramEntry>,
-): ToothEntry[] {
-  return teeth.map((t) => {
-    const existing = byTooth.get(t.number);
-    const toothType = toothTypeFor(t.number) ?? 'permanent';
-    if (existing) {
-      return {
-        toothNumber: t.number,
-        toothType,
-        diagnosisType: existing.diagnosisType,
-        toothCondition: existing.toothCondition,
-        diagnosisDescription: existing.diagnosisDescription,
-        xrayRequested: existing.xrayRequested,
-        notes: existing.notes ?? undefined,
-      };
+function buildDraftsFromExam(exam: DentalExam): FindingDraft[] {
+  const byGroup = new Map<string, DentalExamFinding[]>();
+  const singles: DentalExamFinding[] = [];
+  for (const f of exam.findings) {
+    if (f.applicationGroupId) {
+      const list = byGroup.get(f.applicationGroupId) ?? [];
+      list.push(f);
+      byGroup.set(f.applicationGroupId, list);
+    } else {
+      singles.push(f);
     }
-    return {
-      toothNumber: t.number,
-      toothType,
-      diagnosisType: 'presuntivo',
-      toothCondition: 'sano',
-      diagnosisDescription: 'Diente sano',
-    };
+  }
+
+  const toDraft = (key: string, first: DentalExamFinding, teeth: number[]): FindingDraft => ({
+    key,
+    diagnosisCode: first.diagnosisCode,
+    diagnosisName: first.diagnosisName,
+    categoryName: first.categoryName,
+    scope: first.diagnosisScope,
+    color: first.diagnosisColor,
+    toothNumbers: teeth,
+    modifierValue: first.modifierValue,
+    description: first.description ?? '',
+    xrayRequested: first.xrayRequested,
+    notes: first.notes,
   });
+
+  const drafts = singles.map((f) =>
+    toDraft(f.id, f, f.toothNumber != null ? [f.toothNumber] : []),
+  );
+  for (const [groupId, list] of byGroup) {
+    const teeth = list
+      .map((f) => f.toothNumber)
+      .filter((n): n is number => n != null)
+      .sort((a, b) => a - b);
+    drafts.push(toDraft(groupId, list[0], teeth));
+  }
+  return drafts;
 }
 
 @Component({
   selector: 'app-step-odontogram',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [FormsModule],
+  imports: [FormsModule, DatePipe],
   templateUrl: './step-odontogram.html',
   styleUrl: './step-odontogram.scss',
 })
 export class StepOdontogramComponent {
   readonly loading = input(false);
-  readonly initialEntries = input<OdontogramEntry[]>([]);
-  readonly submitStep = output<CreateOdontogramEntryRequest[]>();
+  readonly catalog = input<DiagnosisCategory[]>([]);
+  readonly currentExam = input<DentalExam | null>(null);
+  readonly versions = input<DentalExamVersionSummary[]>([]);
+  readonly viewedVersion = input<DentalExam | null>(null);
+  readonly submitStep = output<CreateDentalExamRequest>();
+  readonly viewVersionRequest = output<string>();
+  readonly closeViewedVersion = output<void>();
   readonly back = output<void>();
 
-  protected readonly diagnosisOptions = DIAGNOSIS_OPTIONS;
-
-  /** Interactive hit-cells overlaid on /assets/svg/odontogram.svg. */
   protected readonly cells = ODONTOGRAM_CELLS;
   protected readonly odontogramUrl = '/assets/svg/odontogram.svg';
 
-  private readonly permanentEntries = signal<ToothEntry[]>([
-    ...buildSanoEntries(UPPER_TEETH),
-    ...buildSanoEntries(LOWER_TEETH),
-  ]);
-
-  private readonly deciduousEntries = signal<ToothEntry[]>([
-    ...buildSanoEntries(UPPER_DECIDUOUS_TEETH),
-    ...buildSanoEntries(LOWER_DECIDUOUS_TEETH),
-  ]);
-
-  /** Every tooth (both dentitions) — the chart now shows them all at once. */
-  protected readonly entries = computed(() => [
-    ...this.permanentEntries(),
-    ...this.deciduousEntries(),
-  ]);
-
-  /** Only real findings (non-sano) — shown in the "Diagnósticos registrados" list. */
-  protected readonly diagnosedEntries = computed(() =>
-    this.entries().filter((e) => e.toothCondition !== 'sano'),
+  protected readonly allDiagnoses = computed<(Diagnosis & { categoryName: string })[]>(() =>
+    this.catalog().flatMap((c) => c.diagnoses.map((d) => ({ ...d, categoryName: c.name }))),
   );
 
-  protected readonly selectedTooth = signal<OdontogramCell | null>(null);
-  protected readonly formError = signal<string | null>(null);
+  protected readonly legendItems = computed(() =>
+    this.catalog()
+      .filter((c) => c.diagnoses.length > 0)
+      .map((c) => ({ name: c.name, color: c.diagnoses[0].color })),
+  );
 
-  protected readonly panelDiagnosisType = signal<'presuntivo' | 'definitivo'>('presuntivo');
-  protected readonly panelToothCondition = signal('sano');
-  // @Length(3, 500) del DTO — antes solo se chequeaba "no vacío".
-  protected readonly panelDescription = field<string>('', (v: string) => requiredTextError(v, 500, { minLength: 3 }));
-  protected readonly panelXray = signal(false);
-  // Mínimo de 3 caracteres cuando hay contenido (campo sigue opcional).
-  protected readonly panelNotes = field<string>('', (v: string) => optionalTextError(v, 500, 3));
+  protected readonly findings = signal<FindingDraft[]>([]);
+  private findingsInitialized = false;
 
-  protected readonly entriesMap = computed(() => {
-    const map = new Map<number, ToothEntry>();
-    for (const e of this.entries()) {
-      map.set(e.toothNumber, e);
+  protected readonly toothFindings = computed(() => this.findings().filter((f) => f.scope !== 'general'));
+  protected readonly generalFindings = computed(() => this.findings().filter((f) => f.scope === 'general'));
+
+  protected readonly toothColorMap = computed(() => {
+    const map = new Map<number, string>();
+    for (const f of this.toothFindings()) {
+      for (const n of f.toothNumbers) {
+        if (!map.has(n)) { map.set(n, f.color); }
+      }
     }
     return map;
   });
 
-  private entriesInitialized = false;
+  protected readonly hasPriorVersions = computed(() => this.versions().length > 0);
+  protected readonly showHistory = signal(false);
+
+  // ── Panel de nuevo/edición de hallazgo ──────────────────────────────────
+  protected readonly panelOpen = signal(false);
+  protected readonly editingKey = signal<string | null>(null);
+  protected readonly panelDiagnosisCode = signal('');
+  protected readonly panelToothNumbers = signal<number[]>([]);
+  protected readonly panelModifierValue = signal('');
+  protected readonly panelDescription = field<string>('', (v: string) => optionalTextError(v, 500, 3));
+  protected readonly panelNotes = field<string>('', (v: string) => optionalTextError(v, 500, 3));
+  protected readonly panelXray = signal(false);
+  protected readonly formError = signal<string | null>(null);
+
+  protected readonly panelDiagnosis = computed(() =>
+    this.allDiagnoses().find((d) => d.code === this.panelDiagnosisCode()) ?? null,
+  );
+
+  protected readonly modifierOptions = computed(() => {
+    const modifier = this.panelDiagnosis()?.modifier;
+    if (modifier === 'black_class') { return BLACK_CLASSES; }
+    if (modifier === 'mobility_grade') { return MOBILITY_GRADES; }
+    return [];
+  });
+
+  protected readonly changeReason = field<string>('', (v: string) =>
+    this.hasPriorVersions() ? requiredTextError(v, 500, { minLength: 3 }) : optionalTextError(v, 500, 3),
+  );
 
   constructor() {
     effect(() => {
-      const existing = this.initialEntries();
-      if (this.entriesInitialized || existing.length === 0) { return; }
-      this.entriesInitialized = true;
-
-      // Preferimos la entry con treatmentId == null (el diagnóstico del chart)
-      // sobre la que trae un tratamiento — findOdontogramEntries ordena por
-      // created_at desc, así que sin este criterio se prefería la más nueva
-      // sin importar su origen (ver corrección del plan CLI-39).
-      const byTooth = new Map<number, OdontogramEntry>();
-      for (const e of existing) {
-        const current = byTooth.get(e.toothNumber);
-        if (!current || (current.treatmentId != null && e.treatmentId == null)) {
-          byTooth.set(e.toothNumber, e);
-        }
-      }
-      this.permanentEntries.set([
-        ...buildEntriesFromExisting(UPPER_TEETH, byTooth),
-        ...buildEntriesFromExisting(LOWER_TEETH, byTooth),
-      ]);
-      this.deciduousEntries.set([
-        ...buildEntriesFromExisting(UPPER_DECIDUOUS_TEETH, byTooth),
-        ...buildEntriesFromExisting(LOWER_DECIDUOUS_TEETH, byTooth),
-      ]);
+      const exam = this.currentExam();
+      if (!exam || this.findingsInitialized) { return; }
+      this.findingsInitialized = true;
+      this.findings.set(buildDraftsFromExam(exam));
     }, { allowSignalWrites: true });
   }
 
-  private updateEntriesFor(
-    dentition: 'permanent' | 'deciduous',
-    fn: (prev: ToothEntry[]) => ToothEntry[],
-  ): void {
-    if (dentition === 'deciduous') {
-      this.deciduousEntries.update(fn);
-    } else {
-      this.permanentEntries.update(fn);
-    }
+  protected modifierLabel(value: string): string {
+    return modifierLabel(value);
   }
 
-  protected getToothColor(toothNumber: number): string {
-    const entry = this.entriesMap().get(toothNumber);
-    if (!entry) { return 'white'; }
-    return DIAGNOSIS_OPTIONS.find((d) => d.value === entry.toothCondition)?.color ?? '#374151';
+  protected scopeLabel(scope: DiagnosisScope): string {
+    if (scope === 'single_tooth') { return '1 pieza'; }
+    if (scope === 'multiple_teeth') { return 'Varias piezas'; }
+    return 'General';
   }
 
-  /** A tooth is "diagnosed" (and therefore tinted on the chart) when it is not sano. */
+  // ── Chart ────────────────────────────────────────────────────────────────
+
   protected isDiagnosed(toothNumber: number): boolean {
-    const entry = this.entriesMap().get(toothNumber);
-    return !!entry && entry.toothCondition !== 'sano';
+    return this.toothColorMap().has(toothNumber);
   }
 
-  /**
-   * Fill used for the tooth's paint group: the diagnosis color when diagnosed,
-   * a highlight when selected-but-healthy, otherwise transparent. Opacity (and the
-   * solid look when selected) is handled on the group so overlapping parts stay even.
-   */
   protected paintFill(toothNumber: number): string {
-    if (this.isDiagnosed(toothNumber)) {
-      return this.getToothColor(toothNumber);
+    const color = this.toothColorMap().get(toothNumber);
+    if (color) { return color; }
+    if (this.panelOpen() && this.panelToothNumbers().includes(toothNumber)) {
+      return '#1a2b5e';
     }
-    return this.selectedTooth()?.number === toothNumber ? '#1a2b5e' : 'transparent';
+    return 'transparent';
+  }
+
+  protected isSelectedInPanel(toothNumber: number): boolean {
+    return this.panelOpen() && this.panelToothNumbers().includes(toothNumber);
   }
 
   protected onToothClick(cell: OdontogramCell): void {
-    const existing = this.entriesMap().get(cell.number);
-    this.selectedTooth.set(cell);
+    if (!this.panelOpen()) {
+      this.openPanelForTooth(cell.number);
+      return;
+    }
+    const scope = this.panelDiagnosis()?.scope;
+    if (scope === 'single_tooth') {
+      this.panelToothNumbers.set([cell.number]);
+    } else if (scope === 'multiple_teeth') {
+      this.panelToothNumbers.update((prev) =>
+        prev.includes(cell.number)
+          ? prev.filter((n) => n !== cell.number)
+          : [...prev, cell.number].sort((a, b) => a - b),
+      );
+    }
+  }
+
+  // ── Panel ────────────────────────────────────────────────────────────────
+
+  private resetPanelFields(): void {
+    this.panelDiagnosisCode.set('');
+    this.panelModifierValue.set('');
+    this.panelDescription.reset('');
+    this.panelNotes.reset('');
+    this.panelXray.set(false);
     this.formError.set(null);
-    if (existing) {
-      this.panelDiagnosisType.set((existing.diagnosisType as 'presuntivo' | 'definitivo') ?? 'presuntivo');
-      this.panelToothCondition.set(existing.toothCondition ?? 'sano');
-      this.panelDescription.reset(existing.diagnosisDescription);
-      this.panelXray.set(existing.xrayRequested ?? false);
-      this.panelNotes.reset(existing.notes ?? '');
-    } else {
-      this.panelDiagnosisType.set('presuntivo');
-      this.panelToothCondition.set('sano');
-      this.panelDescription.reset('');
-      this.panelXray.set(false);
-      this.panelNotes.reset('');
+  }
+
+  protected openPanelForTooth(toothNumber: number): void {
+    this.editingKey.set(null);
+    this.resetPanelFields();
+    this.panelToothNumbers.set([toothNumber]);
+    this.panelOpen.set(true);
+  }
+
+  protected onAddFindingClick(): void {
+    this.editingKey.set(null);
+    this.resetPanelFields();
+    this.panelToothNumbers.set([]);
+    this.panelOpen.set(true);
+  }
+
+  protected onEditFinding(draft: FindingDraft): void {
+    this.editingKey.set(draft.key);
+    this.panelDiagnosisCode.set(draft.diagnosisCode);
+    this.panelToothNumbers.set([...draft.toothNumbers]);
+    this.panelModifierValue.set(draft.modifierValue ?? '');
+    this.panelDescription.reset(draft.description);
+    this.panelNotes.reset(draft.notes ?? '');
+    this.panelXray.set(draft.xrayRequested);
+    this.formError.set(null);
+    this.panelOpen.set(true);
+  }
+
+  protected removeFinding(key: string): void {
+    this.findings.update((prev) => prev.filter((f) => f.key !== key));
+  }
+
+  protected onPanelDiagnosisChange(code: string): void {
+    this.panelDiagnosisCode.set(code);
+    const diagnosis = this.allDiagnoses().find((d) => d.code === code);
+    if (!diagnosis) { return; }
+    if (diagnosis.scope === 'general') {
+      this.panelToothNumbers.set([]);
+    } else if (diagnosis.scope === 'single_tooth' && this.panelToothNumbers().length > 1) {
+      this.panelToothNumbers.set(this.panelToothNumbers().slice(0, 1));
+    }
+    if (diagnosis.modifier === 'none') {
+      this.panelModifierValue.set('');
     }
   }
 
   protected onPanelCancel(): void {
-    this.selectedTooth.set(null);
+    this.panelOpen.set(false);
+    this.editingKey.set(null);
     this.formError.set(null);
   }
 
-  protected onPanelAdd(): void {
+  protected onPanelSave(): void {
     touchAll(this.panelDescription, this.panelNotes);
-    if (!allValid(this.panelDescription, this.panelNotes)) {
+    if (!allValid(this.panelDescription, this.panelNotes)) { return; }
+
+    const diagnosis = this.panelDiagnosis();
+    if (!diagnosis) {
+      this.formError.set('Elegí un diagnóstico.');
       return;
     }
-    const tooth = this.selectedTooth();
-    if (!tooth) { return; }
+    const teeth = this.panelToothNumbers();
+    if (diagnosis.scope === 'single_tooth' && teeth.length !== 1) {
+      this.formError.set('Este diagnóstico requiere exactamente una pieza — hacé clic en un diente del odontograma.');
+      return;
+    }
+    if (diagnosis.scope === 'multiple_teeth' && teeth.length < 1) {
+      this.formError.set('Este diagnóstico requiere al menos una pieza — hacé clic en los dientes del odontograma.');
+      return;
+    }
+    if (diagnosis.modifier !== 'none' && !this.panelModifierValue()) {
+      this.formError.set(
+        diagnosis.modifier === 'black_class'
+          ? 'Elegí una clase de Black (I–V).'
+          : 'Elegí un grado de movilidad (I–IV).',
+      );
+      return;
+    }
 
-    const newEntry: ToothEntry = {
-      toothNumber: tooth.number,
-      toothType: toothTypeFor(tooth.number) ?? tooth.dentition,
-      diagnosisType: this.panelDiagnosisType(),
-      toothCondition: this.panelToothCondition(),
-      diagnosisDescription: normalizeText(this.panelDescription.value()),
+    const draft: FindingDraft = {
+      key: this.editingKey() ?? localKey(),
+      diagnosisCode: diagnosis.code,
+      diagnosisName: diagnosis.name,
+      categoryName: diagnosis.categoryName,
+      scope: diagnosis.scope,
+      color: diagnosis.color,
+      toothNumbers: diagnosis.scope === 'general' ? [] : [...teeth],
+      modifierValue: diagnosis.modifier === 'none' ? null : this.panelModifierValue(),
+      description: normalizeText(this.panelDescription.value()),
       xrayRequested: this.panelXray(),
-      notes: normalizeText(this.panelNotes.value()) || undefined,
+      notes: normalizeText(this.panelNotes.value()) || null,
     };
 
-    this.updateEntriesFor(tooth.dentition, (prev) => {
-      const filtered = prev.filter((e) => e.toothNumber !== tooth.number);
-      return [...filtered, newEntry];
-    });
-
-    this.selectedTooth.set(null);
+    const editing = this.editingKey();
+    this.findings.update((prev) =>
+      editing ? prev.map((f) => (f.key === editing ? draft : f)) : [...prev, draft],
+    );
+    this.panelOpen.set(false);
+    this.editingKey.set(null);
     this.formError.set(null);
   }
 
-  protected removeEntry(toothNumber: number): void {
-    const toothType = toothTypeFor(toothNumber) ?? 'permanent';
-    this.updateEntriesFor(toothType, (prev) =>
-      prev.map((e) =>
-        e.toothNumber === toothNumber
-          ? {
-              toothNumber,
-              toothType,
-              diagnosisType: 'presuntivo',
-              toothCondition: 'sano',
-              diagnosisDescription: 'Diente sano',
-            }
-          : e,
-      ),
-    );
-    if (this.selectedTooth()?.number === toothNumber) {
-      this.selectedTooth.set(null);
-    }
+  // ── Historial ────────────────────────────────────────────────────────────
+
+  protected onToggleHistory(): void {
+    this.showHistory.update((v) => !v);
   }
 
-  protected getDiagnosisLabel(value: string): string {
-    return DIAGNOSIS_OPTIONS.find((d) => d.value === value)?.label ?? value;
+  protected onViewVersion(examId: string): void {
+    this.viewVersionRequest.emit(examId);
   }
 
-  protected getDiagnosisColor(value: string): string {
-    return DIAGNOSIS_OPTIONS.find((d) => d.value === value)?.color ?? '#374151';
+  protected onCloseViewedVersion(): void {
+    this.closeViewedVersion.emit();
   }
+
+  // ── Footer ───────────────────────────────────────────────────────────────
 
   protected onBack(): void {
     this.back.emit();
   }
 
   protected onSubmit(): void {
-    if (this.selectedTooth()) {
-      touchAll(this.panelDescription, this.panelNotes);
-      if (!allValid(this.panelDescription, this.panelNotes)) {
-        this.formError.set('Corregí los errores del diagnóstico actual antes de guardar.');
-        return;
-      }
-      this.onPanelAdd();
+    if (this.panelOpen()) {
+      this.formError.set('Guardá o cancelá el hallazgo que estás editando antes de continuar.');
+      return;
     }
+    touchAll(this.changeReason);
+    if (!allValid(this.changeReason)) { return; }
 
     this.formError.set(null);
-    const allEntries = [...this.permanentEntries(), ...this.deciduousEntries()];
-    this.submitStep.emit(
-      allEntries.map((e) => ({
-        toothNumber: e.toothNumber,
-        toothType: e.toothType,
-        diagnosisType: e.diagnosisType,
-        toothCondition: e.toothCondition,
-        diagnosisDescription: e.diagnosisDescription,
-        xrayRequested: e.xrayRequested,
-        notes: e.notes,
-      })),
-    );
+    const findings: CreateDentalExamFindingRequest[] = this.findings().map((f) => ({
+      diagnosisCode: f.diagnosisCode,
+      toothNumbers: f.toothNumbers.length > 0 ? f.toothNumbers : undefined,
+      modifierValue: f.modifierValue ?? undefined,
+      description: f.description || undefined,
+      xrayRequested: f.xrayRequested,
+      notes: f.notes ?? undefined,
+    }));
+
+    this.submitStep.emit({
+      findings,
+      changeReason: this.hasPriorVersions() ? normalizeText(this.changeReason.value()) : undefined,
+    });
   }
 }

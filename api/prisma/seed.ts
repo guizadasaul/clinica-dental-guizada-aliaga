@@ -422,7 +422,388 @@ async function upsertTestimonials() {
       },
     });
   }
-  console.log(`✓ ${TEST_TESTIMONIALS.length} testimonios de prueba sincronizados.`);
+  console.log(
+    `✓ ${TEST_TESTIMONIALS.length} testimonios de prueba sincronizados.`,
+  );
+}
+
+interface SeedDiagnosisCategory {
+  code: string;
+  name: string;
+  color: string;
+}
+
+interface SeedDiagnosis {
+  code: string;
+  categoryCode: string;
+  name: string;
+  scope: 'single_tooth' | 'multiple_teeth' | 'general';
+  modifier?: 'black_class' | 'mobility_grade';
+}
+
+/**
+ * Catálogo real de diagnósticos de la clínica (CLI-40, 10 categorías / 37
+ * diagnósticos), reemplaza el catálogo inventado que tenía el paso 5 del
+ * wizard. Un diagnóstico se aplica a una sola pieza (`single_tooth`), a
+ * varias (`multiple_teeth`) o a ninguna — no cuelga de un diente
+ * (`general`, p. ej. lesiones de tejidos blandos). El color es por
+ * categoría, no por diagnóstico, para que el chart y la leyenda no exploten
+ * en variedad.
+ */
+const DIAGNOSIS_CATEGORIES: SeedDiagnosisCategory[] = [
+  {
+    code: 'absence_anomalies',
+    name: 'Ausencias y anomalías dentarias',
+    color: '#6b7280',
+  },
+  { code: 'caries', name: 'Caries dentales', color: '#dc2626' },
+  {
+    code: 'restorations',
+    name: 'Restauraciones / obturaciones',
+    color: '#2563eb',
+  },
+  {
+    code: 'structural_lesions',
+    name: 'Alteraciones estructurales y lesiones dentarias',
+    color: '#d97706',
+  },
+  {
+    code: 'endodontic',
+    name: 'Tratamientos y condiciones endodónticas',
+    color: '#ea580c',
+  },
+  {
+    code: 'position_eruption',
+    name: 'Alteraciones de posición y erupción',
+    color: '#7c3aed',
+  },
+  { code: 'periodontal', name: 'Alteraciones periodontales', color: '#0d9488' },
+  {
+    code: 'soft_tissue',
+    name: 'Alteraciones de tejidos blandos',
+    color: '#db2777',
+  },
+  { code: 'prosthesis', name: 'Prótesis', color: '#0891b2' },
+  { code: 'symptomatology', name: 'Sintomatología', color: '#ca8a04' },
+];
+
+const DIAGNOSES: SeedDiagnosis[] = [
+  // 1. Ausencias y anomalías dentarias
+  {
+    code: 'agenesia_dental',
+    categoryCode: 'absence_anomalies',
+    name: 'Agenesia dental',
+    scope: 'single_tooth',
+  },
+  {
+    code: 'ausencia_dental',
+    categoryCode: 'absence_anomalies',
+    name: 'Ausencia dental',
+    scope: 'multiple_teeth',
+  },
+  {
+    code: 'diente_supernumerario',
+    categoryCode: 'absence_anomalies',
+    name: 'Diente supernumerario',
+    scope: 'general',
+  },
+  {
+    code: 'geminacion_dental',
+    categoryCode: 'absence_anomalies',
+    name: 'Geminación dental',
+    scope: 'single_tooth',
+  },
+
+  // 2. Caries dentales
+  {
+    code: 'caries_primer_grado',
+    categoryCode: 'caries',
+    name: 'Caries de primer grado',
+    scope: 'single_tooth',
+    modifier: 'black_class',
+  },
+  {
+    code: 'caries_segundo_grado',
+    categoryCode: 'caries',
+    name: 'Caries de segundo grado',
+    scope: 'single_tooth',
+    modifier: 'black_class',
+  },
+  {
+    code: 'caries_tercer_grado',
+    categoryCode: 'caries',
+    name: 'Caries de tercer grado',
+    scope: 'single_tooth',
+    modifier: 'black_class',
+  },
+  {
+    code: 'caries_cuarto_grado',
+    categoryCode: 'caries',
+    name: 'Caries de cuarto grado',
+    scope: 'single_tooth',
+    modifier: 'black_class',
+  },
+
+  // 3. Restauraciones / obturaciones
+  {
+    code: 'obturacion_resina',
+    categoryCode: 'restorations',
+    name: 'Obturación con resina',
+    scope: 'single_tooth',
+    modifier: 'black_class',
+  },
+  {
+    code: 'obturacion_resina_recidivante',
+    categoryCode: 'restorations',
+    name: 'Obturación con resina recidivante',
+    scope: 'single_tooth',
+    modifier: 'black_class',
+  },
+  {
+    code: 'obturacion_amalgama',
+    categoryCode: 'restorations',
+    name: 'Obturación con amalgama',
+    scope: 'single_tooth',
+    modifier: 'black_class',
+  },
+  {
+    code: 'obturacion_amalgama_recidivante',
+    categoryCode: 'restorations',
+    name: 'Obturación con amalgama recidivante',
+    scope: 'single_tooth',
+    modifier: 'black_class',
+  },
+  {
+    code: 'obturacion_provisional',
+    categoryCode: 'restorations',
+    name: 'Obturación provisional',
+    scope: 'single_tooth',
+    modifier: 'black_class',
+  },
+
+  // 4. Alteraciones estructurales y lesiones dentarias
+  {
+    code: 'resto_radicular',
+    categoryCode: 'structural_lesions',
+    name: 'Resto radicular',
+    scope: 'single_tooth',
+  },
+  {
+    code: 'fractura_incisal',
+    categoryCode: 'structural_lesions',
+    name: 'Fractura incisal',
+    scope: 'single_tooth',
+  },
+  {
+    code: 'fractura_media',
+    categoryCode: 'structural_lesions',
+    name: 'Fractura media',
+    scope: 'single_tooth',
+  },
+  {
+    code: 'fractura_oclusal',
+    categoryCode: 'structural_lesions',
+    name: 'Fractura oclusal',
+    scope: 'single_tooth',
+  },
+  {
+    code: 'munon_dental',
+    categoryCode: 'structural_lesions',
+    name: 'Muñón dental',
+    scope: 'single_tooth',
+  },
+  {
+    code: 'movilidad_dental',
+    categoryCode: 'structural_lesions',
+    name: 'Movilidad dental',
+    scope: 'single_tooth',
+    modifier: 'mobility_grade',
+  },
+
+  // 5. Tratamientos y condiciones endodónticas
+  {
+    code: 'endodoncia',
+    categoryCode: 'endodontic',
+    name: 'Endodoncia',
+    scope: 'single_tooth',
+  },
+  {
+    code: 'endodoncia_pigmentacion',
+    categoryCode: 'endodontic',
+    name: 'Endodoncia con pigmentación',
+    scope: 'single_tooth',
+  },
+  {
+    code: 'endodoncia_fractura',
+    categoryCode: 'endodontic',
+    name: 'Endodoncia con fractura',
+    scope: 'single_tooth',
+  },
+
+  // 6. Alteraciones de posición y erupción
+  {
+    code: 'giroversion_dental',
+    categoryCode: 'position_eruption',
+    name: 'Giroversión dental',
+    scope: 'single_tooth',
+  },
+  {
+    code: 'erupcion_dental',
+    categoryCode: 'position_eruption',
+    name: 'Erupción dental',
+    scope: 'single_tooth',
+  },
+  {
+    code: 'retencion_dental',
+    categoryCode: 'position_eruption',
+    name: 'Retención dental',
+    scope: 'single_tooth',
+  },
+  {
+    code: 'pericoronaritis',
+    categoryCode: 'position_eruption',
+    name: 'Pericoronaritis',
+    scope: 'single_tooth',
+  },
+
+  // 7. Alteraciones periodontales
+  {
+    code: 'gingivitis',
+    categoryCode: 'periodontal',
+    name: 'Gingivitis',
+    scope: 'multiple_teeth',
+  },
+
+  // 8. Alteraciones de tejidos blandos (no se asocian a ningún diente)
+  {
+    code: 'lesion_labio_superior',
+    categoryCode: 'soft_tissue',
+    name: 'Lesión del labio superior',
+    scope: 'general',
+  },
+  {
+    code: 'lesion_labio_inferior',
+    categoryCode: 'soft_tissue',
+    name: 'Lesión del labio inferior',
+    scope: 'general',
+  },
+  {
+    code: 'lesion_mucosa_derecha',
+    categoryCode: 'soft_tissue',
+    name: 'Lesión de mucosa derecha',
+    scope: 'general',
+  },
+  {
+    code: 'lesion_mucosa_izquierda',
+    categoryCode: 'soft_tissue',
+    name: 'Lesión de mucosa izquierda',
+    scope: 'general',
+  },
+  {
+    code: 'lesion_lengua',
+    categoryCode: 'soft_tissue',
+    name: 'Lesión de lengua',
+    scope: 'general',
+  },
+  {
+    code: 'frenillo_lingual_bajo',
+    categoryCode: 'soft_tissue',
+    name: 'Implantación baja del frenillo lingual',
+    scope: 'general',
+  },
+  {
+    code: 'frenillo_labial_superior_bajo',
+    categoryCode: 'soft_tissue',
+    name: 'Implantación baja del frenillo labial superior',
+    scope: 'general',
+  },
+
+  // 9. Prótesis
+  {
+    code: 'protesis_fija',
+    categoryCode: 'prosthesis',
+    name: 'Prótesis fija',
+    scope: 'multiple_teeth',
+  },
+  {
+    code: 'protesis_fija_recidivante',
+    categoryCode: 'prosthesis',
+    name: 'Prótesis fija recidivante',
+    scope: 'multiple_teeth',
+  },
+
+  // 10. Sintomatología
+  {
+    code: 'dolor_dental',
+    categoryCode: 'symptomatology',
+    name: 'Dolor dental',
+    scope: 'single_tooth',
+  },
+];
+
+async function upsertDiagnosisCatalog() {
+  const categoryIdByCode = new Map<string, string>();
+  for (const [index, category] of DIAGNOSIS_CATEGORIES.entries()) {
+    const row = await prisma.diagnosis_categories.upsert({
+      where: { code: category.code },
+      create: {
+        code: category.code,
+        name: category.name,
+        display_order: index,
+      },
+      update: { name: category.name, display_order: index },
+    });
+    categoryIdByCode.set(category.code, row.id);
+  }
+
+  for (const [index, diagnosis] of DIAGNOSES.entries()) {
+    const category = DIAGNOSIS_CATEGORIES.find(
+      (c) => c.code === diagnosis.categoryCode,
+    );
+    const categoryId = categoryIdByCode.get(diagnosis.categoryCode);
+    if (!category || !categoryId) {
+      throw new Error(
+        `Categoría de diagnóstico desconocida: ${diagnosis.categoryCode}`,
+      );
+    }
+    await prisma.diagnoses.upsert({
+      where: { code: diagnosis.code },
+      create: {
+        code: diagnosis.code,
+        category_id: categoryId,
+        name: diagnosis.name,
+        scope: diagnosis.scope,
+        modifier: diagnosis.modifier ?? 'none',
+        color: category.color,
+        display_order: index,
+        is_active: true,
+      },
+      update: {
+        category_id: categoryId,
+        name: diagnosis.name,
+        scope: diagnosis.scope,
+        modifier: diagnosis.modifier ?? 'none',
+        color: category.color,
+        display_order: index,
+        is_active: true,
+      },
+    });
+  }
+  console.log(
+    `✓ ${DIAGNOSIS_CATEGORIES.length} categorías y ${DIAGNOSES.length} diagnósticos del catálogo sincronizados.`,
+  );
+}
+
+/** Diagnósticos que ya no están en el catálogo real quedan inactivos, nunca se borran (FK con ON DELETE NO ACTION en dental_exam_findings). */
+async function deactivateLegacyDiagnoses() {
+  const catalogCodes = DIAGNOSES.map((d) => d.code);
+  const { count } = await prisma.diagnoses.updateMany({
+    where: { code: { notIn: catalogCodes }, is_active: true },
+    data: { is_active: false },
+  });
+  if (count > 0) {
+    console.log(`✓ ${count} diagnósticos fuera del catálogo desactivados.`);
+  }
 }
 
 const DEFAULT_CONSULTATION_NAME = 'Consulta';
@@ -495,6 +876,8 @@ async function main() {
   await upsertCatalog();
   await deactivateLegacy();
   await syncDefaultConsultation();
+  await upsertDiagnosisCatalog();
+  await deactivateLegacyDiagnoses();
   await upsertTestimonials();
 }
 

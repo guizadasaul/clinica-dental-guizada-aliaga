@@ -17,6 +17,7 @@ import type {
   ClinicalExamData,
   OdontogramEntryData,
   CreateToothProcedureData,
+  DentalExamFindingData,
 } from '../domain/PatientRepository';
 import { UserRepository } from '../../auth/domain/UserRepository';
 import type { UserRepository as IUserRepository } from '../../auth/domain/UserRepository';
@@ -32,6 +33,14 @@ import {
   InvalidScopeApplicationError,
 } from '../../treatments/domain/TreatmentScope';
 import type { TreatmentScope } from '../../treatments/domain/TreatmentScope';
+import { DiagnosisRepository } from '../../diagnoses/domain/DiagnosisRepository';
+import type { IDiagnosisRepository } from '../../diagnoses/domain/DiagnosisRepository';
+import type { Diagnosis } from '../../diagnoses/domain/Diagnosis';
+import { toothTypeFor } from '../../shared/validators/tooth.validator';
+import {
+  BLACK_CLASSES,
+  MOBILITY_GRADES,
+} from '../../shared/validators/clinical-options';
 import type { Patient } from '../domain/Patient';
 import type { MedicalHistory } from '../domain/MedicalHistory';
 import type { HygieneHabits } from '../domain/HygieneHabits';
@@ -39,6 +48,10 @@ import type { ClinicalExam } from '../domain/ClinicalExam';
 import type { PatientWithUser } from '../domain/PatientWithUser';
 import type { OdontogramEntry } from '../domain/OdontogramEntry';
 import type { ToothProcedure } from '../domain/ToothProcedure';
+import type {
+  DentalExam,
+  DentalExamVersionSummary,
+} from '../domain/DentalExam';
 
 interface CreateToothProcedureInput {
   toothNumbers: number[];
@@ -53,6 +66,21 @@ interface CreateToothProcedureInput {
   notes?: string;
 }
 
+interface CreateDentalExamFindingInput {
+  diagnosisCode: string;
+  toothNumbers?: number[];
+  modifierValue?: string;
+  description?: string;
+  xrayRequested?: boolean;
+  notes?: string;
+}
+
+interface CreateDentalExamInput {
+  findings: CreateDentalExamFindingInput[];
+  changeReason?: string;
+  notes?: string;
+}
+
 @Injectable()
 export class PatientsService {
   constructor(
@@ -62,6 +90,8 @@ export class PatientsService {
     private readonly userRepo: IUserRepository,
     @Inject(TreatmentRepository)
     private readonly treatmentRepo: ITreatmentRepository,
+    @Inject(DiagnosisRepository)
+    private readonly diagnosisRepo: IDiagnosisRepository,
     private readonly supabaseAdminService: SupabaseAdminService,
   ) {}
 
@@ -151,6 +181,11 @@ export class PatientsService {
     return this.patientRepo.upsertMedicalHistory(patientId, data);
   }
 
+  async findMedicalHistory(patientId: string): Promise<MedicalHistory | null> {
+    await this.requirePatient(patientId);
+    return this.patientRepo.findMedicalHistory(patientId);
+  }
+
   async upsertHygieneHabits(
     patientId: string,
     data: HygieneHabitsData,
@@ -159,12 +194,24 @@ export class PatientsService {
     return this.patientRepo.upsertHygieneHabits(patientId, data);
   }
 
+  async findHygieneHabits(patientId: string): Promise<HygieneHabits | null> {
+    await this.requirePatient(patientId);
+    return this.patientRepo.findHygieneHabits(patientId);
+  }
+
   async createClinicalExam(
     patientId: string,
     data: ClinicalExamData,
   ): Promise<ClinicalExam> {
     await this.requirePatient(patientId);
     return this.patientRepo.createClinicalExam(patientId, data);
+  }
+
+  async findLatestClinicalExam(
+    patientId: string,
+  ): Promise<ClinicalExam | null> {
+    await this.requirePatient(patientId);
+    return this.patientRepo.findLatestClinicalExam(patientId);
   }
 
   async createOdontogramEntries(
@@ -226,7 +273,6 @@ export class PatientsService {
       const entries: OdontogramEntryData[] = teethForScope(treatment.scope).map(
         (toothNumber) => ({
           toothNumber,
-          diagnosisType: 'definitivo',
           toothCondition: conditionByTooth.get(toothNumber) ?? 'sano',
           diagnosisDescription: treatment.name,
           treatmentId: treatment.id,
@@ -291,6 +337,138 @@ export class PatientsService {
   async findToothProcedures(patientId: string): Promise<ToothProcedure[]> {
     await this.requirePatient(patientId);
     return this.patientRepo.findToothProcedures(patientId);
+  }
+
+  /**
+   * Valida cada finding contra el catálogo (existe, alcance coherente con
+   * las piezas enviadas, modificador presente/ausente según corresponda) y
+   * crea la próxima versión del examen — append-only, ver
+   * PatientRepository.createDentalExam.
+   */
+  async createDentalExam(
+    patientId: string,
+    authUserId: string,
+    data: CreateDentalExamInput,
+  ): Promise<DentalExam> {
+    await this.requirePatient(patientId);
+    const user = await this.userRepo.findByAuthUserId(authUserId);
+    if (!user) {
+      throw new NotFoundException(
+        'Usuario autenticado no encontrado en la base de datos',
+      );
+    }
+
+    const codes = [...new Set(data.findings.map((f) => f.diagnosisCode))];
+    const diagnoses = await this.diagnosisRepo.findByCodes(codes);
+    const diagnosisByCode = new Map(diagnoses.map((d) => [d.code, d]));
+
+    const findings = data.findings.flatMap((finding) =>
+      this.buildDentalExamFindingRows(finding, diagnosisByCode),
+    );
+
+    return this.patientRepo.createDentalExam(patientId, user.id, {
+      findings,
+      changeReason: data.changeReason,
+      notes: data.notes,
+    });
+  }
+
+  private buildDentalExamFindingRows(
+    finding: CreateDentalExamFindingInput,
+    diagnosisByCode: Map<string, Diagnosis>,
+  ): DentalExamFindingData[] {
+    const diagnosis = diagnosisByCode.get(finding.diagnosisCode);
+    if (!diagnosis) {
+      throw new BadRequestException(
+        `Diagnóstico desconocido: ${finding.diagnosisCode}`,
+      );
+    }
+
+    const teeth = finding.toothNumbers ?? [];
+    if (diagnosis.scope === 'general' && teeth.length > 0) {
+      throw new BadRequestException(
+        `"${diagnosis.name}" es un hallazgo general, no admite piezas.`,
+      );
+    }
+    if (diagnosis.scope === 'single_tooth' && teeth.length !== 1) {
+      throw new BadRequestException(
+        `"${diagnosis.name}" requiere exactamente una pieza.`,
+      );
+    }
+    if (diagnosis.scope === 'multiple_teeth' && teeth.length < 1) {
+      throw new BadRequestException(
+        `"${diagnosis.name}" requiere al menos una pieza.`,
+      );
+    }
+
+    if (diagnosis.modifier === 'none' && finding.modifierValue) {
+      throw new BadRequestException(
+        `"${diagnosis.name}" no admite modificador.`,
+      );
+    }
+    if (
+      diagnosis.modifier === 'black_class' &&
+      !(BLACK_CLASSES as readonly string[]).includes(
+        finding.modifierValue ?? '',
+      )
+    ) {
+      throw new BadRequestException(
+        `"${diagnosis.name}" requiere una clase de Black (I–V).`,
+      );
+    }
+    if (
+      diagnosis.modifier === 'mobility_grade' &&
+      !(MOBILITY_GRADES as readonly string[]).includes(
+        finding.modifierValue ?? '',
+      )
+    ) {
+      throw new BadRequestException(
+        `"${diagnosis.name}" requiere un grado de movilidad (I–IV).`,
+      );
+    }
+
+    const shared = {
+      diagnosisId: diagnosis.id,
+      modifierValue: finding.modifierValue,
+      description: finding.description,
+      xrayRequested: finding.xrayRequested,
+      notes: finding.notes,
+    };
+
+    if (teeth.length === 0) {
+      return [{ ...shared }];
+    }
+
+    const applicationGroupId = teeth.length > 1 ? randomUUID() : undefined;
+    return teeth.map((toothNumber) => ({
+      ...shared,
+      toothNumber,
+      toothType: toothTypeFor(toothNumber) ?? undefined,
+      applicationGroupId,
+    }));
+  }
+
+  async findDentalExamVersions(
+    patientId: string,
+  ): Promise<DentalExamVersionSummary[]> {
+    await this.requirePatient(patientId);
+    return this.patientRepo.findDentalExamVersions(patientId);
+  }
+
+  async findCurrentDentalExam(patientId: string): Promise<DentalExam | null> {
+    await this.requirePatient(patientId);
+    return this.patientRepo.findCurrentDentalExam(patientId);
+  }
+
+  async findDentalExam(patientId: string, examId: string): Promise<DentalExam> {
+    await this.requirePatient(patientId);
+    const exam = await this.patientRepo.findDentalExam(patientId, examId);
+    if (!exam) {
+      throw new NotFoundException(
+        `Examen dental con id ${examId} no encontrado`,
+      );
+    }
+    return exam;
   }
 
   async findMyPatient(authUserId: string): Promise<Patient> {

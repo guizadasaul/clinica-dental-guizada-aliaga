@@ -52,8 +52,8 @@
         </div>
         <h3 class="wizard__success-title">¡Ficha registrada correctamente!</h3>
         <p class="wizard__success-text">
-          La ficha clínica del paciente fue creada con todos sus datos, historial médico,
-          hábitos de higiene, examen clínico y odontograma diagnóstico.
+          La ficha clínica del paciente fue creada con todos sus datos, antecedentes personales,
+          higiene bucal y examen dental.
         </p>
         <button class="wizard__success-btn" type="button" (click)="onFinish()">
           <span class="material-symbols-outlined">group</span>
@@ -81,24 +81,22 @@
         />
       }
       @if (currentStep() === 3) {
-        <app-step-hygiene-habits
+        <app-step-oral-hygiene
           [loading]="loading()"
           (submitStep)="onStep3Submit($event)"
           (back)="goBack()"
         />
       }
       @if (currentStep() === 4) {
-        <app-step-clinical-exam
-          [loading]="loading()"
-          (submitStep)="onStep4Submit($event)"
-          (back)="goBack()"
-        />
-      }
-      @if (currentStep() === 5) {
         <app-step-odontogram
           [loading]="loading()"
-          [initialEntries]="existingOdontogramEntries()"
-          (submitStep)="onStep5Submit($event)"
+          [catalog]="diagnosisCatalog()"
+          [currentExam]="currentDentalExam()"
+          [versions]="dentalExamVersions()"
+          [viewedVersion]="viewedDentalExam()"
+          (submitStep)="onStep4Submit($event)"
+          (viewVersionRequest)="onViewDentalExamVersion($event)"
+          (closeViewedVersion)="onCloseViewedDentalExam()"
           (back)="goBack()"
         />
       }

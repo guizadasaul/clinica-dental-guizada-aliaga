@@ -10,31 +10,33 @@ import {
 } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 import { PatientsService } from '../../services/patients.service';
+import { DiagnosesService } from '../../../diagnoses/services/diagnoses.service';
 import { StepPatientDataComponent } from './steps/step-patient-data/step-patient-data';
 import { StepMedicalHistoryComponent } from './steps/step-medical-history/step-medical-history';
-import { StepHygieneHabitsComponent } from './steps/step-hygiene-habits/step-hygiene-habits';
-import { StepClinicalExamComponent } from './steps/step-clinical-exam/step-clinical-exam';
+import { StepOralHygieneComponent } from './steps/step-oral-hygiene/step-oral-hygiene';
+import type { OralHygieneSubmit } from './steps/step-oral-hygiene/step-oral-hygiene';
 import { StepOdontogramComponent } from './steps/step-odontogram/step-odontogram';
-import type { OdontogramEntry, Patient } from '../../models/patient.model';
+import type { Patient } from '../../models/patient.model';
+import type { DentalExam, DentalExamVersionSummary } from '../../models/dental-exam.model';
+import type { DiagnosisCategory } from '../../../diagnoses/models/diagnosis.model';
 import type {
   CreatePatientRequest,
   CreateMedicalHistoryRequest,
-  CreateHygieneHabitsRequest,
-  CreateClinicalExamRequest,
-  CreateOdontogramEntryRequest,
 } from '../../models/patient.request';
+import type { CreateDentalExamRequest } from '../../models/dental-exam.request';
 
 interface WizardStep {
   readonly number: number;
   readonly label: string;
 }
 
+// 4 pasos (CLI-40) — los que eran "Hábitos de higiene" y "Examen clínico" se
+// fusionaron en un único paso "Higiene bucal" (ver step-oral-hygiene).
 const STEPS: WizardStep[] = [
-  { number: 1, label: 'Datos del paciente' },
-  { number: 2, label: 'Historial médico' },
-  { number: 3, label: 'Hábitos de higiene' },
-  { number: 4, label: 'Examen clínico' },
-  { number: 5, label: 'Odontograma' },
+  { number: 1, label: 'Datos personales' },
+  { number: 2, label: 'Antecedentes personales' },
+  { number: 3, label: 'Higiene bucal' },
+  { number: 4, label: 'Examen dental' },
 ];
 
 @Component({
@@ -44,8 +46,7 @@ const STEPS: WizardStep[] = [
   imports: [
     StepPatientDataComponent,
     StepMedicalHistoryComponent,
-    StepHygieneHabitsComponent,
-    StepClinicalExamComponent,
+    StepOralHygieneComponent,
     StepOdontogramComponent,
   ],
   templateUrl: './patient-wizard.html',
@@ -53,14 +54,15 @@ const STEPS: WizardStep[] = [
 })
 export class PatientWizardComponent {
   private readonly patientsService = inject(PatientsService);
+  private readonly diagnosesService = inject(DiagnosesService);
 
   readonly userId = input('');
   readonly existingPatientId = input<string | null>(null);
   /** Paciente ya cargado (viene de patients-list.html, que ya tiene el objeto completo en el
    * template) — permite precargar el paso 1 en vez de abrirlo en blanco sobre una ficha existente. */
   readonly existingPatient = input<Patient | null>(null);
-  /** Paso donde arranca al editar un paciente existente — 5 (odontograma) por defecto. La agenda del doctor pasa 2 para abrir el historial clínico completo. */
-  readonly startStep = input(5);
+  /** Paso donde arranca al editar un paciente existente — 4 (examen dental) por defecto. La agenda del doctor pasa 2 para abrir el historial clínico completo. */
+  readonly startStep = input(4);
   readonly wizardComplete = output<void>();
   readonly cancel = output<void>();
 
@@ -76,8 +78,8 @@ export class PatientWizardComponent {
     if (!this.isEditMode()) {
       return 'Registro de nuevo paciente';
     }
-    if (this.startStep() === 5) {
-      return 'Completar odontograma';
+    if (this.startStep() === 4) {
+      return 'Completar examen dental';
     }
     if (this.startStep() === 1) {
       return 'Registrar diagnóstico';
@@ -85,26 +87,58 @@ export class PatientWizardComponent {
     return 'Completar historial clínico';
   });
 
-  protected readonly existingOdontogramEntries = signal<OdontogramEntry[]>([]);
+  protected readonly diagnosisCatalog = signal<DiagnosisCategory[]>([]);
+  protected readonly currentDentalExam = signal<DentalExam | null>(null);
+  protected readonly dentalExamVersions = signal<DentalExamVersionSummary[]>([]);
+  protected readonly viewedDentalExam = signal<DentalExam | null>(null);
 
   constructor() {
+    void this.loadDiagnosisCatalog();
     effect(() => {
       const existingId = this.existingPatientId();
       if (existingId) {
         this.patientId.set(existingId);
         this.currentStep.set(this.startStep());
-        void this.loadOdontogramEntries(existingId);
+        void this.loadDentalExam(existingId);
       }
     }, { allowSignalWrites: true });
   }
 
-  private async loadOdontogramEntries(patientId: string): Promise<void> {
+  private async loadDiagnosisCatalog(): Promise<void> {
     try {
-      const entries = await firstValueFrom(this.patientsService.getOdontogramEntries(patientId));
-      this.existingOdontogramEntries.set(entries);
+      const catalog = await firstValueFrom(this.diagnosesService.getCatalog());
+      this.diagnosisCatalog.set(catalog);
     } catch {
-      // no-op: component starts with empty entries (all-sano defaults)
+      // no-op: el step 5 arranca con el catálogo vacío (el select queda sin opciones)
     }
+  }
+
+  private async loadDentalExam(patientId: string): Promise<void> {
+    try {
+      const [current, versions] = await Promise.all([
+        firstValueFrom(this.patientsService.getCurrentDentalExam(patientId)),
+        firstValueFrom(this.patientsService.getDentalExamVersions(patientId)),
+      ]);
+      this.currentDentalExam.set(current);
+      this.dentalExamVersions.set(versions);
+    } catch {
+      // no-op: el step 5 arranca sin examen previo (paciente sin diagnóstico aún)
+    }
+  }
+
+  protected async onViewDentalExamVersion(examId: string): Promise<void> {
+    const id = this.patientId();
+    if (!id) { return; }
+    try {
+      const exam = await firstValueFrom(this.patientsService.getDentalExam(id, examId));
+      this.viewedDentalExam.set(exam);
+    } catch {
+      // no-op
+    }
+  }
+
+  protected onCloseViewedDentalExam(): void {
+    this.viewedDentalExam.set(null);
   }
 
   /**
@@ -171,48 +205,35 @@ export class PatientWizardComponent {
     }
   }
 
-  protected async onStep3Submit(data: CreateHygieneHabitsRequest): Promise<void> {
+  /** "Higiene bucal" (CLI-40) manda dos POST — el paso fusiona dos pasos viejos, el backend no cambió. */
+  protected async onStep3Submit(data: OralHygieneSubmit): Promise<void> {
     const id = this.patientId();
     if (!id) { return; }
     this.loading.set(true);
     this.error.set(null);
     try {
-      await firstValueFrom(this.patientsService.createHygieneHabits(id, data));
+      await Promise.all([
+        firstValueFrom(this.patientsService.createHygieneHabits(id, data.hygieneHabits)),
+        firstValueFrom(this.patientsService.createClinicalExam(id, data.clinicalExam)),
+      ]);
       this.currentStep.set(4);
     } catch (err) {
-      this.error.set(this.extractErrorMessage(err, 'Error al guardar los hábitos de higiene. Intente nuevamente.'));
+      this.error.set(this.extractErrorMessage(err, 'Error al guardar la higiene bucal. Intente nuevamente.'));
     } finally {
       this.loading.set(false);
     }
   }
 
-  protected async onStep4Submit(data: CreateClinicalExamRequest): Promise<void> {
+  protected async onStep4Submit(data: CreateDentalExamRequest): Promise<void> {
     const id = this.patientId();
     if (!id) { return; }
     this.loading.set(true);
     this.error.set(null);
     try {
-      await firstValueFrom(this.patientsService.createClinicalExam(id, data));
-      this.currentStep.set(5);
-    } catch (err) {
-      this.error.set(this.extractErrorMessage(err, 'Error al guardar el examen clínico. Intente nuevamente.'));
-    } finally {
-      this.loading.set(false);
-    }
-  }
-
-  protected async onStep5Submit(entries: CreateOdontogramEntryRequest[]): Promise<void> {
-    const id = this.patientId();
-    if (!id) { return; }
-    this.loading.set(true);
-    this.error.set(null);
-    try {
-      if (entries.length > 0) {
-        await firstValueFrom(this.patientsService.createOdontogramEntries(id, { entries }));
-      }
+      await firstValueFrom(this.patientsService.createDentalExam(id, data));
       this.done.set(true);
     } catch (err) {
-      this.error.set(this.extractErrorMessage(err, 'Error al guardar el odontograma. Intente nuevamente.'));
+      this.error.set(this.extractErrorMessage(err, 'Error al guardar el examen dental. Intente nuevamente.'));
     } finally {
       this.loading.set(false);
     }

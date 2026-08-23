@@ -49,6 +49,51 @@
     }
   </div>
 
+  <div class="step-form__section">
+    <h3 class="step-form__section-title">Hallazgos clínicos</h3>
+    <div class="step-form__checkgrid">
+      <label class="step-form__check">
+        <input type="checkbox" [checked]="tartar()" (change)="tartar.set($any($event.target).checked)" />
+        <span>Sarro / Tártaro</span>
+      </label>
+      <label class="step-form__check">
+        <input type="checkbox" [checked]="saburra()" (change)="saburra.set($any($event.target).checked)" />
+        <span>Saburra</span>
+      </label>
+      <label class="step-form__check">
+        <input type="checkbox" [checked]="bacterialPlaque()" (change)="bacterialPlaque.set($any($event.target).checked)" />
+        <span>Placa bacteriana</span>
+      </label>
+      <label class="step-form__check">
+        <input type="checkbox" [checked]="halitosis()" (change)="halitosis.set($any($event.target).checked)" />
+        <span>Halitosis</span>
+      </label>
+    </div>
+  </div>
+
+  <div class="step-form__section">
+    <h3 class="step-form__section-title">Oclusión</h3>
+    <div class="step-form__field" style="max-width: 500px;">
+      <label class="step-form__label" for="occlusion">Descripción de la oclusión</label>
+      <input
+        id="occlusion"
+        class="step-form__input"
+        [class.step-form__input--invalid]="occlusion.showError()"
+        type="text"
+        [value]="occlusion.value()"
+        (input)="occlusion.set($any($event.target).value)"
+        (blur)="occlusion.markTouched()"
+        maxlength="200"
+        placeholder="Ej: Clase I, mordida abierta, etc."
+        [attr.aria-invalid]="occlusion.showError() || null"
+        [attr.aria-describedby]="occlusion.showError() ? 'occlusion-err' : null"
+      />
+      @if (occlusion.showError()) {
+        <p class="step-form__field-error" id="occlusion-err" role="alert">{{ occlusion.error() }}</p>
+      }
+    </div>
+  </div>
+
   <div class="step-form__actions">
     <button class="step-form__btn step-form__btn--secondary" type="button" [disabled]="loading()" (click)="onBack()">
       <span class="material-symbols-outlined">arrow_back</span>

@@ -1,0 +1,202 @@
+<div class="record">
+
+  <div class="record__header">
+    <div class="record__header-title">
+      <span class="material-symbols-outlined">medical_information</span>
+      <div>
+        <h2>Historia clínica</h2>
+        <p class="record__header-subtitle">{{ fullName(patient()) }}</p>
+      </div>
+    </div>
+    <button type="button" class="record__back-btn" (click)="onClose()">
+      <span class="material-symbols-outlined">arrow_back</span>
+      Volver
+    </button>
+  </div>
+
+  @if (loading()) {
+    <div class="record__state">
+      <span class="record__spinner"></span>
+      <p>Cargando historia clínica...</p>
+    </div>
+  } @else if (loadError()) {
+    <div class="record__state record__state--error">
+      <span class="material-symbols-outlined">error</span>
+      <p>No se pudo cargar la historia clínica. Intentá de nuevo.</p>
+    </div>
+  } @else {
+
+    <!-- 1. Datos personales -->
+    <section class="record__section">
+      <h3 class="record__section-title">
+        <span class="material-symbols-outlined">badge</span>
+        Datos personales
+      </h3>
+      <dl class="record__grid">
+        <div class="record__field"><dt>Nombre completo</dt><dd>{{ fullName(patient()) }}</dd></div>
+        <div class="record__field"><dt>DNI</dt><dd>{{ patient().dni || '—' }}</dd></div>
+        <div class="record__field"><dt>Fecha de nacimiento</dt><dd>{{ patient().birthDate ? (patient().birthDate | date: 'dd/MM/yyyy') : '—' }}</dd></div>
+        <div class="record__field"><dt>Lugar de nacimiento</dt><dd>{{ patient().birthPlace || '—' }}</dd></div>
+        <div class="record__field"><dt>Sexo</dt><dd class="record__capitalize">{{ patient().sex || '—' }}</dd></div>
+        <div class="record__field"><dt>Ocupación</dt><dd>{{ patient().occupation || '—' }}</dd></div>
+        <div class="record__field"><dt>Teléfono</dt><dd>{{ patient().phone || '—' }}</dd></div>
+        <div class="record__field"><dt>Dirección</dt><dd>{{ patient().address || '—' }}</dd></div>
+        <div class="record__field"><dt>Contacto de emergencia</dt><dd>{{ patient().emergencyContactName || '—' }}</dd></div>
+        <div class="record__field"><dt>Teléfono de emergencia</dt><dd>{{ patient().emergencyContactPhone || '—' }}</dd></div>
+        <div class="record__field"><dt>Parentesco</dt><dd>{{ patient().emergencyContactRelationship || '—' }}</dd></div>
+        <div class="record__field record__field--full"><dt>Motivo de consulta</dt><dd>{{ patient().consultationReason || '—' }}</dd></div>
+        <div class="record__field"><dt>Última visita al dentista</dt><dd>{{ patient().lastDentistVisit ? (patient().lastDentistVisit | date: 'dd/MM/yyyy') : '—' }}</dd></div>
+        <div class="record__field"><dt>Tratamiento previo</dt><dd>{{ patient().lastVisitTreatment || '—' }}</dd></div>
+        <div class="record__field record__field--full"><dt>Historial familiar</dt><dd>{{ patient().familyHistory || '—' }}</dd></div>
+      </dl>
+    </section>
+
+    <!-- 2. Antecedentes personales -->
+    <section class="record__section">
+      <h3 class="record__section-title">
+        <span class="material-symbols-outlined">history_edu</span>
+        Antecedentes personales
+      </h3>
+      @if (medicalHistory(); as mh) {
+        <dl class="record__grid">
+          <div class="record__field record__field--full">
+            <dt>Condiciones registradas</dt>
+            <dd>
+              <ul class="record__taglist">
+                @for (item of medicalConditionLabels; track item.key) {
+                  @if (mh[item.key]) {
+                    <li class="record__tag">{{ item.label }}</li>
+                  }
+                }
+              </ul>
+              @if (!mh.hasAllergies && !mh.kidneyProblems && !mh.ulcers && !mh.rheumatism && !mh.heartProblems && !mh.diabetes && !mh.hypertension && !mh.hemorrhages && !mh.anemia && !mh.sti) {
+                <span class="record__empty-inline">Sin condiciones registradas</span>
+              }
+            </dd>
+          </div>
+          <div class="record__field"><dt>¿Reacciones a la anestesia?</dt><dd>{{ anesthesiaReactionsLabel(mh.anesthesiaReactions) }}</dd></div>
+          <div class="record__field"><dt>Período de gestación</dt><dd>{{ mh.gestationPeriod || '—' }}</dd></div>
+          <div class="record__field record__field--full"><dt>Otras enfermedades</dt><dd>{{ mh.otherDiseases || '—' }}</dd></div>
+          <div class="record__field record__field--full"><dt>Medicamentos actuales</dt><dd>{{ mh.currentMedications || '—' }}</dd></div>
+        </dl>
+      } @else {
+        <p class="record__empty">Todavía no se registraron los antecedentes personales de este paciente.</p>
+      }
+    </section>
+
+    <!-- 3. Higiene bucal -->
+    <section class="record__section">
+      <h3 class="record__section-title">
+        <span class="material-symbols-outlined">clean_hands</span>
+        Higiene bucal
+      </h3>
+      @if (hygieneHabits(); as hh) {
+        <dl class="record__grid">
+          <div class="record__field record__field--full">
+            <dt>Hábitos</dt>
+            <dd>
+              <ul class="record__taglist">
+                @for (item of hygieneHabitLabels; track item.key) {
+                  @if (hh[item.key]) {
+                    <li class="record__tag">{{ item.label }}</li>
+                  }
+                }
+              </ul>
+              @if (!hh.usesToothbrush && !hh.usesDentalFloss && !hh.usesToothpick && !hh.brushesTongue && !hh.usesMouthwash) {
+                <span class="record__empty-inline">Sin hábitos registrados</span>
+              }
+            </dd>
+          </div>
+          @if (hh.usesToothbrush && hh.brushingFrequency) {
+            <div class="record__field"><dt>Frecuencia de cepillado</dt><dd>{{ brushingFrequencyLabel(hh.brushingFrequency) }}</dd></div>
+          }
+        </dl>
+      } @else {
+        <p class="record__empty">Todavía no se registraron los hábitos de higiene de este paciente.</p>
+      }
+
+      @if (clinicalExam(); as ce) {
+        <dl class="record__grid record__grid--spaced">
+          <div class="record__field record__field--full">
+            <dt>Hallazgos clínicos</dt>
+            <dd>
+              <ul class="record__taglist">
+                @for (item of clinicalFindingLabels; track item.key) {
+                  @if (ce[item.key]) {
+                    <li class="record__tag">{{ item.label }}</li>
+                  }
+                }
+              </ul>
+              @if (!ce.tartar && !ce.saburra && !ce.bacterialPlaque && !ce.halitosis) {
+                <span class="record__empty-inline">Sin hallazgos clínicos registrados</span>
+              }
+            </dd>
+          </div>
+          <div class="record__field record__field--full"><dt>Oclusión</dt><dd>{{ ce.occlusion || '—' }}</dd></div>
+        </dl>
+      }
+    </section>
+
+    <!-- 4. Examen dental -->
+    <section class="record__section">
+      <h3 class="record__section-title">
+        <span class="material-symbols-outlined">dentistry</span>
+        Examen dental
+      </h3>
+      @if (dentalExam(); as exam) {
+        <p class="record__exam-meta">
+          Versión {{ exam.version }} · {{ exam.recordedAt | date: 'dd/MM/yyyy HH:mm' }}
+          @if (exam.recordedByName) { · {{ exam.recordedByName }} }
+        </p>
+
+        @if (toothFindings().length === 0 && generalFindings().length === 0) {
+          <p class="record__empty">Sin hallazgos — boca sana en esta versión.</p>
+        } @else {
+          @if (toothFindings().length > 0) {
+            <ul class="record__entries-list">
+              @for (f of toothFindings(); track f.key) {
+                <li class="record__entry">
+                  <span class="record__entry-dot" [style.background]="f.diagnosisColor"></span>
+                  <span class="record__entry-tooth">
+                    {{ f.toothNumbers.length === 1 ? 'Diente #' + f.toothNumbers[0] : 'Dientes ' + f.toothNumbers.join(', ') }}
+                  </span>
+                  <span class="record__entry-sep">—</span>
+                  <span class="record__entry-diag">{{ f.diagnosisName }}</span>
+                  @if (f.modifierValue) {
+                    <span class="record__entry-badge">{{ modifierLabel(f.modifierValue) }}</span>
+                  }
+                  @if (f.description) {
+                    <span class="record__entry-desc">{{ f.description }}</span>
+                  }
+                  @if (f.xrayRequested) {
+                    <span class="record__entry-xray" title="Rayos X solicitados">
+                      <span class="material-symbols-outlined">radiology</span>
+                    </span>
+                  }
+                </li>
+              }
+            </ul>
+          }
+          @if (generalFindings().length > 0) {
+            <h4 class="record__subsection-title">Hallazgos generales</h4>
+            <ul class="record__entries-list">
+              @for (f of generalFindings(); track f.key) {
+                <li class="record__entry">
+                  <span class="record__entry-dot" [style.background]="f.diagnosisColor"></span>
+                  <span class="record__entry-diag">{{ f.diagnosisName }}</span>
+                  @if (f.description) {
+                    <span class="record__entry-desc">{{ f.description }}</span>
+                  }
+                </li>
+              }
+            </ul>
+          }
+        }
+      } @else {
+        <p class="record__empty">Todavía no se registró ningún examen dental para este paciente.</p>
+      }
+    </section>
+
+  }
+
+</div>

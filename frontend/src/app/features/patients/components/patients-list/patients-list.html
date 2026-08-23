@@ -54,7 +54,7 @@
               <td class="patients-list__cell">
                 @if (!p.patient) {
                   <span class="patients-list__badge patients-list__badge--pending">Sin ficha</span>
-                } @else if (p.odontogramEntriesCount === 0) {
+                } @else if (p.dentalExamsCount === 0) {
                   <span class="patients-list__badge patients-list__badge--warning">Sin diagnóstico</span>
                 } @else if (!p.hasAccount) {
                   <span class="patients-list__badge patients-list__badge--warning">Pendiente de cuenta</span>
@@ -72,8 +72,8 @@
                     <span class="material-symbols-outlined">add_circle</span>
                     Registrar
                   </button>
-                } @else {
-                  @if (p.odontogramEntriesCount === 0) {
+                } @else if (p.dentalExamsCount === 0 || !p.hasAccount) {
+                  @if (p.dentalExamsCount === 0) {
                     <button
                       class="patients-list__btn"
                       type="button"
@@ -82,70 +82,6 @@
                       <span class="material-symbols-outlined">dentistry</span>
                       Registrar diagnóstico
                     </button>
-                  } @else {
-                    <button
-                      class="patients-list__btn"
-                      type="button"
-                      (click)="onRegisterTreatment(p.patient!.id)"
-                    >
-                      <span class="material-symbols-outlined">healing</span>
-                      Tratamiento
-                    </button>
-                    <button
-                      class="patients-list__btn"
-                      type="button"
-                      (click)="onViewHistory(p.patient!.id)"
-                    >
-                      <span class="material-symbols-outlined">history</span>
-                      Historial
-                    </button>
-                    <button
-                      class="patients-list__btn"
-                      type="button"
-                      (click)="onBuildQuote(p.patient!.id)"
-                    >
-                      <span class="material-symbols-outlined">receipt_long</span>
-                      Presupuesto
-                    </button>
-
-                    <div class="patients-list__menu-wrap">
-                      <button
-                        class="patients-list__menu-trigger"
-                        type="button"
-                        aria-haspopup="menu"
-                        [attr.aria-expanded]="openMenuFor() === p.userId"
-                        aria-label="Más acciones"
-                        (click)="toggleMenu(p.userId, $any($event.currentTarget))"
-                      >
-                        <span class="material-symbols-outlined">more_vert</span>
-                      </button>
-
-                      @if (openMenuFor() === p.userId && menuPosition()) {
-                        <ul
-                          class="patients-list__menu"
-                          role="menu"
-                          [style.top.px]="menuPosition()!.top"
-                          [style.right.px]="menuPosition()!.right"
-                        >
-                          <li
-                            class="patients-list__menu-item"
-                            role="menuitem"
-                            (click)="onOpenOdontogram(p.patient!.id)"
-                          >
-                            <span class="material-symbols-outlined">edit</span>
-                            Editar diagnóstico
-                          </li>
-                          <li
-                            class="patients-list__menu-item"
-                            role="menuitem"
-                            (click)="onViewClinicalRecord(p.patient!.id)"
-                          >
-                            <span class="material-symbols-outlined">medical_information</span>
-                            Ver historia clínica
-                          </li>
-                        </ul>
-                      }
-                    </div>
                   }
                   @if (!p.hasAccount) {
                     <button
@@ -157,6 +93,70 @@
                       Enviar registro
                     </button>
                   }
+                } @else {
+                  <button
+                    class="patients-list__btn"
+                    type="button"
+                    (click)="onRegisterTreatment(p.patient!.id)"
+                  >
+                    <span class="material-symbols-outlined">healing</span>
+                    Tratamiento
+                  </button>
+                  <button
+                    class="patients-list__btn"
+                    type="button"
+                    (click)="onViewHistory(p.patient!.id)"
+                  >
+                    <span class="material-symbols-outlined">history</span>
+                    Historial
+                  </button>
+                  <button
+                    class="patients-list__btn"
+                    type="button"
+                    (click)="onBuildQuote(p.patient!.id)"
+                  >
+                    <span class="material-symbols-outlined">receipt_long</span>
+                    Presupuesto
+                  </button>
+
+                  <div class="patients-list__menu-wrap">
+                    <button
+                      class="patients-list__menu-trigger"
+                      type="button"
+                      aria-haspopup="menu"
+                      [attr.aria-expanded]="openMenuFor() === p.userId"
+                      aria-label="Más acciones"
+                      (click)="toggleMenu(p.userId, $any($event.currentTarget))"
+                    >
+                      <span class="material-symbols-outlined">more_vert</span>
+                    </button>
+
+                    @if (openMenuFor() === p.userId && menuPosition()) {
+                      <ul
+                        class="patients-list__menu"
+                        role="menu"
+                        [style.top.px]="menuPosition()!.top"
+                        [style.right.px]="menuPosition()!.right"
+                      >
+                        <li
+                          class="patients-list__menu-item"
+                          role="menuitem"
+                          (click)="onOpenOdontogram(p.patient!.id)"
+                        >
+                          <span class="material-symbols-outlined">edit</span>
+                          Editar diagnóstico
+                        </li>
+                        <li
+                          class="patients-list__menu-item"
+                          role="menuitem"
+                          (click)="onViewClinicalRecord(p.patient!)"
+                        >
+                          <span class="material-symbols-outlined">medical_information</span>
+                          Ver historia clínica
+                        </li>
+                      </ul>
+                    }
+                  </div>
                 }
               </td>
             </tr>

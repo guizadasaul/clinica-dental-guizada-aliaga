@@ -123,6 +123,11 @@
       [patientId]="selectedPatientForHistory()!"
       (close)="onHistoryClose()"
     />
+  } @else if (showClinicalRecordFlow()) {
+    <app-clinical-record-view
+      [patient]="selectedPatientForClinicalRecord()!"
+      (close)="onClinicalRecordClose()"
+    />
   } @else if (showQuoteFlow()) {
     <app-quote-builder
       [patientId]="selectedPatientForQuote()!"

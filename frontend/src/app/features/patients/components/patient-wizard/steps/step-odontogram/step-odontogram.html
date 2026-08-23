@@ -1,6 +1,6 @@
 <div class="odontogram-step">
 
-  <div class="odontogram-step__body" [class.odontogram-step__body--split]="selectedTooth()">
+  <div class="odontogram-step__body" [class.odontogram-step__body--split]="panelOpen()">
 
     <!-- Odontogram chart -->
     <div class="odontogram-step__chart">
@@ -8,10 +8,19 @@
       <div class="odontogram-step__toolbar">
         <h3 class="odontogram-step__chart-title">
           <span class="material-symbols-outlined">dentistry</span>
-          Odontograma diagnóstico
+          Examen dental
         </h3>
+        <button
+          type="button"
+          class="step-form__btn step-form__btn--secondary"
+          [disabled]="loading()"
+          (click)="onAddFindingClick()"
+        >
+          <span class="material-symbols-outlined">add_circle</span>
+          Agregar hallazgo
+        </button>
       </div>
-      <p class="odontogram-step__chart-hint">Hacé clic en un diente para registrar su diagnóstico.</p>
+      <p class="odontogram-step__chart-hint">Hacé clic en un diente para registrar un hallazgo en esa pieza.</p>
 
       <!-- Chart: static drawing + interactive overlay (same 618x554 grid) -->
       <div class="odontogram-step__canvas">
@@ -29,7 +38,7 @@
           @for (tooth of cells; track tooth.number) {
             <g
               class="odontogram-step__cell"
-              [class.odontogram-step__cell--selected]="selectedTooth()?.number === tooth.number"
+              [class.odontogram-step__cell--selected]="isSelectedInPanel(tooth.number)"
               (click)="onToothClick(tooth)"
               (keyup.enter)="onToothClick(tooth)"
               role="button"
@@ -47,7 +56,7 @@
               <g
                 class="odontogram-step__cell-paint"
                 [class.odontogram-step__cell-paint--diagnosed]="isDiagnosed(tooth.number)"
-                [class.odontogram-step__cell-paint--selected]="selectedTooth()?.number === tooth.number"
+                [class.odontogram-step__cell-paint--selected]="isSelectedInPanel(tooth.number)"
               >
                 @for (outline of tooth.outlines; track $index) {
                   <path
@@ -68,41 +77,54 @@
       </div>
 
       <!-- Legend -->
-      <div class="odontogram-step__legend">
-        @for (opt of diagnosisOptions; track opt.value) {
-          <div class="odontogram-step__legend-item">
-            <span class="odontogram-step__legend-dot" [style.background]="opt.color"></span>
-            <span>{{ opt.label }}</span>
-          </div>
-        }
-      </div>
+      @if (legendItems().length > 0) {
+        <div class="odontogram-step__legend">
+          @for (item of legendItems(); track item.name) {
+            <div class="odontogram-step__legend-item">
+              <span class="odontogram-step__legend-dot" [style.background]="item.color"></span>
+              <span>{{ item.name }}</span>
+            </div>
+          }
+        </div>
+      }
 
-      <!-- Entries list -->
-      @if (diagnosedEntries().length > 0) {
+      <!-- Findings tied to one or more teeth -->
+      @if (toothFindings().length > 0) {
         <div class="odontogram-step__entries">
-          <h4 class="odontogram-step__entries-title">Diagnósticos registrados</h4>
+          <h4 class="odontogram-step__entries-title">Hallazgos registrados</h4>
           <ul class="odontogram-step__entries-list">
-            @for (entry of diagnosedEntries(); track entry.toothNumber) {
+            @for (f of toothFindings(); track f.key) {
               <li class="odontogram-step__entry">
-                <span
-                  class="odontogram-step__entry-dot"
-                  [style.background]="getDiagnosisColor(entry.toothCondition)"
-                ></span>
-                <span class="odontogram-step__entry-tooth">Diente #{{ entry.toothNumber }}</span>
+                <span class="odontogram-step__entry-dot" [style.background]="f.color"></span>
+                <span class="odontogram-step__entry-tooth">
+                  {{ f.toothNumbers.length === 1 ? 'Diente #' + f.toothNumbers[0] : 'Dientes ' + f.toothNumbers.join(', ') }}
+                </span>
                 <span class="odontogram-step__entry-sep">—</span>
-                <span class="odontogram-step__entry-diag">{{ getDiagnosisLabel(entry.toothCondition) }}</span>
-                <span class="odontogram-step__entry-type">[{{ entry.diagnosisType }}]</span>
-                <span class="odontogram-step__entry-desc">{{ entry.diagnosisDescription }}</span>
-                @if (entry.xrayRequested) {
+                <span class="odontogram-step__entry-diag">{{ f.diagnosisName }}</span>
+                @if (f.modifierValue) {
+                  <span class="odontogram-step__entry-type">{{ modifierLabel(f.modifierValue) }}</span>
+                }
+                @if (f.description) {
+                  <span class="odontogram-step__entry-desc">{{ f.description }}</span>
+                }
+                @if (f.xrayRequested) {
                   <span class="odontogram-step__entry-xray" title="Rayos X solicitados">
                     <span class="material-symbols-outlined">radiology</span>
                   </span>
                 }
                 <button
                   type="button"
+                  class="odontogram-step__entry-edit"
+                  (click)="onEditFinding(f)"
+                  aria-label="Editar hallazgo"
+                >
+                  <span class="material-symbols-outlined">edit</span>
+                </button>
+                <button
+                  type="button"
                   class="odontogram-step__entry-remove"
-                  (click)="removeEntry(entry.toothNumber)"
-                  aria-label="Eliminar entrada"
+                  (click)="removeFinding(f.key)"
+                  aria-label="Eliminar hallazgo"
                 >
                   <span class="material-symbols-outlined">close</span>
                 </button>
@@ -112,87 +134,211 @@
         </div>
       }
 
+      <!-- General findings (not tied to a tooth) -->
+      @if (generalFindings().length > 0) {
+        <div class="odontogram-step__entries">
+          <h4 class="odontogram-step__entries-title">Hallazgos generales</h4>
+          <ul class="odontogram-step__entries-list">
+            @for (f of generalFindings(); track f.key) {
+              <li class="odontogram-step__entry">
+                <span class="odontogram-step__entry-dot" [style.background]="f.color"></span>
+                <span class="odontogram-step__entry-diag">{{ f.diagnosisName }}</span>
+                @if (f.description) {
+                  <span class="odontogram-step__entry-desc">{{ f.description }}</span>
+                }
+                <button
+                  type="button"
+                  class="odontogram-step__entry-edit"
+                  (click)="onEditFinding(f)"
+                  aria-label="Editar hallazgo"
+                >
+                  <span class="material-symbols-outlined">edit</span>
+                </button>
+                <button
+                  type="button"
+                  class="odontogram-step__entry-remove"
+                  (click)="removeFinding(f.key)"
+                  aria-label="Eliminar hallazgo"
+                >
+                  <span class="material-symbols-outlined">close</span>
+                </button>
+              </li>
+            }
+          </ul>
+        </div>
+      }
+
+      <!-- History -->
+      <div class="odontogram-step__history">
+        <button type="button" class="odontogram-step__history-toggle" (click)="onToggleHistory()">
+          <span class="material-symbols-outlined">history</span>
+          Historial del examen
+          @if (versions().length > 0) {
+            <span class="odontogram-step__history-count">{{ versions().length }}</span>
+          }
+          <span class="material-symbols-outlined odontogram-step__history-chevron">
+            {{ showHistory() ? 'expand_less' : 'expand_more' }}
+          </span>
+        </button>
+
+        @if (showHistory()) {
+          @if (versions().length === 0) {
+            <p class="odontogram-step__history-empty">Todavía no hay versiones guardadas de este examen.</p>
+          } @else {
+            <ul class="odontogram-step__history-list">
+              @for (v of versions(); track v.id) {
+                <li class="odontogram-step__history-item">
+                  <span class="odontogram-step__history-version">Versión {{ v.version }}</span>
+                  <span class="odontogram-step__history-meta">
+                    {{ v.recordedAt | date: 'dd/MM/yyyy HH:mm' }}
+                    @if (v.recordedByName) { · {{ v.recordedByName }} }
+                    · {{ v.findingsCount }} hallazgo{{ v.findingsCount === 1 ? '' : 's' }}
+                  </span>
+                  @if (v.changeReason) {
+                    <span class="odontogram-step__history-reason">Motivo: {{ v.changeReason }}</span>
+                  }
+                  <button type="button" class="odontogram-step__history-view" (click)="onViewVersion(v.id)">
+                    Ver
+                  </button>
+                </li>
+              }
+            </ul>
+          }
+        }
+
+        @if (viewedVersion()) {
+          <div class="odontogram-step__history-detail" role="region" aria-label="Versión anterior del examen">
+            <div class="odontogram-step__history-detail-header">
+              <strong>Versión {{ viewedVersion()!.version }}</strong> (solo lectura)
+              <button type="button" class="odontogram-step__panel-close" (click)="onCloseViewedVersion()" aria-label="Cerrar">
+                <span class="material-symbols-outlined">close</span>
+              </button>
+            </div>
+            @if (viewedVersion()!.findings.length === 0) {
+              <p class="odontogram-step__history-empty">Sin hallazgos — boca sana en esta versión.</p>
+            } @else {
+              <ul class="odontogram-step__entries-list">
+                @for (f of viewedVersion()!.findings; track f.id) {
+                  <li class="odontogram-step__entry">
+                    <span class="odontogram-step__entry-dot" [style.background]="f.diagnosisColor"></span>
+                    @if (f.toothNumber) {
+                      <span class="odontogram-step__entry-tooth">Diente #{{ f.toothNumber }}</span>
+                      <span class="odontogram-step__entry-sep">—</span>
+                    }
+                    <span class="odontogram-step__entry-diag">{{ f.diagnosisName }}</span>
+                    @if (f.modifierValue) {
+                      <span class="odontogram-step__entry-type">{{ modifierLabel(f.modifierValue) }}</span>
+                    }
+                    @if (f.description) {
+                      <span class="odontogram-step__entry-desc">{{ f.description }}</span>
+                    }
+                  </li>
+                }
+              </ul>
+            }
+          </div>
+        }
+      </div>
+
     </div>
 
-    <!-- Diagnosis form panel -->
-    @if (selectedTooth()) {
-      <div class="odontogram-step__panel" role="region" aria-label="Diagnóstico del diente">
+    <!-- Finding form panel -->
+    @if (panelOpen()) {
+      <div class="odontogram-step__panel" role="region" aria-label="Nuevo hallazgo">
         <div class="odontogram-step__panel-header">
           <div class="odontogram-step__panel-tooth-badge">
             <span class="material-symbols-outlined">dentistry</span>
-            Diente #{{ selectedTooth()!.number }}
+            {{ editingKey() ? 'Editar hallazgo' : 'Nuevo hallazgo' }}
           </div>
           <button type="button" class="odontogram-step__panel-close" (click)="onPanelCancel()" aria-label="Cerrar panel">
             <span class="material-symbols-outlined">close</span>
           </button>
         </div>
 
-        <!-- Diagnosis type: presuntivo / definitivo -->
+        <!-- Diagnosis -->
         <div class="odontogram-step__panel-field">
-          <label class="odontogram-step__panel-label">
-            Tipo de diagnóstico <span class="step-form__req">*</span>
-          </label>
-          <div class="step-form__radio-row">
-            <label class="step-form__radio">
-              <input
-                type="radio"
-                name="diagnosisType"
-                value="presuntivo"
-                [checked]="panelDiagnosisType() === 'presuntivo'"
-                (change)="panelDiagnosisType.set('presuntivo')"
-              />
-              Presuntivo
-            </label>
-            <label class="step-form__radio">
-              <input
-                type="radio"
-                name="diagnosisType"
-                value="definitivo"
-                [checked]="panelDiagnosisType() === 'definitivo'"
-                (change)="panelDiagnosisType.set('definitivo')"
-              />
-              Definitivo
-            </label>
-          </div>
-        </div>
-
-        <!-- Tooth condition -->
-        <div class="odontogram-step__panel-field">
-          <label class="odontogram-step__panel-label" for="toothCondition">
-            Condición <span class="step-form__req">*</span>
+          <label class="odontogram-step__panel-label" for="diagnosisCode">
+            Diagnóstico <span class="step-form__req">*</span>
           </label>
           <select
-            id="toothCondition"
+            id="diagnosisCode"
             class="step-form__input odontogram-step__panel-select"
-            [value]="panelToothCondition()"
-            (change)="panelToothCondition.set($any($event.target).value)"
+            [value]="panelDiagnosisCode()"
+            (change)="onPanelDiagnosisChange($any($event.target).value)"
           >
-            @for (opt of diagnosisOptions; track opt.value) {
-              <option [value]="opt.value">{{ opt.label }}</option>
+            <option value="" disabled>Elegí un diagnóstico...</option>
+            @for (category of catalog(); track category.id) {
+              @if (category.diagnoses.length > 0) {
+                <optgroup [label]="category.name">
+                  @for (d of category.diagnoses; track d.id) {
+                    <option [value]="d.code">{{ d.name }}</option>
+                  }
+                </optgroup>
+              }
             }
           </select>
         </div>
 
-        <!-- Diagnosis description -->
+        @if (panelDiagnosis()) {
+          <!-- Tooth selection -->
+          @if (panelDiagnosis()!.scope !== 'general') {
+            <div class="odontogram-step__panel-field">
+              <label class="odontogram-step__panel-label">
+                {{ panelDiagnosis()!.scope === 'single_tooth' ? 'Pieza' : 'Piezas' }}
+                <span class="step-form__req">*</span>
+              </label>
+              @if (panelToothNumbers().length === 0) {
+                <p class="odontogram-step__panel-hint">Hacé clic en {{ panelDiagnosis()!.scope === 'single_tooth' ? 'un diente' : 'una o más piezas' }} del odontograma.</p>
+              } @else {
+                <div class="odontogram-step__panel-chips">
+                  @for (n of panelToothNumbers(); track n) {
+                    <span class="odontogram-step__panel-chip">#{{ n }}</span>
+                  }
+                </div>
+              }
+            </div>
+          }
+
+          <!-- Modifier (Black class / mobility grade) -->
+          @if (modifierOptions().length > 0) {
+            <div class="odontogram-step__panel-field">
+              <label class="odontogram-step__panel-label" for="modifierValue">
+                {{ panelDiagnosis()!.modifier === 'black_class' ? 'Clase de Black' : 'Grado de movilidad' }}
+                <span class="step-form__req">*</span>
+              </label>
+              <select
+                id="modifierValue"
+                class="step-form__input odontogram-step__panel-select"
+                [value]="panelModifierValue()"
+                (change)="panelModifierValue.set($any($event.target).value)"
+              >
+                <option value="" disabled>Elegí una opción...</option>
+                @for (opt of modifierOptions(); track opt) {
+                  <option [value]="opt">{{ modifierLabel(opt) }}</option>
+                }
+              </select>
+            </div>
+          }
+        }
+
+        <!-- Description -->
         <div class="odontogram-step__panel-field">
-          <label class="odontogram-step__panel-label" for="diagnosisDesc">
-            Descripción <span class="step-form__req">*</span>
-          </label>
+          <label class="odontogram-step__panel-label" for="findingDesc">Descripción</label>
           <textarea
-            id="diagnosisDesc"
+            id="findingDesc"
             class="step-form__input step-form__input--textarea"
             [class.step-form__input--invalid]="panelDescription.showError()"
-            placeholder="Describí el estado del diente..."
+            placeholder="Describí el hallazgo..."
             [value]="panelDescription.value()"
             (input)="panelDescription.set($any($event.target).value)"
             (blur)="panelDescription.markTouched()"
             maxlength="500"
             rows="3"
             [attr.aria-invalid]="panelDescription.showError() || null"
-            [attr.aria-describedby]="panelDescription.showError() ? 'diagnosisDesc-err' : null"
+            [attr.aria-describedby]="panelDescription.showError() ? 'findingDesc-err' : null"
           ></textarea>
           @if (panelDescription.showError()) {
-            <p class="step-form__field-error" id="diagnosisDesc-err" role="alert">{{ panelDescription.error() }}</p>
+            <p class="step-form__field-error" id="findingDesc-err" role="alert">{{ panelDescription.error() }}</p>
           }
         </div>
 
@@ -210,9 +356,9 @@
 
         <!-- Notes -->
         <div class="odontogram-step__panel-field">
-          <label class="odontogram-step__panel-label" for="diagnosisNotes">Notas adicionales</label>
+          <label class="odontogram-step__panel-label" for="findingNotes">Notas adicionales</label>
           <textarea
-            id="diagnosisNotes"
+            id="findingNotes"
             class="step-form__input step-form__input--textarea"
             [class.step-form__input--invalid]="panelNotes.showError()"
             placeholder="Observaciones adicionales..."
@@ -222,10 +368,10 @@
             maxlength="500"
             rows="2"
             [attr.aria-invalid]="panelNotes.showError() || null"
-            [attr.aria-describedby]="panelNotes.showError() ? 'diagnosisNotes-err' : null"
+            [attr.aria-describedby]="panelNotes.showError() ? 'findingNotes-err' : null"
           ></textarea>
           @if (panelNotes.showError()) {
-            <p class="step-form__field-error" id="diagnosisNotes-err" role="alert">{{ panelNotes.error() }}</p>
+            <p class="step-form__field-error" id="findingNotes-err" role="alert">{{ panelNotes.error() }}</p>
           }
         </div>
 
@@ -237,15 +383,40 @@
           <button type="button" class="step-form__btn step-form__btn--secondary" (click)="onPanelCancel()">
             Cancelar
           </button>
-          <button type="button" class="step-form__btn step-form__btn--primary" (click)="onPanelAdd()">
+          <button type="button" class="step-form__btn step-form__btn--primary" (click)="onPanelSave()">
             <span class="material-symbols-outlined">add_circle</span>
-            {{ isDiagnosed(selectedTooth()!.number) ? 'Actualizar' : 'Agregar' }}
+            {{ editingKey() ? 'Guardar cambios' : 'Agregar' }}
           </button>
         </div>
       </div>
     }
 
   </div>
+
+  <!-- Change reason (only when there's a prior version to correct) -->
+  @if (hasPriorVersions()) {
+    <div class="odontogram-step__panel-field">
+      <label class="odontogram-step__panel-label" for="changeReason">
+        Motivo de la modificación <span class="step-form__req">*</span>
+      </label>
+      <textarea
+        id="changeReason"
+        class="step-form__input step-form__input--textarea"
+        [class.step-form__input--invalid]="changeReason.showError()"
+        placeholder="Explicá qué cambió respecto de la versión anterior..."
+        [value]="changeReason.value()"
+        (input)="changeReason.set($any($event.target).value)"
+        (blur)="changeReason.markTouched()"
+        maxlength="500"
+        rows="2"
+        [attr.aria-invalid]="changeReason.showError() || null"
+        [attr.aria-describedby]="changeReason.showError() ? 'changeReason-err' : null"
+      ></textarea>
+      @if (changeReason.showError()) {
+        <p class="step-form__field-error" id="changeReason-err" role="alert">{{ changeReason.error() }}</p>
+      }
+    </div>
+  }
 
   <!-- Footer actions -->
   <div class="step-form__actions odontogram-step__footer">
@@ -269,7 +440,7 @@
         Guardando...
       } @else {
         <span class="material-symbols-outlined">save</span>
-        Guardar odontograma
+        Guardar examen dental
       }
     </button>
   </div>

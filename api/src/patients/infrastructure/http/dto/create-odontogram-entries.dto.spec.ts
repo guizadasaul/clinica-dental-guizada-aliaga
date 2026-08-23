@@ -12,7 +12,6 @@ import { INJECTION_PAYLOADS } from '../../../../shared/validators/__fixtures__/i
 const VALID_ENTRY = {
   toothNumber: 11,
   toothType: 'permanent',
-  diagnosisType: 'presuntivo',
   toothCondition: 'sano',
   diagnosisDescription: 'Diente sano',
 };
@@ -163,15 +162,6 @@ describe('CreateOdontogramEntriesDto', () => {
       { ...VALID_ENTRY, notes: '<script>alert(1)</script>' },
     ]);
     expect(flatten(errors).some((e) => e.property === 'notes')).toBe(true);
-  });
-
-  it('rechaza un diagnosisType fuera del enum cerrado', async () => {
-    const errors = await validateEntries([
-      { ...VALID_ENTRY, diagnosisType: 'seguro' },
-    ]);
-    expect(flatten(errors).some((e) => e.property === 'diagnosisType')).toBe(
-      true,
-    );
   });
 
   it('rechaza un toothCondition fuera del enum cerrado', async () => {
