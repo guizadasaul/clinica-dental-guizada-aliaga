@@ -1,4 +1,4 @@
-import type { TreatmentScope } from '../../features/treatments/models/treatment.model';
+import type { TreatmentApplicationType } from '../../features/treatments/models/treatment.model';
 
 export interface ToothDef {
   readonly number: number;
@@ -73,13 +73,17 @@ export const LOWER_DECIDUOUS_TEETH: ToothDef[] = [
 export const FULL_MOUTH_TEETH: ToothDef[] = [...UPPER_TEETH, ...LOWER_TEETH];
 
 /**
- * Espejo frontend de `teethForScope` en
- * api/src/treatments/domain/TreatmentScope.ts — cambiar uno implica
- * revisar el otro. Devuelve [] para tooth/multi_tooth/none, que dependen
- * de la selección del doctor, no del scope en sí.
+ * Espejo frontend de `teethForApplicationType` en
+ * api/src/treatments/domain/TreatmentApplicationType.ts — cambiar uno
+ * implica revisar el otro. Devuelve [] para todo lo que no sea arcada/boca
+ * completa: single_tooth/multiple_teeth dependen de la selección del
+ * doctor, y el resto (general, soft_tissue, frenulum, prosthesis,
+ * orthodontic, unit, box) no lleva diente.
  */
-export function teethForScope(scope: TreatmentScope): number[] {
-  switch (scope) {
+export function teethForApplicationType(
+  applicationType: TreatmentApplicationType,
+): number[] {
+  switch (applicationType) {
     case 'upper_arch':
       return UPPER_TEETH.map((t) => t.number);
     case 'lower_arch':
@@ -89,4 +93,24 @@ export function teethForScope(scope: TreatmentScope): number[] {
     default:
       return [];
   }
+}
+
+/** true si el tipo se registra sobre piezas dentales — espejo de typeImpliesTeeth en el backend. */
+export function applicationTypeImpliesTeeth(
+  applicationType: TreatmentApplicationType,
+): boolean {
+  return (
+    applicationType === 'single_tooth' ||
+    applicationType === 'multiple_teeth' ||
+    applicationType === 'upper_arch' ||
+    applicationType === 'lower_arch' ||
+    applicationType === 'full_mouth'
+  );
+}
+
+/** true si el tratamiento admite cantidad mayor a 1 (elásticos por unidad, cera por caja, consultas repetidas) — espejo de typeAllowsQuantity en el backend. */
+export function applicationTypeAllowsQuantity(
+  applicationType: TreatmentApplicationType,
+): boolean {
+  return !applicationTypeImpliesTeeth(applicationType);
 }

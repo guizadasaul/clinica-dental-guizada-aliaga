@@ -10,15 +10,19 @@ import {
   MaxLength,
 } from 'class-validator';
 import {
+  TREATMENT_APPLICATION_TYPES,
   TREATMENT_CURRENCIES,
-  TREATMENT_SCOPES,
-} from '../../../domain/TreatmentScope.js';
+} from '../../../domain/TreatmentApplicationType.js';
 import type {
+  TreatmentApplicationType,
   TreatmentCurrency,
-  TreatmentScope,
-} from '../../../domain/TreatmentScope.js';
+} from '../../../domain/TreatmentApplicationType.js';
 
 export class CreateTreatmentDto {
+  @IsString()
+  @MaxLength(50)
+  code!: string;
+
   @IsString()
   @MaxLength(200)
   name!: string;
@@ -36,11 +40,20 @@ export class CreateTreatmentDto {
   @Min(1)
   estimatedMinutes?: number;
 
-  @IsIn(TREATMENT_SCOPES)
-  scope!: TreatmentScope;
+  @IsIn(TREATMENT_APPLICATION_TYPES)
+  applicationType!: TreatmentApplicationType;
 
   @IsIn(TREATMENT_CURRENCIES)
   currency!: TreatmentCurrency;
+
+  @IsString()
+  @MaxLength(50)
+  categoryCode!: string;
+
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  displayOrder?: number;
 
   @IsOptional()
   @IsBoolean()

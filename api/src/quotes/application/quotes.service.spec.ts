@@ -30,12 +30,17 @@ function fakeQuote(overrides: Partial<Quote> = {}): Quote {
 function fakeTreatment(overrides: Partial<Treatment> = {}): Treatment {
   return {
     id: 'treatment-1',
+    code: 'tratamiento',
     name: 'Tratamiento',
     description: null,
     basePrice: 100,
     estimatedMinutes: 30,
-    scope: 'tooth',
+    applicationType: 'single_tooth',
     currency: 'BOB',
+    categoryId: 'category-1',
+    categoryCode: 'operatoria_dental',
+    categoryName: 'Operatoria dental',
+    displayOrder: 0,
     isActive: true,
     createdAt: new Date(),
     updatedAt: new Date(),
@@ -116,10 +121,10 @@ describe('QuotesService', () => {
       ).rejects.toThrow(NotFoundException);
     });
 
-    describe('scope: tooth', () => {
+    describe('applicationType: single_tooth', () => {
       beforeEach(() => {
         mockTreatmentRepo.findById.mockResolvedValue(
-          fakeTreatment({ scope: 'tooth', basePrice: 180 }),
+          fakeTreatment({ applicationType: 'single_tooth', basePrice: 180 }),
         );
       });
 
@@ -168,20 +173,26 @@ describe('QuotesService', () => {
       });
     });
 
-    describe('scope: multi_tooth', () => {
+    describe('applicationType: multiple_teeth', () => {
       beforeEach(() => {
         mockTreatmentRepo.findById.mockResolvedValue(
-          fakeTreatment({ scope: 'multi_tooth', basePrice: 1700 }),
+          fakeTreatment({ applicationType: 'multiple_teeth', basePrice: 1700 }),
         );
       });
 
-      it('rejects with a single tooth', async () => {
+      it('rejects with no teeth', async () => {
+        await expect(
+          service.addItem('quote-1', { treatmentId: 'treatment-1' }),
+        ).rejects.toThrow(BadRequestException);
+      });
+
+      it('accepts a single tooth ("1 o varios dientes")', async () => {
         await expect(
           service.addItem('quote-1', {
             treatmentId: 'treatment-1',
             toothNumbers: [16],
           }),
-        ).rejects.toThrow(BadRequestException);
+        ).resolves.toBeDefined();
       });
 
       it('creates one row per tooth sharing an applicationGroupId, subtotal only on the lowest tooth', async () => {
@@ -209,11 +220,11 @@ describe('QuotesService', () => {
     });
 
     describe.each(['upper_arch', 'lower_arch', 'full_mouth'] as const)(
-      'scope: %s',
-      (scope) => {
+      'applicationType: %s',
+      (applicationType) => {
         beforeEach(() => {
           mockTreatmentRepo.findById.mockResolvedValue(
-            fakeTreatment({ scope, basePrice: 400 }),
+            fakeTreatment({ applicationType, basePrice: 400 }),
           );
         });
 
@@ -249,10 +260,10 @@ describe('QuotesService', () => {
       },
     );
 
-    describe('scope: none', () => {
+    describe('applicationType: general', () => {
       beforeEach(() => {
         mockTreatmentRepo.findById.mockResolvedValue(
-          fakeTreatment({ scope: 'none', basePrice: 20 }),
+          fakeTreatment({ applicationType: 'general', basePrice: 20 }),
         );
       });
 
@@ -285,7 +296,11 @@ describe('QuotesService', () => {
     describe('conversión USD (CLI-19)', () => {
       beforeEach(() => {
         mockTreatmentRepo.findById.mockResolvedValue(
-          fakeTreatment({ scope: 'tooth', currency: 'USD', basePrice: 700 }),
+          fakeTreatment({
+            applicationType: 'single_tooth',
+            currency: 'USD',
+            basePrice: 700,
+          }),
         );
       });
 

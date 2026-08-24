@@ -346,6 +346,7 @@ export class PrismaPatientsRepository implements IPatientRepository {
               application_group_id: item.applicationGroupId ?? null,
               treatment_id: item.treatmentId,
               price_charged: item.priceCharged,
+              quantity: item.quantity ?? 1,
               procedure_date: item.procedureDate ?? new Date(),
               surface_vestibular: item.surfaceVestibular ?? false,
               surface_palatal: item.surfacePalatal ?? false,

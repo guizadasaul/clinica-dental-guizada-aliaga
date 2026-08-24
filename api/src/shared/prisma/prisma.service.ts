@@ -37,6 +37,9 @@ export class PrismaService implements OnModuleInit, OnModuleDestroy {
   get treatments() {
     return this._client.treatments;
   }
+  get treatment_categories() {
+    return this._client.treatment_categories;
+  }
   get tooth_procedures() {
     return this._client.tooth_procedures;
   }

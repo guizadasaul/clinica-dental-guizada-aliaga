@@ -1,20 +1,39 @@
 import { Prisma } from '@prisma/client';
-import type { treatments } from '@prisma/client';
+import type { treatments, treatment_categories } from '@prisma/client';
 import { TreatmentMapper } from './treatment.mapper';
 
-function fakeRecord(overrides: Partial<treatments> = {}): treatments {
+function fakeCategory(
+  overrides: Partial<treatment_categories> = {},
+): treatment_categories {
+  return {
+    id: 'category-1',
+    code: 'cirugia_oral',
+    name: 'Cirugía oral',
+    display_order: 4,
+    ...overrides,
+  };
+}
+
+function fakeRecord(
+  overrides: Partial<treatments> = {},
+  categoryOverrides: Partial<treatment_categories> = {},
+): treatments & { treatment_categories: treatment_categories } {
   return {
     id: 'treatment-1',
-    name: 'Implante',
+    code: 'implante_dental',
+    name: 'Implante dental',
     description: null,
     base_price: new Prisma.Decimal(700),
     estimated_minutes: 60,
-    scope: 'tooth',
+    application_type: 'single_tooth',
     currency: 'USD',
+    category_id: 'category-1',
+    display_order: 5,
     is_active: true,
     is_default_consultation: false,
     created_at: new Date('2026-01-01T00:00:00Z'),
     updated_at: new Date('2026-01-02T00:00:00Z'),
+    treatment_categories: fakeCategory(categoryOverrides),
     ...overrides,
   };
 }
@@ -27,18 +46,40 @@ describe('TreatmentMapper', () => {
     expect(typeof domain.basePrice).toBe('number');
   });
 
-  it('passes scope and currency through unchanged', () => {
+  it('passes applicationType and currency through unchanged', () => {
     const domain = TreatmentMapper.toDomain(
-      fakeRecord({ scope: 'multi_tooth', currency: 'BOB' }),
+      fakeRecord({ application_type: 'multiple_teeth', currency: 'BOB' }),
     );
 
-    expect(domain.scope).toBe('multi_tooth');
+    expect(domain.applicationType).toBe('multiple_teeth');
     expect(domain.currency).toBe('BOB');
+  });
+
+  it('flattens the category code and name onto the treatment', () => {
+    const domain = TreatmentMapper.toDomain(
+      fakeRecord({}, { code: 'ortodoncia', name: 'Ortodoncia' }),
+    );
+
+    expect(domain.categoryCode).toBe('ortodoncia');
+    expect(domain.categoryName).toBe('Ortodoncia');
   });
 
   it('preserves a null description', () => {
     const domain = TreatmentMapper.toDomain(fakeRecord({ description: null }));
 
     expect(domain.description).toBeNull();
+  });
+});
+
+describe('TreatmentMapper.toDomainCategory', () => {
+  it('converts a treatment_categories record to domain', () => {
+    const domain = TreatmentMapper.toDomainCategory(fakeCategory());
+
+    expect(domain).toEqual({
+      id: 'category-1',
+      code: 'cirugia_oral',
+      name: 'Cirugía oral',
+      displayOrder: 4,
+    });
   });
 });

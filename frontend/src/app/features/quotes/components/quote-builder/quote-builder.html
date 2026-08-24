@@ -108,7 +108,7 @@
             />
           </div>
 
-          @if (sel.treatment.scope === 'none') {
+          @if (allowsQuantity(sel.treatment)) {
             <div class="qb__panel-field">
               <label class="qb__panel-label" for="quantity">Cantidad</label>
               <input

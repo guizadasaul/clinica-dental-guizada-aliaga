@@ -223,17 +223,20 @@ export class PatientsController {
       patientId,
       currentUser.uid,
       {
-        toothNumbers: dto.toothNumbers,
+        teeth: dto.teeth.map((t) => ({
+          number: t.number,
+          surfaceVestibular: t.surfaceVestibular,
+          surfacePalatal: t.surfacePalatal,
+          surfaceMesial: t.surfaceMesial,
+          surfaceDistal: t.surfaceDistal,
+          surfaceOcclusal: t.surfaceOcclusal,
+        })),
         treatmentId: dto.treatmentId,
         priceCharged: dto.priceCharged,
+        quantity: dto.quantity,
         procedureDate: dto.procedureDate
           ? new Date(dto.procedureDate)
           : undefined,
-        surfaceVestibular: dto.surfaceVestibular,
-        surfacePalatal: dto.surfacePalatal,
-        surfaceMesial: dto.surfaceMesial,
-        surfaceDistal: dto.surfaceDistal,
-        surfaceOcclusal: dto.surfaceOcclusal,
         notes: dto.notes,
       },
     );

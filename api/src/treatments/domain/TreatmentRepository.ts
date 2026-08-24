@@ -1,13 +1,17 @@
 import type { Treatment } from './Treatment';
-import type { TreatmentScope } from './TreatmentScope';
+import type { TreatmentApplicationType } from './TreatmentApplicationType';
 
 export interface CreateTreatmentData {
+  code: string;
   name: string;
   description?: string | null;
   basePrice: number;
   estimatedMinutes?: number;
-  scope: TreatmentScope;
+  applicationType: TreatmentApplicationType;
   currency: string;
+  /** code de treatment_categories, no el id — el repositorio resuelve la relación. */
+  categoryCode: string;
+  displayOrder?: number;
   isActive?: boolean;
 }
 

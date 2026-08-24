@@ -1,23 +1,39 @@
-export type TreatmentScope =
-  | 'tooth'
-  | 'multi_tooth'
+/**
+ * A qué se aplica un tratamiento del catálogo (CLI-41). Reemplaza al
+ * TreatmentScope de 6 valores — el resto de tipos NO admite selección de
+ * dientes en el odontograma (ver shared/constants/dental-chart.constants.ts).
+ */
+export type TreatmentApplicationType =
+  | 'general'
+  | 'single_tooth'
+  | 'multiple_teeth'
   | 'upper_arch'
   | 'lower_arch'
   | 'full_mouth'
-  | 'none';
+  | 'soft_tissue'
+  | 'frenulum'
+  | 'prosthesis'
+  | 'orthodontic'
+  | 'unit'
+  | 'box';
 
 export type TreatmentCurrency = 'BOB' | 'USD';
 
 export interface Treatment {
   id: string;
+  code: string;
   name: string;
   description: string | null;
   basePrice: number;
   estimatedMinutes: number;
-  scope: TreatmentScope;
+  applicationType: TreatmentApplicationType;
   currency: TreatmentCurrency;
   /** Equivalente en Bs. al tipo de cambio del día — null si currency es BOB o no hay tipo de cambio disponible (CLI-19). */
   basePriceBob: number | null;
+  categoryId: string;
+  categoryCode: string;
+  categoryName: string;
+  displayOrder: number;
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
@@ -30,6 +46,8 @@ export interface ToothProcedure {
   applicationGroupId: string | null;
   treatmentId: string;
   priceCharged: number;
+  /** Para aplicaciones por unidad/caja (elásticos, cera ortodóntica) — 1 para el resto. */
+  quantity: number;
   procedureDate: string;
   surfaceVestibular: boolean;
   surfacePalatal: boolean;

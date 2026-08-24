@@ -1,355 +1,563 @@
 import { PrismaClient } from '@prisma/client';
-import type { TreatmentScope } from '@prisma/client';
+import type { TreatmentApplicationType } from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
 
 const adapter = new PrismaPg({ connectionString: process.env['DATABASE_URL'] });
 const prisma = new PrismaClient({ adapter });
 
-interface SeedTreatment {
+interface SeedTreatmentCategory {
+  code: string;
   name: string;
-  base_price: number;
-  scope: TreatmentScope;
+}
+
+interface SeedTreatment {
+  code: string;
+  name: string;
+  categoryCode: string;
+  basePrice: number;
+  applicationType: TreatmentApplicationType;
   currency: 'BOB' | 'USD';
 }
 
 /**
- * Catálogo real de la clínica (64 tratamientos, CLI-18). Todo en BOB salvo
- * Implante (USD). "Curetaje", "Gingivoplastia", "Operculectomía" y las tres
- * reposiciones de ortodoncia (bracket metálico, bandas, bracket estético)
- * vinieron sin alcance anotado a mano — se asume `tooth` por ser consistente
- * con el patrón del resto del catálogo (todo lo que no es `tooth` viene
- * anotado explícitamente).
+ * Catálogo real de la clínica (64 tratamientos, CLI-18) en 8 categorías
+ * (CLI-41). Todo en BOB salvo Implante dental (USD). El `code` es la clave
+ * estable del upsert — permite renombrar un tratamiento sin duplicar la fila
+ * ni desactivarla por accidente (ver deactivateLegacy más abajo, que ahora
+ * compara por code).
  */
+const TREATMENT_CATEGORIES: SeedTreatmentCategory[] = [
+  { code: 'basicos', name: 'Básicos' },
+  { code: 'operatoria_dental', name: 'Operatoria dental' },
+  { code: 'periodoncia', name: 'Periodoncia' },
+  { code: 'endodoncia', name: 'Endodoncia' },
+  { code: 'cirugia_oral', name: 'Cirugía oral' },
+  { code: 'protesis_removible', name: 'Prótesis removible' },
+  { code: 'protesis_fija', name: 'Prótesis fija' },
+  { code: 'ortodoncia', name: 'Ortodoncia' },
+];
+
 const CATALOG: SeedTreatment[] = [
   // Básicos
-  { name: 'Consulta', base_price: 50, scope: 'none', currency: 'BOB' },
-  { name: 'Emergencia', base_price: 100, scope: 'none', currency: 'BOB' },
   {
+    code: 'consulta_odontologica',
+    name: 'Consulta odontológica',
+    categoryCode: 'basicos',
+    basePrice: 50,
+    applicationType: 'general',
+    currency: 'BOB',
+  },
+  {
+    code: 'emergencia_odontologica',
+    name: 'Emergencia odontológica',
+    categoryCode: 'basicos',
+    basePrice: 100,
+    applicationType: 'general',
+    currency: 'BOB',
+  },
+  {
+    code: 'certificado_odontologico',
     name: 'Certificado odontológico',
-    base_price: 150,
-    scope: 'none',
+    categoryCode: 'basicos',
+    basePrice: 150,
+    applicationType: 'general',
     currency: 'BOB',
   },
-
-  // Operatoria
-  { name: 'Caries simple', base_price: 180, scope: 'tooth', currency: 'BOB' },
+  // Operatoria dental
   {
-    name: 'Caries compuesta',
-    base_price: 250,
-    scope: 'tooth',
+    code: 'restauracion_caries_simple',
+    name: 'Restauración de caries simple',
+    categoryCode: 'operatoria_dental',
+    basePrice: 180,
+    applicationType: 'single_tooth',
     currency: 'BOB',
   },
   {
+    code: 'restauracion_caries_compuesta',
+    name: 'Restauración de caries compuesta',
+    categoryCode: 'operatoria_dental',
+    basePrice: 250,
+    applicationType: 'single_tooth',
+    currency: 'BOB',
+  },
+  {
+    code: 'resina_para_munon',
     name: 'Resina para muñón',
-    base_price: 80,
-    scope: 'tooth',
+    categoryCode: 'operatoria_dental',
+    basePrice: 80,
+    applicationType: 'single_tooth',
     currency: 'BOB',
   },
-  { name: 'Ionómero', base_price: 80, scope: 'tooth', currency: 'BOB' },
   {
+    code: 'restauracion_ionomero',
+    name: 'Restauración con ionómero',
+    categoryCode: 'operatoria_dental',
+    basePrice: 80,
+    applicationType: 'single_tooth',
+    currency: 'BOB',
+  },
+  {
+    code: 'resina_diente_temporal',
     name: 'Resina en diente temporal',
-    base_price: 80,
-    scope: 'tooth',
+    categoryCode: 'operatoria_dental',
+    basePrice: 80,
+    applicationType: 'single_tooth',
     currency: 'BOB',
   },
   {
+    code: 'sellante_diente_permanente',
     name: 'Sellante en diente permanente',
-    base_price: 100,
-    scope: 'tooth',
+    categoryCode: 'operatoria_dental',
+    basePrice: 100,
+    applicationType: 'single_tooth',
     currency: 'BOB',
   },
   {
+    code: 'sellante_diente_temporal',
     name: 'Sellante en diente temporal',
-    base_price: 80,
-    scope: 'tooth',
+    categoryCode: 'operatoria_dental',
+    basePrice: 80,
+    applicationType: 'single_tooth',
     currency: 'BOB',
   },
   {
+    code: 'blanqueamiento_dental_laser',
     name: 'Blanqueamiento dental láser',
-    base_price: 1000,
-    scope: 'full_mouth',
+    categoryCode: 'operatoria_dental',
+    basePrice: 1000,
+    applicationType: 'full_mouth',
     currency: 'BOB',
   },
-
   // Periodoncia
   {
+    code: 'limpieza_profilaxis_fluor',
     name: 'Limpieza, profilaxis y flúor',
-    base_price: 250,
-    scope: 'full_mouth',
+    categoryCode: 'periodoncia',
+    basePrice: 250,
+    applicationType: 'full_mouth',
     currency: 'BOB',
   },
   {
+    code: 'gingivectomia_superior',
     name: 'Gingivectomía superior',
-    base_price: 400,
-    scope: 'upper_arch',
+    categoryCode: 'periodoncia',
+    basePrice: 400,
+    applicationType: 'upper_arch',
     currency: 'BOB',
   },
   {
+    code: 'gingivectomia_inferior',
     name: 'Gingivectomía inferior',
-    base_price: 400,
-    scope: 'lower_arch',
+    categoryCode: 'periodoncia',
+    basePrice: 400,
+    applicationType: 'lower_arch',
     currency: 'BOB',
   },
   {
+    code: 'gingivectomia_completa',
     name: 'Gingivectomía completa',
-    base_price: 800,
-    scope: 'full_mouth',
+    categoryCode: 'periodoncia',
+    basePrice: 800,
+    applicationType: 'full_mouth',
     currency: 'BOB',
   },
-  { name: 'Curetaje', base_price: 150, scope: 'tooth', currency: 'BOB' },
-  { name: 'Gingivoplastia', base_price: 200, scope: 'tooth', currency: 'BOB' },
   {
-    name: 'Destartraje, limpieza, profilaxis y flúor',
-    base_price: 350,
-    scope: 'full_mouth',
+    code: 'curetaje_periodontal',
+    name: 'Curetaje periodontal',
+    categoryCode: 'periodoncia',
+    basePrice: 150,
+    applicationType: 'multiple_teeth',
     currency: 'BOB',
   },
-
+  {
+    code: 'gingivoplastia',
+    name: 'Gingivoplastia',
+    categoryCode: 'periodoncia',
+    basePrice: 200,
+    applicationType: 'multiple_teeth',
+    currency: 'BOB',
+  },
+  {
+    code: 'destartraje_limpieza_profilaxis_fluor',
+    name: 'Destartraje, limpieza, profilaxis y flúor',
+    categoryCode: 'periodoncia',
+    basePrice: 350,
+    applicationType: 'full_mouth',
+    currency: 'BOB',
+  },
   // Endodoncia
   {
+    code: 'conducto_unirradicular',
     name: 'Tratamiento de conducto unirradicular',
-    base_price: 300,
-    scope: 'tooth',
+    categoryCode: 'endodoncia',
+    basePrice: 300,
+    applicationType: 'single_tooth',
     currency: 'BOB',
   },
   {
+    code: 'conducto_birradicular',
     name: 'Tratamiento de conducto birradicular',
-    base_price: 350,
-    scope: 'tooth',
+    categoryCode: 'endodoncia',
+    basePrice: 350,
+    applicationType: 'single_tooth',
     currency: 'BOB',
   },
   {
+    code: 'conducto_multirradicular',
     name: 'Tratamiento de conducto multirradicular',
-    base_price: 450,
-    scope: 'tooth',
+    categoryCode: 'endodoncia',
+    basePrice: 450,
+    applicationType: 'single_tooth',
     currency: 'BOB',
   },
   {
+    code: 'retratamiento_conducto',
     name: 'Retratamiento de conducto',
-    base_price: 400,
-    scope: 'tooth',
+    categoryCode: 'endodoncia',
+    basePrice: 400,
+    applicationType: 'single_tooth',
     currency: 'BOB',
   },
-
-  // Cirugía
+  // Cirugía oral
   {
+    code: 'extraccion_simple',
     name: 'Extracción simple',
-    base_price: 100,
-    scope: 'tooth',
+    categoryCode: 'cirugia_oral',
+    basePrice: 100,
+    applicationType: 'single_tooth',
     currency: 'BOB',
   },
   {
+    code: 'extraccion_quirurgica',
     name: 'Extracción quirúrgica',
-    base_price: 500,
-    scope: 'tooth',
+    categoryCode: 'cirugia_oral',
+    basePrice: 500,
+    applicationType: 'single_tooth',
     currency: 'BOB',
   },
   {
+    code: 'extraccion_tercer_molar',
     name: 'Extracción de tercer molar',
-    base_price: 600,
-    scope: 'tooth',
+    categoryCode: 'cirugia_oral',
+    basePrice: 600,
+    applicationType: 'single_tooth',
     currency: 'BOB',
   },
-  { name: 'Operculectomía', base_price: 200, scope: 'tooth', currency: 'BOB' },
-  { name: 'Apicectomía', base_price: 450, scope: 'tooth', currency: 'BOB' },
-  { name: 'Implante', base_price: 700, scope: 'tooth', currency: 'USD' },
   {
-    name: 'Cirugía de lesiones en tejidos blandos',
-    base_price: 500,
-    scope: 'none',
+    code: 'operculectomia',
+    name: 'Operculectomía',
+    categoryCode: 'cirugia_oral',
+    basePrice: 200,
+    applicationType: 'single_tooth',
     currency: 'BOB',
   },
-  { name: 'Frenectomía', base_price: 800, scope: 'none', currency: 'BOB' },
-
+  {
+    code: 'apicectomia',
+    name: 'Apicectomía',
+    categoryCode: 'cirugia_oral',
+    basePrice: 450,
+    applicationType: 'single_tooth',
+    currency: 'BOB',
+  },
+  {
+    code: 'implante_dental',
+    name: 'Implante dental',
+    categoryCode: 'cirugia_oral',
+    basePrice: 700,
+    applicationType: 'single_tooth',
+    currency: 'USD',
+  },
+  {
+    code: 'cirugia_lesiones_tejidos_blandos',
+    name: 'Cirugía de lesiones en tejidos blandos',
+    categoryCode: 'cirugia_oral',
+    basePrice: 500,
+    applicationType: 'soft_tissue',
+    currency: 'BOB',
+  },
+  {
+    code: 'frenectomia',
+    name: 'Frenectomía',
+    categoryCode: 'cirugia_oral',
+    basePrice: 800,
+    applicationType: 'frenulum',
+    currency: 'BOB',
+  },
   // Prótesis removible
   {
+    code: 'placa_parcial_cromo_cobalto',
     name: 'Placa parcial de cromo-cobalto',
-    base_price: 1400,
-    scope: 'multi_tooth',
+    categoryCode: 'protesis_removible',
+    basePrice: 1400,
+    applicationType: 'multiple_teeth',
     currency: 'BOB',
   },
   {
+    code: 'placa_parcial_acrilico',
     name: 'Placa parcial de acrílico',
-    base_price: 1000,
-    scope: 'multi_tooth',
+    categoryCode: 'protesis_removible',
+    basePrice: 1000,
+    applicationType: 'multiple_teeth',
     currency: 'BOB',
   },
   {
+    code: 'placa_total_acrilico_superior',
     name: 'Placa total de acrílico superior',
-    base_price: 1500,
-    scope: 'upper_arch',
+    categoryCode: 'protesis_removible',
+    basePrice: 1500,
+    applicationType: 'upper_arch',
     currency: 'BOB',
   },
   {
+    code: 'placa_total_acrilico_inferior',
     name: 'Placa total de acrílico inferior',
-    base_price: 1500,
-    scope: 'lower_arch',
+    categoryCode: 'protesis_removible',
+    basePrice: 1500,
+    applicationType: 'lower_arch',
     currency: 'BOB',
   },
   {
+    code: 'placa_total_acrilico_bonwill',
     name: 'Placa total de acrílico completa Bonwill',
-    base_price: 2500,
-    scope: 'full_mouth',
+    categoryCode: 'protesis_removible',
+    basePrice: 2500,
+    applicationType: 'full_mouth',
     currency: 'BOB',
   },
   {
+    code: 'placa_parcial_flexible',
     name: 'Placa parcial flexible',
-    base_price: 1500,
-    scope: 'multi_tooth',
+    categoryCode: 'protesis_removible',
+    basePrice: 1500,
+    applicationType: 'multiple_teeth',
     currency: 'BOB',
   },
   {
+    code: 'placa_parcial_cromoflex',
     name: 'Placa parcial Cromoflex',
-    base_price: 1700,
-    scope: 'multi_tooth',
+    categoryCode: 'protesis_removible',
+    basePrice: 1700,
+    applicationType: 'multiple_teeth',
     currency: 'BOB',
   },
   {
+    code: 'reparacion_protesis',
     name: 'Reparación de prótesis',
-    base_price: 300,
-    scope: 'none',
+    categoryCode: 'protesis_removible',
+    basePrice: 300,
+    applicationType: 'prosthesis',
     currency: 'BOB',
   },
   {
+    code: 'rebasado_total_laboratorio',
     name: 'Rebasado total en laboratorio',
-    base_price: 400,
-    scope: 'none',
+    categoryCode: 'protesis_removible',
+    basePrice: 400,
+    applicationType: 'prosthesis',
     currency: 'BOB',
   },
   {
+    code: 'rebasado_en_clinica',
     name: 'Rebasado en clínica',
-    base_price: 200,
-    scope: 'none',
+    categoryCode: 'protesis_removible',
+    basePrice: 200,
+    applicationType: 'prosthesis',
     currency: 'BOB',
   },
   {
+    code: 'placa_miorelajacion',
     name: 'Placa de miorelajación',
-    base_price: 350,
-    scope: 'upper_arch',
+    categoryCode: 'protesis_removible',
+    basePrice: 350,
+    applicationType: 'upper_arch',
     currency: 'BOB',
   },
   {
+    code: 'protector_bucal',
     name: 'Protector bucal',
-    base_price: 700,
-    scope: 'upper_arch',
+    categoryCode: 'protesis_removible',
+    basePrice: 700,
+    applicationType: 'upper_arch',
     currency: 'BOB',
   },
-
   // Prótesis fija
   {
+    code: 'corona_provisional',
     name: 'Corona provisional',
-    base_price: 100,
-    scope: 'tooth',
+    categoryCode: 'protesis_fija',
+    basePrice: 100,
+    applicationType: 'single_tooth',
     currency: 'BOB',
   },
   {
+    code: 'perno_fibra_vidrio',
     name: 'Perno de fibra de vidrio',
-    base_price: 350,
-    scope: 'tooth',
+    categoryCode: 'protesis_fija',
+    basePrice: 350,
+    applicationType: 'single_tooth',
     currency: 'BOB',
   },
-  { name: 'Perno + muñón', base_price: 250, scope: 'tooth', currency: 'BOB' },
-  { name: 'Corona metálica', base_price: 350, scope: 'tooth', currency: 'BOB' },
   {
+    code: 'perno_y_munon',
+    name: 'Perno y muñón',
+    categoryCode: 'protesis_fija',
+    basePrice: 250,
+    applicationType: 'single_tooth',
+    currency: 'BOB',
+  },
+  {
+    code: 'corona_metalica',
+    name: 'Corona metálica',
+    categoryCode: 'protesis_fija',
+    basePrice: 350,
+    applicationType: 'single_tooth',
+    currency: 'BOB',
+  },
+  {
+    code: 'corona_ivocron',
     name: 'Corona de Ivocron',
-    base_price: 550,
-    scope: 'tooth',
+    categoryCode: 'protesis_fija',
+    basePrice: 550,
+    applicationType: 'single_tooth',
     currency: 'BOB',
   },
   {
+    code: 'corona_isosit',
     name: 'Corona de Isosit',
-    base_price: 750,
-    scope: 'tooth',
+    categoryCode: 'protesis_fija',
+    basePrice: 750,
+    applicationType: 'single_tooth',
     currency: 'BOB',
   },
   {
+    code: 'corona_porcelana_metal_plastico',
     name: 'Corona de porcelana sobre metal o plástico',
-    base_price: 950,
-    scope: 'tooth',
+    categoryCode: 'protesis_fija',
+    basePrice: 950,
+    applicationType: 'single_tooth',
     currency: 'BOB',
   },
   {
+    code: 'corona_porcelana_libre_metal',
     name: 'Corona de porcelana libre de metal',
-    base_price: 1200,
-    scope: 'tooth',
+    categoryCode: 'protesis_fija',
+    basePrice: 1200,
+    applicationType: 'single_tooth',
     currency: 'BOB',
   },
-
   // Ortodoncia
   {
+    code: 'ortodoncia_brackets_metalicos',
     name: 'Ortodoncia con brackets metálicos',
-    base_price: 6800,
-    scope: 'full_mouth',
+    categoryCode: 'ortodoncia',
+    basePrice: 6800,
+    applicationType: 'full_mouth',
     currency: 'BOB',
   },
   {
+    code: 'reposicion_bracket_metalico',
     name: 'Reposición de bracket metálico',
-    base_price: 150,
-    scope: 'tooth',
+    categoryCode: 'ortodoncia',
+    basePrice: 150,
+    applicationType: 'single_tooth',
     currency: 'BOB',
   },
   {
+    code: 'reposicion_bandas',
     name: 'Reposición de bandas',
-    base_price: 150,
-    scope: 'tooth',
+    categoryCode: 'ortodoncia',
+    basePrice: 150,
+    applicationType: 'orthodontic',
     currency: 'BOB',
   },
   {
+    code: 'reposicion_arco',
     name: 'Reposición de arco',
-    base_price: 50,
-    scope: 'none',
+    categoryCode: 'ortodoncia',
+    basePrice: 50,
+    applicationType: 'orthodontic',
     currency: 'BOB',
   },
   {
+    code: 'ortodoncia_brackets_esteticos',
     name: 'Ortodoncia con brackets estéticos',
-    base_price: 8300,
-    scope: 'full_mouth',
+    categoryCode: 'ortodoncia',
+    basePrice: 8300,
+    applicationType: 'full_mouth',
     currency: 'BOB',
   },
   {
+    code: 'reposicion_bracket_estetico',
     name: 'Reposición de bracket estético',
-    base_price: 200,
-    scope: 'tooth',
+    categoryCode: 'ortodoncia',
+    basePrice: 200,
+    applicationType: 'single_tooth',
     currency: 'BOB',
   },
   {
+    code: 'placa_expansion_removible',
     name: 'Placa de expansión removible',
-    base_price: 500,
-    scope: 'none',
+    categoryCode: 'ortodoncia',
+    basePrice: 500,
+    applicationType: 'orthodontic',
     currency: 'BOB',
   },
   {
+    code: 'placa_expansion_fija',
     name: 'Placa de expansión fija',
-    base_price: 1000,
-    scope: 'none',
+    categoryCode: 'ortodoncia',
+    basePrice: 1000,
+    applicationType: 'orthodontic',
     currency: 'BOB',
   },
   {
+    code: 'placa_contencion_superior',
     name: 'Placa de contención superior',
-    base_price: 400,
-    scope: 'upper_arch',
+    categoryCode: 'ortodoncia',
+    basePrice: 400,
+    applicationType: 'upper_arch',
     currency: 'BOB',
   },
   {
+    code: 'placa_contencion_inferior',
     name: 'Placa de contención inferior',
-    base_price: 400,
-    scope: 'lower_arch',
+    categoryCode: 'ortodoncia',
+    basePrice: 400,
+    applicationType: 'lower_arch',
     currency: 'BOB',
   },
   {
+    code: 'placa_contencion_completa',
     name: 'Placa de contención completa',
-    base_price: 800,
-    scope: 'full_mouth',
+    categoryCode: 'ortodoncia',
+    basePrice: 800,
+    applicationType: 'full_mouth',
     currency: 'BOB',
   },
-  { name: 'Máscara facial', base_price: 3500, scope: 'none', currency: 'BOB' },
   {
-    name: 'Elásticos de clase',
-    base_price: 20,
-    scope: 'none',
+    code: 'mascara_facial',
+    name: 'Máscara facial',
+    categoryCode: 'ortodoncia',
+    basePrice: 3500,
+    applicationType: 'orthodontic',
     currency: 'BOB',
   },
-  { name: 'Cera ortodóntica', base_price: 30, scope: 'none', currency: 'BOB' },
+  {
+    code: 'elasticos_de_clase',
+    name: 'Elásticos de clase',
+    categoryCode: 'ortodoncia',
+    basePrice: 20,
+    applicationType: 'unit',
+    currency: 'BOB',
+  },
+  {
+    code: 'cera_ortodontica',
+    name: 'Cera ortodóntica',
+    categoryCode: 'ortodoncia',
+    basePrice: 30,
+    applicationType: 'box',
+    currency: 'BOB',
+  },
 ];
 
 interface SeedTestimonial {
@@ -806,30 +1014,64 @@ async function deactivateLegacyDiagnoses() {
   }
 }
 
-const DEFAULT_CONSULTATION_NAME = 'Consulta';
+const DEFAULT_CONSULTATION_CODE = 'consulta_odontologica';
+
+/** Las 8 categorías del catálogo de tratamientos (CLI-41), mismo patrón que upsertDiagnosisCatalog. */
+async function upsertTreatmentCategories(): Promise<Map<string, string>> {
+  const categoryIdByCode = new Map<string, string>();
+  for (const [index, category] of TREATMENT_CATEGORIES.entries()) {
+    const row = await prisma.treatment_categories.upsert({
+      where: { code: category.code },
+      create: {
+        code: category.code,
+        name: category.name,
+        display_order: index,
+      },
+      update: { name: category.name, display_order: index },
+    });
+    categoryIdByCode.set(category.code, row.id);
+  }
+  console.log(
+    `✓ ${TREATMENT_CATEGORIES.length} categorías de tratamientos sincronizadas.`,
+  );
+  return categoryIdByCode;
+}
 
 /**
- * Upsert por nombre, no createMany con guard de tabla completa — permite
- * cargar ítems nuevos del catálogo en el futuro sin duplicar los actuales.
- * El `update` NO toca `base_price` a propósito: el contenedor corre
- * `prisma db seed` en cada arranque, y con PATCH /treatments/:id ya
- * disponible (CLI-14) un upsert completo revertiría cualquier ajuste de
- * precio que haga el doctor en el siguiente `docker compose up`.
+ * Upsert por code, no por nombre (CLI-41) — permite renombrar un ítem del
+ * catálogo (p. ej. "Consulta" → "Consulta odontológica") sin duplicar la
+ * fila ni desactivarla por accidente en deactivateLegacy. El `update` NO
+ * toca `base_price` a propósito: el contenedor corre `prisma db seed` en
+ * cada arranque, y con PATCH /treatments/:id ya disponible (CLI-14) un
+ * upsert completo revertiría cualquier ajuste de precio que haga el doctor
+ * en el siguiente `docker compose up`.
  */
-async function upsertCatalog() {
-  for (const item of CATALOG) {
+async function upsertCatalog(categoryIdByCode: Map<string, string>) {
+  for (const [index, item] of CATALOG.entries()) {
+    const categoryId = categoryIdByCode.get(item.categoryCode);
+    if (!categoryId) {
+      throw new Error(
+        `Categoría de tratamiento desconocida: ${item.categoryCode}`,
+      );
+    }
     await prisma.treatments.upsert({
-      where: { name: item.name },
+      where: { code: item.code },
       create: {
+        code: item.code,
         name: item.name,
-        base_price: item.base_price,
-        scope: item.scope,
+        base_price: item.basePrice,
+        application_type: item.applicationType,
         currency: item.currency,
+        category_id: categoryId,
+        display_order: index,
         is_active: true,
       },
       update: {
-        scope: item.scope,
+        name: item.name,
+        application_type: item.applicationType,
         currency: item.currency,
+        category_id: categoryId,
+        display_order: index,
         is_active: true,
       },
     });
@@ -839,9 +1081,9 @@ async function upsertCatalog() {
 
 /** Tratamientos que ya no están en el catálogo real quedan inactivos, nunca se borran (FKs con ON DELETE NO ACTION). */
 async function deactivateLegacy() {
-  const catalogNames = CATALOG.map((t) => t.name);
+  const catalogCodes = CATALOG.map((t) => t.code);
   const { count } = await prisma.treatments.updateMany({
-    where: { name: { notIn: catalogNames }, is_active: true },
+    where: { code: { notIn: catalogCodes }, is_active: true },
     data: { is_active: false },
   });
   if (count > 0) {
@@ -859,21 +1101,22 @@ async function syncDefaultConsultation() {
   await prisma.treatments.updateMany({
     where: {
       is_default_consultation: true,
-      name: { not: DEFAULT_CONSULTATION_NAME },
+      code: { not: DEFAULT_CONSULTATION_CODE },
     },
     data: { is_default_consultation: false },
   });
   await prisma.treatments.update({
-    where: { name: DEFAULT_CONSULTATION_NAME },
+    where: { code: DEFAULT_CONSULTATION_CODE },
     data: { is_default_consultation: true },
   });
   console.log(
-    `✓ "${DEFAULT_CONSULTATION_NAME}" marcada como is_default_consultation.`,
+    `✓ "${DEFAULT_CONSULTATION_CODE}" marcada como is_default_consultation.`,
   );
 }
 
 async function main() {
-  await upsertCatalog();
+  const categoryIdByCode = await upsertTreatmentCategories();
+  await upsertCatalog(categoryIdByCode);
   await deactivateLegacy();
   await syncDefaultConsultation();
   await upsertDiagnosisCatalog();

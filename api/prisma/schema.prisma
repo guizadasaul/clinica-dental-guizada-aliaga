@@ -12,13 +12,19 @@ enum UserRole {
   patient
 }
 
-enum TreatmentScope {
-  tooth
-  multi_tooth
+enum TreatmentApplicationType {
+  general
+  single_tooth
+  multiple_teeth
   upper_arch
   lower_arch
   full_mouth
-  none
+  soft_tissue
+  frenulum
+  prosthesis
+  orthodontic
+  unit
+  box
 }
 
 enum TestimonialStatus {
@@ -324,6 +330,8 @@ model tooth_procedures {
   application_group_id String?          @db.Uuid
   treatment_id         String           @db.Uuid
   price_charged        Decimal          @db.Decimal(10, 2)
+  /// Para aplicaciones por unidad/caja (elásticos, cera ortodóntica, CLI-41) — price_charged = quantity × treatments.base_price. 1 para el resto.
+  quantity             Int              @default(1)
   procedure_date       DateTime         @default(dbgenerated("CURRENT_DATE")) @db.Date
   surface_vestibular   Boolean          @default(false)
   surface_palatal      Boolean          @default(false)
@@ -356,22 +364,42 @@ model testimonials {
 }
 
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// Categorías del catálogo de tratamientos (CLI-41), espejo de
+/// diagnosis_categories (CLI-40): las 8 categorías reales de la clínica
+/// (Básicos, Operatoria dental, Periodoncia, Endodoncia, Cirugía oral,
+/// Prótesis removible, Prótesis fija, Ortodoncia). Cargadas por el seed
+/// (upsert por code).
+model treatment_categories {
+  id            String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  code          String       @unique @db.VarChar(50)
+  name          String       @db.VarChar(150)
+  display_order Int
+  treatments    treatments[]
+}
+
 model treatments {
-  id                      String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  name                    String               @unique @db.VarChar(200)
+  id                      String                   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  /// Clave estable del catálogo (CLI-41) — el seed hace upsert por code, no
+  /// por name, así que renombrar un tratamiento no duplica la fila ni la
+  /// desactiva por accidente.
+  code                    String                   @unique @db.VarChar(50)
+  name                    String                   @unique @db.VarChar(200)
   description             String?
-  base_price              Decimal              @db.Decimal(10, 2)
-  estimated_minutes       Int                  @default(30)
-  scope                   TreatmentScope       @default(tooth)
-  currency                String               @default("BOB") @db.VarChar(3)
-  is_active               Boolean              @default(true)
-  is_default_consultation Boolean              @unique(map: "idx_one_default_consultation", where: raw("(is_default_consultation = true)")) @default(false)
-  created_at              DateTime             @default(now()) @db.Timestamptz(6)
-  updated_at              DateTime             @default(now()) @db.Timestamptz(6)
+  base_price              Decimal                  @db.Decimal(10, 2)
+  estimated_minutes       Int                      @default(30)
+  application_type        TreatmentApplicationType @default(single_tooth)
+  currency                String                   @default("BOB") @db.VarChar(3)
+  category_id             String                   @db.Uuid
+  display_order           Int                      @default(0)
+  is_active               Boolean                  @default(true)
+  is_default_consultation Boolean                  @unique(map: "idx_one_default_consultation", where: raw("(is_default_consultation = true)")) @default(false)
+  created_at              DateTime                 @default(now()) @db.Timestamptz(6)
+  updated_at              DateTime                 @default(now()) @db.Timestamptz(6)
   appointments            appointments[]
   odontogram_entries      odontogram_entries[]
   quote_items             quote_items[]
   tooth_procedures        tooth_procedures[]
+  treatment_categories    treatment_categories     @relation(fields: [category_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
 }
 
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.

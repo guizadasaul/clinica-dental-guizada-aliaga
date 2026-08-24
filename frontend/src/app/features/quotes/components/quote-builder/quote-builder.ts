@@ -16,6 +16,7 @@ import { QuotesService } from '../../services/quotes.service';
 import { TreatmentsService } from '../../../treatments/services/treatments.service';
 import type { Quote, QuoteItem } from '../../models/quote.model';
 import type { Treatment } from '../../../treatments/models/treatment.model';
+import { applicationTypeAllowsQuantity } from '../../../../shared/constants/dental-chart.constants';
 import {
   TreatmentScopePickerComponent,
   type TreatmentScopeSelection,
@@ -162,7 +163,9 @@ export class QuoteBuilderComponent {
           treatmentId: sel.treatment.id,
           toothNumbers: sel.toothNumbers,
           customPrice: this.customPrice() ?? undefined,
-          quantity: sel.treatment.scope === 'none' ? this.quantity() : undefined,
+          quantity: applicationTypeAllowsQuantity(sel.treatment.applicationType)
+            ? this.quantity()
+            : undefined,
         }).subscribe({ next: resolve, error: reject });
       });
 
@@ -197,5 +200,9 @@ export class QuoteBuilderComponent {
 
   protected onClose(): void {
     this.close.emit();
+  }
+
+  protected allowsQuantity(treatment: Treatment): boolean {
+    return applicationTypeAllowsQuantity(treatment.applicationType);
   }
 }

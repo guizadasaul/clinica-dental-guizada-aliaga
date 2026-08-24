@@ -1,10 +1,16 @@
+// @Type() (class-transformer, usado por CreateToothProcedureDto.teeth para el
+// ValidateNested anidado, CLI-41) necesita el polyfill de Reflect.metadata ya
+// cargado al momento de decorar la clase. La app real lo carga vía
+// @nestjs/core al bootstrapear (main.ts); este spec no pasa por ahí, así
+// que hay que importarlo a mano antes del resto.
+import 'reflect-metadata';
 import { plainToInstance } from 'class-transformer';
 import { validate } from 'class-validator';
 import { CreateToothProcedureDto } from './create-tooth-procedure.dto';
 import { INJECTION_PAYLOADS } from '../../../../shared/validators/__fixtures__/injection-payloads';
 
 const VALID_PROCEDURE = {
-  toothNumbers: [16],
+  teeth: [{ number: 16, surfaceOcclusal: true }],
   treatmentId: 'd290f1ee-6c54-4b01-90e6-d701748f0851',
   priceCharged: 150,
   notes: 'Sin complicaciones',
@@ -24,9 +30,29 @@ describe('CreateToothProcedureDto', () => {
     expect(errors).toHaveLength(0);
   });
 
-  it('acepta toothNumbers vacío (tratamientos de arcada/boca completa)', async () => {
-    const errors = await validateProcedure({ toothNumbers: [] });
+  it('acepta teeth vacío (tratamientos de arcada/boca completa/sin diente)', async () => {
+    const errors = await validateProcedure({ teeth: [] });
     expect(errors).toHaveLength(0);
+  });
+
+  it('acepta varios dientes con superficies distintas cada uno', async () => {
+    const errors = await validateProcedure({
+      teeth: [
+        { number: 16, surfaceOcclusal: true },
+        { number: 17, surfaceMesial: true, surfaceDistal: true },
+      ],
+    });
+    expect(errors).toHaveLength(0);
+  });
+
+  it('acepta quantity para tratamientos por unidad/caja', async () => {
+    const errors = await validateProcedure({ teeth: [], quantity: 3 });
+    expect(errors).toHaveLength(0);
+  });
+
+  it('rechaza quantity menor a 1', async () => {
+    const errors = await validateProcedure({ teeth: [], quantity: 0 });
+    expect(errors.some((e) => e.property === 'quantity')).toBe(true);
   });
 
   it('rechaza un treatmentId que no es UUID', async () => {
@@ -44,13 +70,18 @@ describe('CreateToothProcedureDto', () => {
     expect(errors.some((e) => e.property === 'priceCharged')).toBe(true);
   });
 
-  // A diferencia de create-odontogram-entries.dto.ts, toothNumbers acá NO
-  // lleva IsFdiToothNumber() (fuera de alcance de CLI-39 para este DTO) —
-  // sigue validando solo con @Min(11) @Max(85), así que 19 (inexistente en
-  // FDI) todavía pasa.
-  it('un diente FDI inexistente (19) todavía pasa Min/Max en toothNumbers', async () => {
-    const errors = await validateProcedure({ toothNumbers: [19] });
+  // A diferencia de create-odontogram-entries.dto.ts, teeth[].number acá NO
+  // lleva IsFdiToothNumber() (fuera de alcance de CLI-39/CLI-41 para este
+  // DTO) — sigue validando solo con @Min(11) @Max(85), así que 19
+  // (inexistente en FDI) todavía pasa.
+  it('un diente FDI inexistente (19) todavía pasa Min/Max en teeth[].number', async () => {
+    const errors = await validateProcedure({ teeth: [{ number: 19 }] });
     expect(errors).toHaveLength(0);
+  });
+
+  it('rechaza un número de diente fuera de Min/Max', async () => {
+    const errors = await validateProcedure({ teeth: [{ number: 9 }] });
+    expect(errors.length).toBeGreaterThan(0);
   });
 
   it('"" en notes se trata como no enviado (EmptyToUndefined)', async () => {

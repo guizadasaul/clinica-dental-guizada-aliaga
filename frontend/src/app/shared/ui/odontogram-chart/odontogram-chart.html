@@ -1,0 +1,68 @@
+<div class="odontogram-chart">
+
+  <!-- Chart: static drawing + interactive overlay (618x554 grid) -->
+  <div class="odontogram-chart__canvas">
+    <img class="odontogram-chart__canvas-img" [src]="odontogramUrl" alt="Odontograma" />
+    <svg
+      class="odontogram-chart__canvas-overlay"
+      viewBox="0 0 618 554"
+      xmlns="http://www.w3.org/2000/svg"
+      role="group"
+      aria-label="Selector de dientes"
+    >
+      <text class="odontogram-chart__arch-title-svg" x="309" y="16" text-anchor="middle">Arcada superior</text>
+      <text class="odontogram-chart__arch-title-svg" x="309" y="550" text-anchor="middle">Arcada inferior</text>
+
+      @for (tooth of cells; track tooth.number) {
+        <g
+          class="odontogram-chart__cell"
+          [class.odontogram-chart__cell--selected]="isSelected(tooth.number)"
+          (click)="onCellClick(tooth)"
+          (keyup.enter)="onCellClick(tooth)"
+          role="button"
+          tabindex="0"
+          [attr.aria-label]="'Diente ' + tooth.number"
+        >
+          <!-- Invisible, generous click target -->
+          <rect
+            class="odontogram-chart__cell-hit"
+            [attr.x]="tooth.x" [attr.y]="tooth.y" [attr.width]="tooth.w" [attr.height]="tooth.h"
+          />
+          <!-- Outline paths are grouped and the opacity is applied to the group, so overlapping
+               objects flatten into a single surface (overlap paints the same, no doubling). -->
+          <g
+            class="odontogram-chart__cell-paint"
+            [class.odontogram-chart__cell-paint--diagnosed]="isDiagnosed(tooth.number)"
+            [class.odontogram-chart__cell-paint--selected]="isSelected(tooth.number)"
+          >
+            @for (outline of tooth.outlines; track $index) {
+              <path
+                class="odontogram-chart__cell-shape"
+                [attr.d]="outline"
+                [attr.fill]="paintFill(tooth.number)"
+              />
+            }
+          </g>
+          <text
+            class="odontogram-chart__cell-num"
+            [attr.x]="tooth.labelX" [attr.y]="tooth.labelY" [attr.font-size]="tooth.labelSize"
+            text-anchor="middle"
+          >{{ tooth.number }}</text>
+        </g>
+      }
+    </svg>
+  </div>
+
+  <!-- Legend -->
+  @if (legendItems().length > 0) {
+    <div class="odontogram-chart__legend">
+      @for (item of legendItems(); track item.name) {
+        <div class="odontogram-chart__legend-item">
+          <span class="odontogram-chart__legend-dot" [style.background]="item.color"></span>
+          <span>{{ item.name }}</span>
+        </div>
+      }
+    </div>
+  }
+
+</div>

@@ -13,7 +13,7 @@ import { User } from '../../auth/domain/User';
 import { UserRole } from '../../auth/domain/value-objects/UserRole';
 import { TreatmentRepository } from '../../treatments/domain/TreatmentRepository';
 import type { Treatment } from '../../treatments/domain/Treatment';
-import type { TreatmentScope } from '../../treatments/domain/TreatmentScope';
+import type { TreatmentApplicationType } from '../../treatments/domain/TreatmentApplicationType';
 import { DiagnosisRepository } from '../../diagnoses/domain/DiagnosisRepository';
 import type { Diagnosis } from '../../diagnoses/domain/Diagnosis';
 import { SupabaseAdminService } from '../../auth/infrastructure/SupabaseAdminService';
@@ -85,12 +85,17 @@ function fakeDiagnosis(overrides: Partial<Diagnosis> = {}): Diagnosis {
 function fakeTreatment(overrides: Partial<Treatment> = {}): Treatment {
   return {
     id: 'treatment-1',
+    code: 'tratamiento',
     name: 'Tratamiento',
     description: null,
     basePrice: 100,
     estimatedMinutes: 30,
-    scope: 'tooth',
+    applicationType: 'single_tooth',
     currency: 'BOB',
+    categoryId: 'category-1',
+    categoryCode: 'operatoria_dental',
+    categoryName: 'Operatoria dental',
+    displayOrder: 0,
     isActive: true,
     createdAt: new Date(),
     updatedAt: new Date(),
@@ -387,7 +392,7 @@ describe('PatientsService', () => {
     });
   });
 
-  describe('createToothProcedure — reglas de alcance', () => {
+  describe('createToothProcedure — reglas de aplicación', () => {
     const baseInput = { treatmentId: 'treatment-1', priceCharged: 100 };
 
     beforeEach(() => {
@@ -409,15 +414,15 @@ describe('PatientsService', () => {
       await expect(
         service.createToothProcedure('patient-1', 'doctor-auth-1', {
           ...baseInput,
-          toothNumbers: [16],
+          teeth: [{ number: 16 }],
         }),
       ).rejects.toThrow(NotFoundException);
     });
 
-    describe('scope: tooth', () => {
+    describe('applicationType: single_tooth', () => {
       beforeEach(() => {
         mockTreatmentRepo.findById.mockResolvedValue(
-          fakeTreatment({ scope: 'tooth' }),
+          fakeTreatment({ applicationType: 'single_tooth' }),
         );
       });
 
@@ -425,7 +430,7 @@ describe('PatientsService', () => {
         await expect(
           service.createToothProcedure('patient-1', 'doctor-auth-1', {
             ...baseInput,
-            toothNumbers: [],
+            teeth: [],
           }),
         ).rejects.toThrow(BadRequestException);
       });
@@ -434,16 +439,19 @@ describe('PatientsService', () => {
         await expect(
           service.createToothProcedure('patient-1', 'doctor-auth-1', {
             ...baseInput,
-            toothNumbers: [16, 17],
+            teeth: [{ number: 16 }, { number: 17 }],
           }),
         ).rejects.toThrow(BadRequestException);
       });
 
-      it('creates a single row with applicationGroupId null', async () => {
+      it('creates a single row with applicationGroupId null and its own surfaces', async () => {
         const result = await service.createToothProcedure(
           'patient-1',
           'doctor-auth-1',
-          { ...baseInput, toothNumbers: [16] },
+          {
+            ...baseInput,
+            teeth: [{ number: 16, surfaceOcclusal: true }],
+          },
         );
 
         expect(result).toHaveLength(1);
@@ -454,32 +462,47 @@ describe('PatientsService', () => {
               toothNumber: 16,
               applicationGroupId: null,
               priceCharged: 100,
+              quantity: 1,
+              surfaceOcclusal: true,
             }),
           ],
         );
       });
     });
 
-    describe('scope: multi_tooth', () => {
+    describe('applicationType: multiple_teeth', () => {
       beforeEach(() => {
         mockTreatmentRepo.findById.mockResolvedValue(
-          fakeTreatment({ scope: 'multi_tooth' }),
+          fakeTreatment({ applicationType: 'multiple_teeth' }),
         );
       });
 
-      it('rejects with a single tooth', async () => {
+      it('rejects with no teeth', async () => {
         await expect(
           service.createToothProcedure('patient-1', 'doctor-auth-1', {
             ...baseInput,
-            toothNumbers: [16],
+            teeth: [],
           }),
         ).rejects.toThrow(BadRequestException);
       });
 
-      it('creates one row per tooth sharing an applicationGroupId, price only on the lowest tooth', async () => {
+      it('accepts a single tooth ("1 o varios dientes")', async () => {
+        await expect(
+          service.createToothProcedure('patient-1', 'doctor-auth-1', {
+            ...baseInput,
+            teeth: [{ number: 16 }],
+          }),
+        ).resolves.toHaveLength(1);
+      });
+
+      it('creates one row per tooth with its own surfaces, sharing an applicationGroupId, price only on the lowest tooth', async () => {
         await service.createToothProcedure('patient-1', 'doctor-auth-1', {
           ...baseInput,
-          toothNumbers: [18, 16, 17],
+          teeth: [
+            { number: 18, surfaceMesial: true },
+            { number: 16, surfaceOcclusal: true },
+            { number: 17, surfaceDistal: true },
+          ],
         });
 
         const [, rows] = mockPatientRepo.createToothProcedures.mock
@@ -489,11 +512,20 @@ describe('PatientsService', () => {
             toothNumber: number;
             applicationGroupId: string;
             priceCharged: number;
+            quantity: number;
+            surfaceOcclusal?: boolean;
+            surfaceDistal?: boolean;
+            surfaceMesial?: boolean;
           }[],
         ];
         expect(rows).toHaveLength(3);
         expect(rows.map((r) => r.toothNumber)).toEqual([16, 17, 18]);
         expect(new Set(rows.map((r) => r.applicationGroupId)).size).toBe(1);
+        // cada diente conserva SUS PROPIAS superficies, no un juego copiado a los 3 (CLI-41)
+        expect(rows[0].surfaceOcclusal).toBe(true);
+        expect(rows[0].surfaceDistal).toBeUndefined();
+        expect(rows[1].surfaceDistal).toBe(true);
+        expect(rows[2].surfaceMesial).toBe(true);
         expect(rows[0].priceCharged).toBe(100);
         expect(rows[1].priceCharged).toBe(0);
         expect(rows[2].priceCharged).toBe(0);
@@ -504,12 +536,12 @@ describe('PatientsService', () => {
       ['upper_arch', 16],
       ['lower_arch', 16],
       ['full_mouth', 32],
-    ] as [TreatmentScope, number][])(
-      'scope: %s',
-      (scope, expectedTeethCount) => {
+    ] as [TreatmentApplicationType, number][])(
+      'applicationType: %s',
+      (applicationType, expectedTeethCount) => {
         beforeEach(() => {
           mockTreatmentRepo.findById.mockResolvedValue(
-            fakeTreatment({ scope }),
+            fakeTreatment({ applicationType }),
           );
         });
 
@@ -517,7 +549,7 @@ describe('PatientsService', () => {
           await expect(
             service.createToothProcedure('patient-1', 'doctor-auth-1', {
               ...baseInput,
-              toothNumbers: [16],
+              teeth: [{ number: 16 }],
             }),
           ).rejects.toThrow(BadRequestException);
         });
@@ -525,7 +557,7 @@ describe('PatientsService', () => {
         it(`creates a single row with no tooth and generates ${expectedTeethCount} odontogram entries`, async () => {
           await service.createToothProcedure('patient-1', 'doctor-auth-1', {
             ...baseInput,
-            toothNumbers: [],
+            teeth: [],
           });
 
           expect(mockPatientRepo.createToothProcedures).toHaveBeenCalledWith(
@@ -542,10 +574,13 @@ describe('PatientsService', () => {
       },
     );
 
-    describe('scope: none', () => {
+    // general/soft_tissue/frenulum/prosthesis/orthodontic/unit/box comparten
+    // exactamente el mismo camino (sin diente, sin odontograma) — general
+    // alcanza como representante.
+    describe('applicationType: general', () => {
       beforeEach(() => {
         mockTreatmentRepo.findById.mockResolvedValue(
-          fakeTreatment({ scope: 'none' }),
+          fakeTreatment({ applicationType: 'general' }),
         );
       });
 
@@ -553,7 +588,7 @@ describe('PatientsService', () => {
         await expect(
           service.createToothProcedure('patient-1', 'doctor-auth-1', {
             ...baseInput,
-            toothNumbers: [16],
+            teeth: [{ number: 16 }],
           }),
         ).rejects.toThrow(BadRequestException);
       });
@@ -562,11 +597,39 @@ describe('PatientsService', () => {
         const result = await service.createToothProcedure(
           'patient-1',
           'doctor-auth-1',
-          { ...baseInput, toothNumbers: [] },
+          { ...baseInput, teeth: [] },
         );
 
         expect(result).toHaveLength(1);
         expect(mockPatientRepo.appendOdontogramEntries).not.toHaveBeenCalled();
+      });
+    });
+
+    describe('applicationType: unit', () => {
+      beforeEach(() => {
+        mockTreatmentRepo.findById.mockResolvedValue(
+          fakeTreatment({ applicationType: 'unit', basePrice: 20 }),
+        );
+      });
+
+      it('stores quantity on the row (priceCharged ya viene calculado por el caller)', async () => {
+        await service.createToothProcedure('patient-1', 'doctor-auth-1', {
+          treatmentId: 'treatment-1',
+          priceCharged: 60,
+          quantity: 3,
+          teeth: [],
+        });
+
+        expect(mockPatientRepo.createToothProcedures).toHaveBeenCalledWith(
+          'patient-1',
+          [
+            expect.objectContaining({
+              toothNumber: null,
+              priceCharged: 60,
+              quantity: 3,
+            }),
+          ],
+        );
       });
     });
   });

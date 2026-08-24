@@ -1,0 +1,214 @@
+<div class="rto">
+
+  <div class="rto__body" [class.rto__body--split]="panelOpen()">
+
+    <div class="rto__chart">
+
+      <div class="rto__toolbar">
+        <h3 class="rto__chart-title">
+          <span class="material-symbols-outlined">dentistry</span>
+          Tratamientos
+        </h3>
+        <button
+          type="button"
+          class="rto__btn rto__btn--secondary"
+          [disabled]="saving()"
+          (click)="onAddTreatmentClick()"
+        >
+          <span class="material-symbols-outlined">add_circle</span>
+          Agregar tratamiento
+        </button>
+      </div>
+      <p class="rto__chart-hint">Hacé clic en un diente para registrar un tratamiento en esa pieza.</p>
+
+      <app-odontogram-chart
+        [toothColor]="toothColorMap()"
+        [selectedTeeth]="chartSelectedTeeth()"
+        [legendItems]="legendItems()"
+        (toothClick)="onToothClick($event)"
+      />
+
+    </div>
+
+    <!-- New treatment panel -->
+    @if (panelOpen()) {
+      <div class="rto__panel" role="region" aria-label="Nuevo tratamiento">
+        <div class="rto__panel-header">
+          <div class="rto__panel-tooth-badge">
+            <span class="material-symbols-outlined">dentistry</span>
+            @if (panelToothNumbers().length === 1) {
+              Diente #{{ panelToothNumbers()[0] }}
+            } @else if (panelToothNumbers().length > 1) {
+              {{ panelToothNumbers().length }} dientes: #{{ panelToothNumbers().join(', #') }}
+            } @else {
+              Nuevo tratamiento
+            }
+          </div>
+          <button type="button" class="rto__panel-close" (click)="onPanelCancel()" aria-label="Cerrar panel">
+            <span class="material-symbols-outlined">close</span>
+          </button>
+        </div>
+
+        <!-- Treatment -->
+        <div class="rto__panel-field">
+          <label class="rto__panel-label" for="rto-treatment">
+            Tratamiento <span class="rto__req">*</span>
+          </label>
+          <select
+            id="rto-treatment"
+            class="rto__select"
+            [value]="panelTreatmentId()"
+            (change)="onPanelTreatmentChange($any($event.target).value)"
+          >
+            <option value="" disabled>Elegí un tratamiento...</option>
+            @for (group of treatmentGroups(); track group.categoryCode) {
+              <optgroup [label]="group.categoryName">
+                @for (t of group.treatments; track t.id) {
+                  <option [value]="t.id">{{ t.name }}</option>
+                }
+              </optgroup>
+            }
+          </select>
+          @if (panelTreatment()?.currency === 'USD' && panelTreatment()?.basePriceBob !== null) {
+            <small class="rto__fx-hint">aprox. Bs {{ panelTreatment()!.basePriceBob | number:'1.2-2' }} al tipo de cambio del día</small>
+          }
+        </div>
+
+        @if (panelTreatment(); as treatment) {
+
+          @if (treatment.applicationType === 'single_tooth' || treatment.applicationType === 'multiple_teeth') {
+            @if (panelToothNumbers().length === 0) {
+              <p class="rto__panel-hint">Hacé clic en {{ treatment.applicationType === 'single_tooth' ? 'un diente' : 'una o más piezas' }} del odontograma.</p>
+            } @else {
+              <!-- Surfaces — una por cada diente seleccionado (CLI-41), no un juego copiado a todos -->
+              @for (n of panelToothNumbers(); track n) {
+                <div class="rto__panel-field">
+                  <label class="rto__panel-label">Superficies afectadas — diente #{{ n }}</label>
+                  <div class="rto__surfaces">
+                    <label class="rto__check">
+                      <input type="checkbox" [checked]="getSurface(n).vestibular" (change)="setSurface(n, 'vestibular', $any($event.target).checked)" />
+                      Vestibular
+                    </label>
+                    <label class="rto__check">
+                      <input type="checkbox" [checked]="getSurface(n).palatal" (change)="setSurface(n, 'palatal', $any($event.target).checked)" />
+                      Palatal
+                    </label>
+                    <label class="rto__check">
+                      <input type="checkbox" [checked]="getSurface(n).mesial" (change)="setSurface(n, 'mesial', $any($event.target).checked)" />
+                      Mesial
+                    </label>
+                    <label class="rto__check">
+                      <input type="checkbox" [checked]="getSurface(n).distal" (change)="setSurface(n, 'distal', $any($event.target).checked)" />
+                      Distal
+                    </label>
+                    <label class="rto__check">
+                      <input type="checkbox" [checked]="getSurface(n).occlusal" (change)="setSurface(n, 'occlusal', $any($event.target).checked)" />
+                      Oclusal
+                    </label>
+                  </div>
+                </div>
+              }
+            }
+          } @else if (treatment.applicationType === 'upper_arch' || treatment.applicationType === 'lower_arch' || treatment.applicationType === 'full_mouth') {
+            <p class="rto__panel-hint">
+              @switch (treatment.applicationType) {
+                @case ('upper_arch') { Se aplica a toda la arcada superior — resaltada arriba, sin selección manual. }
+                @case ('lower_arch') { Se aplica a toda la arcada inferior — resaltada arriba, sin selección manual. }
+                @default { Se aplica a toda la boca — resaltada arriba, sin selección manual. }
+              }
+            </p>
+          }
+
+          <!-- Quantity (elásticos por unidad, cera por caja) — el precio se calcula, no se edita a mano -->
+          @if (isQuantityBased()) {
+            <div class="rto__panel-field">
+              <label class="rto__panel-label" for="quantity">
+                Cantidad <span class="rto__req">*</span>
+              </label>
+              <input
+                id="quantity"
+                type="number"
+                min="1"
+                step="1"
+                class="rto__input"
+                [value]="panelQuantity()"
+                (input)="panelQuantity.set(+$any($event.target).value)"
+              />
+              <small class="rto__fx-hint">
+                Total: {{ treatment.currency === 'USD' ? '$' : 'Bs.' }} {{ computedTotal() | number:'1.2-2' }}
+                ({{ treatment.currency === 'USD' ? '$' : 'Bs.' }} {{ treatment.basePrice }} c/u)
+              </small>
+            </div>
+          } @else {
+            <!-- Price charged -->
+            <div class="rto__panel-field">
+              <label class="rto__panel-label" for="priceCharged">
+                Precio cobrado ({{ treatment.currency === 'USD' ? '$' : 'Bs.' }}) <span class="rto__req">*</span>
+              </label>
+              <input
+                id="priceCharged"
+                type="number"
+                min="0"
+                step="0.01"
+                class="rto__input"
+                [value]="panelPriceCharged()"
+                (input)="panelPriceCharged.set(+$any($event.target).value)"
+              />
+            </div>
+          }
+
+          <!-- Procedure date -->
+          <div class="rto__panel-field">
+            <label class="rto__panel-label" for="procedureDate">Fecha del procedimiento</label>
+            <input
+              id="procedureDate"
+              type="date"
+              class="rto__input"
+              [value]="panelProcedureDate()"
+              (change)="panelProcedureDate.set($any($event.target).value)"
+            />
+          </div>
+
+          <!-- Notes -->
+          <div class="rto__panel-field">
+            <label class="rto__panel-label" for="treatmentNotes">Notas</label>
+            <textarea
+              id="treatmentNotes"
+              class="rto__input rto__input--textarea"
+              placeholder="Observaciones del procedimiento..."
+              [value]="panelNotes()"
+              (input)="panelNotes.set($any($event.target).value)"
+              rows="3"
+            ></textarea>
+          </div>
+        }
+
+        @if (formError()) {
+          <p class="rto__error">{{ formError() }}</p>
+        }
+
+        <div class="rto__panel-actions">
+          <button type="button" class="rto__btn rto__btn--secondary" (click)="onPanelCancel()">
+            Cancelar
+          </button>
+          <button
+            type="button"
+            class="rto__btn rto__btn--primary"
+            [disabled]="saving()"
+            (click)="onPanelSave()"
+          >
+            @if (saving()) {
+              <span class="rto__spinner"></span>
+              Guardando...
+            } @else {
+              <span class="material-symbols-outlined">save</span>
+              Registrar
+            }
+          </button>
+        </div>
+      </div>
+    }
+
+  </div>
+
+</div>
