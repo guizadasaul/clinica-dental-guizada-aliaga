@@ -15,10 +15,11 @@ import type { Quote } from '../domain/Quote';
 import { TreatmentRepository } from '../../treatments/domain/TreatmentRepository';
 import type { ITreatmentRepository } from '../../treatments/domain/TreatmentRepository';
 import {
-  assertTeethMatchScope,
-  InvalidScopeApplicationError,
-} from '../../treatments/domain/TreatmentScope';
-import type { TreatmentScope } from '../../treatments/domain/TreatmentScope';
+  assertTeethMatchApplicationType,
+  InvalidApplicationTypeError,
+  typeAllowsQuantity,
+} from '../../treatments/domain/TreatmentApplicationType';
+import type { TreatmentApplicationType } from '../../treatments/domain/TreatmentApplicationType';
 import { PatientRepository } from '../../patients/domain/PatientRepository';
 import type { IPatientRepository } from '../../patients/domain/PatientRepository';
 import {
@@ -87,18 +88,18 @@ export class QuotesService {
 
     const toothNumbers = data.toothNumbers ?? [];
     try {
-      assertTeethMatchScope(treatment.scope, toothNumbers);
+      assertTeethMatchApplicationType(treatment.applicationType, toothNumbers);
     } catch (error: unknown) {
-      if (error instanceof InvalidScopeApplicationError) {
+      if (error instanceof InvalidApplicationTypeError) {
         throw new BadRequestException(error.message);
       }
       throw error;
     }
 
     const quantity = data.quantity ?? 1;
-    if (quantity > 1 && treatment.scope !== 'none') {
+    if (quantity > 1 && !typeAllowsQuantity(treatment.applicationType)) {
       throw new BadRequestException(
-        'Solo los tratamientos sin alcance dental (scope "none") admiten cantidad mayor a 1',
+        'Solo los tratamientos sin dientes ni arcadas admiten cantidad mayor a 1',
       );
     }
 
@@ -117,7 +118,7 @@ export class QuotesService {
     }
 
     const rows = this.buildQuoteItemRows(
-      treatment.scope,
+      treatment.applicationType,
       toothNumbers,
       treatment.id,
       unitPrice,
@@ -139,7 +140,7 @@ export class QuotesService {
   }
 
   private buildQuoteItemRows(
-    scope: TreatmentScope,
+    applicationType: TreatmentApplicationType,
     toothNumbers: number[],
     treatmentId: string,
     unitPrice: number,
@@ -149,7 +150,7 @@ export class QuotesService {
   ): NewQuoteItemData[] {
     const shared = { treatmentId, currency, exchangeRate };
 
-    if (scope === 'multi_tooth') {
+    if (applicationType === 'multiple_teeth') {
       const applicationGroupId = randomUUID();
       const sortedTeeth = [...toothNumbers].sort((a, b) => a - b);
       return sortedTeeth.map((toothNumber, index) => {
@@ -165,7 +166,7 @@ export class QuotesService {
       });
     }
 
-    if (scope === 'tooth') {
+    if (applicationType === 'single_tooth') {
       return [
         {
           ...shared,

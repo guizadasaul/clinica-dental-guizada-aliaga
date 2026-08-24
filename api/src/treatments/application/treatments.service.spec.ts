@@ -8,12 +8,17 @@ import type { Treatment } from '../domain/Treatment';
 function fakeTreatment(overrides: Partial<Treatment> = {}): Treatment {
   return {
     id: 'treatment-1',
-    name: 'Consulta',
+    code: 'consulta_odontologica',
+    name: 'Consulta odontológica',
     description: null,
     basePrice: 50,
     estimatedMinutes: 30,
-    scope: 'tooth',
+    applicationType: 'general',
     currency: 'BOB',
+    categoryId: 'category-1',
+    categoryCode: 'basicos',
+    categoryName: 'Básicos',
+    displayOrder: 0,
     isActive: true,
     createdAt: new Date(),
     updatedAt: new Date(),
@@ -50,22 +55,29 @@ describe('TreatmentsService', () => {
   });
 
   describe('create', () => {
-    it('passes scope and currency through to the repository', async () => {
-      const created = fakeTreatment({ scope: 'multi_tooth', currency: 'USD' });
+    it('passes applicationType and currency through to the repository', async () => {
+      const created = fakeTreatment({
+        applicationType: 'multiple_teeth',
+        currency: 'USD',
+      });
       mockTreatmentRepo.create.mockResolvedValue(created);
 
       const result = await service.create({
+        code: 'placa_parcial_cromo_cobalto',
         name: 'Placa parcial',
         basePrice: 1400,
-        scope: 'multi_tooth',
+        applicationType: 'multiple_teeth',
         currency: 'USD',
+        categoryCode: 'protesis_removible',
       });
 
       expect(mockTreatmentRepo.create).toHaveBeenCalledWith({
+        code: 'placa_parcial_cromo_cobalto',
         name: 'Placa parcial',
         basePrice: 1400,
-        scope: 'multi_tooth',
+        applicationType: 'multiple_teeth',
         currency: 'USD',
+        categoryCode: 'protesis_removible',
       });
       expect(result).toEqual({ ...created, basePriceBob: null });
     });
@@ -77,10 +89,12 @@ describe('TreatmentsService', () => {
 
       await expect(
         service.create({
-          name: 'Consulta',
+          code: 'consulta_odontologica',
+          name: 'Consulta odontológica',
           basePrice: 50,
-          scope: 'none',
+          applicationType: 'general',
           currency: 'BOB',
+          categoryCode: 'basicos',
         }),
       ).rejects.toThrow(ConflictException);
     });

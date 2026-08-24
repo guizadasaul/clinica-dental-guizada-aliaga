@@ -9,6 +9,8 @@ import type {
 import type { Treatment } from '../../domain/Treatment.js';
 import { TreatmentMapper } from './treatment.mapper.js';
 
+const WITH_CATEGORY = { treatment_categories: true } as const;
+
 @Injectable()
 export class PrismaTreatmentsRepository implements ITreatmentRepository {
   constructor(private readonly prisma: PrismaService) {}
@@ -16,7 +18,14 @@ export class PrismaTreatmentsRepository implements ITreatmentRepository {
   async findActive(): Promise<Treatment[]> {
     const records = await this.prisma.treatments.findMany({
       where: { is_active: true },
-      orderBy: { name: 'asc' },
+      include: WITH_CATEGORY,
+      // Orden de categoría, después orden dentro de la categoría (CLI-41) —
+      // así el frontend agrupa por categoryCode en el orden en que llegan,
+      // sin necesitar un endpoint aparte para el orden de las categorías.
+      orderBy: [
+        { treatment_categories: { display_order: 'asc' } },
+        { display_order: 'asc' },
+      ],
     });
     return records.map((r) => TreatmentMapper.toDomain(r));
   }
@@ -24,6 +33,7 @@ export class PrismaTreatmentsRepository implements ITreatmentRepository {
   async findById(id: string): Promise<Treatment | null> {
     const record = await this.prisma.treatments.findUnique({
       where: { id },
+      include: WITH_CATEGORY,
     });
     return record ? TreatmentMapper.toDomain(record) : null;
   }
@@ -31,6 +41,7 @@ export class PrismaTreatmentsRepository implements ITreatmentRepository {
   async findDefaultConsultation(): Promise<Treatment | null> {
     const record = await this.prisma.treatments.findFirst({
       where: { is_default_consultation: true },
+      include: WITH_CATEGORY,
     });
     return record ? TreatmentMapper.toDomain(record) : null;
   }
@@ -38,14 +49,18 @@ export class PrismaTreatmentsRepository implements ITreatmentRepository {
   async create(data: CreateTreatmentData): Promise<Treatment> {
     const record = await this.prisma.treatments.create({
       data: {
+        code: data.code,
         name: data.name,
         description: data.description ?? null,
         base_price: data.basePrice,
         estimated_minutes: data.estimatedMinutes ?? 30,
-        scope: data.scope,
+        application_type: data.applicationType,
         currency: data.currency,
+        display_order: data.displayOrder ?? 0,
         is_active: data.isActive ?? true,
+        treatment_categories: { connect: { code: data.categoryCode } },
       },
+      include: WITH_CATEGORY,
     });
     return TreatmentMapper.toDomain(record);
   }
@@ -58,14 +73,20 @@ export class PrismaTreatmentsRepository implements ITreatmentRepository {
       const record = await this.prisma.treatments.update({
         where: { id },
         data: {
+          code: data.code,
           name: data.name,
           description: data.description,
           base_price: data.basePrice,
           estimated_minutes: data.estimatedMinutes,
-          scope: data.scope,
+          application_type: data.applicationType,
           currency: data.currency,
+          display_order: data.displayOrder,
           is_active: data.isActive,
+          treatment_categories: data.categoryCode
+            ? { connect: { code: data.categoryCode } }
+            : undefined,
         },
+        include: WITH_CATEGORY,
       });
       return TreatmentMapper.toDomain(record);
     } catch (error: unknown) {

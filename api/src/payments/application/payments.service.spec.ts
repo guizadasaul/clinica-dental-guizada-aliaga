@@ -47,12 +47,17 @@ const mockHoldExpiryScheduler = {
 
 const CONSULTATION: Treatment = {
   id: 'treat-1',
+  code: 'consulta_odontologica',
   name: 'Consulta inicial',
   description: null,
   basePrice: 50,
   estimatedMinutes: 30,
-  scope: 'none',
+  applicationType: 'general',
   currency: 'BOB',
+  categoryId: 'category-1',
+  categoryCode: 'basicos',
+  categoryName: 'Básicos',
+  displayOrder: 0,
   isActive: true,
   createdAt: new Date(),
   updatedAt: new Date(),

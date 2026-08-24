@@ -22,15 +22,15 @@
 
   @if (!selectedTreatment()) {
     <p class="tsp__hint">Elegí un tratamiento para continuar.</p>
-  } @else if (scope() === 'none') {
+  } @else if (!showOdontogram()) {
     <p class="tsp__hint">Este tratamiento no requiere seleccionar un diente.</p>
   } @else {
 
     <p class="tsp__hint">
-      @if (scope() === 'tooth') {
+      @if (applicationType() === 'single_tooth') {
         Hacé clic en el diente donde se aplicó el tratamiento.
-      } @else if (scope() === 'multi_tooth') {
-        Hacé clic en 2 o más dientes ({{ selectedTeeth().length }} seleccionado{{ selectedTeeth().length === 1 ? '' : 's' }}).
+      } @else if (applicationType() === 'multiple_teeth') {
+        Hacé clic en 1 o más dientes ({{ selectedTeeth().length }} seleccionado{{ selectedTeeth().length === 1 ? '' : 's' }}).
       } @else {
         Este tratamiento se aplica a toda la arcada/boca — resaltada abajo, sin selección manual.
       }

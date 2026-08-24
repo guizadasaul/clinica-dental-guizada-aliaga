@@ -17,178 +17,33 @@
     </div>
   }
 
-  <div class="reg-treatment__body" [class.reg-treatment__body--split]="currentSelection()">
+  <app-register-treatment-odontogram
+    [patientId]="patientId()"
+    [treatments]="treatments()"
+    [catalog]="diagnosisCatalog()"
+    [currentExam]="currentExam()"
+    (procedureRegistered)="onProcedureRegistered($event)"
+  />
 
-    <div class="reg-treatment__chart">
-
-      <div class="reg-treatment__toolbar">
-        <h3 class="reg-treatment__chart-title">
-          <span class="material-symbols-outlined">dentistry</span>
-          Tratamiento y alcance
-        </h3>
-      </div>
-
-      <app-treatment-scope-picker
-        [treatments]="treatments()"
-        [odontogramEntries]="odontogramEntries()"
-        [treatedTeeth]="getTreatedTeeth()"
-        (selectionChange)="onSelectionChange($event)"
-      />
-
-      <!-- Registered procedures list -->
-      @if (registeredProcedures().length > 0) {
-        <div class="reg-treatment__procedures">
-          <h4 class="reg-treatment__procedures-title">Tratamientos registrados del paciente</h4>
-          <ul class="reg-treatment__procedures-list">
-            @for (proc of registeredProcedures(); track proc.id) {
-              <li class="reg-treatment__procedure-item">
-                <span class="material-symbols-outlined reg-treatment__procedure-icon">check_circle</span>
-                <span class="reg-treatment__procedure-tooth">
-                  @if (proc.toothNumber !== null) { Diente #{{ proc.toothNumber }} } @else { Sin diente asociado }
-                </span>
-                <span class="reg-treatment__procedure-sep">—</span>
-                <span class="reg-treatment__procedure-name">{{ getTreatmentName(proc.treatmentId) }}</span>
-                <span class="reg-treatment__procedure-price">{{ getTreatmentCurrencySymbol(proc.treatmentId) }} {{ proc.priceCharged }}</span>
-              </li>
-            }
-          </ul>
-        </div>
-      }
-
+  <!-- Registered procedures list -->
+  @if (registeredProcedures().length > 0) {
+    <div class="reg-treatment__procedures">
+      <h4 class="reg-treatment__procedures-title">Tratamientos registrados del paciente</h4>
+      <ul class="reg-treatment__procedures-list">
+        @for (proc of registeredProcedures(); track proc.id) {
+          <li class="reg-treatment__procedure-item">
+            <span class="material-symbols-outlined reg-treatment__procedure-icon">check_circle</span>
+            <span class="reg-treatment__procedure-tooth">
+              @if (proc.toothNumber !== null) { Diente #{{ proc.toothNumber }} } @else { Sin diente asociado }
+            </span>
+            <span class="reg-treatment__procedure-sep">—</span>
+            <span class="reg-treatment__procedure-name">{{ getTreatmentName(proc.treatmentId) }}</span>
+            <span class="reg-treatment__procedure-price">{{ getTreatmentCurrencySymbol(proc.treatmentId) }} {{ proc.priceCharged }}</span>
+          </li>
+        }
+      </ul>
     </div>
-
-    <!-- Treatment form panel -->
-    @if (currentSelection(); as sel) {
-      <div class="reg-treatment__panel" role="region" aria-label="Formulario de tratamiento">
-        <div class="reg-treatment__panel-header">
-          <div class="reg-treatment__panel-tooth-badge">
-            <span class="material-symbols-outlined">dentistry</span>
-            @switch (sel.treatment.scope) {
-              @case ('tooth') {
-                Diente #{{ sel.toothNumbers[0] }}
-              }
-              @case ('multi_tooth') {
-                {{ sel.toothNumbers.length }} dientes: #{{ sel.toothNumbers.join(', #') }}
-              }
-              @case ('upper_arch') {
-                Arcada superior completa
-              }
-              @case ('lower_arch') {
-                Arcada inferior completa
-              }
-              @case ('full_mouth') {
-                Boca completa
-              }
-              @default {
-                {{ sel.treatment.name }}
-              }
-            }
-          </div>
-          <button type="button" class="reg-treatment__panel-close" (click)="onCancelSelection()" aria-label="Cerrar panel">
-            <span class="material-symbols-outlined">close</span>
-          </button>
-        </div>
-
-        <!-- Surfaces (solo tiene sentido para un diente puntual) -->
-        @if (sel.treatment.scope === 'tooth') {
-          <div class="reg-treatment__panel-field">
-            <label class="reg-treatment__panel-label">Superficies afectadas</label>
-            <div class="reg-treatment__surfaces">
-              <label class="reg-treatment__check">
-                <input type="checkbox" [checked]="panelVestibular()" (change)="panelVestibular.set($any($event.target).checked)" />
-                Vestibular
-              </label>
-              <label class="reg-treatment__check">
-                <input type="checkbox" [checked]="panelPalatal()" (change)="panelPalatal.set($any($event.target).checked)" />
-                Palatal
-              </label>
-              <label class="reg-treatment__check">
-                <input type="checkbox" [checked]="panelMesial()" (change)="panelMesial.set($any($event.target).checked)" />
-                Mesial
-              </label>
-              <label class="reg-treatment__check">
-                <input type="checkbox" [checked]="panelDistal()" (change)="panelDistal.set($any($event.target).checked)" />
-                Distal
-              </label>
-              <label class="reg-treatment__check">
-                <input type="checkbox" [checked]="panelOcclusal()" (change)="panelOcclusal.set($any($event.target).checked)" />
-                Oclusal
-              </label>
-            </div>
-          </div>
-        }
-
-        <!-- Price charged -->
-        <div class="reg-treatment__panel-field">
-          <label class="reg-treatment__panel-label" for="priceCharged">
-            Precio cobrado ({{ sel.treatment.currency === 'USD' ? '$' : 'Bs.' }}) <span class="reg-treatment__req">*</span>
-          </label>
-          <input
-            id="priceCharged"
-            type="number"
-            min="0"
-            step="0.01"
-            class="reg-treatment__input"
-            [value]="panelPriceCharged()"
-            (input)="panelPriceCharged.set(+$any($event.target).value)"
-          />
-          @if (sel.treatment.currency === 'USD' && sel.treatment.basePriceBob !== null) {
-            <small class="reg-treatment__fx-hint">aprox. Bs {{ sel.treatment.basePriceBob | number:'1.2-2' }} al tipo de cambio del día</small>
-          }
-        </div>
-
-        <!-- Procedure date -->
-        <div class="reg-treatment__panel-field">
-          <label class="reg-treatment__panel-label" for="procedureDate">Fecha del procedimiento</label>
-          <input
-            id="procedureDate"
-            type="date"
-            class="reg-treatment__input"
-            [value]="panelProcedureDate()"
-            (change)="panelProcedureDate.set($any($event.target).value)"
-          />
-        </div>
-
-        <!-- Notes -->
-        <div class="reg-treatment__panel-field">
-          <label class="reg-treatment__panel-label" for="treatmentNotes">Notas</label>
-          <textarea
-            id="treatmentNotes"
-            class="reg-treatment__input reg-treatment__input--textarea"
-            placeholder="Observaciones del procedimiento..."
-            [value]="panelNotes()"
-            (input)="panelNotes.set($any($event.target).value)"
-            rows="3"
-          ></textarea>
-        </div>
-
-        @if (formError()) {
-          <p class="reg-treatment__error">{{ formError() }}</p>
-        }
-
-        <div class="reg-treatment__panel-actions">
-          <button type="button" class="reg-treatment__btn reg-treatment__btn--secondary" (click)="onCancelSelection()">
-            Cancelar
-          </button>
-          <button
-            type="button"
-            class="reg-treatment__btn reg-treatment__btn--primary"
-            [disabled]="saving()"
-            (click)="onSaveProcedure()"
-          >
-            @if (saving()) {
-              <span class="reg-treatment__spinner"></span>
-              Guardando...
-            } @else {
-              <span class="material-symbols-outlined">save</span>
-              Registrar
-            }
-          </button>
-        </div>
-      </div>
-    }
-
-  </div>
+  }
 
   <!-- Footer -->
   <div class="reg-treatment__footer">

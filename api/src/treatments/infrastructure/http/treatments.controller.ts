@@ -33,12 +33,15 @@ export class TreatmentsController {
   @HttpCode(HttpStatus.CREATED)
   create(@Body() dto: CreateTreatmentDto) {
     return this.treatmentsService.create({
+      code: dto.code,
       name: dto.name,
       description: dto.description,
       basePrice: dto.basePrice,
       estimatedMinutes: dto.estimatedMinutes,
-      scope: dto.scope,
+      applicationType: dto.applicationType,
       currency: dto.currency,
+      categoryCode: dto.categoryCode,
+      displayOrder: dto.displayOrder,
       isActive: dto.isActive,
     });
   }
@@ -50,12 +53,15 @@ export class TreatmentsController {
     @Body() dto: UpdateTreatmentDto,
   ) {
     return this.treatmentsService.update(id, {
+      code: dto.code,
       name: dto.name,
       description: dto.description,
       basePrice: dto.basePrice,
       estimatedMinutes: dto.estimatedMinutes,
-      scope: dto.scope,
+      applicationType: dto.applicationType,
       currency: dto.currency,
+      categoryCode: dto.categoryCode,
+      displayOrder: dto.displayOrder,
       isActive: dto.isActive,
     });
   }

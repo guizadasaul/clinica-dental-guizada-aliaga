@@ -25,7 +25,7 @@ async function settle(fixture: ReturnType<typeof setup>): Promise<void> {
 /** Simula un clic en el diente #toothNumber del odontograma (aria-label="Diente N"). */
 function clickTooth(fixture: ReturnType<typeof setup>, toothNumber: number): void {
   const cell = (fixture.nativeElement as HTMLElement).querySelector(
-    `.odontogram-step__cell[aria-label="Diente ${toothNumber}"]`,
+    `.odontogram-chart__cell[aria-label="Diente ${toothNumber}"]`,
   );
   (cell as HTMLElement).dispatchEvent(new Event('click'));
 }

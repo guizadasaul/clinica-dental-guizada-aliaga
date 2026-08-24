@@ -19,7 +19,7 @@ import type {
   CreateDentalExamRequest,
 } from '../../../../models/dental-exam.request';
 import type { DiagnosisCategory, Diagnosis, DiagnosisScope } from '../../../../../diagnoses/models/diagnosis.model';
-import { ODONTOGRAM_CELLS, type OdontogramCell } from './odontogram-cells';
+import { OdontogramChartComponent } from '../../../../../../shared/ui/odontogram-chart/odontogram-chart';
 import { field, allValid, touchAll } from '../../../../../../shared/validation/field';
 import { normalizeText, optionalTextError, requiredTextError } from '../../../../../../shared/validation/text.validator';
 import { BLACK_CLASSES, MOBILITY_GRADES } from '../../../../../../shared/validation/clinical-options';
@@ -88,7 +88,7 @@ function buildDraftsFromExam(exam: DentalExam): FindingDraft[] {
   selector: 'app-step-odontogram',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [FormsModule, DatePipe],
+  imports: [FormsModule, DatePipe, OdontogramChartComponent],
   templateUrl: './step-odontogram.html',
   styleUrl: './step-odontogram.scss',
 })
@@ -102,9 +102,6 @@ export class StepOdontogramComponent {
   readonly viewVersionRequest = output<string>();
   readonly closeViewedVersion = output<void>();
   readonly back = output<void>();
-
-  protected readonly cells = ODONTOGRAM_CELLS;
-  protected readonly odontogramUrl = '/assets/svg/odontogram.svg';
 
   protected readonly allDiagnoses = computed<(Diagnosis & { categoryName: string })[]>(() =>
     this.catalog().flatMap((c) => c.diagnoses.map((d) => ({ ...d, categoryName: c.name }))),
@@ -182,36 +179,19 @@ export class StepOdontogramComponent {
 
   // ── Chart ────────────────────────────────────────────────────────────────
 
-  protected isDiagnosed(toothNumber: number): boolean {
-    return this.toothColorMap().has(toothNumber);
-  }
-
-  protected paintFill(toothNumber: number): string {
-    const color = this.toothColorMap().get(toothNumber);
-    if (color) { return color; }
-    if (this.panelOpen() && this.panelToothNumbers().includes(toothNumber)) {
-      return '#1a2b5e';
-    }
-    return 'transparent';
-  }
-
-  protected isSelectedInPanel(toothNumber: number): boolean {
-    return this.panelOpen() && this.panelToothNumbers().includes(toothNumber);
-  }
-
-  protected onToothClick(cell: OdontogramCell): void {
+  protected onToothClick(toothNumber: number): void {
     if (!this.panelOpen()) {
-      this.openPanelForTooth(cell.number);
+      this.openPanelForTooth(toothNumber);
       return;
     }
     const scope = this.panelDiagnosis()?.scope;
     if (scope === 'single_tooth') {
-      this.panelToothNumbers.set([cell.number]);
+      this.panelToothNumbers.set([toothNumber]);
     } else if (scope === 'multiple_teeth') {
       this.panelToothNumbers.update((prev) =>
-        prev.includes(cell.number)
-          ? prev.filter((n) => n !== cell.number)
-          : [...prev, cell.number].sort((a, b) => a - b),
+        prev.includes(toothNumber)
+          ? prev.filter((n) => n !== toothNumber)
+          : [...prev, toothNumber].sort((a, b) => a - b),
       );
     }
   }

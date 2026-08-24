@@ -27,12 +27,12 @@ import { toE164Bolivia } from '../../shared/phone.util';
 import { TreatmentRepository } from '../../treatments/domain/TreatmentRepository';
 import type { ITreatmentRepository } from '../../treatments/domain/TreatmentRepository';
 import {
-  assertTeethMatchScope,
-  scopeGeneratesOdontogramEntries,
-  teethForScope,
-  InvalidScopeApplicationError,
-} from '../../treatments/domain/TreatmentScope';
-import type { TreatmentScope } from '../../treatments/domain/TreatmentScope';
+  assertTeethMatchApplicationType,
+  typeGeneratesOdontogramEntries,
+  teethForApplicationType,
+  InvalidApplicationTypeError,
+} from '../../treatments/domain/TreatmentApplicationType';
+import type { TreatmentApplicationType } from '../../treatments/domain/TreatmentApplicationType';
 import { DiagnosisRepository } from '../../diagnoses/domain/DiagnosisRepository';
 import type { IDiagnosisRepository } from '../../diagnoses/domain/DiagnosisRepository';
 import type { Diagnosis } from '../../diagnoses/domain/Diagnosis';
@@ -53,16 +53,23 @@ import type {
   DentalExamVersionSummary,
 } from '../domain/DentalExam';
 
-interface CreateToothProcedureInput {
-  toothNumbers: number[];
-  treatmentId: string;
-  priceCharged: number;
-  procedureDate?: Date;
+/** Un diente dentro de una aplicación, con sus propias superficies (CLI-41). */
+interface ToothApplicationInput {
+  number: number;
   surfaceVestibular?: boolean;
   surfacePalatal?: boolean;
   surfaceMesial?: boolean;
   surfaceDistal?: boolean;
   surfaceOcclusal?: boolean;
+}
+
+interface CreateToothProcedureInput {
+  teeth: ToothApplicationInput[];
+  treatmentId: string;
+  priceCharged: number;
+  /** Para aplicaciones por unidad/caja — ver TreatmentApplicationType.typeAllowsQuantity(). */
+  quantity?: number;
+  procedureDate?: Date;
   notes?: string;
 }
 
@@ -247,21 +254,28 @@ export class PatientsService {
     }
 
     try {
-      assertTeethMatchScope(treatment.scope, data.toothNumbers);
+      assertTeethMatchApplicationType(
+        treatment.applicationType,
+        data.teeth.map((t) => t.number),
+      );
     } catch (error: unknown) {
-      if (error instanceof InvalidScopeApplicationError) {
+      if (error instanceof InvalidApplicationTypeError) {
         throw new BadRequestException(error.message);
       }
       throw error;
     }
 
-    const rows = this.buildToothProcedureRows(treatment.scope, data, user.id);
+    const rows = this.buildToothProcedureRows(
+      treatment.applicationType,
+      data,
+      user.id,
+    );
     const created = await this.patientRepo.createToothProcedures(
       patientId,
       rows,
     );
 
-    if (scopeGeneratesOdontogramEntries(treatment.scope)) {
+    if (typeGeneratesOdontogramEntries(treatment.applicationType)) {
       const existingEntries =
         await this.patientRepo.findOdontogramEntries(patientId);
       const conditionByTooth = new Map<number, string>();
@@ -270,56 +284,72 @@ export class PatientsService {
           conditionByTooth.set(entry.toothNumber, entry.toothCondition);
         }
       }
-      const entries: OdontogramEntryData[] = teethForScope(treatment.scope).map(
-        (toothNumber) => ({
-          toothNumber,
-          toothCondition: conditionByTooth.get(toothNumber) ?? 'sano',
-          diagnosisDescription: treatment.name,
-          treatmentId: treatment.id,
-          notes: data.notes,
-        }),
-      );
+      const entries: OdontogramEntryData[] = teethForApplicationType(
+        treatment.applicationType,
+      ).map((toothNumber) => ({
+        toothNumber,
+        toothCondition: conditionByTooth.get(toothNumber) ?? 'sano',
+        diagnosisDescription: treatment.name,
+        treatmentId: treatment.id,
+        notes: data.notes,
+      }));
       await this.patientRepo.appendOdontogramEntries(patientId, entries);
     }
 
     return created;
   }
 
+  /**
+   * Una fila por diente, cada una con SUS PROPIAS superficies (CLI-41) — a
+   * diferencia de antes, ya no se copia un único juego de superficies a
+   * todos los dientes del grupo. `multiple_teeth` reparte el precio y la
+   * cantidad en la primera fila del `application_group_id` (igual que
+   * antes); `single_tooth` es un caso particular de 1 diente sin grupo;
+   * el resto de los tipos no llevan diente.
+   */
   private buildToothProcedureRows(
-    scope: TreatmentScope,
+    applicationType: TreatmentApplicationType,
     data: CreateToothProcedureInput,
     performedBy: string,
   ): CreateToothProcedureData[] {
     const shared = {
       treatmentId: data.treatmentId,
       procedureDate: data.procedureDate,
-      surfaceVestibular: data.surfaceVestibular,
-      surfacePalatal: data.surfacePalatal,
-      surfaceMesial: data.surfaceMesial,
-      surfaceDistal: data.surfaceDistal,
-      surfaceOcclusal: data.surfaceOcclusal,
       notes: data.notes,
       performedBy,
     };
 
-    if (scope === 'multi_tooth') {
+    if (applicationType === 'multiple_teeth') {
       const applicationGroupId = randomUUID();
-      const sortedTeeth = [...data.toothNumbers].sort((a, b) => a - b);
-      return sortedTeeth.map((toothNumber, index) => ({
+      const sortedTeeth = [...data.teeth].sort((a, b) => a.number - b.number);
+      return sortedTeeth.map((tooth, index) => ({
         ...shared,
-        toothNumber,
+        toothNumber: tooth.number,
         applicationGroupId,
         priceCharged: index === 0 ? data.priceCharged : 0,
+        quantity: index === 0 ? (data.quantity ?? 1) : 1,
+        surfaceVestibular: tooth.surfaceVestibular,
+        surfacePalatal: tooth.surfacePalatal,
+        surfaceMesial: tooth.surfaceMesial,
+        surfaceDistal: tooth.surfaceDistal,
+        surfaceOcclusal: tooth.surfaceOcclusal,
       }));
     }
 
-    if (scope === 'tooth') {
+    if (applicationType === 'single_tooth') {
+      const tooth = data.teeth[0];
       return [
         {
           ...shared,
-          toothNumber: data.toothNumbers[0],
+          toothNumber: tooth.number,
           applicationGroupId: null,
           priceCharged: data.priceCharged,
+          quantity: data.quantity ?? 1,
+          surfaceVestibular: tooth.surfaceVestibular,
+          surfacePalatal: tooth.surfacePalatal,
+          surfaceMesial: tooth.surfaceMesial,
+          surfaceDistal: tooth.surfaceDistal,
+          surfaceOcclusal: tooth.surfaceOcclusal,
         },
       ];
     }
@@ -327,6 +357,7 @@ export class PatientsService {
     return [
       {
         ...shared,
+        quantity: data.quantity ?? 1,
         toothNumber: null,
         applicationGroupId: null,
         priceCharged: data.priceCharged,

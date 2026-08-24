@@ -116,6 +116,8 @@ export interface CreateToothProcedureData {
   applicationGroupId?: string | null;
   treatmentId: string;
   priceCharged: number;
+  /** Para aplicaciones por unidad/caja (CLI-41) — price_charged = quantity × base_price. 1 para el resto. */
+  quantity?: number;
   procedureDate?: Date;
   surfaceVestibular?: boolean;
   surfacePalatal?: boolean;

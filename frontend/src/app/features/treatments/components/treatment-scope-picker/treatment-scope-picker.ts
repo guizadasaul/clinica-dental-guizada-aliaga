@@ -8,12 +8,13 @@ import {
   effect,
 } from '@angular/core';
 import { DecimalPipe } from '@angular/common';
-import type { Treatment, TreatmentScope } from '../../models/treatment.model';
+import type { Treatment, TreatmentApplicationType } from '../../models/treatment.model';
 import type { OdontogramEntry } from '../../../patients/models/patient.model';
 import {
   UPPER_TEETH,
   LOWER_TEETH,
-  teethForScope,
+  teethForApplicationType,
+  applicationTypeImpliesTeeth,
 } from '../../../../shared/constants/dental-chart.constants';
 import type { ToothDef } from '../../../../shared/constants/dental-chart.constants';
 
@@ -43,13 +44,18 @@ const DIAGNOSIS_OPTIONS: { value: string; label: string; color: string }[] = [
 
 /**
  * Elige un tratamiento y los dientes a los que aplica, respetando su
- * `scope`: tooth (uno solo, clic reemplaza), multi_tooth (2+, clic
- * togglea), upper_arch/lower_arch/full_mouth (predeterminados por el
- * scope, sin clic) y none (sin odontograma). Emite la selección completa
- * apenas es válida — quien lo usa (register-treatment, y a futuro
- * quote-builder de CLI-16) reacciona a eso, no hay botón de "confirmar"
- * acá: en `tooth` el clic ya confirmaba antes de este cambio, y en
- * `multi_tooth` alcanzar 2 dientes ya es la confirmación.
+ * `applicationType`: single_tooth (uno solo, clic reemplaza),
+ * multiple_teeth (1+, clic togglea), upper_arch/lower_arch/full_mouth
+ * (predeterminados por el tipo, sin clic) y el resto (general,
+ * soft_tissue, frenulum, prosthesis, orthodontic, unit, box) sin
+ * odontograma. Emite la selección completa apenas es válida — quien lo usa
+ * (quote-builder) reacciona a eso, no hay botón de "confirmar" acá: en
+ * `single_tooth` el clic ya confirmaba antes de este cambio, y en
+ * `multiple_teeth` marcar 1 diente ya es la confirmación.
+ *
+ * NOTA (CLI-41): register-treatment ya no usa este componente — pasó a un
+ * odontograma SVG interactivo (register-treatment-odontogram/), igual que
+ * el flujo de diagnóstico. Este picker queda vivo solo para quote-builder.
  */
 @Component({
   selector: 'app-treatment-scope-picker',
@@ -76,44 +82,47 @@ export class TreatmentScopePickerComponent {
     () => this.treatments().find((t) => t.id === this.selectedTreatmentId()) ?? null,
   );
 
-  protected readonly scope = computed<TreatmentScope | null>(
-    () => this.selectedTreatment()?.scope ?? null,
+  protected readonly applicationType = computed<TreatmentApplicationType | null>(
+    () => this.selectedTreatment()?.applicationType ?? null,
   );
 
   protected readonly isClickable = computed(
-    () => this.scope() === 'tooth' || this.scope() === 'multi_tooth',
+    () =>
+      this.applicationType() === 'single_tooth' ||
+      this.applicationType() === 'multiple_teeth',
   );
 
-  protected readonly showOdontogram = computed(
-    () => this.scope() !== null && this.scope() !== 'none',
-  );
+  protected readonly showOdontogram = computed(() => {
+    const type = this.applicationType();
+    return type !== null && applicationTypeImpliesTeeth(type);
+  });
 
   protected readonly highlightedTeeth = computed(() => {
-    const scope = this.scope();
-    return scope ? teethForScope(scope) : [];
+    const type = this.applicationType();
+    return type ? teethForApplicationType(type) : [];
   });
 
   /**
    * Los dientes que realmente se mandan al backend. Para las arcadas va
-   * vacío a propósito — el backend (assertTeethMatchScope) exige que no
-   * venga ningún diente en esos scopes y deriva los suyos con su propio
-   * teethForScope(); highlightedTeeth() de acá es solo para pintar el
-   * odontograma, no para el payload.
+   * vacío a propósito — el backend (assertTeethMatchApplicationType) exige
+   * que no venga ningún diente en esos tipos y deriva los suyos con su
+   * propio teethForApplicationType(); highlightedTeeth() de acá es solo
+   * para pintar el odontograma, no para el payload.
    */
   private readonly effectiveToothNumbers = computed<number[]>(() => {
-    const scope = this.scope();
-    if (scope === 'tooth' || scope === 'multi_tooth') {
+    const type = this.applicationType();
+    if (type === 'single_tooth' || type === 'multiple_teeth') {
       return this.selectedTeeth();
     }
     return [];
   });
 
   protected readonly selectionValid = computed(() => {
-    const scope = this.scope();
-    if (!scope) { return false; }
+    const type = this.applicationType();
+    if (!type) { return false; }
     const teeth = this.effectiveToothNumbers();
-    if (scope === 'tooth') { return teeth.length === 1; }
-    if (scope === 'multi_tooth') { return teeth.length >= 2; }
+    if (type === 'single_tooth') { return teeth.length === 1; }
+    if (type === 'multiple_teeth') { return teeth.length >= 1; }
     return true;
   });
 
@@ -153,12 +162,12 @@ export class TreatmentScopePickerComponent {
   }
 
   protected onToothClick(tooth: ToothDef): void {
-    const scope = this.scope();
-    if (scope === 'tooth') {
+    const type = this.applicationType();
+    if (type === 'single_tooth') {
       this.selectedTeeth.set([tooth.number]);
       return;
     }
-    if (scope === 'multi_tooth') {
+    if (type === 'multiple_teeth') {
       this.selectedTeeth.update((prev) =>
         prev.includes(tooth.number)
           ? prev.filter((n) => n !== tooth.number)
@@ -168,8 +177,8 @@ export class TreatmentScopePickerComponent {
   }
 
   protected isSelected(toothNumber: number): boolean {
-    const scope = this.scope();
-    if (scope === 'tooth' || scope === 'multi_tooth') {
+    const type = this.applicationType();
+    if (type === 'single_tooth' || type === 'multiple_teeth') {
       return this.selectedTeeth().includes(toothNumber);
     }
     return this.highlightedTeeth().includes(toothNumber);
