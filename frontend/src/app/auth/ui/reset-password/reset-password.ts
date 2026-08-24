@@ -2,6 +2,8 @@ import { Component, ChangeDetectionStrategy, signal, inject, OnInit } from '@ang
 import { FormsModule } from '@angular/forms';
 import { RouterLink, Router } from '@angular/router';
 import { AuthService } from '../../application/auth.service';
+import { allValid, field, touchAll } from '../../../shared/validation/field';
+import { passwordsMatch, validatePassword } from '../../../shared/validation/password.validator';
 
 @Component({
   selector: 'app-reset-password',
@@ -17,8 +19,8 @@ export class ResetPasswordComponent implements OnInit {
 
   protected readonly checkingSession = signal(true);
   protected readonly sessionValid = signal(false);
-  protected readonly password = signal('');
-  protected readonly confirmPassword = signal('');
+  protected readonly password = field('', validatePassword);
+  protected readonly confirmPassword = field('', (v) => passwordsMatch(this.password.value(), v));
   protected readonly passwordVisible = signal(false);
   protected readonly loading = signal(false);
   protected readonly errorMessage = signal<string | null>(null);
@@ -40,12 +42,8 @@ export class ResetPasswordComponent implements OnInit {
       return;
     }
 
-    if (this.password().length < 8) {
-      this.errorMessage.set('La contraseña debe tener al menos 8 caracteres.');
-      return;
-    }
-    if (this.password() !== this.confirmPassword()) {
-      this.errorMessage.set('Las contraseñas no coinciden.');
+    touchAll(this.password, this.confirmPassword);
+    if (!allValid(this.password, this.confirmPassword)) {
       return;
     }
 
@@ -53,7 +51,7 @@ export class ResetPasswordComponent implements OnInit {
     this.loading.set(true);
 
     try {
-      await this.authService.updatePassword(this.password());
+      await this.authService.updatePassword(this.password.value());
       await this.authService.logout();
       await this.router.navigate(['/auth/login'], { queryParams: { reset: 'success' } });
     } catch (err) {

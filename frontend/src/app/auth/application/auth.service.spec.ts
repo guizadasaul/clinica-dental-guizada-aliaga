@@ -10,8 +10,14 @@ interface FakeSession {
   user: { id: string };
 }
 
+interface SignOutOptions {
+  scope?: string;
+}
+
 function createFakeSupabaseClient() {
   let callback: AuthChangeCallback = () => {};
+  let currentSession: FakeSession | null = null;
+  const signOutCalls: Array<SignOutOptions | undefined> = [];
   return {
     client: {
       auth: {
@@ -19,9 +25,20 @@ function createFakeSupabaseClient() {
           callback = cb;
           return { data: { subscription: { unsubscribe: () => {} } } };
         },
+        getSession: async () => ({ data: { session: currentSession } }),
+        updateUser: async (_attrs: { password: string }) => ({ error: null }),
+        signOut: async (options?: SignOutOptions) => {
+          signOutCalls.push(options);
+          currentSession = null;
+          return { error: null };
+        },
       },
     },
-    fireEvent: (event: string, session: FakeSession | null) => callback(event, session),
+    fireEvent: (event: string, session: FakeSession | null) => {
+      currentSession = session;
+      callback(event, session);
+    },
+    signOutCalls,
   };
 }
 
@@ -41,6 +58,7 @@ const BACKEND_USER = {
 describe('AuthService', () => {
   afterEach(() => {
     vi.useRealTimers();
+    localStorage.clear();
   });
 
   function setup() {
@@ -148,5 +166,105 @@ describe('AuthService', () => {
     expect(syncSettled).toBe(true);
     expect(service.currentUser()?.role).toBe('odontologist');
     httpMock.verify();
+  });
+
+  describe('recuperación de contraseña (CLI-42)', () => {
+    it('PASSWORD_RECOVERY marca la sesión como pendiente y hasRecoverySession() la reconoce', async () => {
+      const { service, fakeSupabase } = setup();
+
+      fakeSupabase.fireEvent('PASSWORD_RECOVERY', { user: { id: 'user-1' } });
+      await service.authReady;
+
+      expect(await service.hasRecoverySession()).toBe(true);
+      expect(service.currentUser()).toBeNull();
+    });
+
+    it('recargar la página no promueve una sesión de recuperación sin terminar a login real', async () => {
+      // Reproduce el bug de CLI-42: Supabase restaura la sesión persistida en
+      // localStorage tras un reload y dispara INITIAL_SESSION en vez de
+      // PASSWORD_RECOVERY — sin el marcador, esto promovía a currentUser sin
+      // que el usuario hubiera definido una contraseña nueva.
+      const { service, fakeSupabase } = setup();
+
+      fakeSupabase.fireEvent('PASSWORD_RECOVERY', { user: { id: 'user-1' } });
+      await service.authReady;
+
+      fakeSupabase.fireEvent('INITIAL_SESSION', { user: { id: 'user-1' } });
+
+      expect(service.currentUser()).toBeNull();
+    });
+
+    it('un SIGNED_IN real para el mismo usuario sí promueve a currentUser aunque quede un marcador de recuperación', async () => {
+      vi.useFakeTimers();
+      const { service, httpMock, fakeSupabase } = setup();
+
+      fakeSupabase.fireEvent('PASSWORD_RECOVERY', { user: { id: 'user-1' } });
+      await service.authReady;
+
+      fakeSupabase.fireEvent('SIGNED_IN', { user: { id: 'user-1' } });
+      await vi.advanceTimersByTimeAsync(0);
+      httpMock.expectOne((r) => r.url.endsWith('/auth/sync')).flush(BACKEND_USER);
+      await vi.advanceTimersByTimeAsync(0);
+
+      expect(service.currentUser()?.role).toBe('odontologist');
+      expect(await service.hasRecoverySession()).toBe(false);
+      httpMock.verify();
+    });
+
+    it('updatePassword() exitoso limpia el marcador de recuperación', async () => {
+      const { service, fakeSupabase } = setup();
+
+      fakeSupabase.fireEvent('PASSWORD_RECOVERY', { user: { id: 'user-1' } });
+      await service.authReady;
+      expect(await service.hasRecoverySession()).toBe(true);
+
+      await service.updatePassword('una-contraseña-larga');
+
+      expect(await service.hasRecoverySession()).toBe(false);
+    });
+
+    it('logout() limpia el marcador y cierra sesión con scope global', async () => {
+      const { service, fakeSupabase } = setup();
+
+      fakeSupabase.fireEvent('PASSWORD_RECOVERY', { user: { id: 'user-1' } });
+      await service.authReady;
+
+      await service.logout();
+
+      expect(await service.hasRecoverySession()).toBe(false);
+      expect(fakeSupabase.signOutCalls.at(-1)).toEqual({ scope: 'global' });
+    });
+
+    it('un marcador de más de una hora se considera vencido y se ignora', async () => {
+      const { service, fakeSupabase } = setup();
+
+      fakeSupabase.fireEvent('PASSWORD_RECOVERY', { user: { id: 'user-1' } });
+      await service.authReady;
+
+      const raw = JSON.parse(localStorage.getItem('cga-recovery-pending')!) as {
+        userId: string;
+        setAt: number;
+      };
+      localStorage.setItem(
+        'cga-recovery-pending',
+        JSON.stringify({ ...raw, setAt: raw.setAt - 61 * 60 * 1000 }),
+      );
+
+      expect(await service.hasRecoverySession()).toBe(false);
+    });
+
+    it('hasRecoverySession() da false para un usuario ya logueado que navega directo a reset-password', async () => {
+      vi.useFakeTimers();
+      const { service, httpMock, fakeSupabase } = setup();
+
+      fakeSupabase.fireEvent('SIGNED_IN', { user: { id: 'user-1' } });
+      await vi.advanceTimersByTimeAsync(0);
+      httpMock.expectOne((r) => r.url.endsWith('/auth/sync')).flush(BACKEND_USER);
+      await vi.advanceTimersByTimeAsync(0);
+      await service.authReady;
+
+      expect(await service.hasRecoverySession()).toBe(false);
+      httpMock.verify();
+    });
   });
 });
