@@ -7,6 +7,7 @@ import { AuthService } from '../../../../auth/application/auth.service';
 import { PatientInvitesService } from '../../../patient-invites/services/patient-invites.service';
 import { PhoneInputComponent } from '../../../../shared/ui/phone-input/phone-input';
 import { isValidEmail, normalizeEmail } from '../../../../shared/validation/email.validator';
+import { passwordsMatch, validatePassword } from '../../../../shared/validation/password.validator';
 
 type RegisterMode = 'email' | 'phone';
 
@@ -44,8 +45,8 @@ export class InvitationLandingComponent implements OnInit {
   // Gatea el botón de submit en tiempo real — no reemplaza la revalidación
   // dentro de onSubmit, que es la que de verdad decide si se manda algo.
   protected readonly canSubmit = computed(() => {
-    if (this.password().length < 8) return false;
-    if (this.password() !== this.confirmPassword()) return false;
+    if (validatePassword(this.password()) !== null) return false;
+    if (passwordsMatch(this.password(), this.confirmPassword()) !== null) return false;
     return this.mode() === 'email'
       ? isValidEmail(this.email())
       : this.phoneValid() && this.phoneE164().length > 0;
@@ -113,12 +114,14 @@ export class InvitationLandingComponent implements OnInit {
     }
 
     const password = this.password();
-    if (password.length < 8) {
-      this.errorMessage.set('La contraseña debe tener al menos 8 caracteres.');
+    const passwordError = validatePassword(password);
+    if (passwordError) {
+      this.errorMessage.set(passwordError);
       return;
     }
-    if (password !== this.confirmPassword()) {
-      this.errorMessage.set('Las contraseñas no coinciden.');
+    const matchError = passwordsMatch(password, this.confirmPassword());
+    if (matchError) {
+      this.errorMessage.set(matchError);
       return;
     }
 

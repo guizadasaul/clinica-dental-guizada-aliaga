@@ -43,6 +43,20 @@
     &--with-toggle {
       padding-right: var(--space-10);
     }
+
+    &--invalid {
+      border-color: #dc2626;
+
+      &:focus {
+        border-color: #dc2626;
+      }
+    }
+  }
+
+  &__field-error {
+    color: #dc2626;
+    font-size: 0.8125rem;
+    margin: 0;
   }
 
   &__toggle-visibility {
@@ -84,8 +98,13 @@
     cursor: pointer;
     text-decoration: none;
 
-    &:hover {
+    &:hover:not(:disabled) {
       text-decoration: underline;
+    }
+
+    &:disabled {
+      color: var(--color-text-muted);
+      cursor: not-allowed;
     }
   }
 

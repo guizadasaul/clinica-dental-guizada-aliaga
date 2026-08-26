@@ -33,6 +33,18 @@ export class AuthService {
    */
   readonly authReady: Promise<void>;
 
+  // Sesión de recuperación de contraseña sin terminar (ver PASSWORD_RECOVERY
+  // más abajo). Persistido en localStorage — no en un campo de instancia —
+  // porque debe sobrevivir a un reload: si no, recargar /auth/reset-password
+  // antes de enviar el formulario hace que Supabase restaure la misma sesión
+  // vía INITIAL_SESSION en vez de PASSWORD_RECOVERY, y sin este marcador el
+  // fallthrough de abajo la promovería a currentUser sin que el usuario haya
+  // definido una contraseña nueva. Ver CLI-42.
+  private static readonly RECOVERY_MARKER_KEY = 'cga-recovery-pending';
+  // Alineado al vencimiento por defecto del link/JWT de recuperación de
+  // Supabase (1h) — un marcador más viejo que esto se considera abandonado.
+  private static readonly RECOVERY_MARKER_MAX_AGE_MS = 60 * 60 * 1000;
+
   private settled = false;
   private resolveReady!: () => void;
   private syncedUserId: string | null = null;
@@ -61,6 +73,9 @@ export class AuthService {
         // normal — si seteáramos currentUser acá, authGuard dejaría pasar a
         // alguien que todavía no definió su nueva contraseña. La pantalla
         // reset-password valida esta sesión por su cuenta.
+        if (session) {
+          this.markRecoveryPending(session.user.id);
+        }
         this.settleReady();
         return;
       }
@@ -71,6 +86,23 @@ export class AuthService {
         this.pendingSync = null;
         this.settleReady();
         return;
+      }
+
+      // Sesión de recuperación restaurada por Supabase (reload o volver a
+      // /auth/reset-password sin haber enviado el formulario): el evento acá
+      // ya no es PASSWORD_RECOVERY sino INITIAL_SESSION/TOKEN_REFRESHED, así
+      // que sin este chequeo caería en el fallthrough de más abajo y se
+      // promovería a login real. Se excluye SIGNED_IN a propósito: ese
+      // evento solo lo dispara Supabase ante una autenticación fresca real
+      // (login con contraseña/teléfono, o el callback de OAuth) — si el
+      // usuario abandona la recuperación y después hace un login de verdad,
+      // ese login sí debe entrar aunque haya quedado un marcador viejo.
+      if (event !== 'SIGNED_IN' && this.isRecoveryPending(session.user.id)) {
+        this.settleReady();
+        return;
+      }
+      if (event === 'SIGNED_IN') {
+        this.clearRecoveryPending();
       }
 
       if (this.syncedUserId === session.user.id) {
@@ -177,7 +209,13 @@ export class AuthService {
 
   async hasRecoverySession(): Promise<boolean> {
     const { data } = await this.supabase.auth.getSession();
-    return data.session !== null;
+    if (!data.session) {
+      return false;
+    }
+    // No alcanza con "existe una sesión": un usuario ya logueado que navegue
+    // directo a /auth/reset-password también tendría sesión. Solo es válida
+    // si vino del branch PASSWORD_RECOVERY y todavía no se consumió.
+    return this.isRecoveryPending(data.session.user.id);
   }
 
   async updatePassword(newPassword: string): Promise<void> {
@@ -185,11 +223,18 @@ export class AuthService {
     if (error) {
       throw new Error(mapAuthError(error, 'No se pudo actualizar la contraseña.'));
     }
+    this.clearRecoveryPending();
   }
 
   async logout(): Promise<void> {
-    await this.supabase.auth.signOut();
+    // scope 'global' explícito: además de cerrar esta sesión, invalida el
+    // refresh token del usuario en TODOS sus dispositivos. reset-password.ts
+    // llama a logout() justo después de updatePassword() — esto es lo que
+    // cierra sesiones activas en otros dispositivos tras un cambio de
+    // contraseña (CLI-42), en vez de depender del default implícito del SDK.
+    await this.supabase.auth.signOut({ scope: 'global' });
     this.currentUser.set(null);
+    this.clearRecoveryPending();
   }
 
   /**
@@ -262,5 +307,37 @@ export class AuthService {
       this.settled = true;
       this.resolveReady();
     }
+  }
+
+  private markRecoveryPending(userId: string): void {
+    localStorage.setItem(
+      AuthService.RECOVERY_MARKER_KEY,
+      JSON.stringify({ userId, setAt: Date.now() }),
+    );
+  }
+
+  private isRecoveryPending(userId: string): boolean {
+    const raw = localStorage.getItem(AuthService.RECOVERY_MARKER_KEY);
+    if (!raw) {
+      return false;
+    }
+    try {
+      const marker = JSON.parse(raw) as { userId: string; setAt: number };
+      if (marker.userId !== userId) {
+        return false;
+      }
+      if (Date.now() - marker.setAt > AuthService.RECOVERY_MARKER_MAX_AGE_MS) {
+        this.clearRecoveryPending();
+        return false;
+      }
+      return true;
+    } catch {
+      this.clearRecoveryPending();
+      return false;
+    }
+  }
+
+  private clearRecoveryPending(): void {
+    localStorage.removeItem(AuthService.RECOVERY_MARKER_KEY);
   }
 }
