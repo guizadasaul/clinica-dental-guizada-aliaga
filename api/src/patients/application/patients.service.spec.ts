@@ -450,7 +450,7 @@ describe('PatientsService', () => {
           'doctor-auth-1',
           {
             ...baseInput,
-            teeth: [{ number: 16, surfaceOcclusal: true }],
+            teeth: [{ number: 16, surfaces: ['occlusal'] }],
           },
         );
 
@@ -463,10 +463,51 @@ describe('PatientsService', () => {
               applicationGroupId: null,
               priceCharged: 100,
               quantity: 1,
-              surfaceOcclusal: true,
+              surfaceCodes: ['occlusal'],
             }),
           ],
         );
+      });
+
+      it('rejects an unknown surface code with 400', async () => {
+        await expect(
+          service.createToothProcedure('patient-1', 'doctor-auth-1', {
+            ...baseInput,
+            teeth: [{ number: 16, surfaces: ['inventada'] }],
+          }),
+        ).rejects.toThrow(BadRequestException);
+        expect(mockPatientRepo.createToothProcedures).not.toHaveBeenCalled();
+      });
+
+      // CLI-49: 16 es un molar (posterior) — no tiene borde incisal.
+      it('rejects a surface that is anatomically impossible for the tooth with 400', async () => {
+        await expect(
+          service.createToothProcedure('patient-1', 'doctor-auth-1', {
+            ...baseInput,
+            teeth: [{ number: 16, surfaces: ['incisal'] }],
+          }),
+        ).rejects.toThrow(BadRequestException);
+        expect(mockPatientRepo.createToothProcedures).not.toHaveBeenCalled();
+      });
+
+      // 11 es un incisivo superior (anterior) — incisal sí, occlusal no; palatal sí, lingual no.
+      it('accepts incisal and palatal on an upper anterior tooth', async () => {
+        await expect(
+          service.createToothProcedure('patient-1', 'doctor-auth-1', {
+            ...baseInput,
+            teeth: [{ number: 11, surfaces: ['incisal', 'palatal'] }],
+          }),
+        ).resolves.toHaveLength(1);
+      });
+
+      // 41 es un incisivo inferior — lingual sí, palatal no.
+      it('rejects palatal on a lower tooth with 400', async () => {
+        await expect(
+          service.createToothProcedure('patient-1', 'doctor-auth-1', {
+            ...baseInput,
+            teeth: [{ number: 41, surfaces: ['palatal'] }],
+          }),
+        ).rejects.toThrow(BadRequestException);
       });
     });
 
@@ -499,9 +540,9 @@ describe('PatientsService', () => {
         await service.createToothProcedure('patient-1', 'doctor-auth-1', {
           ...baseInput,
           teeth: [
-            { number: 18, surfaceMesial: true },
-            { number: 16, surfaceOcclusal: true },
-            { number: 17, surfaceDistal: true },
+            { number: 18, surfaces: ['mesial'] },
+            { number: 16, surfaces: ['occlusal'] },
+            { number: 17, surfaces: ['distal'] },
           ],
         });
 
@@ -513,22 +554,33 @@ describe('PatientsService', () => {
             applicationGroupId: string;
             priceCharged: number;
             quantity: number;
-            surfaceOcclusal?: boolean;
-            surfaceDistal?: boolean;
-            surfaceMesial?: boolean;
+            surfaceCodes?: string[];
           }[],
         ];
         expect(rows).toHaveLength(3);
         expect(rows.map((r) => r.toothNumber)).toEqual([16, 17, 18]);
         expect(new Set(rows.map((r) => r.applicationGroupId)).size).toBe(1);
         // cada diente conserva SUS PROPIAS superficies, no un juego copiado a los 3 (CLI-41)
-        expect(rows[0].surfaceOcclusal).toBe(true);
-        expect(rows[0].surfaceDistal).toBeUndefined();
-        expect(rows[1].surfaceDistal).toBe(true);
-        expect(rows[2].surfaceMesial).toBe(true);
+        expect(rows[0].surfaceCodes).toEqual(['occlusal']);
+        expect(rows[1].surfaceCodes).toEqual(['distal']);
+        expect(rows[2].surfaceCodes).toEqual(['mesial']);
         expect(rows[0].priceCharged).toBe(100);
         expect(rows[1].priceCharged).toBe(0);
         expect(rows[2].priceCharged).toBe(0);
+      });
+
+      // CLI-49: la validación anatómica corre por diente, incluso en un grupo.
+      it('rejects the whole batch if any tooth has an anatomically invalid surface', async () => {
+        await expect(
+          service.createToothProcedure('patient-1', 'doctor-auth-1', {
+            ...baseInput,
+            teeth: [
+              { number: 16, surfaces: ['occlusal'] },
+              { number: 11, surfaces: ['occlusal'] },
+            ],
+          }),
+        ).rejects.toThrow(BadRequestException);
+        expect(mockPatientRepo.createToothProcedures).not.toHaveBeenCalled();
       });
     });
 

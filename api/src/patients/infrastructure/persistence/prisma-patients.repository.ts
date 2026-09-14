@@ -35,6 +35,10 @@ const DENTAL_EXAM_INCLUDE = {
   },
 } as const;
 
+const TOOTH_PROCEDURE_SURFACES_INCLUDE = {
+  tooth_procedure_surfaces: { include: { tooth_surfaces: true } },
+} as const;
+
 /**
  * Fecha de hoy sin componente horario, para columnas `@db.Date` (exam_date,
  * entry_date, birth_date). Igual que como se construyen esos valores en el
@@ -348,14 +352,17 @@ export class PrismaPatientsRepository implements IPatientRepository {
               price_charged: item.priceCharged,
               quantity: item.quantity ?? 1,
               procedure_date: item.procedureDate ?? new Date(),
-              surface_vestibular: item.surfaceVestibular ?? false,
-              surface_palatal: item.surfacePalatal ?? false,
-              surface_mesial: item.surfaceMesial ?? false,
-              surface_distal: item.surfaceDistal ?? false,
-              surface_occlusal: item.surfaceOcclusal ?? false,
               notes: item.notes ?? null,
               performed_by: item.performedBy,
+              tooth_procedure_surfaces: item.surfaceCodes?.length
+                ? {
+                    create: item.surfaceCodes.map((code) => ({
+                      tooth_surfaces: { connect: { code } },
+                    })),
+                  }
+                : undefined,
             },
+            include: TOOTH_PROCEDURE_SURFACES_INCLUDE,
           }),
         ),
       ),
@@ -367,6 +374,7 @@ export class PrismaPatientsRepository implements IPatientRepository {
     const records = await this.prisma.tooth_procedures.findMany({
       where: { patient_id: patientId },
       orderBy: { procedure_date: 'desc' },
+      include: TOOTH_PROCEDURE_SURFACES_INCLUDE,
     });
     return records.map((r) => ToothProcedureMapper.toDomain(r));
   }

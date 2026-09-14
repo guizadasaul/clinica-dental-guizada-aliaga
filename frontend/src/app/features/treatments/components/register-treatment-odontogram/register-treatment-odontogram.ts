@@ -9,7 +9,7 @@ import {
 } from '@angular/core';
 import { DecimalPipe } from '@angular/common';
 import { TreatmentsService } from '../../services/treatments.service';
-import type { Treatment, ToothProcedure, TreatmentApplicationType } from '../../models/treatment.model';
+import type { Treatment, ToothProcedure, TreatmentApplicationType, ToothSurfaceCode } from '../../models/treatment.model';
 import type { ToothApplicationRequest } from '../../models/treatment.request';
 import type { DentalExam } from '../../../patients/models/dental-exam.model';
 import type { DiagnosisCategory } from '../../../diagnoses/models/diagnosis.model';
@@ -18,6 +18,10 @@ import {
   teethForApplicationType,
   applicationTypeImpliesTeeth,
 } from '../../../../shared/constants/dental-chart.constants';
+import {
+  TOOTH_SURFACE_CODES,
+  allowedSurfacesForTooth,
+} from '../../../../shared/validation/tooth-surface.validator';
 
 interface TreatmentGroup {
   readonly categoryCode: string;
@@ -25,18 +29,30 @@ interface TreatmentGroup {
   readonly treatments: Treatment[];
 }
 
-/** Las 5 superficies dentales, por diente (CLI-41) — vista local, no viene del backend tal cual. */
-interface ToothSurfaces {
-  vestibular: boolean;
-  palatal: boolean;
-  mesial: boolean;
-  distal: boolean;
-  occlusal: boolean;
-}
+/** Las 7 superficies dentales, por diente (CLI-41/CLI-49) — vista local, no viene del backend tal cual. */
+type ToothSurfaces = Record<ToothSurfaceCode, boolean>;
 
 function emptySurfaces(): ToothSurfaces {
-  return { vestibular: false, palatal: false, mesial: false, distal: false, occlusal: false };
+  return {
+    vestibular: false,
+    palatal: false,
+    lingual: false,
+    mesial: false,
+    distal: false,
+    occlusal: false,
+    incisal: false,
+  };
 }
+
+const SURFACE_LABELS: Record<ToothSurfaceCode, string> = {
+  vestibular: 'Vestibular',
+  palatal: 'Palatal',
+  lingual: 'Lingual',
+  mesial: 'Mesial',
+  distal: 'Distal',
+  occlusal: 'Oclusal',
+  incisal: 'Incisal',
+};
 
 /** Lo que emite un guardado exitoso — el padre lo agrega a su lista y muestra el mensaje. */
 export interface ProcedureRegisteredEvent {
@@ -239,12 +255,27 @@ export class RegisterTreatmentOdontogramComponent {
     return this.panelSurfaces().get(toothNumber) ?? emptySurfaces();
   }
 
-  protected setSurface(toothNumber: number, key: keyof ToothSurfaces, value: boolean): void {
+  protected setSurface(toothNumber: number, key: ToothSurfaceCode, value: boolean): void {
     this.panelSurfaces.update((prev) => {
       const next = new Map(prev);
       next.set(toothNumber, { ...(next.get(toothNumber) ?? emptySurfaces()), [key]: value });
       return next;
     });
+  }
+
+  /**
+   * Qué checkboxes de superficie mostrar para ESTE diente (CLI-49) — palatal
+   * o lingual según arcada, incisal u oclusal según sea incisivo/canino o
+   * premolar/molar, nunca las dos alternativas juntas. Mismo criterio que
+   * assertValidSurfacesForTooth en el backend.
+   */
+  protected surfaceOptionsFor(
+    toothNumber: number,
+  ): { code: ToothSurfaceCode; label: string }[] {
+    const allowed = allowedSurfacesForTooth(toothNumber);
+    return TOOTH_SURFACE_CODES.filter((code) => allowed.has(code)).map(
+      (code) => ({ code, label: SURFACE_LABELS[code] }),
+    );
   }
 
   protected onPanelCancel(): void {
@@ -297,11 +328,7 @@ export class RegisterTreatmentOdontogramComponent {
       const s = surfaces.get(number) ?? emptySurfaces();
       return {
         number,
-        surfaceVestibular: s.vestibular,
-        surfacePalatal: s.palatal,
-        surfaceMesial: s.mesial,
-        surfaceDistal: s.distal,
-        surfaceOcclusal: s.occlusal,
+        surfaces: TOOTH_SURFACE_CODES.filter((code) => s[code]),
       };
     });
 

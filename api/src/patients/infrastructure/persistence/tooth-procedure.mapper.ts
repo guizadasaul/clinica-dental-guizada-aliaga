@@ -1,8 +1,19 @@
-import type { tooth_procedures } from '@prisma/client';
+import type {
+  tooth_procedures,
+  tooth_procedure_surfaces,
+  tooth_surfaces,
+} from '@prisma/client';
 import type { ToothProcedure } from '../../domain/ToothProcedure';
+import type { ToothSurfaceCode } from '../../../shared/validators/tooth-surface.validator';
+
+type ToothProcedureRecord = tooth_procedures & {
+  tooth_procedure_surfaces: (tooth_procedure_surfaces & {
+    tooth_surfaces: tooth_surfaces;
+  })[];
+};
 
 export class ToothProcedureMapper {
-  static toDomain(record: tooth_procedures): ToothProcedure {
+  static toDomain(record: ToothProcedureRecord): ToothProcedure {
     return {
       id: record.id,
       patientId: record.patient_id,
@@ -12,11 +23,9 @@ export class ToothProcedureMapper {
       priceCharged: Number(record.price_charged),
       quantity: record.quantity,
       procedureDate: record.procedure_date,
-      surfaceVestibular: record.surface_vestibular,
-      surfacePalatal: record.surface_palatal,
-      surfaceMesial: record.surface_mesial,
-      surfaceDistal: record.surface_distal,
-      surfaceOcclusal: record.surface_occlusal,
+      surfaces: record.tooth_procedure_surfaces
+        .sort((a, b) => a.tooth_surfaces.display_order - b.tooth_surfaces.display_order)
+        .map((tps) => tps.tooth_surfaces.code as ToothSurfaceCode),
       notes: record.notes ?? null,
       performedBy: record.performed_by,
       createdAt: record.created_at,

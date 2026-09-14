@@ -225,11 +225,7 @@ export class PatientsController {
       {
         teeth: dto.teeth.map((t) => ({
           number: t.number,
-          surfaceVestibular: t.surfaceVestibular,
-          surfacePalatal: t.surfacePalatal,
-          surfaceMesial: t.surfaceMesial,
-          surfaceDistal: t.surfaceDistal,
-          surfaceOcclusal: t.surfaceOcclusal,
+          surfaces: t.surfaces,
         })),
         treatmentId: dto.treatmentId,
         priceCharged: dto.priceCharged,

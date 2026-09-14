@@ -19,6 +19,16 @@ export type TreatmentApplicationType =
 
 export type TreatmentCurrency = 'BOB' | 'USD';
 
+/** Códigos del catálogo tooth_surfaces (CLI-49) — espejo del backend. */
+export type ToothSurfaceCode =
+  | 'vestibular'
+  | 'palatal'
+  | 'lingual'
+  | 'mesial'
+  | 'distal'
+  | 'occlusal'
+  | 'incisal';
+
 export interface Treatment {
   id: string;
   code: string;
@@ -49,11 +59,8 @@ export interface ToothProcedure {
   /** Para aplicaciones por unidad/caja (elásticos, cera ortodóntica) — 1 para el resto. */
   quantity: number;
   procedureDate: string;
-  surfaceVestibular: boolean;
-  surfacePalatal: boolean;
-  surfaceMesial: boolean;
-  surfaceDistal: boolean;
-  surfaceOcclusal: boolean;
+  /** Conjunto de superficies marcadas (CLI-49) — [] si ninguna. */
+  surfaces: ToothSurfaceCode[];
   notes: string | null;
   performedBy: string;
   createdAt: string;

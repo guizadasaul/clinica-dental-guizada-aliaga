@@ -119,11 +119,8 @@ export interface CreateToothProcedureData {
   /** Para aplicaciones por unidad/caja (CLI-41) — price_charged = quantity × base_price. 1 para el resto. */
   quantity?: number;
   procedureDate?: Date;
-  surfaceVestibular?: boolean;
-  surfacePalatal?: boolean;
-  surfaceMesial?: boolean;
-  surfaceDistal?: boolean;
-  surfaceOcclusal?: boolean;
+  /** Códigos de tooth_surfaces (CLI-49) — [] o undefined si ninguna. */
+  surfaceCodes?: string[];
   notes?: string;
   performedBy: string;
 }

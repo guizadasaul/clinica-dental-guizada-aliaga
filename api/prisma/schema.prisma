@@ -333,11 +333,6 @@ model tooth_procedures {
   /// Para aplicaciones por unidad/caja (elásticos, cera ortodóntica, CLI-41) — price_charged = quantity × treatments.base_price. 1 para el resto.
   quantity             Int              @default(1)
   procedure_date       DateTime         @default(dbgenerated("CURRENT_DATE")) @db.Date
-  surface_vestibular   Boolean          @default(false)
-  surface_palatal      Boolean          @default(false)
-  surface_mesial       Boolean          @default(false)
-  surface_distal       Boolean          @default(false)
-  surface_occlusal     Boolean          @default(false)
   notes                String?
   performed_by         String           @db.Uuid
   created_at           DateTime         @default(now()) @db.Timestamptz(6)
@@ -345,10 +340,41 @@ model tooth_procedures {
   users                users            @relation(fields: [performed_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
   treatments           treatments       @relation(fields: [treatment_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   xray_documents       xray_documents[]
+  tooth_procedure_surfaces tooth_procedure_surfaces[]
 
   @@index([procedure_date], map: "idx_tooth_procedures_date")
   @@index([patient_id, tooth_number], map: "idx_tooth_procedures_patient_tooth")
   @@index([application_group_id], map: "idx_tooth_procedures_application_group")
+}
+
+/// Catálogo de superficies dentales (CLI-49) — vestibular, palatal, lingual,
+/// mesial, distal, oclusal, incisal. Fijo por la anatomía dental (no lo edita
+/// la clínica), cargado por el seed (upsert por `code`), igual que
+/// diagnosis_categories/treatments. Qué superficies son anatómicamente
+/// válidas para un diente puntual se valida en código
+/// (shared/validators/tooth-surface.validator.ts), no con una columna acá.
+model tooth_surfaces {
+  id                       String                     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  code                     String                     @unique @db.VarChar(20)
+  name                     String                     @db.VarChar(30)
+  display_order            Int
+  tooth_procedure_surfaces tooth_procedure_surfaces[]
+}
+
+/// Superficies marcadas en un procedimiento (CLI-49). Reemplaza los 5
+/// booleanos paralelos que tenía tooth_procedures — las superficies son un
+/// conjunto, no cinco atributos distintos del procedimiento (violación de
+/// 1FN). Agregar una superficie nueva ahora es una fila de catálogo, no una
+/// migración + DTO + frontend nuevos.
+model tooth_procedure_surfaces {
+  id                 String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tooth_procedure_id String           @db.Uuid
+  tooth_surface_id   String           @db.Uuid
+  tooth_procedures   tooth_procedures @relation(fields: [tooth_procedure_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  tooth_surfaces     tooth_surfaces   @relation(fields: [tooth_surface_id], references: [id], onDelete: Restrict, onUpdate: NoAction)
+
+  @@unique([tooth_procedure_id, tooth_surface_id], map: "idx_tooth_procedure_surfaces_unique")
+  @@index([tooth_procedure_id], map: "idx_tooth_procedure_surfaces_procedure")
 }
 
 model testimonials {
