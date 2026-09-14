@@ -17,6 +17,7 @@ import type {
   ClinicalExamData,
   OdontogramEntryData,
   CreateToothProcedureData,
+  CreateToothProcedureGroupData,
   DentalExamFindingData,
 } from '../domain/PatientRepository';
 import { UserRepository } from '../../auth/domain/UserRepository';
@@ -265,15 +266,32 @@ export class PatientsService {
       throw error;
     }
 
-    const rows = this.buildToothProcedureRows(
-      treatment.applicationType,
-      data,
-      user.id,
-    );
-    const created = await this.patientRepo.createToothProcedures(
-      patientId,
-      rows,
-    );
+    let created: ToothProcedure[];
+    if (treatment.applicationType === 'multiple_teeth') {
+      const sortedTeeth = [...data.teeth].sort((a, b) => a.number - b.number);
+      created = await this.patientRepo.createToothProcedureGroup(patientId, {
+        treatmentId: treatment.id,
+        teeth: sortedTeeth.map((tooth) => ({
+          toothNumber: tooth.number,
+          surfaceVestibular: tooth.surfaceVestibular,
+          surfacePalatal: tooth.surfacePalatal,
+          surfaceMesial: tooth.surfaceMesial,
+          surfaceDistal: tooth.surfaceDistal,
+          surfaceOcclusal: tooth.surfaceOcclusal,
+        })),
+        priceCharged: data.priceCharged,
+        procedureDate: data.procedureDate,
+        notes: data.notes,
+        performedBy: user.id,
+      });
+    } else {
+      const rows = this.buildToothProcedureRows(
+        treatment.applicationType,
+        data,
+        user.id,
+      );
+      created = await this.patientRepo.createToothProcedures(patientId, rows);
+    }
 
     if (typeGeneratesOdontogramEntries(treatment.applicationType)) {
       const existingEntries =
@@ -300,12 +318,10 @@ export class PatientsService {
   }
 
   /**
-   * Una fila por diente, cada una con SUS PROPIAS superficies (CLI-41) — a
-   * diferencia de antes, ya no se copia un único juego de superficies a
-   * todos los dientes del grupo. `multiple_teeth` reparte el precio y la
-   * cantidad en la primera fila del `application_group_id` (igual que
-   * antes); `single_tooth` es un caso particular de 1 diente sin grupo;
-   * el resto de los tipos no llevan diente.
+   * Filas sueltas, cada una con su propio precio — `single_tooth` es un
+   * único diente, el resto de los tipos no llevan diente. `multiple_teeth`
+   * NO pasa por acá: usa createToothProcedureGroup (CLI-53), con el precio
+   * a nivel de grupo en vez de repartido/mentido por fila.
    */
   private buildToothProcedureRows(
     applicationType: TreatmentApplicationType,
@@ -319,30 +335,12 @@ export class PatientsService {
       performedBy,
     };
 
-    if (applicationType === 'multiple_teeth') {
-      const applicationGroupId = randomUUID();
-      const sortedTeeth = [...data.teeth].sort((a, b) => a.number - b.number);
-      return sortedTeeth.map((tooth, index) => ({
-        ...shared,
-        toothNumber: tooth.number,
-        applicationGroupId,
-        priceCharged: index === 0 ? data.priceCharged : 0,
-        quantity: index === 0 ? (data.quantity ?? 1) : 1,
-        surfaceVestibular: tooth.surfaceVestibular,
-        surfacePalatal: tooth.surfacePalatal,
-        surfaceMesial: tooth.surfaceMesial,
-        surfaceDistal: tooth.surfaceDistal,
-        surfaceOcclusal: tooth.surfaceOcclusal,
-      }));
-    }
-
     if (applicationType === 'single_tooth') {
       const tooth = data.teeth[0];
       return [
         {
           ...shared,
           toothNumber: tooth.number,
-          applicationGroupId: null,
           priceCharged: data.priceCharged,
           quantity: data.quantity ?? 1,
           surfaceVestibular: tooth.surfaceVestibular,
@@ -359,7 +357,6 @@ export class PatientsService {
         ...shared,
         quantity: data.quantity ?? 1,
         toothNumber: null,
-        applicationGroupId: null,
         priceCharged: data.priceCharged,
       },
     ];
