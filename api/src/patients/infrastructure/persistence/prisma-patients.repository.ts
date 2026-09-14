@@ -64,17 +64,23 @@ export class PrismaPatientsRepository implements IPatientRepository {
   }
 
   async findPatientById(id: string): Promise<Patient | null> {
-    const record = await this.prisma.patients.findUnique({ where: { id } });
+    const record = await this.prisma.patients.findUnique({
+      where: { id },
+      include: { users: true },
+    });
     return record ? PatientMapper.toDomainPatient(record) : null;
   }
 
   async findByUserId(userId: string): Promise<Patient | null> {
     const record = await this.prisma.patients.findUnique({
       where: { user_id: userId },
+      include: { users: true },
     });
     return record ? PatientMapper.toDomainPatient(record) : null;
   }
 
+  // El teléfono NO se escribe acá — vive en users.phone (CLI-51), lo
+  // sincroniza PatientsService vía UserRepository.updateContactInfo.
   async create(userId: string, data: CreatePatientData): Promise<Patient> {
     const record = await this.prisma.patients.create({
       data: {
@@ -87,7 +93,6 @@ export class PrismaPatientsRepository implements IPatientRepository {
         sex: data.sex ?? null,
         occupation: data.occupation ?? null,
         address: data.address ?? null,
-        phone: data.phone ?? null,
         emergency_contact_name: data.emergencyContactName ?? null,
         emergency_contact_phone: data.emergencyContactPhone ?? null,
         emergency_contact_relationship:
@@ -98,10 +103,13 @@ export class PrismaPatientsRepository implements IPatientRepository {
         family_history: data.familyHistory ?? null,
         dni: data.dni ?? null,
       },
+      include: { users: true },
     });
     return PatientMapper.toDomainPatient(record);
   }
 
+  // El teléfono NO se escribe acá tampoco — PatientsService.updatePatient ya
+  // lo sincroniza por separado vía UserRepository.updateContactInfo (CLI-51).
   async updatePatient(
     id: string,
     data: UpdatePatientData,
@@ -124,7 +132,6 @@ export class PrismaPatientsRepository implements IPatientRepository {
           ...(data.sex !== undefined && { sex: data.sex }),
           ...(data.occupation !== undefined && { occupation: data.occupation }),
           ...(data.address !== undefined && { address: data.address }),
-          ...(data.phone !== undefined && { phone: data.phone }),
           ...(data.emergencyContactName !== undefined && {
             emergency_contact_name: data.emergencyContactName,
           }),
@@ -149,6 +156,7 @@ export class PrismaPatientsRepository implements IPatientRepository {
           ...(data.dni !== undefined && { dni: data.dni }),
           updated_at: new Date(),
         },
+        include: { users: true },
       });
       return PatientMapper.toDomainPatient(record);
     } catch (error: unknown) {

@@ -96,7 +96,7 @@ export class PrismaPatientInviteRepository implements IPatientInviteRepository {
     return {
       userId: patient.user_id,
       fullName: `${patient.first_name} ${patient.last_name_paternal}`,
-      phone: patient.phone,
+      phone: patient.users.phone,
       email: patient.users.email,
     };
   }

@@ -36,7 +36,6 @@ function fakeAppointment(options: FakeAppointmentOptions = {}): Appointment {
     'appt-1',
     null,
     null,
-    null,
     options.slot ?? new Date(VALID_SLOT_ISO),
     options.status ?? AppointmentStatus.HELD,
     'public_web',
