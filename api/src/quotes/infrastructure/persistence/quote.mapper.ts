@@ -1,8 +1,12 @@
-import type { quotes, quote_items } from '@prisma/client';
+import type { quotes, quote_items, payments } from '@prisma/client';
 import type { Quote } from '../../domain/Quote';
 import type { QuoteItem } from '../../domain/QuoteItem';
+import type { Payment } from '../../domain/Payment';
 
-type QuoteRecordWithItems = quotes & { quote_items: quote_items[] };
+type QuoteRecordWithItems = quotes & {
+  quote_items: quote_items[];
+  payments: payments[];
+};
 
 export class QuoteMapper {
   static toDomain(record: QuoteRecordWithItems): Quote {
@@ -16,6 +20,7 @@ export class QuoteMapper {
       createdAt: record.created_at,
       updatedAt: record.updated_at,
       items: record.quote_items.map((i) => QuoteMapper.itemToDomain(i)),
+      payments: record.payments.map((p) => QuoteMapper.paymentToDomain(p)),
     };
   }
 
@@ -32,6 +37,19 @@ export class QuoteMapper {
       currency: record.currency,
       exchangeRate:
         record.exchange_rate !== null ? Number(record.exchange_rate) : null,
+    };
+  }
+
+  static paymentToDomain(record: payments): Payment {
+    return {
+      id: record.id,
+      quoteId: record.quote_id,
+      amount: Number(record.amount),
+      paymentMethod: record.payment_method ?? null,
+      receiptNumber: record.receipt_number,
+      paymentDate: record.payment_date,
+      notes: record.notes ?? null,
+      createdAt: record.created_at,
     };
   }
 }
