@@ -1,8 +1,11 @@
-import type { quotes, quote_items } from '@prisma/client';
+import type { quotes, quote_items, application_groups } from '@prisma/client';
 import type { Quote } from '../../domain/Quote';
 import type { QuoteItem } from '../../domain/QuoteItem';
 
-type QuoteRecordWithItems = quotes & { quote_items: quote_items[] };
+type QuoteItemRecordWithGroup = quote_items & {
+  application_groups: application_groups | null;
+};
+type QuoteRecordWithItems = quotes & { quote_items: QuoteItemRecordWithGroup[] };
 
 export class QuoteMapper {
   static toDomain(record: QuoteRecordWithItems): Quote {
@@ -19,19 +22,26 @@ export class QuoteMapper {
     };
   }
 
-  static itemToDomain(record: quote_items): QuoteItem {
+  // El precio de una fila agrupada (application_group_id NOT NULL) vive en
+  // application_groups, no en la fila misma — CLI-45. Todas las filas de un
+  // mismo grupo reportan el mismo precio (el del grupo), a diferencia del
+  // viejo esquema donde solo una fila arbitraria lo tenía y el resto
+  // facturaba 0.
+  static itemToDomain(record: QuoteItemRecordWithGroup): QuoteItem {
+    const group = record.application_groups;
     return {
       id: record.id,
       quoteId: record.quote_id,
       treatmentId: record.treatment_id,
       toothNumber: record.tooth_number,
       applicationGroupId: record.application_group_id,
-      unitPrice: Number(record.unit_price),
+      unitPrice: Number(group?.unit_price ?? record.unit_price ?? 0),
       quantity: record.quantity,
-      subtotal: record.subtotal !== null ? Number(record.subtotal) : 0,
-      currency: record.currency,
-      exchangeRate:
-        record.exchange_rate !== null ? Number(record.exchange_rate) : null,
+      subtotal: Number(group?.subtotal ?? record.subtotal ?? 0),
+      currency: group?.currency ?? record.currency ?? 'BOB',
+      exchangeRate: Number(
+        group?.exchange_rate ?? record.exchange_rate ?? 0,
+      ) || null,
     };
   }
 }
