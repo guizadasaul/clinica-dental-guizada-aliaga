@@ -155,13 +155,15 @@ export class AppointmentsService {
 
   async saveGuestContact(
     id: string,
-    fullName: string,
+    firstName: string,
+    lastNamePaternal: string,
+    lastNameMaternal: string | null,
     phone: string,
     email: string | null,
   ): Promise<Appointment> {
     const updated = await this.appointmentRepo.updateGuestContact(
       id,
-      { fullName, phone, email },
+      { firstName, lastNamePaternal, lastNameMaternal, phone, email },
       new Date(),
     );
     if (!updated) {

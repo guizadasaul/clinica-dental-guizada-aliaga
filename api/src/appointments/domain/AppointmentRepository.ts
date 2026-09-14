@@ -16,7 +16,9 @@ export interface CreateHoldData {
 }
 
 export interface GuestContactData {
-  fullName: string;
+  firstName: string;
+  lastNamePaternal: string;
+  lastNameMaternal: string | null;
   phone: string;
   email: string | null;
 }

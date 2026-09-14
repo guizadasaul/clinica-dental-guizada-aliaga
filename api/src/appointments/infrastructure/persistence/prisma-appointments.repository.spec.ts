@@ -21,6 +21,9 @@ function fakeAppointmentRecord(overrides: Record<string, unknown> = {}) {
     created_at: NOW,
     hold_expires_at: new Date(NOW.getTime() + 15 * 60 * 1000),
     guest_full_name: null,
+    guest_first_name: null,
+    guest_last_name_paternal: null,
+    guest_last_name_maternal: null,
     guest_phone: null,
     baneco_qr_id: null,
     baneco_transaction_id: null,
@@ -118,7 +121,7 @@ describe('PrismaAppointmentsRepository', () => {
 
       const result = await repo.updateGuestContact(
         'appt-1',
-        { fullName: 'X', phone: '7' },
+        { firstName: 'X', lastNamePaternal: 'Y', lastNameMaternal: null, phone: '7', email: null },
         NOW,
       );
 
@@ -129,20 +132,31 @@ describe('PrismaAppointmentsRepository', () => {
     it('updates and returns the appointment when the hold is still active', async () => {
       prismaMock.appointments.updateMany.mockResolvedValue({ count: 1 });
       prismaMock.appointments.findUnique.mockResolvedValue(
-        fakeAppointmentRecord({ guest_full_name: 'X', guest_phone: '7' }),
+        fakeAppointmentRecord({
+          guest_first_name: 'X',
+          guest_last_name_paternal: 'Y',
+          guest_phone: '7',
+        }),
       );
 
       const result = await repo.updateGuestContact(
         'appt-1',
-        { fullName: 'X', phone: '7' },
+        { firstName: 'X', lastNamePaternal: 'Y', lastNameMaternal: null, phone: '7', email: null },
         NOW,
       );
 
       expect(prismaMock.appointments.updateMany).toHaveBeenCalledWith({
         where: { id: 'appt-1', status: 'held', hold_expires_at: { gt: NOW } },
-        data: { guest_full_name: 'X', guest_phone: '7' },
+        data: {
+          guest_first_name: 'X',
+          guest_last_name_paternal: 'Y',
+          guest_last_name_maternal: null,
+          guest_phone: '7',
+          guest_email: null,
+        },
       });
-      expect(result?.guestFullName).toBe('X');
+      expect(result?.guestFirstName).toBe('X');
+      expect(result?.guestLastNamePaternal).toBe('Y');
     });
   });
 
