@@ -257,7 +257,11 @@ model patients {
   medical_history                medical_history?
   odontogram_entries             odontogram_entries[]
   dental_exams                   dental_exams[]
-  users                          users                @relation(fields: [user_id], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  // CLI-48: user_id es NOT NULL, así que SetNull era inalcanzable (Postgres
+  // no puede poner NULL en una columna que no lo admite) — borrar un usuario
+  // con ficha se rechaza en vez de dejar la ficha huérfana. La baja de
+  // cuenta se maneja con users.is_active, no con borrado físico.
+  users                          users                @relation(fields: [user_id], references: [id], onDelete: Restrict, onUpdate: NoAction)
   quotes                         quotes[]
   tooth_procedures               tooth_procedures[]
   xray_documents                 xray_documents[]
