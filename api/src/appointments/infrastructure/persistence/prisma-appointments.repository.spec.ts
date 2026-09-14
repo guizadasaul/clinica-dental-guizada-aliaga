@@ -13,6 +13,7 @@ function fakeAppointmentRecord(overrides: Record<string, unknown> = {}) {
     patient_id: null,
     treatment_id: null,
     appointment_datetime: SLOT,
+    duration_minutes: 30,
     status: 'held',
     source: 'public_web',
     whatsapp_name: null,
@@ -67,6 +68,7 @@ describe('PrismaAppointmentsRepository', () => {
         slot: SLOT,
         holdExpiresAt: NOW,
         treatmentId: null,
+        durationMinutes: 30,
         source: 'public_web',
       });
 
@@ -90,6 +92,31 @@ describe('PrismaAppointmentsRepository', () => {
       );
     });
 
+    // CLI-47: la duración congelada en la cita viene del caller (el service
+    // ya resolvió el tratamiento), el repositorio solo la persiste tal cual.
+    it('persists the given durationMinutes as duration_minutes', async () => {
+      prismaMock.appointments.updateMany.mockResolvedValue({ count: 1 });
+      prismaMock.appointments.create.mockResolvedValue(
+        fakeAppointmentRecord({ duration_minutes: 90 }),
+      );
+
+      await repo.createHold({
+        slot: SLOT,
+        holdExpiresAt: NOW,
+        treatmentId: 'treatment-1',
+        durationMinutes: 90,
+        source: 'public_web',
+      });
+
+      expect(prismaMock.appointments.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            duration_minutes: 90,
+          }) as Record<string, unknown>,
+        }),
+      );
+    });
+
     it('translates a unique-slot conflict (P2002) into SlotUnavailableError', async () => {
       const error = new Prisma.PrismaClientKnownRequestError(
         'Unique constraint failed',
@@ -106,6 +133,7 @@ describe('PrismaAppointmentsRepository', () => {
           slot: SLOT,
           holdExpiresAt: NOW,
           treatmentId: null,
+          durationMinutes: 30,
           source: 'public_web',
         }),
       ).rejects.toThrow(SlotUnavailableError);

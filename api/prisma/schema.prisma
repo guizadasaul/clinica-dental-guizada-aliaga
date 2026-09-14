@@ -53,12 +53,27 @@ enum DiagnosisModifier {
 }
 
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// idx_one_active_appointment_slot solo protege el instante exacto de inicio
+/// (CLI-47) — dos citas que se solapan parcialmente (una de 90 min a las
+/// 9:00 y otra de 30 min a las 9:15) no chocan contra este índice. La
+/// disponibilidad mostrada (getAvailability) sí las trata como solapadas;
+/// falta una constraint de rango (EXCLUDE USING gist) para que la base
+/// también lo impida ante una carrera entre dos requests concurrentes.
+/// Deliberadamente fuera de alcance de CLI-47: el manejo de errores de
+/// Prisma para una exclusion_violation de Postgres no está probado en este
+/// proyecto (no hay ninguna constraint de este tipo todavía) y agregarla sin
+/// verificar el código de error real arriesga romper el 409 limpio actual.
 model appointments {
   id                    String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   user_id               String?     @unique(map: "idx_one_active_appointment_web", where: raw("(((status)::text = 'scheduled'::text) AND (user_id IS NOT NULL))")) @db.Uuid
   patient_id            String?     @db.Uuid
   treatment_id          String?     @db.Uuid
   appointment_datetime  DateTime    @unique(map: "idx_one_active_appointment_slot", where: raw("(((status)::text = 'held'::text) OR ((status)::text = 'confirmed'::text))")) @db.Timestamptz(6)
+  /// Congelada al reservar (CLI-47) — snapshot de treatments.estimated_minutes
+  /// en el momento del hold, o 30 (un slot) si no se especificó tratamiento.
+  /// Cambiar estimated_minutes en el catálogo después no debe reinterpretar
+  /// agendas ya reservadas, mismo criterio que los precios de quote_items.
+  duration_minutes      Int         @default(30)
   status                String      @default("scheduled") @db.VarChar(20)
   source                String      @db.VarChar(20)
   whatsapp_name         String?     @db.VarChar(200)
@@ -172,17 +187,17 @@ model diagnosis_categories {
 /// única — el frontend ya no hardcodea labels/colores. `is_active` es
 /// soft-delete, igual que `treatments.is_active` en el seed.
 model diagnoses {
-  id                    String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  category_id           String                @db.Uuid
-  code                  String                @unique @db.VarChar(50)
-  name                  String                @db.VarChar(150)
-  scope                 DiagnosisScope
-  modifier              DiagnosisModifier     @default(none)
-  color                 String                @db.VarChar(7)
-  display_order         Int
-  is_active             Boolean               @default(true)
-  diagnosis_categories  diagnosis_categories  @relation(fields: [category_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  dental_exam_findings  dental_exam_findings[]
+  id                   String                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  category_id          String                 @db.Uuid
+  code                 String                 @unique @db.VarChar(50)
+  name                 String                 @db.VarChar(150)
+  scope                DiagnosisScope
+  modifier             DiagnosisModifier      @default(none)
+  color                String                 @db.VarChar(7)
+  display_order        Int
+  is_active            Boolean                @default(true)
+  diagnosis_categories diagnosis_categories   @relation(fields: [category_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  dental_exam_findings dental_exam_findings[]
 
   @@index([category_id], map: "idx_diagnoses_category")
 }
@@ -211,18 +226,18 @@ model dental_exams {
 /// `application_group_id` agrupa las filas de un mismo hallazgo `multiple_teeth`
 /// (mismo patrón que tooth_procedures.application_group_id).
 model dental_exam_findings {
-  id                     String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  exam_id                String       @db.Uuid
-  diagnosis_id           String       @db.Uuid
-  tooth_number           Int?
-  tooth_type             String?      @db.VarChar(20)
-  application_group_id   String?      @db.Uuid
-  modifier_value         String?      @db.VarChar(20)
-  description            String?
-  xray_requested         Boolean      @default(false)
-  notes                  String?
-  dental_exams           dental_exams @relation(fields: [exam_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  diagnoses              diagnoses    @relation(fields: [diagnosis_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  id                   String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  exam_id              String       @db.Uuid
+  diagnosis_id         String       @db.Uuid
+  tooth_number         Int?
+  tooth_type           String?      @db.VarChar(20)
+  application_group_id String?      @db.Uuid
+  modifier_value       String?      @db.VarChar(20)
+  description          String?
+  xray_requested       Boolean      @default(false)
+  notes                String?
+  dental_exams         dental_exams @relation(fields: [exam_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  diagnoses            diagnoses    @relation(fields: [diagnosis_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
   @@index([exam_id], map: "idx_dental_exam_findings_exam")
   @@index([exam_id, tooth_number], map: "idx_dental_exam_findings_exam_tooth")

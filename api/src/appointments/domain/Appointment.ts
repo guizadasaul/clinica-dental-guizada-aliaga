@@ -24,6 +24,8 @@ export class Appointment {
     readonly patientId: string | null,
     readonly treatmentId: string | null,
     readonly appointmentDatetime: Date,
+    /** Congelada al reservar (CLI-47) — ver AppointmentRepository.CreateHoldData. */
+    readonly durationMinutes: number,
     readonly status: string,
     readonly source: string,
     readonly guestFullName: string | null,

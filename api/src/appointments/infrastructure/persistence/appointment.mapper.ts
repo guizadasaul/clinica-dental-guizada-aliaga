@@ -10,6 +10,7 @@ export class AppointmentMapper {
       record.patient_id,
       record.treatment_id,
       record.appointment_datetime,
+      record.duration_minutes,
       record.status,
       record.source,
       record.guest_full_name,

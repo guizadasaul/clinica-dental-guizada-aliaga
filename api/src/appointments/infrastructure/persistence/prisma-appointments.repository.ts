@@ -88,6 +88,7 @@ export class PrismaAppointmentsRepository implements IAppointmentRepository {
         return tx.appointments.create({
           data: {
             appointment_datetime: data.slot,
+            duration_minutes: data.durationMinutes,
             status: AppointmentStatus.HELD,
             source: data.source,
             treatment_id: data.treatmentId,
