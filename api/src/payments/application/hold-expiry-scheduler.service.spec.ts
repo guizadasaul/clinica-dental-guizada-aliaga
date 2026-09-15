@@ -12,7 +12,6 @@ function fakeAppointment(
     id,
     null,
     null,
-    null,
     new Date('2026-08-17T09:00:00.000Z'),
     status,
     'public_web',

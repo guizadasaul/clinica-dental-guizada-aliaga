@@ -135,6 +135,15 @@ export class PatientsService {
       targetUserId = caller.id;
     }
 
+    // El teléfono vive en users.phone (CLI-51) — se sincroniza ANTES de crear
+    // la ficha para que la respuesta ya refleje el valor nuevo (Patient.phone
+    // se lee via join a users, igual que en updatePatient).
+    if (data.phone !== undefined) {
+      await this.userRepo.updateContactInfo(targetUserId, {
+        phone: data.phone,
+      });
+    }
+
     try {
       return await this.patientRepo.create(targetUserId, data);
     } catch (error: unknown) {

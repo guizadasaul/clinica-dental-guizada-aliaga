@@ -102,7 +102,7 @@ export class PrismaPatientInviteRepository implements IPatientInviteRepository {
       ]
         .filter(Boolean)
         .join(' '),
-      phone: patient.phone,
+      phone: patient.users.phone,
       email: patient.users.email,
     };
   }

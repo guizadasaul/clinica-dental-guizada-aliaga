@@ -6,7 +6,6 @@ export class AppointmentMapper {
   static toDomain(record: appointments): Appointment {
     return new Appointment(
       record.id,
-      record.user_id,
       record.patient_id,
       record.treatment_id,
       record.appointment_datetime,
@@ -39,7 +38,7 @@ export class AppointmentMapper {
       record.patient_id,
       record.patients?.first_name ?? null,
       record.patients?.last_name_paternal ?? null,
-      record.patients?.phone ?? null,
+      record.patients?.users?.phone ?? null,
       record.patients?.users?.email ?? null,
       record.guest_full_name,
       record.guest_first_name,

@@ -104,8 +104,7 @@ describe('PrismaPatientInviteRepository', () => {
         user_id: 'user-1',
         first_name: 'Juana',
         last_name_paternal: 'Perez',
-        phone: '70011122',
-        users: { email: 'juana@example.com' },
+        users: { email: 'juana@example.com', phone: '70011122' },
       });
 
       const result = await repo.findPatientContactInfo('patient-1');

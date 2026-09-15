@@ -20,7 +20,6 @@ export const HOLD_TTL_MINUTES = 10;
 export class Appointment {
   constructor(
     readonly id: string,
-    readonly userId: string | null,
     readonly patientId: string | null,
     readonly treatmentId: string | null,
     readonly appointmentDatetime: Date,

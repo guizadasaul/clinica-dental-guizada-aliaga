@@ -274,6 +274,56 @@ describe('PatientsService', () => {
         }),
       ).rejects.toThrow(ConflictException);
     });
+
+    // CLI-51: el teléfono vive en users.phone, un solo lugar donde se
+    // escribe — createPatient lo sincroniza vía updateContactInfo, igual que
+    // updatePatient ya hacía.
+    it('syncs phone to users.phone via updateContactInfo before creating the ficha', async () => {
+      mockUserRepo.findByAuthUserId.mockResolvedValue(
+        makeAppUser(UserRole.PATIENT, 'caller-user-id'),
+      );
+      const callOrder: string[] = [];
+      mockUserRepo.updateContactInfo.mockImplementation(() => {
+        callOrder.push('updateContactInfo');
+        return Promise.resolve(null);
+      });
+      mockPatientRepo.create.mockImplementation(() => {
+        callOrder.push('create');
+        return Promise.resolve(fakePatient({ userId: 'caller-user-id' }));
+      });
+
+      await service.createPatient(PATIENT_AUTH_ID, undefined, {
+        firstName: 'A',
+        lastNamePaternal: 'B',
+        birthDate: new Date(),
+        phone: '+59171112222',
+      });
+
+      expect(mockUserRepo.updateContactInfo).toHaveBeenCalledWith(
+        'caller-user-id',
+        { phone: '+59171112222' },
+      );
+      // Antes de crear la ficha, para que la respuesta ya refleje el
+      // teléfono nuevo (Patient.phone se lee via join a users).
+      expect(callOrder).toEqual(['updateContactInfo', 'create']);
+    });
+
+    it('does not touch users.phone when phone is not provided', async () => {
+      mockUserRepo.findByAuthUserId.mockResolvedValue(
+        makeAppUser(UserRole.PATIENT, 'caller-user-id'),
+      );
+      mockPatientRepo.create.mockResolvedValue(
+        fakePatient({ userId: 'caller-user-id' }),
+      );
+
+      await service.createPatient(PATIENT_AUTH_ID, undefined, {
+        firstName: 'A',
+        lastNamePaternal: 'B',
+        birthDate: new Date(),
+      });
+
+      expect(mockUserRepo.updateContactInfo).not.toHaveBeenCalled();
+    });
   });
 
   describe('updatePatient', () => {

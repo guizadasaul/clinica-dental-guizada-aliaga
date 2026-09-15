@@ -44,13 +44,15 @@ export class PrismaBookingConfirmationRepository implements IBookingConfirmation
           email: data.guestEmail,
         }),
       });
+      // El teléfono NO se repite acá — ya quedó en users.phone vía
+      // UserMapper.toPlaceholderCreateInput arriba (CLI-51: users.phone es
+      // la única fuente de verdad, patients ya no tiene columna propia).
       const patient = await tx.patients.create({
         data: {
           user_id: user.id,
           first_name: data.guestFirstName,
           last_name_paternal: data.guestLastNamePaternal,
           last_name_maternal: data.guestLastNameMaternal,
-          phone: data.guestPhone,
         },
       });
       await tx.appointments.update({

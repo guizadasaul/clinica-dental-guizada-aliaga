@@ -53,9 +53,13 @@ enum DiagnosisModifier {
 }
 
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// user_id se elimina (CLI-51) — nunca lo escribió ningún código (confirmado
+/// en CLI-46) y era redundante con patient_id: como patients.user_id es 1:1,
+/// nada impedía una cita con user_id=U y patient_id=P donde P.user_id≠U. Si
+/// algún día hace falta el usuario de una cita, se deriva por
+/// patient_id → patients.user_id, nunca se vuelve a guardar acá.
 model appointments {
   id                       String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  user_id                  String?     @db.Uuid
   patient_id               String?     @db.Uuid
   treatment_id             String?     @db.Uuid
   appointment_datetime     DateTime    @unique(map: "idx_one_active_appointment_slot", where: raw("(((status)::text = 'held'::text) OR ((status)::text = 'confirmed'::text))")) @db.Timestamptz(6)
@@ -80,7 +84,6 @@ model appointments {
   paid_at                  DateTime?   @db.Timestamptz(6)
   patients                 patients?   @relation(fields: [patient_id], references: [id], onUpdate: NoAction)
   treatments               treatments? @relation(fields: [treatment_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  users                    users?      @relation(fields: [user_id], references: [id], onUpdate: NoAction)
 
   @@index([appointment_datetime], map: "idx_appointments_datetime")
 }
@@ -233,6 +236,9 @@ model dental_exam_findings {
 }
 
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// El teléfono del paciente vive en users.phone (CLI-51) — patients.user_id
+/// es 1:1, así que un patients.phone propio era una dependencia transitiva
+/// de users.phone (violación de 3FN) y ya había divergido en producción.
 model patients {
   id                             String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   user_id                        String               @unique @db.Uuid
@@ -244,7 +250,6 @@ model patients {
   sex                            String?              @db.VarChar(20)
   occupation                     String?              @db.VarChar(150)
   address                        String?
-  phone                          String?              @db.VarChar(20)
   emergency_contact_name         String?              @db.VarChar(200)
   emergency_contact_phone        String?              @db.VarChar(20)
   emergency_contact_relationship String?              @db.VarChar(100)
@@ -467,7 +472,6 @@ model users {
   created_at       DateTime           @default(now()) @db.Timestamptz(6)
   updated_at       DateTime           @default(now()) @db.Timestamptz(6)
   role             UserRole           @default(patient)
-  appointments     appointments[]
   patients         patients?
   tooth_procedures tooth_procedures[]
   dental_exams     dental_exams[]
