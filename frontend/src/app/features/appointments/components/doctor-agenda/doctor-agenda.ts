@@ -289,6 +289,9 @@ export class DoctorAgendaComponent {
     if (a.patientFirstName) {
       return `${a.patientFirstName} ${a.patientLastNamePaternal ?? ''}`.trim();
     }
+    if (a.guestFirstName) {
+      return `${a.guestFirstName} ${a.guestLastNamePaternal ?? ''}`.trim();
+    }
     return a.guestFullName ?? 'Paciente sin datos';
   }
 

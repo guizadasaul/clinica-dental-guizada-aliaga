@@ -26,7 +26,11 @@ export class Appointment {
     readonly appointmentDatetime: Date,
     readonly status: string,
     readonly source: string,
+    /** @deprecated Reemplazado por guestFirstName/guestLastNamePaternal/guestLastNameMaternal (CLI-43). Se conserva como respaldo auditable de filas anteriores, ya no se escribe. */
     readonly guestFullName: string | null,
+    readonly guestFirstName: string | null,
+    readonly guestLastNamePaternal: string | null,
+    readonly guestLastNameMaternal: string | null,
     readonly guestPhone: string | null,
     readonly guestEmail: string | null,
     readonly holdExpiresAt: Date | null,

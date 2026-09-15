@@ -54,29 +54,33 @@ enum DiagnosisModifier {
 
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
 model appointments {
-  id                    String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  user_id               String?     @unique(map: "idx_one_active_appointment_web", where: raw("(((status)::text = 'scheduled'::text) AND (user_id IS NOT NULL))")) @db.Uuid
-  patient_id            String?     @db.Uuid
-  treatment_id          String?     @db.Uuid
-  appointment_datetime  DateTime    @unique(map: "idx_one_active_appointment_slot", where: raw("(((status)::text = 'held'::text) OR ((status)::text = 'confirmed'::text))")) @db.Timestamptz(6)
-  status                String      @default("scheduled") @db.VarChar(20)
-  source                String      @db.VarChar(20)
-  whatsapp_name         String?     @db.VarChar(200)
-  whatsapp_phone        String?     @unique(map: "idx_one_active_appointment_wa", where: raw("(((status)::text = 'scheduled'::text) AND (whatsapp_phone IS NOT NULL))")) @db.VarChar(20)
-  notes                 String?
-  created_at            DateTime    @default(now()) @db.Timestamptz(6)
-  hold_expires_at       DateTime?   @db.Timestamptz(6)
-  guest_full_name       String?     @db.VarChar(200)
-  guest_phone           String?     @db.VarChar(20)
-  guest_email           String?     @db.VarChar(255)
-  baneco_qr_id          String?     @unique @db.VarChar(50)
-  baneco_transaction_id String?     @unique @db.VarChar(50)
-  baneco_qr_image       String?
-  payment_amount        Decimal?    @db.Decimal(10, 2)
-  paid_at               DateTime?   @db.Timestamptz(6)
-  patients              patients?   @relation(fields: [patient_id], references: [id], onUpdate: NoAction)
-  treatments            treatments? @relation(fields: [treatment_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  users                 users?      @relation(fields: [user_id], references: [id], onUpdate: NoAction)
+  id                       String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id                  String?     @db.Uuid
+  patient_id               String?     @db.Uuid
+  treatment_id             String?     @db.Uuid
+  appointment_datetime     DateTime    @unique(map: "idx_one_active_appointment_slot", where: raw("(((status)::text = 'held'::text) OR ((status)::text = 'confirmed'::text))")) @db.Timestamptz(6)
+  status                   String      @default("scheduled") @db.VarChar(20)
+  source                   String      @db.VarChar(20)
+  whatsapp_name            String?     @db.VarChar(200)
+  whatsapp_phone           String?     @db.VarChar(20)
+  notes                    String?
+  created_at               DateTime    @default(now()) @db.Timestamptz(6)
+  hold_expires_at          DateTime?   @db.Timestamptz(6)
+  /// @deprecated Reemplazado por guest_first_name/guest_last_name_paternal/guest_last_name_maternal (CLI-43). Se conserva sin escribir, como respaldo auditable de las filas anteriores.
+  guest_full_name          String?     @db.VarChar(200)
+  guest_first_name         String?     @db.VarChar(100)
+  guest_last_name_paternal String?     @db.VarChar(100)
+  guest_last_name_maternal String?     @db.VarChar(100)
+  guest_phone              String?     @unique(map: "idx_one_active_appointment_guest_phone", where: raw("((((status)::text = 'held'::text) OR ((status)::text = 'confirmed'::text)) AND (guest_phone IS NOT NULL))")) @db.VarChar(20)
+  guest_email              String?     @db.VarChar(255)
+  baneco_qr_id             String?     @unique @db.VarChar(50)
+  baneco_transaction_id    String?     @unique @db.VarChar(50)
+  baneco_qr_image          String?
+  payment_amount           Decimal?    @db.Decimal(10, 2)
+  paid_at                  DateTime?   @db.Timestamptz(6)
+  patients                 patients?   @relation(fields: [patient_id], references: [id], onUpdate: NoAction)
+  treatments               treatments? @relation(fields: [treatment_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  users                    users?      @relation(fields: [user_id], references: [id], onUpdate: NoAction)
 
   @@index([appointment_datetime], map: "idx_appointments_datetime")
 }
@@ -445,7 +449,7 @@ model users {
   created_at       DateTime           @default(now()) @db.Timestamptz(6)
   updated_at       DateTime           @default(now()) @db.Timestamptz(6)
   role             UserRole           @default(patient)
-  appointments     appointments?
+  appointments     appointments[]
   patients         patients?
   tooth_procedures tooth_procedures[]
   dental_exams     dental_exams[]

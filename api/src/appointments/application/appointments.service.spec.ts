@@ -8,6 +8,7 @@ import { Test } from '@nestjs/testing';
 import { AppointmentsService } from './appointments.service';
 import {
   AppointmentRepository,
+  GuestPhoneConflictError,
   SlotUnavailableError,
 } from '../domain/AppointmentRepository';
 import { Appointment, AppointmentStatus } from '../domain/Appointment';
@@ -40,6 +41,9 @@ function fakeAppointment(options: FakeAppointmentOptions = {}): Appointment {
     options.slot ?? new Date(VALID_SLOT_ISO),
     options.status ?? AppointmentStatus.HELD,
     'public_web',
+    null,
+    null,
+    null,
     null,
     null,
     null,
@@ -184,7 +188,9 @@ describe('AppointmentsService', () => {
 
       const result = await service.saveGuestContact(
         'appt-1',
-        'Juana Perez',
+        'Juana',
+        'Perez',
+        null,
         '70011122',
         null,
       );
@@ -192,12 +198,14 @@ describe('AppointmentsService', () => {
       expect(result.id).toBe('appt-1');
     });
 
-    it('passes the guest email through to the repository when provided', async () => {
+    it('passes the guest email and maternal surname through to the repository when provided', async () => {
       mockRepo.updateGuestContact.mockResolvedValue(fakeAppointment());
 
       await service.saveGuestContact(
         'appt-1',
-        'Juana Perez',
+        'Juana',
+        'Perez',
+        'Gomez',
         '70011122',
         'juana@example.com',
       );
@@ -205,7 +213,9 @@ describe('AppointmentsService', () => {
       expect(mockRepo.updateGuestContact).toHaveBeenCalledWith(
         'appt-1',
         {
-          fullName: 'Juana Perez',
+          firstName: 'Juana',
+          lastNamePaternal: 'Perez',
+          lastNameMaternal: 'Gomez',
           phone: '70011122',
           email: 'juana@example.com',
         },
@@ -218,7 +228,7 @@ describe('AppointmentsService', () => {
       mockRepo.findById.mockResolvedValue(null);
 
       await expect(
-        service.saveGuestContact('missing', 'Juana Perez', '70011122', null),
+        service.saveGuestContact('missing', 'Juana', 'Perez', null, '70011122', null),
       ).rejects.toThrow(NotFoundException);
     });
 
@@ -229,8 +239,18 @@ describe('AppointmentsService', () => {
       );
 
       await expect(
-        service.saveGuestContact('appt-1', 'Juana Perez', '70011122', null),
+        service.saveGuestContact('appt-1', 'Juana', 'Perez', null, '70011122', null),
       ).rejects.toThrow(GoneException);
+    });
+
+    it('maps GuestPhoneConflictError to ConflictException (409)', async () => {
+      mockRepo.updateGuestContact.mockRejectedValue(
+        new GuestPhoneConflictError(),
+      );
+
+      await expect(
+        service.saveGuestContact('appt-1', 'Juana', 'Perez', null, '70011122', null),
+      ).rejects.toThrow(ConflictException);
     });
   });
 

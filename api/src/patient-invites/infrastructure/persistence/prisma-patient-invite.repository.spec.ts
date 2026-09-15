@@ -121,6 +121,21 @@ describe('PrismaPatientInviteRepository', () => {
         email: 'juana@example.com',
       });
     });
+
+    it('includes last_name_maternal in fullName when present (CLI-43)', async () => {
+      prismaMock.patients.findUnique.mockResolvedValue({
+        user_id: 'user-1',
+        first_name: 'Juana',
+        last_name_paternal: 'Perez',
+        last_name_maternal: 'Gomez',
+        phone: '70011122',
+        users: { email: 'juana@example.com' },
+      });
+
+      const result = await repo.findPatientContactInfo('patient-1');
+
+      expect(result?.fullName).toBe('Juana Perez Gomez');
+    });
   });
 
   describe('isTokenValid', () => {

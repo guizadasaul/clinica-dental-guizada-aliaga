@@ -11,6 +11,17 @@ export interface QuoteItem {
   exchangeRate: number | null;
 }
 
+export interface Payment {
+  id: string;
+  quoteId: string;
+  amount: number;
+  paymentMethod: string | null;
+  receiptNumber: string;
+  paymentDate: string;
+  notes: string | null;
+  createdAt: string;
+}
+
 export interface Quote {
   id: string;
   patientId: string;
@@ -21,4 +32,5 @@ export interface Quote {
   createdAt: string;
   updatedAt: string;
   items: QuoteItem[];
+  payments: Payment[];
 }

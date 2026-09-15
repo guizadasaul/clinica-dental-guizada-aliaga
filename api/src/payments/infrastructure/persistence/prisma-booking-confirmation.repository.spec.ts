@@ -34,8 +34,11 @@ describe('PrismaBookingConfirmationRepository', () => {
       paidAt: NOW,
       amount: 50,
       qrId: 'qr-1',
-      guestFullName: 'Juana Perez',
+      guestFirstName: 'Juana',
+      guestLastNamePaternal: 'Perez',
+      guestLastNameMaternal: null,
       guestPhone: '70011122',
+      guestEmail: null,
     });
 
     expect(prismaMock.appointments.updateMany).toHaveBeenCalledWith({
@@ -60,8 +63,11 @@ describe('PrismaBookingConfirmationRepository', () => {
       paidAt: NOW,
       amount: 50,
       qrId: 'qr-1',
-      guestFullName: 'Juana Perez',
+      guestFirstName: 'Juana',
+      guestLastNamePaternal: 'Perez',
+      guestLastNameMaternal: null,
       guestPhone: '70011122',
+      guestEmail: null,
     });
 
     expect(result).toBeNull();
@@ -69,7 +75,10 @@ describe('PrismaBookingConfirmationRepository', () => {
     expect(prismaMock.patients.create).not.toHaveBeenCalled();
   });
 
-  it('splits the guest full name into first_name/last_name_paternal for the Patient row', async () => {
+  // CLI-43: los tres campos atómicos se copian directo a Patient, sin
+  // ninguna heurística de split — reemplaza los tests que antes fijaban el
+  // comportamiento de splitGuestName() como si fuera correcto.
+  it('copies the three atomic name fields straight to the Patient row, no heuristics involved', async () => {
     prismaMock.appointments.updateMany.mockResolvedValue({ count: 1 });
     prismaMock.users.create.mockResolvedValue({ id: 'user-1' });
     prismaMock.patients.create.mockResolvedValue({ id: 'patient-1' });
@@ -79,20 +88,24 @@ describe('PrismaBookingConfirmationRepository', () => {
       paidAt: NOW,
       amount: 50,
       qrId: 'qr-1',
-      guestFullName: 'Maria Fernanda Lopez',
+      guestFirstName: 'Maria',
+      guestLastNamePaternal: 'Fernanda Lopez',
+      guestLastNameMaternal: 'Gutierrez',
       guestPhone: '70011122',
+      guestEmail: null,
     });
 
     expect(prismaMock.patients.create).toHaveBeenCalledWith({
       data: expect.objectContaining({
         first_name: 'Maria',
         last_name_paternal: 'Fernanda Lopez',
+        last_name_maternal: 'Gutierrez',
         user_id: 'user-1',
       }) as Record<string, unknown>,
     });
   });
 
-  it('falls back to "-" for last_name_paternal when the guest gave a single-word name', async () => {
+  it('does not invent a "-" placeholder when the guest gave no maternal surname', async () => {
     prismaMock.appointments.updateMany.mockResolvedValue({ count: 1 });
     prismaMock.users.create.mockResolvedValue({ id: 'user-1' });
     prismaMock.patients.create.mockResolvedValue({ id: 'patient-1' });
@@ -102,19 +115,23 @@ describe('PrismaBookingConfirmationRepository', () => {
       paidAt: NOW,
       amount: 50,
       qrId: 'qr-1',
-      guestFullName: 'Juana',
+      guestFirstName: 'Juana',
+      guestLastNamePaternal: 'Perez',
+      guestLastNameMaternal: null,
       guestPhone: '70011122',
+      guestEmail: null,
     });
 
     expect(prismaMock.patients.create).toHaveBeenCalledWith({
       data: expect.objectContaining({
         first_name: 'Juana',
-        last_name_paternal: '-',
+        last_name_paternal: 'Perez',
+        last_name_maternal: null,
       }) as Record<string, unknown>,
     });
   });
 
-  it('creates the placeholder user with auth_user_id null', async () => {
+  it('creates the placeholder user with auth_user_id null and a display name composed from the three fields', async () => {
     prismaMock.appointments.updateMany.mockResolvedValue({ count: 1 });
     prismaMock.users.create.mockResolvedValue({ id: 'user-1' });
     prismaMock.patients.create.mockResolvedValue({ id: 'patient-1' });
@@ -124,14 +141,18 @@ describe('PrismaBookingConfirmationRepository', () => {
       paidAt: NOW,
       amount: 50,
       qrId: 'qr-1',
-      guestFullName: 'Juana Perez',
+      guestFirstName: 'Juana',
+      guestLastNamePaternal: 'Perez',
+      guestLastNameMaternal: 'Gomez',
       guestPhone: '70011122',
+      guestEmail: null,
     });
 
     expect(prismaMock.users.create).toHaveBeenCalledWith({
       data: expect.objectContaining({
         auth_user_id: null,
         role: 'patient',
+        display_name: 'Juana Perez Gomez',
       }) as Record<string, unknown>,
     });
     expect(prismaMock.appointments.update).toHaveBeenCalledWith({

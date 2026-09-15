@@ -14,6 +14,7 @@ function fakeQuoteRecord(overrides: Record<string, unknown> = {}) {
     created_at: NOW,
     updated_at: NOW,
     quote_items: [],
+    payments: [],
     ...overrides,
   };
 }

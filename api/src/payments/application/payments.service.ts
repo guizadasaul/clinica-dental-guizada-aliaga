@@ -181,7 +181,11 @@ export class PaymentsService {
       return;
     }
 
-    if (!appointment.guestFullName || !appointment.guestPhone) {
+    if (
+      !appointment.guestFirstName ||
+      !appointment.guestLastNamePaternal ||
+      !appointment.guestPhone
+    ) {
       this.logger.error(
         `Pago confirmado pero faltan datos de contacto del guest. appointmentId=${appointment.id}`,
       );
@@ -193,7 +197,9 @@ export class PaymentsService {
       paidAt: statusResult.payment?.paidAt ?? new Date(),
       amount: appointment.paymentAmount ?? statusResult.payment?.amount ?? 0,
       qrId: appointment.banecoQrId,
-      guestFullName: appointment.guestFullName,
+      guestFirstName: appointment.guestFirstName,
+      guestLastNamePaternal: appointment.guestLastNamePaternal,
+      guestLastNameMaternal: appointment.guestLastNameMaternal,
       guestPhone: appointment.guestPhone,
       guestEmail: appointment.guestEmail,
     });
