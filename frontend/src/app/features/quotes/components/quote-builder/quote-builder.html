@@ -81,6 +81,80 @@
         } @else {
           <p class="qb__empty">Este presupuesto todavía no tiene líneas.</p>
         }
+
+        <div class="qb__payments">
+          <h4 class="qb__lines-title">Pagos</h4>
+
+          @if (q.payments.length > 0) {
+            <table class="qb__table">
+              <thead>
+                <tr>
+                  <th>Fecha</th>
+                  <th>Monto</th>
+                  <th>Método</th>
+                  <th>Recibo</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (payment of q.payments; track payment.id) {
+                  <tr>
+                    <td>{{ payment.paymentDate | date:'dd/MM/yyyy' }}</td>
+                    <td class="qb__price">Bs. {{ payment.amount | number:'1.2-2' }}</td>
+                    <td>{{ payment.paymentMethod ?? '—' }}</td>
+                    <td>{{ payment.receiptNumber }}</td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          } @else {
+            <p class="qb__empty">Todavía no se registraron pagos.</p>
+          }
+
+          <div class="qb__payment-form">
+            <div class="qb__panel-field">
+              <label class="qb__panel-label" for="paymentAmount">Monto (Bs.)</label>
+              <input
+                id="paymentAmount"
+                type="number"
+                min="0"
+                step="0.01"
+                class="qb__input"
+                [ngModel]="paymentAmount()"
+                (ngModelChange)="paymentAmount.set($event)"
+              />
+            </div>
+            <div class="qb__panel-field">
+              <label class="qb__panel-label" for="paymentMethod">Método (opcional)</label>
+              <input
+                id="paymentMethod"
+                type="text"
+                class="qb__input"
+                placeholder="efectivo, tarjeta, transferencia..."
+                [ngModel]="paymentMethod()"
+                (ngModelChange)="paymentMethod.set($event)"
+              />
+            </div>
+
+            @if (paymentError()) {
+              <p class="qb__error">{{ paymentError() }}</p>
+            }
+
+            <button
+              type="button"
+              class="qb__btn qb__btn--primary"
+              [disabled]="savingPayment() || !paymentAmount()"
+              (click)="onAddPayment()"
+            >
+              @if (savingPayment()) {
+                <span class="qb__spinner qb__spinner--small"></span>
+                Registrando...
+              } @else {
+                <span class="material-symbols-outlined">payments</span>
+                Registrar pago
+              }
+            </button>
+          </div>
+        </div>
       </div>
 
       @if (currentSelection(); as sel) {
@@ -151,6 +225,12 @@
     <div class="qb__footer">
       <span class="qb__total">
         Total: <strong>Bs. {{ q.totalAmount | number:'1.2-2' }}</strong>
+      </span>
+      <span class="qb__total">
+        Pagado: <strong>Bs. {{ q.totalPaid | number:'1.2-2' }}</strong>
+      </span>
+      <span class="qb__total">
+        Saldo: <strong>Bs. {{ balance() | number:'1.2-2' }}</strong>
       </span>
       <button type="button" class="qb__btn qb__btn--secondary" (click)="onClose()">
         <span class="material-symbols-outlined">check</span>

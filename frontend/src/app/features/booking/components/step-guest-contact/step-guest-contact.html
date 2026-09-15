@@ -1,16 +1,47 @@
 <form class="guest-contact" (ngSubmit)="onSubmit()" novalidate>
   <div class="guest-contact__field">
     <label class="guest-contact__label">
-      {{ 'landing.booking.guestContact.nameLabel' | translate }} <span class="guest-contact__req">*</span>
+      {{ 'landing.booking.guestContact.firstNameLabel' | translate }} <span class="guest-contact__req">*</span>
     </label>
     <input
+      id="guestFirstName"
       class="guest-contact__input"
       type="text"
-      [value]="fullName()"
-      (input)="fullName.set($any($event.target).value)"
-      [placeholder]="'landing.booking.guestContact.namePlaceholder' | translate"
-      maxlength="200"
+      [value]="firstName()"
+      (input)="firstName.set($any($event.target).value)"
+      [placeholder]="'landing.booking.guestContact.firstNamePlaceholder' | translate"
+      maxlength="100"
       required
+    />
+  </div>
+  <div class="guest-contact__field">
+    <label class="guest-contact__label">
+      {{ 'landing.booking.guestContact.lastNamePaternalLabel' | translate }} <span class="guest-contact__req">*</span>
+    </label>
+    <input
+      id="guestLastNamePaternal"
+      class="guest-contact__input"
+      type="text"
+      [value]="lastNamePaternal()"
+      (input)="lastNamePaternal.set($any($event.target).value)"
+      [placeholder]="'landing.booking.guestContact.lastNamePaternalPlaceholder' | translate"
+      maxlength="100"
+      required
+    />
+  </div>
+  <div class="guest-contact__field">
+    <label class="guest-contact__label">
+      {{ 'landing.booking.guestContact.lastNameMaternalLabel' | translate }}
+      <span class="guest-contact__optional">{{ 'landing.booking.guestContact.lastNameMaternalOptional' | translate }}</span>
+    </label>
+    <input
+      id="guestLastNameMaternal"
+      class="guest-contact__input"
+      type="text"
+      [value]="lastNameMaternal()"
+      (input)="lastNameMaternal.set($any($event.target).value)"
+      [placeholder]="'landing.booking.guestContact.lastNameMaternalPlaceholder' | translate"
+      maxlength="100"
     />
   </div>
   <div class="guest-contact__field">

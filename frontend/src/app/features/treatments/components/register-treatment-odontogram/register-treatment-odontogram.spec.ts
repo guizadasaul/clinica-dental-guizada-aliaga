@@ -213,7 +213,7 @@ describe('RegisterTreatmentOdontogramComponent', () => {
     select(el(fixture, '#rto-treatment'), 'treatment-1');
     await settle(fixture);
 
-    const occlusal = fixture.nativeElement.querySelectorAll('.rto__check input[type="checkbox"]')[4] as HTMLInputElement;
+    const occlusal = fixture.nativeElement.querySelector('.rto__check input[data-surface="occlusal"]') as HTMLInputElement;
     occlusal.checked = true;
     occlusal.dispatchEvent(new Event('change'));
     await settle(fixture);
@@ -226,7 +226,7 @@ describe('RegisterTreatmentOdontogramComponent', () => {
     expect(req.request.body).toMatchObject({
       treatmentId: 'treatment-1',
       priceCharged: 350,
-      teeth: [{ number: 16, surfaceOcclusal: true }],
+      teeth: [{ number: 16, surfaces: ['occlusal'] }],
     });
     req.flush([{ id: 'proc-1', toothNumber: 16, treatmentId: 'treatment-1', priceCharged: 350 }]);
     await settle(fixture);

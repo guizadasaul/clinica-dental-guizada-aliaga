@@ -10,7 +10,7 @@ import {
   viewChild,
 } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
-import { DecimalPipe } from '@angular/common';
+import { DecimalPipe, DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { QuotesService } from '../../services/quotes.service';
 import { TreatmentsService } from '../../../treatments/services/treatments.service';
@@ -37,7 +37,7 @@ interface GroupedItem {
   selector: 'app-quote-builder',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [DecimalPipe, FormsModule, TreatmentScopePickerComponent],
+  imports: [DecimalPipe, DatePipe, FormsModule, TreatmentScopePickerComponent],
   templateUrl: './quote-builder.html',
   styleUrl: './quote-builder.scss',
 })
@@ -66,6 +66,17 @@ export class QuoteBuilderComponent {
   protected readonly customPrice = signal<number | null>(null);
   protected readonly quantity = signal(1);
 
+  protected readonly paymentAmount = signal<number | null>(null);
+  protected readonly paymentMethod = signal<string>('');
+  protected readonly paymentNotes = signal<string>('');
+  protected readonly savingPayment = signal(false);
+  protected readonly paymentError = signal<string | null>(null);
+
+  protected readonly balance = computed(() => {
+    const q = this.quote();
+    return q ? q.totalAmount - q.totalPaid : 0;
+  });
+
   protected readonly groupedItems = computed<GroupedItem[]>(() => {
     const items = this.quote()?.items ?? [];
     const groups = new Map<string, QuoteItem[]>();
@@ -88,7 +99,9 @@ export class QuoteBuilderComponent {
           .map((r) => r.toothNumber)
           .filter((n): n is number => n !== null),
         treatmentId: first.treatmentId,
-        total: rows.reduce((sum, r) => sum + r.subtotal, 0),
+        // CLI-45: todas las filas de un grupo reportan el mismo subtotal (el
+        // del grupo) — ya no hay que sumarlas, alcanza con tomar cualquiera.
+        total: first.subtotal,
         currency: first.currency,
         exchangeRate: first.exchangeRate,
       };
@@ -108,9 +121,11 @@ export class QuoteBuilderComponent {
     this.loadError.set(false);
     this.quotesService.getByPatient(patientId).subscribe({
       next: (quotes) => {
-        const pending = quotes.find((q) => q.status === 'pending');
-        if (pending) {
-          this.quote.set(pending);
+        const open = quotes.find(
+          (q) => q.status === 'pending' || q.status === 'partially_paid',
+        );
+        if (open) {
+          this.quote.set(open);
           this.loading.set(false);
           return;
         }
@@ -195,6 +210,34 @@ export class QuoteBuilderComponent {
       this.formError.set('No se pudo eliminar la línea. Intentá de nuevo.');
     } finally {
       this.removingItemId.set(null);
+    }
+  }
+
+  protected async onAddPayment(): Promise<void> {
+    const amount = this.paymentAmount();
+    const quote = this.quote();
+    if (!amount || amount <= 0 || !quote) { return; }
+
+    this.savingPayment.set(true);
+    this.paymentError.set(null);
+
+    try {
+      const updated = await new Promise<Quote>((resolve, reject) => {
+        this.quotesService.addPayment(quote.id, {
+          amount,
+          paymentMethod: this.paymentMethod().trim() || undefined,
+          notes: this.paymentNotes().trim() || undefined,
+        }).subscribe({ next: resolve, error: reject });
+      });
+
+      this.quote.set(updated);
+      this.paymentAmount.set(null);
+      this.paymentMethod.set('');
+      this.paymentNotes.set('');
+    } catch {
+      this.paymentError.set('No se pudo registrar el pago. Verificá los datos e intentá de nuevo.');
+    } finally {
+      this.savingPayment.set(false);
     }
   }
 

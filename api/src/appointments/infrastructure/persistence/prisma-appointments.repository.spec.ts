@@ -1,7 +1,10 @@
 import { Prisma } from '@prisma/client';
 import { PrismaAppointmentsRepository } from './prisma-appointments.repository';
 import { PrismaService } from '../../../shared/prisma/prisma.service';
-import { SlotUnavailableError } from '../../domain/AppointmentRepository';
+import {
+  GuestPhoneConflictError,
+  SlotUnavailableError,
+} from '../../domain/AppointmentRepository';
 
 const NOW = new Date('2026-08-17T13:00:00.000Z');
 const SLOT = new Date('2026-08-17T13:00:00.000Z');
@@ -13,6 +16,7 @@ function fakeAppointmentRecord(overrides: Record<string, unknown> = {}) {
     patient_id: null,
     treatment_id: null,
     appointment_datetime: SLOT,
+    duration_minutes: 30,
     status: 'held',
     source: 'public_web',
     whatsapp_name: null,
@@ -21,6 +25,9 @@ function fakeAppointmentRecord(overrides: Record<string, unknown> = {}) {
     created_at: NOW,
     hold_expires_at: new Date(NOW.getTime() + 15 * 60 * 1000),
     guest_full_name: null,
+    guest_first_name: null,
+    guest_last_name_paternal: null,
+    guest_last_name_maternal: null,
     guest_phone: null,
     baneco_qr_id: null,
     baneco_transaction_id: null,
@@ -67,6 +74,7 @@ describe('PrismaAppointmentsRepository', () => {
         slot: SLOT,
         holdExpiresAt: NOW,
         treatmentId: null,
+        durationMinutes: 30,
         source: 'public_web',
       });
 
@@ -90,6 +98,31 @@ describe('PrismaAppointmentsRepository', () => {
       );
     });
 
+    // CLI-47: la duración congelada en la cita viene del caller (el service
+    // ya resolvió el tratamiento), el repositorio solo la persiste tal cual.
+    it('persists the given durationMinutes as duration_minutes', async () => {
+      prismaMock.appointments.updateMany.mockResolvedValue({ count: 1 });
+      prismaMock.appointments.create.mockResolvedValue(
+        fakeAppointmentRecord({ duration_minutes: 90 }),
+      );
+
+      await repo.createHold({
+        slot: SLOT,
+        holdExpiresAt: NOW,
+        treatmentId: 'treatment-1',
+        durationMinutes: 90,
+        source: 'public_web',
+      });
+
+      expect(prismaMock.appointments.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            duration_minutes: 90,
+          }) as Record<string, unknown>,
+        }),
+      );
+    });
+
     it('translates a unique-slot conflict (P2002) into SlotUnavailableError', async () => {
       const error = new Prisma.PrismaClientKnownRequestError(
         'Unique constraint failed',
@@ -106,6 +139,7 @@ describe('PrismaAppointmentsRepository', () => {
           slot: SLOT,
           holdExpiresAt: NOW,
           treatmentId: null,
+          durationMinutes: 30,
           source: 'public_web',
         }),
       ).rejects.toThrow(SlotUnavailableError);
@@ -118,7 +152,7 @@ describe('PrismaAppointmentsRepository', () => {
 
       const result = await repo.updateGuestContact(
         'appt-1',
-        { fullName: 'X', phone: '7' },
+        { firstName: 'X', lastNamePaternal: 'Y', lastNameMaternal: null, phone: '7', email: null },
         NOW,
       );
 
@@ -129,20 +163,56 @@ describe('PrismaAppointmentsRepository', () => {
     it('updates and returns the appointment when the hold is still active', async () => {
       prismaMock.appointments.updateMany.mockResolvedValue({ count: 1 });
       prismaMock.appointments.findUnique.mockResolvedValue(
-        fakeAppointmentRecord({ guest_full_name: 'X', guest_phone: '7' }),
+        fakeAppointmentRecord({
+          guest_first_name: 'X',
+          guest_last_name_paternal: 'Y',
+          guest_phone: '7',
+        }),
       );
 
       const result = await repo.updateGuestContact(
         'appt-1',
-        { fullName: 'X', phone: '7' },
+        { firstName: 'X', lastNamePaternal: 'Y', lastNameMaternal: null, phone: '7', email: null },
         NOW,
       );
 
       expect(prismaMock.appointments.updateMany).toHaveBeenCalledWith({
         where: { id: 'appt-1', status: 'held', hold_expires_at: { gt: NOW } },
-        data: { guest_full_name: 'X', guest_phone: '7' },
+        data: {
+          guest_first_name: 'X',
+          guest_last_name_paternal: 'Y',
+          guest_last_name_maternal: null,
+          guest_phone: '7',
+          guest_email: null,
+        },
       });
-      expect(result?.guestFullName).toBe('X');
+      expect(result?.guestFirstName).toBe('X');
+      expect(result?.guestLastNamePaternal).toBe('Y');
+    });
+
+    it('translates a unique-guest_phone conflict (P2002) into GuestPhoneConflictError', async () => {
+      const error = new Prisma.PrismaClientKnownRequestError(
+        'Unique constraint failed',
+        {
+          code: 'P2002',
+          clientVersion: 'test',
+        },
+      );
+      prismaMock.appointments.updateMany.mockRejectedValue(error);
+
+      await expect(
+        repo.updateGuestContact(
+          'appt-1',
+          {
+            firstName: 'X',
+            lastNamePaternal: 'Y',
+            lastNameMaternal: null,
+            phone: '7',
+            email: null,
+          },
+          NOW,
+        ),
+      ).rejects.toThrow(GuestPhoneConflictError);
     });
   });
 

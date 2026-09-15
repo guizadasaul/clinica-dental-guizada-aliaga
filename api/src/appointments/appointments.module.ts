@@ -5,9 +5,10 @@ import { AppointmentsService } from './application/appointments.service';
 import { AppointmentRepository } from './domain/AppointmentRepository';
 import { PrismaAppointmentsRepository } from './infrastructure/persistence/prisma-appointments.repository';
 import { AuthModule } from '../auth/auth.module';
+import { TreatmentsModule } from '../treatments/treatments.module';
 
 @Module({
-  imports: [AuthModule],
+  imports: [AuthModule, TreatmentsModule],
   controllers: [AppointmentsController, DoctorAppointmentsController],
   providers: [
     AppointmentsService,

@@ -1060,6 +1060,30 @@ async function deactivateLegacyMedicalConditions() {
   }
 }
 
+/** Catálogo fijo de superficies dentales (CLI-49) — no lo edita la clínica, pero se sincroniza igual que el resto de catálogos por consistencia con la migración que las inserta. */
+const TOOTH_SURFACES = [
+  { code: 'vestibular', name: 'Vestibular' },
+  { code: 'palatal', name: 'Palatal' },
+  { code: 'lingual', name: 'Lingual' },
+  { code: 'mesial', name: 'Mesial' },
+  { code: 'distal', name: 'Distal' },
+  { code: 'occlusal', name: 'Oclusal' },
+  { code: 'incisal', name: 'Incisal' },
+];
+
+async function upsertToothSurfacesCatalog() {
+  for (const [index, surface] of TOOTH_SURFACES.entries()) {
+    await prisma.tooth_surfaces.upsert({
+      where: { code: surface.code },
+      create: { code: surface.code, name: surface.name, display_order: index },
+      update: { name: surface.name, display_order: index },
+    });
+  }
+  console.log(
+    `✓ ${TOOTH_SURFACES.length} superficies dentales del catálogo sincronizadas.`,
+  );
+}
+
 const DEFAULT_CONSULTATION_CODE = 'consulta_odontologica';
 
 /** Las 8 categorías del catálogo de tratamientos (CLI-41), mismo patrón que upsertDiagnosisCatalog. */
@@ -1167,6 +1191,7 @@ async function main() {
   await syncDefaultConsultation();
   await upsertDiagnosisCatalog();
   await deactivateLegacyDiagnoses();
+  await upsertToothSurfacesCatalog();
   await upsertMedicalConditionsCatalog();
   await deactivateLegacyMedicalConditions();
   await upsertTestimonials();

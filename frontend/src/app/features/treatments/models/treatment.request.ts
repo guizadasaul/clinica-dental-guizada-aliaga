@@ -1,10 +1,9 @@
+import type { ToothSurfaceCode } from './treatment.model';
+
 export interface ToothApplicationRequest {
   number: number;
-  surfaceVestibular?: boolean;
-  surfacePalatal?: boolean;
-  surfaceMesial?: boolean;
-  surfaceDistal?: boolean;
-  surfaceOcclusal?: boolean;
+  /** Códigos de tooth_surfaces (CLI-49) — p.ej. ['vestibular', 'occlusal']. */
+  surfaces?: ToothSurfaceCode[];
 }
 
 export interface CreateToothProcedureRequest {

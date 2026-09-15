@@ -1,13 +1,14 @@
 import { Type } from 'class-transformer';
 import {
   ArrayMaxSize,
+  ArrayUnique,
   IsArray,
+  IsIn,
   IsInt,
   IsUUID,
   IsNumber,
   IsPositive,
   IsOptional,
-  IsBoolean,
   IsDateString,
   IsString,
   Max,
@@ -21,6 +22,7 @@ import {
   Trim,
 } from '../../../../shared/validators/transforms.js';
 import { NoHtml } from '../../../../shared/validators/text-safety.validator.js';
+import { TOOTH_SURFACE_CODES } from '../../../../shared/validators/tooth-surface.validator.js';
 
 // Boca completa permanente (32 piezas) — tope teórico de una sola aplicación.
 const MAX_TEETH_PER_APPLICATION = 32;
@@ -34,6 +36,12 @@ const MAX_TEETH_PER_APPLICATION = 32;
  *
  * Sin @IsFdiToothNumber() a propósito, igual que el DTO anterior — sigue
  * validando solo con @Min(11)/@Max(85), fuera de alcance de este cambio.
+ *
+ * `surfaces` reemplaza los 5 booleanos paralelos (CLI-49) por códigos del
+ * catálogo tooth_surfaces. Esto solo valida que sean códigos conocidos —
+ * que sean anatómicamente válidos para ESTE diente (p. ej. "occlusal" en un
+ * incisivo) se valida en patients.service.ts vía assertValidSurfacesForTooth,
+ * porque depende del `number` de arriba.
  */
 export class ToothApplicationDto {
   @IsInt()
@@ -42,24 +50,10 @@ export class ToothApplicationDto {
   number!: number;
 
   @IsOptional()
-  @IsBoolean()
-  surfaceVestibular?: boolean;
-
-  @IsOptional()
-  @IsBoolean()
-  surfacePalatal?: boolean;
-
-  @IsOptional()
-  @IsBoolean()
-  surfaceMesial?: boolean;
-
-  @IsOptional()
-  @IsBoolean()
-  surfaceDistal?: boolean;
-
-  @IsOptional()
-  @IsBoolean()
-  surfaceOcclusal?: boolean;
+  @IsArray()
+  @ArrayUnique()
+  @IsIn(TOOTH_SURFACE_CODES, { each: true })
+  surfaces?: string[];
 }
 
 export class CreateToothProcedureDto {

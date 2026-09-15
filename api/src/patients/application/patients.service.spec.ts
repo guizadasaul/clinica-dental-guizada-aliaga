@@ -120,6 +120,7 @@ const mockPatientRepo = {
   createOdontogramEntries: jest.fn(),
   findOdontogramEntries: jest.fn(),
   createToothProcedures: jest.fn(),
+  createToothProcedureGroup: jest.fn(),
   findToothProcedures: jest.fn(),
   appendOdontogramEntries: jest.fn(),
   createDentalExam: jest.fn(),
@@ -295,6 +296,56 @@ describe('PatientsService', () => {
           birthDate: new Date(),
         }),
       ).rejects.toThrow(ConflictException);
+    });
+
+    // CLI-51: el teléfono vive en users.phone, un solo lugar donde se
+    // escribe — createPatient lo sincroniza vía updateContactInfo, igual que
+    // updatePatient ya hacía.
+    it('syncs phone to users.phone via updateContactInfo before creating the ficha', async () => {
+      mockUserRepo.findByAuthUserId.mockResolvedValue(
+        makeAppUser(UserRole.PATIENT, 'caller-user-id'),
+      );
+      const callOrder: string[] = [];
+      mockUserRepo.updateContactInfo.mockImplementation(() => {
+        callOrder.push('updateContactInfo');
+        return Promise.resolve(null);
+      });
+      mockPatientRepo.create.mockImplementation(() => {
+        callOrder.push('create');
+        return Promise.resolve(fakePatient({ userId: 'caller-user-id' }));
+      });
+
+      await service.createPatient(PATIENT_AUTH_ID, undefined, {
+        firstName: 'A',
+        lastNamePaternal: 'B',
+        birthDate: new Date(),
+        phone: '+59171112222',
+      });
+
+      expect(mockUserRepo.updateContactInfo).toHaveBeenCalledWith(
+        'caller-user-id',
+        { phone: '+59171112222' },
+      );
+      // Antes de crear la ficha, para que la respuesta ya refleje el
+      // teléfono nuevo (Patient.phone se lee via join a users).
+      expect(callOrder).toEqual(['updateContactInfo', 'create']);
+    });
+
+    it('does not touch users.phone when phone is not provided', async () => {
+      mockUserRepo.findByAuthUserId.mockResolvedValue(
+        makeAppUser(UserRole.PATIENT, 'caller-user-id'),
+      );
+      mockPatientRepo.create.mockResolvedValue(
+        fakePatient({ userId: 'caller-user-id' }),
+      );
+
+      await service.createPatient(PATIENT_AUTH_ID, undefined, {
+        firstName: 'A',
+        lastNamePaternal: 'B',
+        birthDate: new Date(),
+      });
+
+      expect(mockUserRepo.updateContactInfo).not.toHaveBeenCalled();
     });
   });
 
@@ -509,6 +560,19 @@ describe('PatientsService', () => {
         (_patientId: string, rows: Record<string, unknown>[]) =>
           Promise.resolve(rows.map((r, i) => ({ id: `proc-${i}`, ...r }))),
       );
+      mockPatientRepo.createToothProcedureGroup.mockImplementation(
+        (
+          _patientId: string,
+          data: { teeth: { toothNumber: number }[]; priceCharged: number },
+        ) =>
+          Promise.resolve(
+            data.teeth.map((tooth, i) => ({
+              id: `proc-${i}`,
+              toothNumber: tooth.toothNumber,
+              priceCharged: data.priceCharged,
+            })),
+          ),
+      );
       mockPatientRepo.findOdontogramEntries.mockResolvedValue([]);
       mockPatientRepo.appendOdontogramEntries.mockResolvedValue([]);
     });
@@ -549,13 +613,13 @@ describe('PatientsService', () => {
         ).rejects.toThrow(BadRequestException);
       });
 
-      it('creates a single row with applicationGroupId null and its own surfaces', async () => {
+      it('creates a single row with its own surfaces', async () => {
         const result = await service.createToothProcedure(
           'patient-1',
           'doctor-auth-1',
           {
             ...baseInput,
-            teeth: [{ number: 16, surfaceOcclusal: true }],
+            teeth: [{ number: 16, surfaces: ['occlusal'] }],
           },
         );
 
@@ -565,13 +629,53 @@ describe('PatientsService', () => {
           [
             expect.objectContaining({
               toothNumber: 16,
-              applicationGroupId: null,
               priceCharged: 100,
               quantity: 1,
-              surfaceOcclusal: true,
+              surfaceCodes: ['occlusal'],
             }),
           ],
         );
+      });
+
+      it('rejects an unknown surface code with 400', async () => {
+        await expect(
+          service.createToothProcedure('patient-1', 'doctor-auth-1', {
+            ...baseInput,
+            teeth: [{ number: 16, surfaces: ['inventada'] }],
+          }),
+        ).rejects.toThrow(BadRequestException);
+        expect(mockPatientRepo.createToothProcedures).not.toHaveBeenCalled();
+      });
+
+      // CLI-49: 16 es un molar (posterior) — no tiene borde incisal.
+      it('rejects a surface that is anatomically impossible for the tooth with 400', async () => {
+        await expect(
+          service.createToothProcedure('patient-1', 'doctor-auth-1', {
+            ...baseInput,
+            teeth: [{ number: 16, surfaces: ['incisal'] }],
+          }),
+        ).rejects.toThrow(BadRequestException);
+        expect(mockPatientRepo.createToothProcedures).not.toHaveBeenCalled();
+      });
+
+      // 11 es un incisivo superior (anterior) — incisal sí, occlusal no; palatal sí, lingual no.
+      it('accepts incisal and palatal on an upper anterior tooth', async () => {
+        await expect(
+          service.createToothProcedure('patient-1', 'doctor-auth-1', {
+            ...baseInput,
+            teeth: [{ number: 11, surfaces: ['incisal', 'palatal'] }],
+          }),
+        ).resolves.toHaveLength(1);
+      });
+
+      // 41 es un incisivo inferior — lingual sí, palatal no.
+      it('rejects palatal on a lower tooth with 400', async () => {
+        await expect(
+          service.createToothProcedure('patient-1', 'doctor-auth-1', {
+            ...baseInput,
+            teeth: [{ number: 41, surfaces: ['palatal'] }],
+          }),
+        ).rejects.toThrow(BadRequestException);
       });
     });
 
@@ -600,40 +704,49 @@ describe('PatientsService', () => {
         ).resolves.toHaveLength(1);
       });
 
-      it('creates one row per tooth with its own surfaces, sharing an applicationGroupId, price only on the lowest tooth', async () => {
+      // CLI-53: el precio del grupo se crea una sola vez (application_groups,
+      // vía createToothProcedureGroup), no una fila por diente con ceros de
+      // relleno en las hermanas.
+      it('calls createToothProcedureGroup once, with all teeth sorted, each keeping its own surfaces', async () => {
         await service.createToothProcedure('patient-1', 'doctor-auth-1', {
           ...baseInput,
           teeth: [
-            { number: 18, surfaceMesial: true },
-            { number: 16, surfaceOcclusal: true },
-            { number: 17, surfaceDistal: true },
+            { number: 18, surfaces: ['mesial'] },
+            { number: 16, surfaces: ['occlusal'] },
+            { number: 17, surfaces: ['distal'] },
           ],
         });
 
-        const [, rows] = mockPatientRepo.createToothProcedures.mock
-          .calls[0] as [
-          string,
+        expect(mockPatientRepo.createToothProcedureGroup).toHaveBeenCalledWith(
+          'patient-1',
           {
-            toothNumber: number;
-            applicationGroupId: string;
-            priceCharged: number;
-            quantity: number;
-            surfaceOcclusal?: boolean;
-            surfaceDistal?: boolean;
-            surfaceMesial?: boolean;
-          }[],
-        ];
-        expect(rows).toHaveLength(3);
-        expect(rows.map((r) => r.toothNumber)).toEqual([16, 17, 18]);
-        expect(new Set(rows.map((r) => r.applicationGroupId)).size).toBe(1);
-        // cada diente conserva SUS PROPIAS superficies, no un juego copiado a los 3 (CLI-41)
-        expect(rows[0].surfaceOcclusal).toBe(true);
-        expect(rows[0].surfaceDistal).toBeUndefined();
-        expect(rows[1].surfaceDistal).toBe(true);
-        expect(rows[2].surfaceMesial).toBe(true);
-        expect(rows[0].priceCharged).toBe(100);
-        expect(rows[1].priceCharged).toBe(0);
-        expect(rows[2].priceCharged).toBe(0);
+            treatmentId: 'treatment-1',
+            teeth: [
+              { toothNumber: 16, surfaceCodes: ['occlusal'] },
+              { toothNumber: 17, surfaceCodes: ['distal'] },
+              { toothNumber: 18, surfaceCodes: ['mesial'] },
+            ],
+            priceCharged: 100,
+            procedureDate: undefined,
+            notes: undefined,
+            performedBy: 'doctor-1',
+          },
+        );
+        expect(mockPatientRepo.createToothProcedures).not.toHaveBeenCalled();
+      });
+
+      // CLI-49: la validación anatómica corre por diente, incluso en un grupo.
+      it('rejects the whole batch if any tooth has an anatomically invalid surface', async () => {
+        await expect(
+          service.createToothProcedure('patient-1', 'doctor-auth-1', {
+            ...baseInput,
+            teeth: [
+              { number: 16, surfaces: ['occlusal'] },
+              { number: 11, surfaces: ['occlusal'] },
+            ],
+          }),
+        ).rejects.toThrow(BadRequestException);
+        expect(mockPatientRepo.createToothProcedures).not.toHaveBeenCalled();
       });
     });
 

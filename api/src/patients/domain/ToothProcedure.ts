@@ -1,3 +1,5 @@
+import type { ToothSurfaceCode } from '../../shared/validators/tooth-surface.validator';
+
 export interface ToothProcedure {
   id: string;
   patientId: string;
@@ -8,11 +10,8 @@ export interface ToothProcedure {
   /** Para aplicaciones por unidad/caja (CLI-41) — 1 para el resto. */
   quantity: number;
   procedureDate: Date;
-  surfaceVestibular: boolean;
-  surfacePalatal: boolean;
-  surfaceMesial: boolean;
-  surfaceDistal: boolean;
-  surfaceOcclusal: boolean;
+  /** Conjunto de superficies marcadas (CLI-49) — [] si ninguna. */
+  surfaces: ToothSurfaceCode[];
   notes: string | null;
   performedBy: string;
   createdAt: Date;

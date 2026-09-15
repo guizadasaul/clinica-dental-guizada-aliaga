@@ -3,7 +3,9 @@ export interface ConfirmBookingData {
   paidAt: Date;
   amount: number;
   qrId: string;
-  guestFullName: string;
+  guestFirstName: string;
+  guestLastNamePaternal: string;
+  guestLastNameMaternal: string | null;
   guestPhone: string;
   guestEmail: string | null;
 }
