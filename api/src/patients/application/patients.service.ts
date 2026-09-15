@@ -12,7 +12,7 @@ import type {
   IPatientRepository,
   CreatePatientData,
   UpdatePatientData,
-  MedicalHistoryData,
+  MedicalConditionEntryData,
   HygieneHabitsData,
   ClinicalExamData,
   OdontogramEntryData,
@@ -36,6 +36,8 @@ import type { TreatmentApplicationType } from '../../treatments/domain/Treatment
 import { DiagnosisRepository } from '../../diagnoses/domain/DiagnosisRepository';
 import type { IDiagnosisRepository } from '../../diagnoses/domain/DiagnosisRepository';
 import type { Diagnosis } from '../../diagnoses/domain/Diagnosis';
+import { MedicalConditionRepository } from '../../medical-conditions/domain/MedicalConditionRepository';
+import type { IMedicalConditionRepository } from '../../medical-conditions/domain/MedicalConditionRepository';
 import { toothTypeFor } from '../../shared/validators/tooth.validator';
 import {
   BLACK_CLASSES,
@@ -88,6 +90,30 @@ interface CreateDentalExamInput {
   notes?: string;
 }
 
+/** Una condición dentro del historial, con SU código de catálogo (CLI-50). */
+interface MedicalConditionEntryInput {
+  code: string;
+  diagnosedAt?: Date;
+  notes?: string;
+}
+
+interface PatientMedicationInput {
+  drugName: string;
+  dose?: string;
+  frequency?: string;
+  startedAt?: Date;
+}
+
+interface UpsertMedicalHistoryInput {
+  conditions?: MedicalConditionEntryInput[];
+  otherDiseases?: string;
+  gestationLmpDate?: Date;
+  // Tri-estado (Sí / No / No sabe) — `null` es un valor legítimo, distinto
+  // de "no enviado" (`undefined`).
+  anesthesiaReactions?: boolean | null;
+  medications?: PatientMedicationInput[];
+}
+
 @Injectable()
 export class PatientsService {
   constructor(
@@ -99,6 +125,8 @@ export class PatientsService {
     private readonly treatmentRepo: ITreatmentRepository,
     @Inject(DiagnosisRepository)
     private readonly diagnosisRepo: IDiagnosisRepository,
+    @Inject(MedicalConditionRepository)
+    private readonly medicalConditionRepo: IMedicalConditionRepository,
     private readonly supabaseAdminService: SupabaseAdminService,
   ) {}
 
@@ -182,10 +210,36 @@ export class PatientsService {
 
   async upsertMedicalHistory(
     patientId: string,
-    data: MedicalHistoryData,
+    data: UpsertMedicalHistoryInput,
   ): Promise<MedicalHistory> {
     await this.requirePatient(patientId);
-    return this.patientRepo.upsertMedicalHistory(patientId, data);
+
+    const entries = data.conditions ?? [];
+    const codes = [...new Set(entries.map((c) => c.code))];
+    const catalog = await this.medicalConditionRepo.findByCodes(codes);
+    const conditionByCode = new Map(catalog.map((c) => [c.code, c]));
+
+    const conditions: MedicalConditionEntryData[] = entries.map((entry) => {
+      const condition = conditionByCode.get(entry.code);
+      if (!condition) {
+        throw new BadRequestException(
+          `Condición médica desconocida: ${entry.code}`,
+        );
+      }
+      return {
+        medicalConditionId: condition.id,
+        diagnosedAt: entry.diagnosedAt,
+        notes: entry.notes,
+      };
+    });
+
+    return this.patientRepo.upsertMedicalHistory(patientId, {
+      conditions,
+      otherDiseases: data.otherDiseases,
+      gestationLmpDate: data.gestationLmpDate,
+      anesthesiaReactions: data.anesthesiaReactions,
+      medications: data.medications,
+    });
   }
 
   async findMedicalHistory(patientId: string): Promise<MedicalHistory | null> {

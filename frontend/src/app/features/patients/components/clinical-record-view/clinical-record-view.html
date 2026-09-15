@@ -62,22 +62,52 @@
           <div class="record__field record__field--full">
             <dt>Condiciones registradas</dt>
             <dd>
-              <ul class="record__taglist">
-                @for (item of medicalConditionLabels; track item.key) {
-                  @if (mh[item.key]) {
-                    <li class="record__tag">{{ item.label }}</li>
+              @if (mh.conditions.length > 0) {
+                <ul class="record__taglist">
+                  @for (item of mh.conditions; track item.code) {
+                    <li class="record__tag" [title]="item.notes || ''">
+                      {{ item.name }}
+                      @if (item.diagnosedAt) {
+                        ({{ item.diagnosedAt | date: 'dd/MM/yyyy' }})
+                      }
+                    </li>
                   }
-                }
-              </ul>
-              @if (!mh.hasAllergies && !mh.kidneyProblems && !mh.ulcers && !mh.rheumatism && !mh.heartProblems && !mh.diabetes && !mh.hypertension && !mh.hemorrhages && !mh.anemia && !mh.sti) {
+                </ul>
+              } @else {
                 <span class="record__empty-inline">Sin condiciones registradas</span>
               }
             </dd>
           </div>
           <div class="record__field"><dt>¿Reacciones a la anestesia?</dt><dd>{{ anesthesiaReactionsLabel(mh.anesthesiaReactions) }}</dd></div>
-          <div class="record__field"><dt>Período de gestación</dt><dd>{{ mh.gestationPeriod || '—' }}</dd></div>
+          <div class="record__field">
+            <dt>Gestación</dt>
+            <dd>
+              @if (mh.gestationLmpDate) {
+                FUM {{ mh.gestationLmpDate | date: 'dd/MM/yyyy' }} — {{ gestationTrimesterLabel(mh.gestationTrimester) || 'fuera de rango' }}
+              } @else {
+                —
+              }
+            </dd>
+          </div>
           <div class="record__field record__field--full"><dt>Otras enfermedades</dt><dd>{{ mh.otherDiseases || '—' }}</dd></div>
-          <div class="record__field record__field--full"><dt>Medicamentos actuales</dt><dd>{{ mh.currentMedications || '—' }}</dd></div>
+          <div class="record__field record__field--full">
+            <dt>Medicamentos actuales</dt>
+            <dd>
+              @if (mh.medications.length > 0) {
+                <ul class="record__taglist">
+                  @for (med of mh.medications; track med.id) {
+                    <li class="record__tag">
+                      {{ med.drugName }}
+                      @if (med.dose) { · {{ med.dose }} }
+                      @if (med.frequency) { · {{ med.frequency }} }
+                    </li>
+                  }
+                </ul>
+              } @else {
+                —
+              }
+            </dd>
+          </div>
         </dl>
       } @else {
         <p class="record__empty">Todavía no se registraron los antecedentes personales de este paciente.</p>

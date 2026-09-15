@@ -162,56 +162,113 @@ export class PrismaPatientsRepository implements IPatientRepository {
     }
   }
 
+  /**
+   * Reemplazo completo (CLI-50) — igual semántica que los 10 booleanos de
+   * antes (upsertMedicalHistory siempre refleja el conjunto enviado, nunca
+   * hace merge parcial): condiciones y medicación se borran y se recrean
+   * dentro de la misma transacción que el upsert de medical_history.
+   */
   async upsertMedicalHistory(
     patientId: string,
     data: MedicalHistoryData,
   ): Promise<MedicalHistory> {
-    const record = await this.prisma.medical_history.upsert({
-      where: { patient_id: patientId },
-      create: {
-        patient_id: patientId,
-        has_allergies: data.hasAllergies ?? false,
-        kidney_problems: data.kidneyProblems ?? false,
-        ulcers: data.ulcers ?? false,
-        rheumatism: data.rheumatism ?? false,
-        heart_problems: data.heartProblems ?? false,
-        diabetes: data.diabetes ?? false,
-        hypertension: data.hypertension ?? false,
-        hemorrhages: data.hemorrhages ?? false,
-        anemia: data.anemia ?? false,
-        sti: data.sti ?? false,
-        other_diseases: data.otherDiseases ?? null,
-        gestation_period: data.gestationPeriod ?? null,
-        anesthesia_reactions: data.anesthesiaReactions ?? null,
-        current_medications: data.currentMedications ?? null,
-        updated_at: new Date(),
-      },
-      update: {
-        has_allergies: data.hasAllergies ?? false,
-        kidney_problems: data.kidneyProblems ?? false,
-        ulcers: data.ulcers ?? false,
-        rheumatism: data.rheumatism ?? false,
-        heart_problems: data.heartProblems ?? false,
-        diabetes: data.diabetes ?? false,
-        hypertension: data.hypertension ?? false,
-        hemorrhages: data.hemorrhages ?? false,
-        anemia: data.anemia ?? false,
-        sti: data.sti ?? false,
-        other_diseases: data.otherDiseases ?? null,
-        gestation_period: data.gestationPeriod ?? null,
-        anesthesia_reactions: data.anesthesiaReactions ?? null,
-        current_medications: data.currentMedications ?? null,
-        updated_at: new Date(),
-      },
+    const record = await this.prisma.transaction(async (tx) => {
+      await tx.medical_history.upsert({
+        where: { patient_id: patientId },
+        create: {
+          patient_id: patientId,
+          other_diseases: data.otherDiseases ?? null,
+          gestation_lmp_date: data.gestationLmpDate ?? null,
+          anesthesia_reactions: data.anesthesiaReactions ?? null,
+          updated_at: new Date(),
+        },
+        update: {
+          other_diseases: data.otherDiseases ?? null,
+          gestation_lmp_date: data.gestationLmpDate ?? null,
+          anesthesia_reactions: data.anesthesiaReactions ?? null,
+          updated_at: new Date(),
+        },
+      });
+
+      await tx.patient_medical_conditions.deleteMany({
+        where: { patient_id: patientId },
+      });
+      if (data.conditions?.length) {
+        await tx.patient_medical_conditions.createMany({
+          data: data.conditions.map((c) => ({
+            patient_id: patientId,
+            medical_condition_id: c.medicalConditionId,
+            diagnosed_at: c.diagnosedAt ?? null,
+            notes: c.notes ?? null,
+          })),
+        });
+      }
+
+      await tx.patient_medications.deleteMany({
+        where: { patient_id: patientId },
+      });
+      if (data.medications?.length) {
+        await tx.patient_medications.createMany({
+          data: data.medications.map((m) => ({
+            patient_id: patientId,
+            drug_name: m.drugName,
+            dose: m.dose ?? null,
+            frequency: m.frequency ?? null,
+            started_at: m.startedAt ?? null,
+          })),
+        });
+      }
+
+      const [history, conditions, medications] = await Promise.all([
+        tx.medical_history.findUniqueOrThrow({
+          where: { patient_id: patientId },
+        }),
+        tx.patient_medical_conditions.findMany({
+          where: { patient_id: patientId },
+          include: { medical_conditions: true },
+          orderBy: { medical_conditions: { display_order: 'asc' } },
+        }),
+        tx.patient_medications.findMany({
+          where: { patient_id: patientId },
+          orderBy: { created_at: 'asc' },
+        }),
+      ]);
+      return {
+        ...history,
+        patient_medical_conditions: conditions,
+        patient_medications: medications,
+      };
     });
     return PatientMapper.toDomainMedicalHistory(record);
   }
 
+  // patient_medical_conditions/patient_medications tienen su propia FK a
+  // patients (no a medical_history), así que no hay una relación de Prisma
+  // que un solo `include` pueda seguir — se arma el registro combinado a
+  // mano con 3 queries en paralelo.
   async findMedicalHistory(patientId: string): Promise<MedicalHistory | null> {
-    const record = await this.prisma.medical_history.findUnique({
+    const history = await this.prisma.medical_history.findUnique({
       where: { patient_id: patientId },
     });
-    return record ? PatientMapper.toDomainMedicalHistory(record) : null;
+    if (!history) {
+      return null;
+    }
+    const [conditions, medications] = await Promise.all([
+      this.prisma.patient_medical_conditions.findMany({
+        where: { patient_id: patientId },
+        include: { medical_conditions: true },
+        orderBy: { medical_conditions: { display_order: 'asc' } },
+      }),
+      this.prisma.patient_medications.findMany({
+        where: { patient_id: patientId },
+        orderBy: { created_at: 'asc' },
+      }),
+    ]);
+    return PatientMapper.toDomainMedicalHistory({
+      ...history,
+      patient_medical_conditions: conditions,
+      patient_medications: medications,
+    });
   }
 
   async upsertHygieneHabits(

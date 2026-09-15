@@ -6,9 +6,10 @@ import { PrismaPatientsRepository } from './infrastructure/persistence/prisma-pa
 import { AuthModule } from '../auth/auth.module';
 import { TreatmentsModule } from '../treatments/treatments.module';
 import { DiagnosesModule } from '../diagnoses/diagnoses.module';
+import { MedicalConditionsModule } from '../medical-conditions/medical-conditions.module';
 
 @Module({
-  imports: [AuthModule, TreatmentsModule, DiagnosesModule],
+  imports: [AuthModule, TreatmentsModule, DiagnosesModule, MedicalConditionsModule],
   controllers: [PatientsController],
   providers: [
     PatientsService,

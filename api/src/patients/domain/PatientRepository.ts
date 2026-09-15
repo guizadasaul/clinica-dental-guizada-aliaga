@@ -47,23 +47,29 @@ export interface UpdatePatientData {
   dni?: string;
 }
 
+/** Ya resuelta contra el catálogo (medicalConditionId, no el code) — el service hace esa resolución. */
+export interface MedicalConditionEntryData {
+  medicalConditionId: string;
+  diagnosedAt?: Date;
+  notes?: string;
+}
+
+export interface PatientMedicationData {
+  drugName: string;
+  dose?: string;
+  frequency?: string;
+  startedAt?: Date;
+}
+
 export interface MedicalHistoryData {
-  hasAllergies?: boolean;
-  kidneyProblems?: boolean;
-  ulcers?: boolean;
-  rheumatism?: boolean;
-  heartProblems?: boolean;
-  diabetes?: boolean;
-  hypertension?: boolean;
-  hemorrhages?: boolean;
-  anemia?: boolean;
-  sti?: boolean;
+  /** Reemplaza el conjunto completo — igual semántica que los booleanos de antes (CLI-50). */
+  conditions?: MedicalConditionEntryData[];
   otherDiseases?: string;
-  gestationPeriod?: string;
+  gestationLmpDate?: Date;
   // Tri-estado (Sí / No / No sabe) — `null` es un valor legítimo, distinto
   // de "no enviado" (`undefined`).
   anesthesiaReactions?: boolean | null;
-  currentMedications?: string;
+  medications?: PatientMedicationData[];
 }
 
 export interface HygieneHabitsData {

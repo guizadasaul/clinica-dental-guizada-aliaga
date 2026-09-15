@@ -112,25 +112,68 @@ model hygiene_habits {
   patients           patients @relation(fields: [patient_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
 }
 
+/// Desde CLI-50 esta tabla ya no guarda las condiciones (patient_medical_conditions)
+/// ni la medicación (patient_medications) — ver esos modelos. gestation_lmp_date
+/// reemplaza al gestation_period de texto libre ("2do trimestre"): el trimestre
+/// se deriva de la fecha (gestationTrimesterFor), nunca se interpreta a ojo.
 model medical_history {
   id                   String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   patient_id           String   @unique @db.Uuid
-  has_allergies        Boolean  @default(false)
-  kidney_problems      Boolean  @default(false)
-  ulcers               Boolean  @default(false)
-  rheumatism           Boolean  @default(false)
-  heart_problems       Boolean  @default(false)
-  diabetes             Boolean  @default(false)
-  hypertension         Boolean  @default(false)
-  hemorrhages          Boolean  @default(false)
-  anemia               Boolean  @default(false)
-  sti                  Boolean  @default(false)
   other_diseases       String?
-  gestation_period     String?
+  gestation_lmp_date   DateTime? @db.Date
   anesthesia_reactions Boolean?
-  current_medications  String?
   updated_at           DateTime @default(now()) @db.Timestamptz(6)
   patients             patients @relation(fields: [patient_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+}
+
+/// Catálogo de condiciones médicas relevantes para la práctica odontológica
+/// (CLI-50) — mismo patrón que diagnosis_categories/diagnoses (CLI-40).
+/// Agregar una condición nueva es una fila de catálogo, no una migración.
+model medical_conditions {
+  id                         String                       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  code                       String                       @unique @db.VarChar(50)
+  name                       String                       @db.VarChar(150)
+  display_order              Int
+  is_active                  Boolean                      @default(true)
+  patient_medical_conditions patient_medical_conditions[]
+}
+
+/// Condiciones médicas registradas por paciente (CLI-50) — reemplaza los 10
+/// booleanos paralelos que tenía medical_history. Mismo patrón de tabla
+/// puente con metadata propia que dental_exam_findings: id propio (no PK
+/// compuesta), unique(patient_id, medical_condition_id) porque no tiene
+/// sentido clínico registrar la misma condición dos veces para un paciente
+/// — el upsert de historia médica reemplaza el conjunto completo cada vez.
+model patient_medical_conditions {
+  id                   String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  patient_id           String             @db.Uuid
+  medical_condition_id String             @db.Uuid
+  diagnosed_at         DateTime?          @db.Date
+  notes                String?
+  created_at           DateTime           @default(now()) @db.Timestamptz(6)
+  patients             patients           @relation(fields: [patient_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  medical_conditions   medical_conditions @relation(fields: [medical_condition_id], references: [id], onDelete: Restrict, onUpdate: NoAction)
+
+  @@unique([patient_id, medical_condition_id], map: "idx_patient_medical_conditions_unique")
+  @@index([patient_id], map: "idx_patient_medical_conditions_patient")
+}
+
+/// Medicación actual del paciente (CLI-50) — reemplaza medical_history.current_medications
+/// (texto libre tipo "Metformina 850mg, Losartán 50mg"). Campos separados para
+/// poder responder "qué pacientes toman [fármaco]" antes de un procedimiento
+/// (el caso real es anticoagulantes antes de una extracción).
+model patient_medications {
+  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  patient_id  String    @db.Uuid
+  drug_name   String    @db.VarChar(150)
+  dose        String?   @db.VarChar(50)
+  frequency   String?   @db.VarChar(100)
+  started_at  DateTime? @db.Date
+  created_at  DateTime  @default(now()) @db.Timestamptz(6)
+  patients    patients  @relation(fields: [patient_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([patient_id], map: "idx_patient_medications_patient")
+  @@index([drug_name], map: "idx_patient_medications_drug_name")
 }
 
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
@@ -255,6 +298,8 @@ model patients {
   clinical_exams                 clinical_exams[]
   hygiene_habits                 hygiene_habits?
   medical_history                medical_history?
+  patient_medical_conditions     patient_medical_conditions[]
+  patient_medications            patient_medications[]
   odontogram_entries             odontogram_entries[]
   dental_exams                   dental_exams[]
   users                          users                @relation(fields: [user_id], references: [id], onDelete: SetNull, onUpdate: NoAction)

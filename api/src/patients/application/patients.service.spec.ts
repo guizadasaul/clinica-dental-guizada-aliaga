@@ -16,6 +16,8 @@ import type { Treatment } from '../../treatments/domain/Treatment';
 import type { TreatmentApplicationType } from '../../treatments/domain/TreatmentApplicationType';
 import { DiagnosisRepository } from '../../diagnoses/domain/DiagnosisRepository';
 import type { Diagnosis } from '../../diagnoses/domain/Diagnosis';
+import { MedicalConditionRepository } from '../../medical-conditions/domain/MedicalConditionRepository';
+import type { MedicalCondition } from '../../medical-conditions/domain/MedicalCondition';
 import { SupabaseAdminService } from '../../auth/infrastructure/SupabaseAdminService';
 
 const DOCTOR_AUTH_ID = 'doctor-auth-1';
@@ -151,6 +153,23 @@ const mockDiagnosisRepo = {
   findByCodes: jest.fn(),
 };
 
+const mockMedicalConditionRepo = {
+  findCatalog: jest.fn(),
+  findByCodes: jest.fn(),
+};
+
+function fakeMedicalCondition(
+  overrides: Partial<MedicalCondition> = {},
+): MedicalCondition {
+  return {
+    id: 'condition-1',
+    code: 'diabetes',
+    name: 'Diabetes',
+    displayOrder: 0,
+    ...overrides,
+  };
+}
+
 describe('PatientsService', () => {
   let service: PatientsService;
 
@@ -163,6 +182,10 @@ describe('PatientsService', () => {
         { provide: UserRepository, useValue: mockUserRepo },
         { provide: TreatmentRepository, useValue: mockTreatmentRepo },
         { provide: DiagnosisRepository, useValue: mockDiagnosisRepo },
+        {
+          provide: MedicalConditionRepository,
+          useValue: mockMedicalConditionRepo,
+        },
         { provide: SupabaseAdminService, useValue: mockSupabaseAdminService },
       ],
     }).compile();
@@ -383,12 +406,94 @@ describe('PatientsService', () => {
   describe('clinical history on a Patient whose linked user has no claimed account', () => {
     it('upsertMedicalHistory only depends on the patient existing, never on auth_user_id', async () => {
       mockPatientRepo.findPatientById.mockResolvedValue(fakePatient());
+      mockMedicalConditionRepo.findByCodes.mockResolvedValue([]);
       mockPatientRepo.upsertMedicalHistory.mockResolvedValue({});
 
       await expect(
-        service.upsertMedicalHistory('patient-1', { hasAllergies: true }),
+        service.upsertMedicalHistory('patient-1', {}),
       ).resolves.toBeDefined();
       expect(mockUserRepo.findByAuthUserId).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('upsertMedicalHistory — condiciones médicas (CLI-50)', () => {
+    beforeEach(() => {
+      mockPatientRepo.findPatientById.mockResolvedValue(fakePatient());
+    });
+
+    it('resolves condition codes against the catalog and passes ids to the repository', async () => {
+      mockMedicalConditionRepo.findByCodes.mockResolvedValue([
+        fakeMedicalCondition({ id: 'cond-diabetes', code: 'diabetes' }),
+        fakeMedicalCondition({ id: 'cond-asma', code: 'asma' }),
+      ]);
+      mockPatientRepo.upsertMedicalHistory.mockResolvedValue({});
+
+      await service.upsertMedicalHistory('patient-1', {
+        conditions: [
+          { code: 'diabetes', diagnosedAt: new Date('2020-01-01') },
+          { code: 'asma', notes: 'Usa inhalador' },
+        ],
+      });
+
+      expect(mockMedicalConditionRepo.findByCodes).toHaveBeenCalledWith([
+        'diabetes',
+        'asma',
+      ]);
+      expect(mockPatientRepo.upsertMedicalHistory).toHaveBeenCalledWith(
+        'patient-1',
+        expect.objectContaining({
+          conditions: [
+            {
+              medicalConditionId: 'cond-diabetes',
+              diagnosedAt: new Date('2020-01-01'),
+              notes: undefined,
+            },
+            {
+              medicalConditionId: 'cond-asma',
+              diagnosedAt: undefined,
+              notes: 'Usa inhalador',
+            },
+          ],
+        }),
+      );
+    });
+
+    it('rejects an unknown condition code with 400, without touching the repository', async () => {
+      mockMedicalConditionRepo.findByCodes.mockResolvedValue([]);
+
+      await expect(
+        service.upsertMedicalHistory('patient-1', {
+          conditions: [{ code: 'inventada' }],
+        }),
+      ).rejects.toThrow(BadRequestException);
+      expect(mockPatientRepo.upsertMedicalHistory).not.toHaveBeenCalled();
+    });
+
+    it('passes medications and gestation/anesthesia fields straight through', async () => {
+      mockMedicalConditionRepo.findByCodes.mockResolvedValue([]);
+      mockPatientRepo.upsertMedicalHistory.mockResolvedValue({});
+
+      const gestationLmpDate = new Date('2026-06-01');
+      await service.upsertMedicalHistory('patient-1', {
+        otherDiseases: 'Asma leve',
+        gestationLmpDate,
+        anesthesiaReactions: null,
+        medications: [
+          { drugName: 'Metformina', dose: '850mg', frequency: '1x día' },
+        ],
+      });
+
+      expect(mockPatientRepo.upsertMedicalHistory).toHaveBeenCalledWith(
+        'patient-1',
+        expect.objectContaining({
+          otherDiseases: 'Asma leve',
+          gestationLmpDate,
+          anesthesiaReactions: null,
+          medications: [
+            { drugName: 'Metformina', dose: '850mg', frequency: '1x día' },
+          ],
+        }),
+      );
     });
   });
 
