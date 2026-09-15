@@ -12,6 +12,9 @@ export class AppointmentMapper {
       record.status,
       record.source,
       record.guest_full_name,
+      record.guest_first_name,
+      record.guest_last_name_paternal,
+      record.guest_last_name_maternal,
       record.guest_phone,
       record.guest_email,
       record.hold_expires_at,
@@ -38,6 +41,8 @@ export class AppointmentMapper {
       record.patients?.users?.phone ?? null,
       record.patients?.users?.email ?? null,
       record.guest_full_name,
+      record.guest_first_name,
+      record.guest_last_name_paternal,
       record.guest_phone,
     );
   }

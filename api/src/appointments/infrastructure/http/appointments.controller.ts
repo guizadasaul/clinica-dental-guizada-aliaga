@@ -78,7 +78,9 @@ export class AppointmentsController {
   ): Promise<Appointment> {
     return this.appointmentsService.saveGuestContact(
       id,
-      dto.fullName,
+      dto.firstName,
+      dto.lastNamePaternal,
+      dto.lastNameMaternal ?? null,
       dto.phone,
       dto.email ?? null,
     );

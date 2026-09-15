@@ -69,7 +69,8 @@ interface FakeAppointmentOptions {
   banecoQrId?: string | null;
   banecoQrImage?: string | null;
   paymentAmount?: number | null;
-  guestFullName?: string | null;
+  guestFirstName?: string | null;
+  guestLastNamePaternal?: string | null;
   guestPhone?: string | null;
   guestEmail?: string | null;
 }
@@ -82,7 +83,10 @@ function fakeAppointment(options: FakeAppointmentOptions = {}): Appointment {
     new Date('2026-08-17T13:00:00.000Z'),
     options.status ?? AppointmentStatus.HELD,
     'public_web',
-    options.guestFullName ?? 'Juana Perez',
+    null,
+    options.guestFirstName ?? 'Juana',
+    options.guestLastNamePaternal ?? 'Perez',
+    null,
     options.guestPhone ?? '70011122',
     options.guestEmail ?? null,
     options.holdExpiresAt !== undefined
@@ -278,7 +282,8 @@ describe('PaymentsService', () => {
         expect.objectContaining({
           appointmentId: 'appt-1',
           qrId: 'qr-1',
-          guestFullName: 'Juana Perez',
+          guestFirstName: 'Juana',
+          guestLastNamePaternal: 'Perez',
         }),
       );
     });

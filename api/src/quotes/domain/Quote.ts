@@ -1,4 +1,5 @@
 import type { QuoteItem } from './QuoteItem';
+import type { Payment } from './Payment';
 
 export interface Quote {
   id: string;
@@ -11,4 +12,5 @@ export interface Quote {
   createdAt: Date;
   updatedAt: Date;
   items: QuoteItem[];
+  payments: Payment[];
 }
