@@ -35,6 +35,12 @@ interface AddQuoteItemInput {
   quantity?: number;
 }
 
+interface AddPaymentInput {
+  amount: number;
+  paymentMethod?: string;
+  notes?: string;
+}
+
 function round2(amount: number): number {
   return Math.round(amount * 100) / 100;
 }
@@ -127,6 +133,20 @@ export class QuotesService {
       exchangeRate,
     );
     return this.quoteRepo.addItems(quoteId, rows);
+  }
+
+  async addPayment(quoteId: string, data: AddPaymentInput): Promise<Quote> {
+    const quote = await this.quoteRepo.findById(quoteId);
+    if (!quote) {
+      throw new NotFoundException(
+        `Presupuesto con id ${quoteId} no encontrado`,
+      );
+    }
+    return this.quoteRepo.addPayment(quoteId, {
+      amount: data.amount,
+      paymentMethod: data.paymentMethod ?? null,
+      notes: data.notes ?? null,
+    });
   }
 
   async removeItem(quoteId: string, itemId: string): Promise<Quote> {

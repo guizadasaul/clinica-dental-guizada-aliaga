@@ -23,6 +23,7 @@ function fakeQuote(overrides: Partial<Quote> = {}): Quote {
     createdAt: new Date(),
     updatedAt: new Date(),
     items: [],
+    payments: [],
     ...overrides,
   };
 }
@@ -54,6 +55,7 @@ const mockQuoteRepo = {
   findByPatient: jest.fn(),
   addItems: jest.fn(),
   removeItemGroup: jest.fn(),
+  addPayment: jest.fn(),
 };
 
 const mockTreatmentRepo = {
@@ -357,6 +359,47 @@ describe('QuotesService', () => {
       const result = await service.removeItem('quote-1', 'item-1');
 
       expect(result).toEqual(updated);
+    });
+  });
+
+  describe('addPayment', () => {
+    it('throws NotFoundException when the quote does not exist', async () => {
+      mockQuoteRepo.findById.mockResolvedValue(null);
+
+      await expect(
+        service.addPayment('missing-quote', { amount: 100 }),
+      ).rejects.toThrow(NotFoundException);
+      expect(mockQuoteRepo.addPayment).not.toHaveBeenCalled();
+    });
+
+    it('delegates to the repository with the mapped data', async () => {
+      const updated = fakeQuote({ totalPaid: 100 });
+      mockQuoteRepo.addPayment.mockResolvedValue(updated);
+
+      const result = await service.addPayment('quote-1', {
+        amount: 100,
+        paymentMethod: 'efectivo',
+        notes: 'primer pago',
+      });
+
+      expect(mockQuoteRepo.addPayment).toHaveBeenCalledWith('quote-1', {
+        amount: 100,
+        paymentMethod: 'efectivo',
+        notes: 'primer pago',
+      });
+      expect(result).toEqual(updated);
+    });
+
+    it('defaults paymentMethod and notes to null when not provided', async () => {
+      mockQuoteRepo.addPayment.mockResolvedValue(fakeQuote());
+
+      await service.addPayment('quote-1', { amount: 50 });
+
+      expect(mockQuoteRepo.addPayment).toHaveBeenCalledWith('quote-1', {
+        amount: 50,
+        paymentMethod: null,
+        notes: null,
+      });
     });
   });
 
