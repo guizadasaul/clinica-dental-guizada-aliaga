@@ -28,6 +28,15 @@ export class PrismaService implements OnModuleInit, OnModuleDestroy {
   get medical_history() {
     return this._client.medical_history;
   }
+  get medical_conditions() {
+    return this._client.medical_conditions;
+  }
+  get patient_medical_conditions() {
+    return this._client.patient_medical_conditions;
+  }
+  get patient_medications() {
+    return this._client.patient_medications;
+  }
   get hygiene_habits() {
     return this._client.hygiene_habits;
   }

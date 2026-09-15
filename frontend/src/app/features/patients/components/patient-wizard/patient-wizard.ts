@@ -11,6 +11,7 @@ import {
 import { firstValueFrom } from 'rxjs';
 import { PatientsService } from '../../services/patients.service';
 import { DiagnosesService } from '../../../diagnoses/services/diagnoses.service';
+import { MedicalConditionsService } from '../../../medical-conditions/services/medical-conditions.service';
 import { StepPatientDataComponent } from './steps/step-patient-data/step-patient-data';
 import { StepMedicalHistoryComponent } from './steps/step-medical-history/step-medical-history';
 import { StepOralHygieneComponent } from './steps/step-oral-hygiene/step-oral-hygiene';
@@ -19,6 +20,7 @@ import { StepOdontogramComponent } from './steps/step-odontogram/step-odontogram
 import type { Patient } from '../../models/patient.model';
 import type { DentalExam, DentalExamVersionSummary } from '../../models/dental-exam.model';
 import type { DiagnosisCategory } from '../../../diagnoses/models/diagnosis.model';
+import type { MedicalCondition } from '../../../medical-conditions/models/medical-condition.model';
 import type {
   CreatePatientRequest,
   CreateMedicalHistoryRequest,
@@ -55,6 +57,7 @@ const STEPS: WizardStep[] = [
 export class PatientWizardComponent {
   private readonly patientsService = inject(PatientsService);
   private readonly diagnosesService = inject(DiagnosesService);
+  private readonly medicalConditionsService = inject(MedicalConditionsService);
 
   readonly userId = input('');
   readonly existingPatientId = input<string | null>(null);
@@ -88,12 +91,14 @@ export class PatientWizardComponent {
   });
 
   protected readonly diagnosisCatalog = signal<DiagnosisCategory[]>([]);
+  protected readonly medicalConditionsCatalog = signal<MedicalCondition[]>([]);
   protected readonly currentDentalExam = signal<DentalExam | null>(null);
   protected readonly dentalExamVersions = signal<DentalExamVersionSummary[]>([]);
   protected readonly viewedDentalExam = signal<DentalExam | null>(null);
 
   constructor() {
     void this.loadDiagnosisCatalog();
+    void this.loadMedicalConditionsCatalog();
     effect(() => {
       const existingId = this.existingPatientId();
       if (existingId) {
@@ -110,6 +115,15 @@ export class PatientWizardComponent {
       this.diagnosisCatalog.set(catalog);
     } catch {
       // no-op: el step 5 arranca con el catálogo vacío (el select queda sin opciones)
+    }
+  }
+
+  private async loadMedicalConditionsCatalog(): Promise<void> {
+    try {
+      const catalog = await firstValueFrom(this.medicalConditionsService.getCatalog());
+      this.medicalConditionsCatalog.set(catalog);
+    } catch {
+      // no-op: el paso 2 arranca sin checkboxes de condiciones si el catálogo no carga
     }
   }
 

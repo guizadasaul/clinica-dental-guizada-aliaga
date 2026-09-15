@@ -42,21 +42,25 @@ export interface UpdatePatientRequest {
   email?: string;
 }
 
+export interface MedicalConditionEntryRequest {
+  code: string;
+  diagnosedAt?: string;
+  notes?: string;
+}
+
+export interface PatientMedicationRequest {
+  drugName: string;
+  dose?: string;
+  frequency?: string;
+  startedAt?: string;
+}
+
 export interface CreateMedicalHistoryRequest {
-  hasAllergies?: boolean;
-  kidneyProblems?: boolean;
-  ulcers?: boolean;
-  rheumatism?: boolean;
-  heartProblems?: boolean;
-  diabetes?: boolean;
-  hypertension?: boolean;
-  hemorrhages?: boolean;
-  anemia?: boolean;
-  sti?: boolean;
+  conditions?: MedicalConditionEntryRequest[];
   otherDiseases?: string;
-  gestationPeriod?: string;
-  anesthesiaReactions?: boolean;
-  currentMedications?: string;
+  gestationLmpDate?: string;
+  anesthesiaReactions?: boolean | null;
+  medications?: PatientMedicationRequest[];
 }
 
 export interface CreateHygieneHabitsRequest {

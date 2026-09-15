@@ -1,48 +1,93 @@
 <form class="step-form" (ngSubmit)="onSubmit()" novalidate>
   <div class="step-form__section">
     <h3 class="step-form__section-title">Enfermedades y condiciones</h3>
-    <div class="step-form__checkgrid">
-      <label class="step-form__check">
-        <input type="checkbox" [checked]="hasAllergies()" (change)="hasAllergies.set($any($event.target).checked)" />
-        <span>Alergias</span>
-      </label>
-      <label class="step-form__check">
-        <input type="checkbox" [checked]="kidneyProblems()" (change)="kidneyProblems.set($any($event.target).checked)" />
-        <span>Problemas renales</span>
-      </label>
-      <label class="step-form__check">
-        <input type="checkbox" [checked]="ulcers()" (change)="ulcers.set($any($event.target).checked)" />
-        <span>Úlceras</span>
-      </label>
-      <label class="step-form__check">
-        <input type="checkbox" [checked]="rheumatism()" (change)="rheumatism.set($any($event.target).checked)" />
-        <span>Reumatismo</span>
-      </label>
-      <label class="step-form__check">
-        <input type="checkbox" [checked]="heartProblems()" (change)="heartProblems.set($any($event.target).checked)" />
-        <span>Problemas cardíacos</span>
-      </label>
-      <label class="step-form__check">
-        <input type="checkbox" [checked]="diabetes()" (change)="diabetes.set($any($event.target).checked)" />
-        <span>Diabetes</span>
-      </label>
-      <label class="step-form__check">
-        <input type="checkbox" [checked]="hypertension()" (change)="hypertension.set($any($event.target).checked)" />
-        <span>Hipertensión</span>
-      </label>
-      <label class="step-form__check">
-        <input type="checkbox" [checked]="hemorrhages()" (change)="hemorrhages.set($any($event.target).checked)" />
-        <span>Hemorragias</span>
-      </label>
-      <label class="step-form__check">
-        <input type="checkbox" [checked]="anemia()" (change)="anemia.set($any($event.target).checked)" />
-        <span>Anemia</span>
-      </label>
-      <label class="step-form__check">
-        <input type="checkbox" [checked]="sti()" (change)="sti.set($any($event.target).checked)" />
-        <span>ITS</span>
-      </label>
+    <div class="mh-step__condition-list">
+      @for (condition of catalog(); track condition.code) {
+        <div class="mh-step__condition">
+          <label class="step-form__check">
+            <input
+              type="checkbox"
+              [checked]="isConditionChecked(condition.code)"
+              (change)="toggleCondition(condition.code, $any($event.target).checked)"
+            />
+            <span>{{ condition.name }}</span>
+          </label>
+          @if (isConditionChecked(condition.code)) {
+            <div class="mh-step__condition-detail">
+              <input
+                type="date"
+                class="step-form__input mh-step__input--small"
+                [value]="conditionDetails().get(condition.code)?.diagnosedAt ?? ''"
+                (input)="setConditionDetail(condition.code, 'diagnosedAt', $any($event.target).value)"
+                aria-label="Fecha de diagnóstico"
+              />
+              <input
+                type="text"
+                class="step-form__input"
+                [value]="conditionDetails().get(condition.code)?.notes ?? ''"
+                (input)="setConditionDetail(condition.code, 'notes', $any($event.target).value)"
+                placeholder="Notas (opcional)"
+                maxlength="500"
+                aria-label="Notas de la condición"
+              />
+            </div>
+          }
+        </div>
+      }
+      @if (catalog().length === 0) {
+        <p class="mh-step__hint">Cargando catálogo de condiciones...</p>
+      }
     </div>
+  </div>
+
+  <div class="step-form__section">
+    <h3 class="step-form__section-title">Medicación actual</h3>
+    @for (row of medications(); track $index) {
+      <div class="mh-step__medication-row">
+        <input
+          type="text"
+          class="step-form__input"
+          [class.step-form__input--invalid]="medicationDrugNameError(row)"
+          [value]="row.drugName"
+          (input)="updateMedication($index, 'drugName', $any($event.target).value)"
+          placeholder="Fármaco"
+          maxlength="150"
+        />
+        <input
+          type="text"
+          class="step-form__input mh-step__input--small"
+          [value]="row.dose"
+          (input)="updateMedication($index, 'dose', $any($event.target).value)"
+          placeholder="Dosis"
+          maxlength="50"
+        />
+        <input
+          type="text"
+          class="step-form__input mh-step__input--small"
+          [value]="row.frequency"
+          (input)="updateMedication($index, 'frequency', $any($event.target).value)"
+          placeholder="Frecuencia"
+          maxlength="100"
+        />
+        <input
+          type="date"
+          class="step-form__input mh-step__input--small"
+          [value]="row.startedAt"
+          (input)="updateMedication($index, 'startedAt', $any($event.target).value)"
+          aria-label="Fecha de inicio"
+        />
+        <button type="button" class="mh-step__btn-icon" (click)="removeMedication($index)" aria-label="Quitar medicamento">
+          <span class="material-symbols-outlined">close</span>
+        </button>
+        @if (medicationDrugNameError(row); as error) {
+          <p class="step-form__field-error" role="alert">{{ error }}</p>
+        }
+      </div>
+    }
+    <button type="button" class="step-form__btn step-form__btn--secondary mh-step__add-medication" (click)="addMedication()">
+      <span class="material-symbols-outlined">add</span>
+      Agregar medicamento
+    </button>
   </div>
 
   <div class="step-form__section">
@@ -68,41 +113,20 @@
         }
       </div>
       <div class="step-form__field">
-        <label class="step-form__label" for="currentMedications">Medicamentos actuales</label>
-        <textarea
-          id="currentMedications"
-          class="step-form__input step-form__input--textarea"
-          [class.step-form__input--invalid]="currentMedications.showError()"
-          [value]="currentMedications.value()"
-          (input)="currentMedications.set($any($event.target).value)"
-          (blur)="currentMedications.markTouched()"
-          maxlength="1000"
-          placeholder="Lista los medicamentos que toma actualmente..."
-          rows="3"
-          [attr.aria-invalid]="currentMedications.showError() || null"
-          [attr.aria-describedby]="currentMedications.showError() ? 'currentMedications-err' : null"
-        ></textarea>
-        @if (currentMedications.showError()) {
-          <p class="step-form__field-error" id="currentMedications-err" role="alert">{{ currentMedications.error() }}</p>
-        }
-      </div>
-      <div class="step-form__field">
-        <label class="step-form__label" for="gestationPeriod">Período de gestación</label>
+        <label class="step-form__label" for="gestationLmpDate">Fecha de última menstruación (si aplica)</label>
         <input
-          id="gestationPeriod"
+          id="gestationLmpDate"
           class="step-form__input"
-          [class.step-form__input--invalid]="gestationPeriod.showError()"
-          type="text"
-          [value]="gestationPeriod.value()"
-          (input)="gestationPeriod.set($any($event.target).value)"
-          (blur)="gestationPeriod.markTouched()"
-          maxlength="100"
-          placeholder="Ej: 20 semanas / No aplica"
-          [attr.aria-invalid]="gestationPeriod.showError() || null"
-          [attr.aria-describedby]="gestationPeriod.showError() ? 'gestationPeriod-err' : null"
+          [class.step-form__input--invalid]="gestationLmpDate.showError()"
+          type="date"
+          [value]="gestationLmpDate.value()"
+          (input)="gestationLmpDate.set($any($event.target).value)"
+          (blur)="gestationLmpDate.markTouched()"
+          [attr.aria-invalid]="gestationLmpDate.showError() || null"
+          [attr.aria-describedby]="gestationLmpDate.showError() ? 'gestationLmpDate-err' : null"
         />
-        @if (gestationPeriod.showError()) {
-          <p class="step-form__field-error" id="gestationPeriod-err" role="alert">{{ gestationPeriod.error() }}</p>
+        @if (gestationLmpDate.showError()) {
+          <p class="step-form__field-error" id="gestationLmpDate-err" role="alert">{{ gestationLmpDate.error() }}</p>
         }
       </div>
       <div class="step-form__field">

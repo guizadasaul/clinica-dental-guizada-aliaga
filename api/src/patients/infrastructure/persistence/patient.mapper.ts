@@ -1,15 +1,26 @@
 import type {
   patients,
   medical_history,
+  patient_medical_conditions,
+  medical_conditions,
+  patient_medications,
   hygiene_habits,
   clinical_exams,
   users,
 } from '@prisma/client';
 import { Patient } from '../../domain/Patient';
-import { MedicalHistory } from '../../domain/MedicalHistory';
+import type { MedicalHistory } from '../../domain/MedicalHistory';
 import { HygieneHabits } from '../../domain/HygieneHabits';
 import { ClinicalExam } from '../../domain/ClinicalExam';
 import { PatientWithUser } from '../../domain/PatientWithUser';
+import { gestationTrimesterFor } from '../../domain/gestation.util';
+
+type MedicalHistoryRecord = medical_history & {
+  patient_medical_conditions: (patient_medical_conditions & {
+    medical_conditions: medical_conditions;
+  })[];
+  patient_medications: patient_medications[];
+};
 
 type PatientRecordWithUser = patients & { users: { phone: string | null } };
 
@@ -42,26 +53,31 @@ export class PatientMapper {
     );
   }
 
-  static toDomainMedicalHistory(r: medical_history): MedicalHistory {
-    return new MedicalHistory(
-      r.id,
-      r.patient_id,
-      r.has_allergies,
-      r.kidney_problems,
-      r.ulcers,
-      r.rheumatism,
-      r.heart_problems,
-      r.diabetes,
-      r.hypertension,
-      r.hemorrhages,
-      r.anemia,
-      r.sti,
-      r.other_diseases ?? null,
-      r.gestation_period ?? null,
-      r.anesthesia_reactions ?? null,
-      r.current_medications ?? null,
-      r.updated_at,
-    );
+  static toDomainMedicalHistory(r: MedicalHistoryRecord): MedicalHistory {
+    return {
+      id: r.id,
+      patientId: r.patient_id,
+      conditions: r.patient_medical_conditions.map((pmc) => ({
+        code: pmc.medical_conditions.code,
+        name: pmc.medical_conditions.name,
+        diagnosedAt: pmc.diagnosed_at ?? null,
+        notes: pmc.notes ?? null,
+      })),
+      otherDiseases: r.other_diseases ?? null,
+      gestationLmpDate: r.gestation_lmp_date ?? null,
+      gestationTrimester: r.gestation_lmp_date
+        ? gestationTrimesterFor(r.gestation_lmp_date)
+        : null,
+      anesthesiaReactions: r.anesthesia_reactions ?? null,
+      medications: r.patient_medications.map((m) => ({
+        id: m.id,
+        drugName: m.drug_name,
+        dose: m.dose ?? null,
+        frequency: m.frequency ?? null,
+        startedAt: m.started_at ?? null,
+      })),
+      updatedAt: r.updated_at,
+    };
   }
 
   static toDomainHygieneHabits(r: hygiene_habits): HygieneHabits {

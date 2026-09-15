@@ -29,19 +29,6 @@ interface GroupedFinding {
   readonly notes: string | null;
 }
 
-const MEDICAL_CONDITION_LABELS: { key: keyof MedicalHistory; label: string }[] = [
-  { key: 'hasAllergies', label: 'Alergias' },
-  { key: 'kidneyProblems', label: 'Problemas renales' },
-  { key: 'ulcers', label: 'Úlceras' },
-  { key: 'rheumatism', label: 'Reumatismo' },
-  { key: 'heartProblems', label: 'Problemas cardíacos' },
-  { key: 'diabetes', label: 'Diabetes' },
-  { key: 'hypertension', label: 'Hipertensión' },
-  { key: 'hemorrhages', label: 'Hemorragias' },
-  { key: 'anemia', label: 'Anemia' },
-  { key: 'sti', label: 'ITS' },
-];
-
 const HYGIENE_HABIT_LABELS: { key: keyof HygieneHabits; label: string }[] = [
   { key: 'usesToothbrush', label: 'Usa cepillo dental' },
   { key: 'usesDentalFloss', label: 'Usa hilo dental' },
@@ -111,7 +98,6 @@ export class ClinicalRecordViewComponent {
   readonly patient = input.required<Patient>();
   readonly close = output<void>();
 
-  protected readonly medicalConditionLabels = MEDICAL_CONDITION_LABELS;
   protected readonly hygieneHabitLabels = HYGIENE_HABIT_LABELS;
   protected readonly clinicalFindingLabels = CLINICAL_FINDING_LABELS;
 
@@ -178,6 +164,12 @@ export class ClinicalRecordViewComponent {
     if (value === true) { return 'Sí'; }
     if (value === false) { return 'No'; }
     return 'No sabe';
+  }
+
+  /** Derivado por el backend (CLI-50) — nunca se interpreta a ojo acá. */
+  protected gestationTrimesterLabel(trimester: 1 | 2 | 3 | null): string {
+    const ORDINALS = { 1: '1er', 2: '2do', 3: '3er' } as const;
+    return trimester === null ? '' : `${ORDINALS[trimester]} trimestre`;
   }
 
   protected onClose(): void {

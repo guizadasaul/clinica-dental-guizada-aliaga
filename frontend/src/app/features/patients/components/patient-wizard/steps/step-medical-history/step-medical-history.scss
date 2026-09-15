@@ -1,1 +1,68 @@
 @use '../step-form';
+
+// Piezas específicas de este paso (CLI-50) — el resto de la UI reutiliza
+// las clases genéricas de step-form (input/check/radio/btn/field-error).
+.mh-step {
+  &__condition-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  &__condition {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  &__condition-detail {
+    display: grid;
+    grid-template-columns: 160px 1fr;
+    gap: 0.5rem;
+    padding-left: 1.625rem;
+
+    @media (max-width: 640px) {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  &__hint {
+    font-size: 0.8125rem;
+    color: #6b7280;
+    margin: 0;
+  }
+
+  &__medication-row {
+    display: grid;
+    grid-template-columns: 2fr 1fr 1fr 1fr auto;
+    gap: 0.5rem;
+    align-items: start;
+
+    @media (max-width: 768px) {
+      grid-template-columns: 1fr 1fr;
+    }
+  }
+
+  &__input--small {
+    min-width: 0;
+  }
+
+  &__btn-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.25rem;
+    height: 2.25rem;
+    border: 1px solid #e5e7eb;
+    border-radius: 0.5rem;
+    background: white;
+    color: #6b7280;
+    cursor: pointer;
+
+    &:hover {
+      background: #fef2f2;
+      border-color: #fecaca;
+      color: #dc2626;
+    }
+  }
+}
