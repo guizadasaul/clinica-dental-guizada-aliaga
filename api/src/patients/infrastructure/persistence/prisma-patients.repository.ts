@@ -10,6 +10,7 @@ import {
   ClinicalExamData,
   OdontogramEntryData,
   CreateToothProcedureData,
+  CreateToothProcedureGroupData,
   CreateDentalExamData,
 } from '../../domain/PatientRepository';
 import type { Patient } from '../../domain/Patient';
@@ -343,7 +344,6 @@ export class PrismaPatientsRepository implements IPatientRepository {
             data: {
               patient_id: patientId,
               tooth_number: item.toothNumber,
-              application_group_id: item.applicationGroupId ?? null,
               treatment_id: item.treatmentId,
               price_charged: item.priceCharged,
               quantity: item.quantity ?? 1,
@@ -356,6 +356,7 @@ export class PrismaPatientsRepository implements IPatientRepository {
               notes: item.notes ?? null,
               performed_by: item.performedBy,
             },
+            include: { application_groups: true },
           }),
         ),
       ),
@@ -363,10 +364,53 @@ export class PrismaPatientsRepository implements IPatientRepository {
     return records.map((r) => ToothProcedureMapper.toDomain(r));
   }
 
+  // CLI-53: el precio del grupo vive una sola vez en application_groups —
+  // las N filas de tooth_procedures (una por diente) no tienen precio
+  // propio, a diferencia del viejo esquema donde una fila arbitraria lo
+  // tenía y el resto facturaba 0.
+  async createToothProcedureGroup(
+    patientId: string,
+    data: CreateToothProcedureGroupData,
+  ): Promise<ToothProcedure[]> {
+    return this.prisma.transaction(async (tx) => {
+      const group = await tx.application_groups.create({
+        data: {
+          treatment_id: data.treatmentId,
+          unit_price: data.priceCharged,
+          subtotal: data.priceCharged,
+          currency: 'BOB',
+        },
+      });
+      const records = await Promise.all(
+        data.teeth.map((tooth) =>
+          tx.tooth_procedures.create({
+            data: {
+              patient_id: patientId,
+              tooth_number: tooth.toothNumber,
+              application_group_id: group.id,
+              treatment_id: data.treatmentId,
+              procedure_date: data.procedureDate ?? new Date(),
+              surface_vestibular: tooth.surfaceVestibular ?? false,
+              surface_palatal: tooth.surfacePalatal ?? false,
+              surface_mesial: tooth.surfaceMesial ?? false,
+              surface_distal: tooth.surfaceDistal ?? false,
+              surface_occlusal: tooth.surfaceOcclusal ?? false,
+              notes: data.notes ?? null,
+              performed_by: data.performedBy,
+            },
+            include: { application_groups: true },
+          }),
+        ),
+      );
+      return records.map((r) => ToothProcedureMapper.toDomain(r));
+    });
+  }
+
   async findToothProcedures(patientId: string): Promise<ToothProcedure[]> {
     const records = await this.prisma.tooth_procedures.findMany({
       where: { patient_id: patientId },
       orderBy: { procedure_date: 'desc' },
+      include: { application_groups: true },
     });
     return records.map((r) => ToothProcedureMapper.toDomain(r));
   }
