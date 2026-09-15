@@ -19,6 +19,8 @@ export interface CreateHoldData {
   slot: Date;
   holdExpiresAt: Date;
   treatmentId: string | null;
+  /** Congelada al crear el hold (CLI-47) — snapshot de treatments.estimatedMinutes, o SLOT_MINUTES si no se especificó tratamiento. */
+  durationMinutes: number;
   source: string;
 }
 

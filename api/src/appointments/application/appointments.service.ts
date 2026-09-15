@@ -21,7 +21,13 @@ import type {
   IAppointmentRepository,
 } from '../domain/AppointmentRepository.js';
 import type { AppointmentWithPatient } from '../domain/AppointmentWithPatient.js';
-import { buildSlotsForDate, isValidSlot } from '../domain/ClinicSchedule.js';
+import {
+  buildSlotsForDate,
+  isValidSlot,
+  SLOT_MINUTES,
+} from '../domain/ClinicSchedule.js';
+import { TreatmentRepository } from '../../treatments/domain/TreatmentRepository.js';
+import type { ITreatmentRepository } from '../../treatments/domain/TreatmentRepository.js';
 
 // Bolivia no tiene horario de verano (UTC-4 fijo), así que sumar días de
 // calendario en UTC es seguro para generar el rango de fechas a consultar.
@@ -30,6 +36,17 @@ function addDaysToDateString(date: string, days: number): string {
   const next = new Date(Date.UTC(year, month - 1, day));
   next.setUTCDate(next.getUTCDate() + days);
   return next.toISOString().slice(0, 10);
+}
+
+// CLI-47: una cita ocupa tantos slots de grilla como haga falta para cubrir
+// su duración real, no solo el de su instante de inicio — redondeando hacia
+// arriba (un tratamiento de 45 min bloquea 2 slots de 30, no 1.5).
+function occupiedSlotTimes(start: Date, durationMinutes: number): number[] {
+  const slotsOccupied = Math.max(1, Math.ceil(durationMinutes / SLOT_MINUTES));
+  return Array.from(
+    { length: slotsOccupied },
+    (_, i) => start.getTime() + i * SLOT_MINUTES * 60_000,
+  );
 }
 
 export interface AvailabilityResult {
@@ -54,6 +71,8 @@ export class AppointmentsService {
   constructor(
     @Inject(AppointmentRepository)
     private readonly appointmentRepo: IAppointmentRepository,
+    @Inject(TreatmentRepository)
+    private readonly treatmentRepo: ITreatmentRepository,
   ) {}
 
   async getAvailability(date: string): Promise<AvailabilityResult> {
@@ -72,7 +91,9 @@ export class AppointmentsService {
       now,
     );
     const takenTimes = new Set(
-      active.map((a) => a.appointmentDatetime.getTime()),
+      active.flatMap((a) =>
+        occupiedSlotTimes(a.appointmentDatetime, a.durationMinutes),
+      ),
     );
 
     const freeSlots = allSlots.filter(
@@ -113,7 +134,11 @@ export class AppointmentsService {
       rangeStart && rangeEnd
         ? await this.appointmentRepo.findActiveBetween(rangeStart, rangeEnd, now)
         : [];
-    const takenTimes = new Set(active.map((a) => a.appointmentDatetime.getTime()));
+    const takenTimes = new Set(
+      active.flatMap((a) =>
+        occupiedSlotTimes(a.appointmentDatetime, a.durationMinutes),
+      ),
+    );
 
     const slotsByDate: Record<string, string[]> = {};
     for (const date of dates) {
@@ -127,10 +152,24 @@ export class AppointmentsService {
     return { from, days, slotsByDate };
   }
 
-  async holdSlot(slotIso: string): Promise<HoldResult> {
+  async holdSlot(slotIso: string, treatmentId?: string): Promise<HoldResult> {
     const slot = new Date(slotIso);
     if (!isValidSlot(slot) || slot.getTime() <= Date.now()) {
       throw new BadRequestException('El horario solicitado no es válido');
+    }
+
+    // Congela la duración real del tratamiento en la cita (CLI-47) — si no
+    // se especifica ninguno, un slot de grilla es la mejor suposición
+    // disponible, igual que el comportamiento de siempre.
+    let durationMinutes = SLOT_MINUTES;
+    if (treatmentId) {
+      const treatment = await this.treatmentRepo.findById(treatmentId);
+      if (!treatment) {
+        throw new NotFoundException(
+          `Tratamiento con id ${treatmentId} no encontrado`,
+        );
+      }
+      durationMinutes = treatment.estimatedMinutes;
     }
 
     const holdExpiresAt = new Date(Date.now() + HOLD_TTL_MINUTES * 60 * 1000);
@@ -138,7 +177,8 @@ export class AppointmentsService {
       const appointment = await this.appointmentRepo.createHold({
         slot,
         holdExpiresAt,
-        treatmentId: null,
+        treatmentId: treatmentId ?? null,
+        durationMinutes,
         source: AppointmentSource.PUBLIC_WEB,
       });
       return {

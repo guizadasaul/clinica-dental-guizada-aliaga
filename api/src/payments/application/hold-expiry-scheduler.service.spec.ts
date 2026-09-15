@@ -13,6 +13,7 @@ function fakeAppointment(
     null,
     null,
     new Date('2026-08-17T09:00:00.000Z'),
+    30,
     status,
     'public_web',
     'Guest Name',

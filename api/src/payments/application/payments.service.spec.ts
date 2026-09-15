@@ -81,6 +81,7 @@ function fakeAppointment(options: FakeAppointmentOptions = {}): Appointment {
     null,
     null,
     new Date('2026-08-17T13:00:00.000Z'),
+    30,
     options.status ?? AppointmentStatus.HELD,
     'public_web',
     null,

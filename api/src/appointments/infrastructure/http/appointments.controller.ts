@@ -61,7 +61,7 @@ export class AppointmentsController {
     },
   })
   holdSlot(@Body() dto: HoldSlotDto): Promise<HoldResult> {
-    return this.appointmentsService.holdSlot(dto.slot);
+    return this.appointmentsService.holdSlot(dto.slot, dto.treatmentId);
   }
 
   @Patch('appointments/:id/contact')

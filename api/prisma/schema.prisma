@@ -58,11 +58,27 @@ enum DiagnosisModifier {
 /// nada impedía una cita con user_id=U y patient_id=P donde P.user_id≠U. Si
 /// algún día hace falta el usuario de una cita, se deriva por
 /// patient_id → patients.user_id, nunca se vuelve a guardar acá.
+///
+/// idx_one_active_appointment_slot solo protege el instante exacto de inicio
+/// (CLI-47) — dos citas que se solapan parcialmente (una de 90 min a las
+/// 9:00 y otra de 30 min a las 9:15) no chocan contra este índice. La
+/// disponibilidad mostrada (getAvailability) sí las trata como solapadas;
+/// falta una constraint de rango (EXCLUDE USING gist) para que la base
+/// también lo impida ante una carrera entre dos requests concurrentes.
+/// Deliberadamente fuera de alcance de CLI-47: el manejo de errores de
+/// Prisma para una exclusion_violation de Postgres no está probado en este
+/// proyecto (no hay ninguna constraint de este tipo todavía) y agregarla sin
+/// verificar el código de error real arriesga romper el 409 limpio actual.
 model appointments {
   id                       String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   patient_id               String?     @db.Uuid
   treatment_id             String?     @db.Uuid
   appointment_datetime     DateTime    @unique(map: "idx_one_active_appointment_slot", where: raw("(((status)::text = 'held'::text) OR ((status)::text = 'confirmed'::text))")) @db.Timestamptz(6)
+  /// Congelada al reservar (CLI-47) — snapshot de treatments.estimated_minutes
+  /// en el momento del hold, o 30 (un slot) si no se especificó tratamiento.
+  /// Cambiar estimated_minutes en el catálogo después no debe reinterpretar
+  /// agendas ya reservadas, mismo criterio que los precios de quote_items.
+  duration_minutes         Int         @default(30)
   status                   String      @default("scheduled") @db.VarChar(20)
   source                   String      @db.VarChar(20)
   whatsapp_name            String?     @db.VarChar(200)
