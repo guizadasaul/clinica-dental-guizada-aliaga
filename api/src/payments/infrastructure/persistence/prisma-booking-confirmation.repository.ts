@@ -7,17 +7,6 @@ import {
   IBookingConfirmationRepository,
 } from '../../domain/BookingConfirmationRepository.js';
 
-function splitGuestName(fullName: string): {
-  firstName: string;
-  lastNamePaternal: string;
-} {
-  const parts = fullName.trim().split(/\s+/);
-  return {
-    firstName: parts[0] ?? fullName,
-    lastNamePaternal: parts.length > 1 ? parts.slice(1).join(' ') : '-',
-  };
-}
-
 @Injectable()
 export class PrismaBookingConfirmationRepository implements IBookingConfirmationRepository {
   constructor(private readonly prisma: PrismaService) {}
@@ -41,22 +30,29 @@ export class PrismaBookingConfirmationRepository implements IBookingConfirmation
         return null;
       }
 
-      const { firstName, lastNamePaternal } = splitGuestName(
-        data.guestFullName,
-      );
+      const displayName = [
+        data.guestFirstName,
+        data.guestLastNamePaternal,
+        data.guestLastNameMaternal,
+      ]
+        .filter(Boolean)
+        .join(' ');
       const user = await tx.users.create({
         data: UserMapper.toPlaceholderCreateInput({
-          displayName: data.guestFullName,
+          displayName,
           phone: data.guestPhone,
           email: data.guestEmail,
         }),
       });
+      // El teléfono NO se repite acá — ya quedó en users.phone vía
+      // UserMapper.toPlaceholderCreateInput arriba (CLI-51: users.phone es
+      // la única fuente de verdad, patients ya no tiene columna propia).
       const patient = await tx.patients.create({
         data: {
           user_id: user.id,
-          first_name: firstName,
-          last_name_paternal: lastNamePaternal,
-          phone: data.guestPhone,
+          first_name: data.guestFirstName,
+          last_name_paternal: data.guestLastNamePaternal,
+          last_name_maternal: data.guestLastNameMaternal,
         },
       });
       await tx.appointments.update({

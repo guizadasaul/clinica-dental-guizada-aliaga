@@ -10,6 +10,7 @@ import {
   ClinicalExamData,
   OdontogramEntryData,
   CreateToothProcedureData,
+  CreateToothProcedureGroupData,
   CreateDentalExamData,
 } from '../../domain/PatientRepository';
 import type { Patient } from '../../domain/Patient';
@@ -33,6 +34,11 @@ const DENTAL_EXAM_INCLUDE = {
   dental_exam_findings: {
     include: { diagnoses: { include: { diagnosis_categories: true } } },
   },
+} as const;
+
+const TOOTH_PROCEDURE_INCLUDE = {
+  tooth_procedure_surfaces: { include: { tooth_surfaces: true } },
+  application_groups: true,
 } as const;
 
 /**
@@ -64,17 +70,23 @@ export class PrismaPatientsRepository implements IPatientRepository {
   }
 
   async findPatientById(id: string): Promise<Patient | null> {
-    const record = await this.prisma.patients.findUnique({ where: { id } });
+    const record = await this.prisma.patients.findUnique({
+      where: { id },
+      include: { users: true },
+    });
     return record ? PatientMapper.toDomainPatient(record) : null;
   }
 
   async findByUserId(userId: string): Promise<Patient | null> {
     const record = await this.prisma.patients.findUnique({
       where: { user_id: userId },
+      include: { users: true },
     });
     return record ? PatientMapper.toDomainPatient(record) : null;
   }
 
+  // El teléfono NO se escribe acá — vive en users.phone (CLI-51), lo
+  // sincroniza PatientsService vía UserRepository.updateContactInfo.
   async create(userId: string, data: CreatePatientData): Promise<Patient> {
     const record = await this.prisma.patients.create({
       data: {
@@ -89,7 +101,6 @@ export class PrismaPatientsRepository implements IPatientRepository {
         address: data.address ?? null,
         zona: data.zona ?? null,
         ciudad: data.ciudad ?? null,
-        phone: data.phone ?? null,
         emergency_contact_name: data.emergencyContactName ?? null,
         emergency_contact_phone: data.emergencyContactPhone ?? null,
         emergency_contact_relationship:
@@ -101,10 +112,13 @@ export class PrismaPatientsRepository implements IPatientRepository {
         document_type: data.documentType ?? null,
         dni: data.dni ?? null,
       },
+      include: { users: true },
     });
     return PatientMapper.toDomainPatient(record);
   }
 
+  // El teléfono NO se escribe acá tampoco — PatientsService.updatePatient ya
+  // lo sincroniza por separado vía UserRepository.updateContactInfo (CLI-51).
   async updatePatient(
     id: string,
     data: UpdatePatientData,
@@ -129,7 +143,6 @@ export class PrismaPatientsRepository implements IPatientRepository {
           ...(data.address !== undefined && { address: data.address }),
           ...(data.zona !== undefined && { zona: data.zona }),
           ...(data.ciudad !== undefined && { ciudad: data.ciudad }),
-          ...(data.phone !== undefined && { phone: data.phone }),
           ...(data.emergencyContactName !== undefined && {
             emergency_contact_name: data.emergencyContactName,
           }),
@@ -157,6 +170,7 @@ export class PrismaPatientsRepository implements IPatientRepository {
           ...(data.dni !== undefined && { dni: data.dni }),
           updated_at: new Date(),
         },
+        include: { users: true },
       });
       return PatientMapper.toDomainPatient(record);
     } catch (error: unknown) {
@@ -170,56 +184,113 @@ export class PrismaPatientsRepository implements IPatientRepository {
     }
   }
 
+  /**
+   * Reemplazo completo (CLI-50) — igual semántica que los 10 booleanos de
+   * antes (upsertMedicalHistory siempre refleja el conjunto enviado, nunca
+   * hace merge parcial): condiciones y medicación se borran y se recrean
+   * dentro de la misma transacción que el upsert de medical_history.
+   */
   async upsertMedicalHistory(
     patientId: string,
     data: MedicalHistoryData,
   ): Promise<MedicalHistory> {
-    const record = await this.prisma.medical_history.upsert({
-      where: { patient_id: patientId },
-      create: {
-        patient_id: patientId,
-        has_allergies: data.hasAllergies ?? false,
-        kidney_problems: data.kidneyProblems ?? false,
-        ulcers: data.ulcers ?? false,
-        rheumatism: data.rheumatism ?? false,
-        heart_problems: data.heartProblems ?? false,
-        diabetes: data.diabetes ?? false,
-        hypertension: data.hypertension ?? false,
-        hemorrhages: data.hemorrhages ?? false,
-        anemia: data.anemia ?? false,
-        sti: data.sti ?? false,
-        other_diseases: data.otherDiseases ?? null,
-        gestation_period: data.gestationPeriod ?? null,
-        anesthesia_reactions: data.anesthesiaReactions ?? null,
-        current_medications: data.currentMedications ?? null,
-        updated_at: new Date(),
-      },
-      update: {
-        has_allergies: data.hasAllergies ?? false,
-        kidney_problems: data.kidneyProblems ?? false,
-        ulcers: data.ulcers ?? false,
-        rheumatism: data.rheumatism ?? false,
-        heart_problems: data.heartProblems ?? false,
-        diabetes: data.diabetes ?? false,
-        hypertension: data.hypertension ?? false,
-        hemorrhages: data.hemorrhages ?? false,
-        anemia: data.anemia ?? false,
-        sti: data.sti ?? false,
-        other_diseases: data.otherDiseases ?? null,
-        gestation_period: data.gestationPeriod ?? null,
-        anesthesia_reactions: data.anesthesiaReactions ?? null,
-        current_medications: data.currentMedications ?? null,
-        updated_at: new Date(),
-      },
+    const record = await this.prisma.transaction(async (tx) => {
+      await tx.medical_history.upsert({
+        where: { patient_id: patientId },
+        create: {
+          patient_id: patientId,
+          other_diseases: data.otherDiseases ?? null,
+          gestation_lmp_date: data.gestationLmpDate ?? null,
+          anesthesia_reactions: data.anesthesiaReactions ?? null,
+          updated_at: new Date(),
+        },
+        update: {
+          other_diseases: data.otherDiseases ?? null,
+          gestation_lmp_date: data.gestationLmpDate ?? null,
+          anesthesia_reactions: data.anesthesiaReactions ?? null,
+          updated_at: new Date(),
+        },
+      });
+
+      await tx.patient_medical_conditions.deleteMany({
+        where: { patient_id: patientId },
+      });
+      if (data.conditions?.length) {
+        await tx.patient_medical_conditions.createMany({
+          data: data.conditions.map((c) => ({
+            patient_id: patientId,
+            medical_condition_id: c.medicalConditionId,
+            diagnosed_at: c.diagnosedAt ?? null,
+            notes: c.notes ?? null,
+          })),
+        });
+      }
+
+      await tx.patient_medications.deleteMany({
+        where: { patient_id: patientId },
+      });
+      if (data.medications?.length) {
+        await tx.patient_medications.createMany({
+          data: data.medications.map((m) => ({
+            patient_id: patientId,
+            drug_name: m.drugName,
+            dose: m.dose ?? null,
+            frequency: m.frequency ?? null,
+            started_at: m.startedAt ?? null,
+          })),
+        });
+      }
+
+      const [history, conditions, medications] = await Promise.all([
+        tx.medical_history.findUniqueOrThrow({
+          where: { patient_id: patientId },
+        }),
+        tx.patient_medical_conditions.findMany({
+          where: { patient_id: patientId },
+          include: { medical_conditions: true },
+          orderBy: { medical_conditions: { display_order: 'asc' } },
+        }),
+        tx.patient_medications.findMany({
+          where: { patient_id: patientId },
+          orderBy: { created_at: 'asc' },
+        }),
+      ]);
+      return {
+        ...history,
+        patient_medical_conditions: conditions,
+        patient_medications: medications,
+      };
     });
     return PatientMapper.toDomainMedicalHistory(record);
   }
 
+  // patient_medical_conditions/patient_medications tienen su propia FK a
+  // patients (no a medical_history), así que no hay una relación de Prisma
+  // que un solo `include` pueda seguir — se arma el registro combinado a
+  // mano con 3 queries en paralelo.
   async findMedicalHistory(patientId: string): Promise<MedicalHistory | null> {
-    const record = await this.prisma.medical_history.findUnique({
+    const history = await this.prisma.medical_history.findUnique({
       where: { patient_id: patientId },
     });
-    return record ? PatientMapper.toDomainMedicalHistory(record) : null;
+    if (!history) {
+      return null;
+    }
+    const [conditions, medications] = await Promise.all([
+      this.prisma.patient_medical_conditions.findMany({
+        where: { patient_id: patientId },
+        include: { medical_conditions: true },
+        orderBy: { medical_conditions: { display_order: 'asc' } },
+      }),
+      this.prisma.patient_medications.findMany({
+        where: { patient_id: patientId },
+        orderBy: { created_at: 'asc' },
+      }),
+    ]);
+    return PatientMapper.toDomainMedicalHistory({
+      ...history,
+      patient_medical_conditions: conditions,
+      patient_medications: medications,
+    });
   }
 
   async upsertHygieneHabits(
@@ -317,8 +388,7 @@ export class PrismaPatientsRepository implements IPatientRepository {
             tooth_number: e.toothNumber,
             tooth_type: e.toothType ?? 'permanent',
             tooth_condition: e.toothCondition ?? 'sano',
-            diagnosis_description: e.diagnosisDescription,
-            xray_requested: e.xrayRequested ?? false,
+            diagnosis_description: e.diagnosisDescription ?? null,
             treatment_id: e.treatmentId ?? null,
             custom_price: e.customPrice != null ? e.customPrice : null,
             notes: e.notes ?? null,
@@ -351,19 +421,21 @@ export class PrismaPatientsRepository implements IPatientRepository {
             data: {
               patient_id: patientId,
               tooth_number: item.toothNumber,
-              application_group_id: item.applicationGroupId ?? null,
               treatment_id: item.treatmentId,
               price_charged: item.priceCharged,
               quantity: item.quantity ?? 1,
               procedure_date: item.procedureDate ?? new Date(),
-              surface_vestibular: item.surfaceVestibular ?? false,
-              surface_palatal: item.surfacePalatal ?? false,
-              surface_mesial: item.surfaceMesial ?? false,
-              surface_distal: item.surfaceDistal ?? false,
-              surface_occlusal: item.surfaceOcclusal ?? false,
               notes: item.notes ?? null,
               performed_by: item.performedBy,
+              tooth_procedure_surfaces: item.surfaceCodes?.length
+                ? {
+                    create: item.surfaceCodes.map((code) => ({
+                      tooth_surfaces: { connect: { code } },
+                    })),
+                  }
+                : undefined,
             },
+            include: TOOTH_PROCEDURE_INCLUDE,
           }),
         ),
       ),
@@ -371,10 +443,55 @@ export class PrismaPatientsRepository implements IPatientRepository {
     return records.map((r) => ToothProcedureMapper.toDomain(r));
   }
 
+  // CLI-53: el precio del grupo vive una sola vez en application_groups —
+  // las N filas de tooth_procedures (una por diente) no tienen precio
+  // propio, a diferencia del viejo esquema donde una fila arbitraria lo
+  // tenía y el resto facturaba 0.
+  async createToothProcedureGroup(
+    patientId: string,
+    data: CreateToothProcedureGroupData,
+  ): Promise<ToothProcedure[]> {
+    return this.prisma.transaction(async (tx) => {
+      const group = await tx.application_groups.create({
+        data: {
+          treatment_id: data.treatmentId,
+          unit_price: data.priceCharged,
+          subtotal: data.priceCharged,
+          currency: 'BOB',
+        },
+      });
+      const records = await Promise.all(
+        data.teeth.map((tooth) =>
+          tx.tooth_procedures.create({
+            data: {
+              patient_id: patientId,
+              tooth_number: tooth.toothNumber,
+              application_group_id: group.id,
+              treatment_id: data.treatmentId,
+              procedure_date: data.procedureDate ?? new Date(),
+              notes: data.notes ?? null,
+              performed_by: data.performedBy,
+              tooth_procedure_surfaces: tooth.surfaceCodes?.length
+                ? {
+                    create: tooth.surfaceCodes.map((code) => ({
+                      tooth_surfaces: { connect: { code } },
+                    })),
+                  }
+                : undefined,
+            },
+            include: TOOTH_PROCEDURE_INCLUDE,
+          }),
+        ),
+      );
+      return records.map((r) => ToothProcedureMapper.toDomain(r));
+    });
+  }
+
   async findToothProcedures(patientId: string): Promise<ToothProcedure[]> {
     const records = await this.prisma.tooth_procedures.findMany({
       where: { patient_id: patientId },
       orderBy: { procedure_date: 'desc' },
+      include: TOOTH_PROCEDURE_INCLUDE,
     });
     return records.map((r) => ToothProcedureMapper.toDomain(r));
   }
@@ -392,8 +509,7 @@ export class PrismaPatientsRepository implements IPatientRepository {
               tooth_number: e.toothNumber,
               tooth_type: e.toothType ?? 'permanent',
               tooth_condition: e.toothCondition ?? 'sano',
-              diagnosis_description: e.diagnosisDescription,
-              xray_requested: e.xrayRequested ?? false,
+              diagnosis_description: e.diagnosisDescription ?? null,
               treatment_id: e.treatmentId ?? null,
               custom_price: e.customPrice != null ? e.customPrice : null,
               notes: e.notes ?? null,

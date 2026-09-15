@@ -76,6 +76,7 @@
       @if (currentStep() === 2) {
         <app-step-medical-history
           [loading]="loading()"
+          [catalog]="medicalConditionsCatalog()"
           (submitStep)="onStep2Submit($event)"
           (back)="goBack()"
         />

@@ -121,20 +121,22 @@ export class PatientsController {
     @Body() dto: CreateMedicalHistoryDto,
   ) {
     return this.patientsService.upsertMedicalHistory(id, {
-      hasAllergies: dto.hasAllergies,
-      kidneyProblems: dto.kidneyProblems,
-      ulcers: dto.ulcers,
-      rheumatism: dto.rheumatism,
-      heartProblems: dto.heartProblems,
-      diabetes: dto.diabetes,
-      hypertension: dto.hypertension,
-      hemorrhages: dto.hemorrhages,
-      anemia: dto.anemia,
-      sti: dto.sti,
+      conditions: dto.conditions?.map((c) => ({
+        code: c.code,
+        diagnosedAt: c.diagnosedAt ? new Date(c.diagnosedAt) : undefined,
+        notes: c.notes,
+      })),
       otherDiseases: dto.otherDiseases,
-      gestationPeriod: dto.gestationPeriod,
+      gestationLmpDate: dto.gestationLmpDate
+        ? new Date(dto.gestationLmpDate)
+        : undefined,
       anesthesiaReactions: dto.anesthesiaReactions,
-      currentMedications: dto.currentMedications,
+      medications: dto.medications?.map((m) => ({
+        drugName: m.drugName,
+        dose: m.dose,
+        frequency: m.frequency,
+        startedAt: m.startedAt ? new Date(m.startedAt) : undefined,
+      })),
     });
   }
 
@@ -209,7 +211,6 @@ export class PatientsController {
         toothType: e.toothType,
         toothCondition: e.toothCondition,
         diagnosisDescription: e.diagnosisDescription,
-        xrayRequested: e.xrayRequested,
         treatmentId: e.treatmentId,
         customPrice: e.customPrice,
         notes: e.notes,
@@ -231,11 +232,7 @@ export class PatientsController {
       {
         teeth: dto.teeth.map((t) => ({
           number: t.number,
-          surfaceVestibular: t.surfaceVestibular,
-          surfacePalatal: t.surfacePalatal,
-          surfaceMesial: t.surfaceMesial,
-          surfaceDistal: t.surfaceDistal,
-          surfaceOcclusal: t.surfaceOcclusal,
+          surfaces: t.surfaces,
         })),
         treatmentId: dto.treatmentId,
         priceCharged: dto.priceCharged,

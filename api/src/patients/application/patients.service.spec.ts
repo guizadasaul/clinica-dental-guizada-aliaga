@@ -16,6 +16,8 @@ import type { Treatment } from '../../treatments/domain/Treatment';
 import type { TreatmentApplicationType } from '../../treatments/domain/TreatmentApplicationType';
 import { DiagnosisRepository } from '../../diagnoses/domain/DiagnosisRepository';
 import type { Diagnosis } from '../../diagnoses/domain/Diagnosis';
+import { MedicalConditionRepository } from '../../medical-conditions/domain/MedicalConditionRepository';
+import type { MedicalCondition } from '../../medical-conditions/domain/MedicalCondition';
 import { SupabaseAdminService } from '../../auth/infrastructure/SupabaseAdminService';
 
 const DOCTOR_AUTH_ID = 'doctor-auth-1';
@@ -121,6 +123,7 @@ const mockPatientRepo = {
   createOdontogramEntries: jest.fn(),
   findOdontogramEntries: jest.fn(),
   createToothProcedures: jest.fn(),
+  createToothProcedureGroup: jest.fn(),
   findToothProcedures: jest.fn(),
   appendOdontogramEntries: jest.fn(),
   createDentalExam: jest.fn(),
@@ -154,6 +157,23 @@ const mockDiagnosisRepo = {
   findByCodes: jest.fn(),
 };
 
+const mockMedicalConditionRepo = {
+  findCatalog: jest.fn(),
+  findByCodes: jest.fn(),
+};
+
+function fakeMedicalCondition(
+  overrides: Partial<MedicalCondition> = {},
+): MedicalCondition {
+  return {
+    id: 'condition-1',
+    code: 'diabetes',
+    name: 'Diabetes',
+    displayOrder: 0,
+    ...overrides,
+  };
+}
+
 describe('PatientsService', () => {
   let service: PatientsService;
 
@@ -166,6 +186,10 @@ describe('PatientsService', () => {
         { provide: UserRepository, useValue: mockUserRepo },
         { provide: TreatmentRepository, useValue: mockTreatmentRepo },
         { provide: DiagnosisRepository, useValue: mockDiagnosisRepo },
+        {
+          provide: MedicalConditionRepository,
+          useValue: mockMedicalConditionRepo,
+        },
         { provide: SupabaseAdminService, useValue: mockSupabaseAdminService },
       ],
     }).compile();
@@ -275,6 +299,56 @@ describe('PatientsService', () => {
           birthDate: new Date(),
         }),
       ).rejects.toThrow(ConflictException);
+    });
+
+    // CLI-51: el teléfono vive en users.phone, un solo lugar donde se
+    // escribe — createPatient lo sincroniza vía updateContactInfo, igual que
+    // updatePatient ya hacía.
+    it('syncs phone to users.phone via updateContactInfo before creating the ficha', async () => {
+      mockUserRepo.findByAuthUserId.mockResolvedValue(
+        makeAppUser(UserRole.PATIENT, 'caller-user-id'),
+      );
+      const callOrder: string[] = [];
+      mockUserRepo.updateContactInfo.mockImplementation(() => {
+        callOrder.push('updateContactInfo');
+        return Promise.resolve(null);
+      });
+      mockPatientRepo.create.mockImplementation(() => {
+        callOrder.push('create');
+        return Promise.resolve(fakePatient({ userId: 'caller-user-id' }));
+      });
+
+      await service.createPatient(PATIENT_AUTH_ID, undefined, {
+        firstName: 'A',
+        lastNamePaternal: 'B',
+        birthDate: new Date(),
+        phone: '+59171112222',
+      });
+
+      expect(mockUserRepo.updateContactInfo).toHaveBeenCalledWith(
+        'caller-user-id',
+        { phone: '+59171112222' },
+      );
+      // Antes de crear la ficha, para que la respuesta ya refleje el
+      // teléfono nuevo (Patient.phone se lee via join a users).
+      expect(callOrder).toEqual(['updateContactInfo', 'create']);
+    });
+
+    it('does not touch users.phone when phone is not provided', async () => {
+      mockUserRepo.findByAuthUserId.mockResolvedValue(
+        makeAppUser(UserRole.PATIENT, 'caller-user-id'),
+      );
+      mockPatientRepo.create.mockResolvedValue(
+        fakePatient({ userId: 'caller-user-id' }),
+      );
+
+      await service.createPatient(PATIENT_AUTH_ID, undefined, {
+        firstName: 'A',
+        lastNamePaternal: 'B',
+        birthDate: new Date(),
+      });
+
+      expect(mockUserRepo.updateContactInfo).not.toHaveBeenCalled();
     });
   });
 
@@ -386,12 +460,94 @@ describe('PatientsService', () => {
   describe('clinical history on a Patient whose linked user has no claimed account', () => {
     it('upsertMedicalHistory only depends on the patient existing, never on auth_user_id', async () => {
       mockPatientRepo.findPatientById.mockResolvedValue(fakePatient());
+      mockMedicalConditionRepo.findByCodes.mockResolvedValue([]);
       mockPatientRepo.upsertMedicalHistory.mockResolvedValue({});
 
       await expect(
-        service.upsertMedicalHistory('patient-1', { hasAllergies: true }),
+        service.upsertMedicalHistory('patient-1', {}),
       ).resolves.toBeDefined();
       expect(mockUserRepo.findByAuthUserId).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('upsertMedicalHistory — condiciones médicas (CLI-50)', () => {
+    beforeEach(() => {
+      mockPatientRepo.findPatientById.mockResolvedValue(fakePatient());
+    });
+
+    it('resolves condition codes against the catalog and passes ids to the repository', async () => {
+      mockMedicalConditionRepo.findByCodes.mockResolvedValue([
+        fakeMedicalCondition({ id: 'cond-diabetes', code: 'diabetes' }),
+        fakeMedicalCondition({ id: 'cond-asma', code: 'asma' }),
+      ]);
+      mockPatientRepo.upsertMedicalHistory.mockResolvedValue({});
+
+      await service.upsertMedicalHistory('patient-1', {
+        conditions: [
+          { code: 'diabetes', diagnosedAt: new Date('2020-01-01') },
+          { code: 'asma', notes: 'Usa inhalador' },
+        ],
+      });
+
+      expect(mockMedicalConditionRepo.findByCodes).toHaveBeenCalledWith([
+        'diabetes',
+        'asma',
+      ]);
+      expect(mockPatientRepo.upsertMedicalHistory).toHaveBeenCalledWith(
+        'patient-1',
+        expect.objectContaining({
+          conditions: [
+            {
+              medicalConditionId: 'cond-diabetes',
+              diagnosedAt: new Date('2020-01-01'),
+              notes: undefined,
+            },
+            {
+              medicalConditionId: 'cond-asma',
+              diagnosedAt: undefined,
+              notes: 'Usa inhalador',
+            },
+          ],
+        }),
+      );
+    });
+
+    it('rejects an unknown condition code with 400, without touching the repository', async () => {
+      mockMedicalConditionRepo.findByCodes.mockResolvedValue([]);
+
+      await expect(
+        service.upsertMedicalHistory('patient-1', {
+          conditions: [{ code: 'inventada' }],
+        }),
+      ).rejects.toThrow(BadRequestException);
+      expect(mockPatientRepo.upsertMedicalHistory).not.toHaveBeenCalled();
+    });
+
+    it('passes medications and gestation/anesthesia fields straight through', async () => {
+      mockMedicalConditionRepo.findByCodes.mockResolvedValue([]);
+      mockPatientRepo.upsertMedicalHistory.mockResolvedValue({});
+
+      const gestationLmpDate = new Date('2026-06-01');
+      await service.upsertMedicalHistory('patient-1', {
+        otherDiseases: 'Asma leve',
+        gestationLmpDate,
+        anesthesiaReactions: null,
+        medications: [
+          { drugName: 'Metformina', dose: '850mg', frequency: '1x día' },
+        ],
+      });
+
+      expect(mockPatientRepo.upsertMedicalHistory).toHaveBeenCalledWith(
+        'patient-1',
+        expect.objectContaining({
+          otherDiseases: 'Asma leve',
+          gestationLmpDate,
+          anesthesiaReactions: null,
+          medications: [
+            { drugName: 'Metformina', dose: '850mg', frequency: '1x día' },
+          ],
+        }),
+      );
     });
   });
 
@@ -406,6 +562,19 @@ describe('PatientsService', () => {
       mockPatientRepo.createToothProcedures.mockImplementation(
         (_patientId: string, rows: Record<string, unknown>[]) =>
           Promise.resolve(rows.map((r, i) => ({ id: `proc-${i}`, ...r }))),
+      );
+      mockPatientRepo.createToothProcedureGroup.mockImplementation(
+        (
+          _patientId: string,
+          data: { teeth: { toothNumber: number }[]; priceCharged: number },
+        ) =>
+          Promise.resolve(
+            data.teeth.map((tooth, i) => ({
+              id: `proc-${i}`,
+              toothNumber: tooth.toothNumber,
+              priceCharged: data.priceCharged,
+            })),
+          ),
       );
       mockPatientRepo.findOdontogramEntries.mockResolvedValue([]);
       mockPatientRepo.appendOdontogramEntries.mockResolvedValue([]);
@@ -447,13 +616,13 @@ describe('PatientsService', () => {
         ).rejects.toThrow(BadRequestException);
       });
 
-      it('creates a single row with applicationGroupId null and its own surfaces', async () => {
+      it('creates a single row with its own surfaces', async () => {
         const result = await service.createToothProcedure(
           'patient-1',
           'doctor-auth-1',
           {
             ...baseInput,
-            teeth: [{ number: 16, surfaceOcclusal: true }],
+            teeth: [{ number: 16, surfaces: ['occlusal'] }],
           },
         );
 
@@ -463,13 +632,53 @@ describe('PatientsService', () => {
           [
             expect.objectContaining({
               toothNumber: 16,
-              applicationGroupId: null,
               priceCharged: 100,
               quantity: 1,
-              surfaceOcclusal: true,
+              surfaceCodes: ['occlusal'],
             }),
           ],
         );
+      });
+
+      it('rejects an unknown surface code with 400', async () => {
+        await expect(
+          service.createToothProcedure('patient-1', 'doctor-auth-1', {
+            ...baseInput,
+            teeth: [{ number: 16, surfaces: ['inventada'] }],
+          }),
+        ).rejects.toThrow(BadRequestException);
+        expect(mockPatientRepo.createToothProcedures).not.toHaveBeenCalled();
+      });
+
+      // CLI-49: 16 es un molar (posterior) — no tiene borde incisal.
+      it('rejects a surface that is anatomically impossible for the tooth with 400', async () => {
+        await expect(
+          service.createToothProcedure('patient-1', 'doctor-auth-1', {
+            ...baseInput,
+            teeth: [{ number: 16, surfaces: ['incisal'] }],
+          }),
+        ).rejects.toThrow(BadRequestException);
+        expect(mockPatientRepo.createToothProcedures).not.toHaveBeenCalled();
+      });
+
+      // 11 es un incisivo superior (anterior) — incisal sí, occlusal no; palatal sí, lingual no.
+      it('accepts incisal and palatal on an upper anterior tooth', async () => {
+        await expect(
+          service.createToothProcedure('patient-1', 'doctor-auth-1', {
+            ...baseInput,
+            teeth: [{ number: 11, surfaces: ['incisal', 'palatal'] }],
+          }),
+        ).resolves.toHaveLength(1);
+      });
+
+      // 41 es un incisivo inferior — lingual sí, palatal no.
+      it('rejects palatal on a lower tooth with 400', async () => {
+        await expect(
+          service.createToothProcedure('patient-1', 'doctor-auth-1', {
+            ...baseInput,
+            teeth: [{ number: 41, surfaces: ['palatal'] }],
+          }),
+        ).rejects.toThrow(BadRequestException);
       });
     });
 
@@ -498,40 +707,49 @@ describe('PatientsService', () => {
         ).resolves.toHaveLength(1);
       });
 
-      it('creates one row per tooth with its own surfaces, sharing an applicationGroupId, price only on the lowest tooth', async () => {
+      // CLI-53: el precio del grupo se crea una sola vez (application_groups,
+      // vía createToothProcedureGroup), no una fila por diente con ceros de
+      // relleno en las hermanas.
+      it('calls createToothProcedureGroup once, with all teeth sorted, each keeping its own surfaces', async () => {
         await service.createToothProcedure('patient-1', 'doctor-auth-1', {
           ...baseInput,
           teeth: [
-            { number: 18, surfaceMesial: true },
-            { number: 16, surfaceOcclusal: true },
-            { number: 17, surfaceDistal: true },
+            { number: 18, surfaces: ['mesial'] },
+            { number: 16, surfaces: ['occlusal'] },
+            { number: 17, surfaces: ['distal'] },
           ],
         });
 
-        const [, rows] = mockPatientRepo.createToothProcedures.mock
-          .calls[0] as [
-          string,
+        expect(mockPatientRepo.createToothProcedureGroup).toHaveBeenCalledWith(
+          'patient-1',
           {
-            toothNumber: number;
-            applicationGroupId: string;
-            priceCharged: number;
-            quantity: number;
-            surfaceOcclusal?: boolean;
-            surfaceDistal?: boolean;
-            surfaceMesial?: boolean;
-          }[],
-        ];
-        expect(rows).toHaveLength(3);
-        expect(rows.map((r) => r.toothNumber)).toEqual([16, 17, 18]);
-        expect(new Set(rows.map((r) => r.applicationGroupId)).size).toBe(1);
-        // cada diente conserva SUS PROPIAS superficies, no un juego copiado a los 3 (CLI-41)
-        expect(rows[0].surfaceOcclusal).toBe(true);
-        expect(rows[0].surfaceDistal).toBeUndefined();
-        expect(rows[1].surfaceDistal).toBe(true);
-        expect(rows[2].surfaceMesial).toBe(true);
-        expect(rows[0].priceCharged).toBe(100);
-        expect(rows[1].priceCharged).toBe(0);
-        expect(rows[2].priceCharged).toBe(0);
+            treatmentId: 'treatment-1',
+            teeth: [
+              { toothNumber: 16, surfaceCodes: ['occlusal'] },
+              { toothNumber: 17, surfaceCodes: ['distal'] },
+              { toothNumber: 18, surfaceCodes: ['mesial'] },
+            ],
+            priceCharged: 100,
+            procedureDate: undefined,
+            notes: undefined,
+            performedBy: 'doctor-1',
+          },
+        );
+        expect(mockPatientRepo.createToothProcedures).not.toHaveBeenCalled();
+      });
+
+      // CLI-49: la validación anatómica corre por diente, incluso en un grupo.
+      it('rejects the whole batch if any tooth has an anatomically invalid surface', async () => {
+        await expect(
+          service.createToothProcedure('patient-1', 'doctor-auth-1', {
+            ...baseInput,
+            teeth: [
+              { number: 16, surfaces: ['occlusal'] },
+              { number: 11, surfaces: ['occlusal'] },
+            ],
+          }),
+        ).rejects.toThrow(BadRequestException);
+        expect(mockPatientRepo.createToothProcedures).not.toHaveBeenCalled();
       });
     });
 
@@ -571,8 +789,11 @@ describe('PatientsService', () => {
             1,
           );
           const [, entries] = mockPatientRepo.appendOdontogramEntries.mock
-            .calls[0] as [string, unknown[]];
+            .calls[0] as [string, Record<string, unknown>[]];
           expect(entries).toHaveLength(expectedTeethCount);
+          // CLI-52: diagnosisDescription ya no se rellena con el nombre del
+          // tratamiento — es redundante con treatmentId.
+          expect(entries[0]).not.toHaveProperty('diagnosisDescription');
         });
       },
     );

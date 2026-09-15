@@ -32,23 +32,31 @@ export interface PatientProfileStatus {
   patient: Patient | null;
 }
 
+export interface MedicalConditionEntry {
+  code: string;
+  name: string;
+  diagnosedAt: string | null;
+  notes: string | null;
+}
+
+export interface PatientMedication {
+  id: string;
+  drugName: string;
+  dose: string | null;
+  frequency: string | null;
+  startedAt: string | null;
+}
+
 export interface MedicalHistory {
   id: string;
   patientId: string;
-  hasAllergies: boolean;
-  kidneyProblems: boolean;
-  ulcers: boolean;
-  rheumatism: boolean;
-  heartProblems: boolean;
-  diabetes: boolean;
-  hypertension: boolean;
-  hemorrhages: boolean;
-  anemia: boolean;
-  sti: boolean;
+  conditions: MedicalConditionEntry[];
   otherDiseases: string | null;
-  gestationPeriod: string | null;
+  gestationLmpDate: string | null;
+  /** Derivado por el backend a partir de gestationLmpDate — null si no hay fecha o quedó fuera de rango. */
+  gestationTrimester: 1 | 2 | 3 | null;
   anesthesiaReactions: boolean | null;
-  currentMedications: string | null;
+  medications: PatientMedication[];
   updatedAt: string;
 }
 

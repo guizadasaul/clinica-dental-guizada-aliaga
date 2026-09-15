@@ -5,17 +5,12 @@ import { PhoneInputComponent } from '../../../../shared/ui/phone-input/phone-inp
 import {
   type NameValidationError,
   normalizeFullName,
-  validateFullName,
+  validatePersonName,
 } from '../../../../shared/validation/full-name.validator';
 import { isValidEmail, normalizeEmail } from '../../../../shared/validation/email.validator';
 import type { GuestContactRequest } from '../../models/booking.request';
 
-const NAME_ERROR_KEYS: Record<Exclude<NameValidationError, null>, string> = {
-  empty: 'nameEmpty',
-  'single-word': 'nameSingleWord',
-  'invalid-chars': 'nameInvalidChars',
-  'too-long': 'nameTooLong',
-};
+type NameField = 'firstName' | 'lastNamePaternal' | 'lastNameMaternal';
 
 @Component({
   selector: 'app-step-guest-contact',
@@ -31,7 +26,9 @@ export class StepGuestContactComponent {
   readonly loading = input(false);
   readonly submitContact = output<GuestContactRequest>();
 
-  protected readonly fullName = signal('');
+  protected readonly firstName = signal('');
+  protected readonly lastNamePaternal = signal('');
+  protected readonly lastNameMaternal = signal('');
   protected readonly phoneE164 = signal('');
   protected readonly phoneValid = signal(false);
   protected readonly email = signal('');
@@ -42,13 +39,36 @@ export class StepGuestContactComponent {
     this.phoneValid.set(event.valid);
   }
 
+  // validatePersonName (una palabra alcanza) por campo, en vez del
+  // validateFullName de antes (≥2 palabras en un solo input) — CLI-43: ahora
+  // nombre y apellido paterno son dos campos separados, cada uno obligatorio
+  // por su cuenta, y el materno es opcional.
+  private nameErrorMessage(field: NameField, error: NameValidationError): string {
+    const key =
+      error === 'too-long' ? 'nameTooLong' : error === 'empty' ? `${field}Empty` : `${field}Invalid`;
+    return this.translate.instant(`landing.booking.guestContact.errors.${key}`);
+  }
+
   protected onSubmit(): void {
-    const nameError = validateFullName(this.fullName());
-    if (nameError) {
-      this.formError.set(
-        this.translate.instant(`landing.booking.guestContact.errors.${NAME_ERROR_KEYS[nameError]}`),
-      );
+    const firstNameError = validatePersonName(this.firstName());
+    if (firstNameError) {
+      this.formError.set(this.nameErrorMessage('firstName', firstNameError));
       return;
+    }
+
+    const lastNamePaternalError = validatePersonName(this.lastNamePaternal());
+    if (lastNamePaternalError) {
+      this.formError.set(this.nameErrorMessage('lastNamePaternal', lastNamePaternalError));
+      return;
+    }
+
+    const lastNameMaternal = this.lastNameMaternal().trim();
+    if (lastNameMaternal) {
+      const lastNameMaternalError = validatePersonName(lastNameMaternal);
+      if (lastNameMaternalError) {
+        this.formError.set(this.nameErrorMessage('lastNameMaternal', lastNameMaternalError));
+        return;
+      }
     }
 
     if (!this.phoneValid()) {
@@ -64,7 +84,9 @@ export class StepGuestContactComponent {
 
     this.formError.set(null);
     this.submitContact.emit({
-      fullName: normalizeFullName(this.fullName()),
+      firstName: normalizeFullName(this.firstName()),
+      lastNamePaternal: normalizeFullName(this.lastNamePaternal()),
+      ...(lastNameMaternal && { lastNameMaternal: normalizeFullName(lastNameMaternal) }),
       phone: this.phoneE164(),
       ...(email && { email: normalizeEmail(email) }),
     });

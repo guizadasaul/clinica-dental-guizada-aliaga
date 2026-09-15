@@ -53,23 +53,29 @@ export interface UpdatePatientData {
   dni?: string;
 }
 
+/** Ya resuelta contra el catálogo (medicalConditionId, no el code) — el service hace esa resolución. */
+export interface MedicalConditionEntryData {
+  medicalConditionId: string;
+  diagnosedAt?: Date;
+  notes?: string;
+}
+
+export interface PatientMedicationData {
+  drugName: string;
+  dose?: string;
+  frequency?: string;
+  startedAt?: Date;
+}
+
 export interface MedicalHistoryData {
-  hasAllergies?: boolean;
-  kidneyProblems?: boolean;
-  ulcers?: boolean;
-  rheumatism?: boolean;
-  heartProblems?: boolean;
-  diabetes?: boolean;
-  hypertension?: boolean;
-  hemorrhages?: boolean;
-  anemia?: boolean;
-  sti?: boolean;
+  /** Reemplaza el conjunto completo — igual semántica que los booleanos de antes (CLI-50). */
+  conditions?: MedicalConditionEntryData[];
   otherDiseases?: string;
-  gestationPeriod?: string;
+  gestationLmpDate?: Date;
   // Tri-estado (Sí / No / No sabe) — `null` es un valor legítimo, distinto
   // de "no enviado" (`undefined`).
   anesthesiaReactions?: boolean | null;
-  currentMedications?: string;
+  medications?: PatientMedicationData[];
 }
 
 export interface HygieneHabitsData {
@@ -93,8 +99,8 @@ export interface OdontogramEntryData {
   toothNumber: number;
   toothType?: string;
   toothCondition: string;
-  diagnosisDescription: string;
-  xrayRequested?: boolean;
+  /** Opcional (CLI-52) — solo lo llena el endpoint manual viejo, createToothProcedure ya no necesita rellenarlo. */
+  diagnosisDescription?: string;
   treatmentId?: string;
   customPrice?: number;
   notes?: string;
@@ -119,17 +125,33 @@ export interface CreateDentalExamData {
 
 export interface CreateToothProcedureData {
   toothNumber: number | null;
-  applicationGroupId?: string | null;
   treatmentId: string;
   priceCharged: number;
   /** Para aplicaciones por unidad/caja (CLI-41) — price_charged = quantity × base_price. 1 para el resto. */
   quantity?: number;
   procedureDate?: Date;
-  surfaceVestibular?: boolean;
-  surfacePalatal?: boolean;
-  surfaceMesial?: boolean;
-  surfaceDistal?: boolean;
-  surfaceOcclusal?: boolean;
+  /** Códigos de tooth_surfaces (CLI-49) — [] o undefined si ninguna. */
+  surfaceCodes?: string[];
+  notes?: string;
+  performedBy: string;
+}
+
+export interface ToothProcedureGroupMember {
+  toothNumber: number;
+  /** Códigos de tooth_surfaces (CLI-49) — [] o undefined si ninguna. */
+  surfaceCodes?: string[];
+}
+
+/**
+ * Una aplicación multiple_teeth: un precio (a nivel de grupo, CLI-53) y una
+ * fila de tooth_procedures por diente colgando de él, cada una con SUS
+ * PROPIAS superficies (CLI-41) pero sin precio propio.
+ */
+export interface CreateToothProcedureGroupData {
+  treatmentId: string;
+  teeth: ToothProcedureGroupMember[];
+  priceCharged: number;
+  procedureDate?: Date;
   notes?: string;
   performedBy: string;
 }
@@ -162,9 +184,15 @@ export interface IPatientRepository {
     entries: OdontogramEntryData[],
   ): Promise<OdontogramEntry[]>;
   findOdontogramEntries(patientId: string): Promise<OdontogramEntry[]>;
+  /** Filas sueltas (single_tooth/general/arcadas), cada una con su propio precio. */
   createToothProcedures(
     patientId: string,
     data: CreateToothProcedureData[],
+  ): Promise<ToothProcedure[]>;
+  /** Crea el application_groups (precio del grupo) + una fila de tooth_procedures por diente, sin precio propio. */
+  createToothProcedureGroup(
+    patientId: string,
+    data: CreateToothProcedureGroupData,
   ): Promise<ToothProcedure[]>;
   findToothProcedures(patientId: string): Promise<ToothProcedure[]>;
   /** Aditivo — a diferencia de createOdontogramEntries, no borra las entries existentes del paciente. */

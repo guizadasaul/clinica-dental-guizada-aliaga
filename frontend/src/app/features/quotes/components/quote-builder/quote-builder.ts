@@ -99,7 +99,9 @@ export class QuoteBuilderComponent {
           .map((r) => r.toothNumber)
           .filter((n): n is number => n !== null),
         treatmentId: first.treatmentId,
-        total: rows.reduce((sum, r) => sum + r.subtotal, 0),
+        // CLI-45: todas las filas de un grupo reportan el mismo subtotal (el
+        // del grupo) — ya no hay que sumarlas, alcanza con tomar cualquiera.
+        total: first.subtotal,
         currency: first.currency,
         exchangeRate: first.exchangeRate,
       };

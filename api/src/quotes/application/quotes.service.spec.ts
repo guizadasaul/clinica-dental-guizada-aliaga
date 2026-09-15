@@ -54,6 +54,7 @@ const mockQuoteRepo = {
   findById: jest.fn(),
   findByPatient: jest.fn(),
   addItems: jest.fn(),
+  addItemGroup: jest.fn(),
   removeItemGroup: jest.fn(),
   addPayment: jest.fn(),
 };
@@ -94,6 +95,7 @@ describe('QuotesService', () => {
     mockPatientRepo.findPatientById.mockResolvedValue({ id: 'patient-1' });
     mockQuoteRepo.findById.mockResolvedValue(fakeQuote());
     mockQuoteRepo.addItems.mockResolvedValue(fakeQuote());
+    mockQuoteRepo.addItemGroup.mockResolvedValue(fakeQuote());
     const module = await Test.createTestingModule({
       providers: [
         QuotesService,
@@ -154,7 +156,6 @@ describe('QuotesService', () => {
         expect(mockQuoteRepo.addItems).toHaveBeenCalledWith('quote-1', [
           expect.objectContaining({
             toothNumber: 16,
-            applicationGroupId: null,
             unitPrice: 180,
             quantity: 1,
             subtotal: 180,
@@ -197,27 +198,23 @@ describe('QuotesService', () => {
         ).resolves.toBeDefined();
       });
 
-      it('creates one row per tooth sharing an applicationGroupId, subtotal only on the lowest tooth', async () => {
+      // CLI-45: el precio del grupo se crea una sola vez (application_groups),
+      // no una fila por diente con ceros de relleno en las hermanas.
+      it('calls addItemGroup once, with all teeth sorted and a single price', async () => {
         await service.addItem('quote-1', {
           treatmentId: 'treatment-1',
           toothNumbers: [18, 16, 17],
         });
 
-        const [, rows] = mockQuoteRepo.addItems.mock.calls[0] as [
-          string,
-          {
-            toothNumber: number;
-            applicationGroupId: string;
-            unitPrice: number;
-            subtotal: number;
-          }[],
-        ];
-        expect(rows).toHaveLength(3);
-        expect(rows.map((r) => r.toothNumber)).toEqual([16, 17, 18]);
-        expect(new Set(rows.map((r) => r.applicationGroupId)).size).toBe(1);
-        expect(rows[0].subtotal).toBe(1700);
-        expect(rows[1].subtotal).toBe(0);
-        expect(rows[2].subtotal).toBe(0);
+        expect(mockQuoteRepo.addItemGroup).toHaveBeenCalledWith('quote-1', {
+          treatmentId: 'treatment-1',
+          toothNumbers: [16, 17, 18],
+          unitPrice: 1700,
+          subtotal: 1700,
+          currency: 'BOB',
+          exchangeRate: null,
+        });
+        expect(mockQuoteRepo.addItems).not.toHaveBeenCalled();
       });
     });
 

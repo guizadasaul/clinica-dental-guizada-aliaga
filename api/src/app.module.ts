@@ -14,6 +14,7 @@ import { ExchangeRateModule } from './exchange-rate/exchange-rate.module';
 import { QuotesModule } from './quotes/quotes.module';
 import { TestimonialsModule } from './testimonials/testimonials.module';
 import { DiagnosesModule } from './diagnoses/diagnoses.module';
+import { MedicalConditionsModule } from './medical-conditions/medical-conditions.module';
 
 @Module({
   imports: [
@@ -29,6 +30,7 @@ import { DiagnosesModule } from './diagnoses/diagnoses.module';
     AuthModule,
     ExchangeRateModule,
     DiagnosesModule,
+    MedicalConditionsModule,
     PatientsModule,
     TreatmentsModule,
     AppointmentsModule,

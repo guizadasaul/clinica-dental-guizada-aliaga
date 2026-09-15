@@ -12,11 +12,12 @@ import type {
   IPatientRepository,
   CreatePatientData,
   UpdatePatientData,
-  MedicalHistoryData,
+  MedicalConditionEntryData,
   HygieneHabitsData,
   ClinicalExamData,
   OdontogramEntryData,
   CreateToothProcedureData,
+  CreateToothProcedureGroupData,
   DentalExamFindingData,
 } from '../domain/PatientRepository';
 import { UserRepository } from '../../auth/domain/UserRepository';
@@ -36,7 +37,13 @@ import type { TreatmentApplicationType } from '../../treatments/domain/Treatment
 import { DiagnosisRepository } from '../../diagnoses/domain/DiagnosisRepository';
 import type { IDiagnosisRepository } from '../../diagnoses/domain/DiagnosisRepository';
 import type { Diagnosis } from '../../diagnoses/domain/Diagnosis';
+import { MedicalConditionRepository } from '../../medical-conditions/domain/MedicalConditionRepository';
+import type { IMedicalConditionRepository } from '../../medical-conditions/domain/MedicalConditionRepository';
 import { toothTypeFor } from '../../shared/validators/tooth.validator';
+import {
+  assertValidSurfacesForTooth,
+  InvalidToothSurfaceError,
+} from '../../shared/validators/tooth-surface.validator';
 import {
   BLACK_CLASSES,
   MOBILITY_GRADES,
@@ -56,11 +63,8 @@ import type {
 /** Un diente dentro de una aplicación, con sus propias superficies (CLI-41). */
 interface ToothApplicationInput {
   number: number;
-  surfaceVestibular?: boolean;
-  surfacePalatal?: boolean;
-  surfaceMesial?: boolean;
-  surfaceDistal?: boolean;
-  surfaceOcclusal?: boolean;
+  /** Códigos de tooth_surfaces (CLI-49) — p.ej. ['vestibular', 'occlusal']. */
+  surfaces?: string[];
 }
 
 interface CreateToothProcedureInput {
@@ -88,6 +92,30 @@ interface CreateDentalExamInput {
   notes?: string;
 }
 
+/** Una condición dentro del historial, con SU código de catálogo (CLI-50). */
+interface MedicalConditionEntryInput {
+  code: string;
+  diagnosedAt?: Date;
+  notes?: string;
+}
+
+interface PatientMedicationInput {
+  drugName: string;
+  dose?: string;
+  frequency?: string;
+  startedAt?: Date;
+}
+
+interface UpsertMedicalHistoryInput {
+  conditions?: MedicalConditionEntryInput[];
+  otherDiseases?: string;
+  gestationLmpDate?: Date;
+  // Tri-estado (Sí / No / No sabe) — `null` es un valor legítimo, distinto
+  // de "no enviado" (`undefined`).
+  anesthesiaReactions?: boolean | null;
+  medications?: PatientMedicationInput[];
+}
+
 @Injectable()
 export class PatientsService {
   constructor(
@@ -99,6 +127,8 @@ export class PatientsService {
     private readonly treatmentRepo: ITreatmentRepository,
     @Inject(DiagnosisRepository)
     private readonly diagnosisRepo: IDiagnosisRepository,
+    @Inject(MedicalConditionRepository)
+    private readonly medicalConditionRepo: IMedicalConditionRepository,
     private readonly supabaseAdminService: SupabaseAdminService,
   ) {}
 
@@ -132,6 +162,15 @@ export class PatientsService {
         throw new ForbiddenException('No podés crear la ficha de otro usuario');
       }
       targetUserId = caller.id;
+    }
+
+    // El teléfono vive en users.phone (CLI-51) — se sincroniza ANTES de crear
+    // la ficha para que la respuesta ya refleje el valor nuevo (Patient.phone
+    // se lee via join a users, igual que en updatePatient).
+    if (data.phone !== undefined) {
+      await this.userRepo.updateContactInfo(targetUserId, {
+        phone: data.phone,
+      });
     }
 
     try {
@@ -182,10 +221,36 @@ export class PatientsService {
 
   async upsertMedicalHistory(
     patientId: string,
-    data: MedicalHistoryData,
+    data: UpsertMedicalHistoryInput,
   ): Promise<MedicalHistory> {
     await this.requirePatient(patientId);
-    return this.patientRepo.upsertMedicalHistory(patientId, data);
+
+    const entries = data.conditions ?? [];
+    const codes = [...new Set(entries.map((c) => c.code))];
+    const catalog = await this.medicalConditionRepo.findByCodes(codes);
+    const conditionByCode = new Map(catalog.map((c) => [c.code, c]));
+
+    const conditions: MedicalConditionEntryData[] = entries.map((entry) => {
+      const condition = conditionByCode.get(entry.code);
+      if (!condition) {
+        throw new BadRequestException(
+          `Condición médica desconocida: ${entry.code}`,
+        );
+      }
+      return {
+        medicalConditionId: condition.id,
+        diagnosedAt: entry.diagnosedAt,
+        notes: entry.notes,
+      };
+    });
+
+    return this.patientRepo.upsertMedicalHistory(patientId, {
+      conditions,
+      otherDiseases: data.otherDiseases,
+      gestationLmpDate: data.gestationLmpDate,
+      anesthesiaReactions: data.anesthesiaReactions,
+      medications: data.medications,
+    });
   }
 
   async findMedicalHistory(patientId: string): Promise<MedicalHistory | null> {
@@ -258,22 +323,43 @@ export class PatientsService {
         treatment.applicationType,
         data.teeth.map((t) => t.number),
       );
+      for (const tooth of data.teeth) {
+        if (tooth.surfaces?.length) {
+          assertValidSurfacesForTooth(tooth.number, tooth.surfaces);
+        }
+      }
     } catch (error: unknown) {
-      if (error instanceof InvalidApplicationTypeError) {
+      if (
+        error instanceof InvalidApplicationTypeError ||
+        error instanceof InvalidToothSurfaceError
+      ) {
         throw new BadRequestException(error.message);
       }
       throw error;
     }
 
-    const rows = this.buildToothProcedureRows(
-      treatment.applicationType,
-      data,
-      user.id,
-    );
-    const created = await this.patientRepo.createToothProcedures(
-      patientId,
-      rows,
-    );
+    let created: ToothProcedure[];
+    if (treatment.applicationType === 'multiple_teeth') {
+      const sortedTeeth = [...data.teeth].sort((a, b) => a.number - b.number);
+      created = await this.patientRepo.createToothProcedureGroup(patientId, {
+        treatmentId: treatment.id,
+        teeth: sortedTeeth.map((tooth) => ({
+          toothNumber: tooth.number,
+          surfaceCodes: tooth.surfaces,
+        })),
+        priceCharged: data.priceCharged,
+        procedureDate: data.procedureDate,
+        notes: data.notes,
+        performedBy: user.id,
+      });
+    } else {
+      const rows = this.buildToothProcedureRows(
+        treatment.applicationType,
+        data,
+        user.id,
+      );
+      created = await this.patientRepo.createToothProcedures(patientId, rows);
+    }
 
     if (typeGeneratesOdontogramEntries(treatment.applicationType)) {
       const existingEntries =
@@ -284,12 +370,13 @@ export class PatientsService {
           conditionByTooth.set(entry.toothNumber, entry.toothCondition);
         }
       }
+      // CLI-52: diagnosisDescription ya no se llena acá — duplicaba
+      // treatments.name, accesible vía treatmentId sin necesidad de copiarlo.
       const entries: OdontogramEntryData[] = teethForApplicationType(
         treatment.applicationType,
       ).map((toothNumber) => ({
         toothNumber,
         toothCondition: conditionByTooth.get(toothNumber) ?? 'sano',
-        diagnosisDescription: treatment.name,
         treatmentId: treatment.id,
         notes: data.notes,
       }));
@@ -300,12 +387,10 @@ export class PatientsService {
   }
 
   /**
-   * Una fila por diente, cada una con SUS PROPIAS superficies (CLI-41) — a
-   * diferencia de antes, ya no se copia un único juego de superficies a
-   * todos los dientes del grupo. `multiple_teeth` reparte el precio y la
-   * cantidad en la primera fila del `application_group_id` (igual que
-   * antes); `single_tooth` es un caso particular de 1 diente sin grupo;
-   * el resto de los tipos no llevan diente.
+   * Filas sueltas, cada una con su propio precio — `single_tooth` es un
+   * único diente, el resto de los tipos no llevan diente. `multiple_teeth`
+   * NO pasa por acá: usa createToothProcedureGroup (CLI-53), con el precio
+   * a nivel de grupo en vez de repartido/mentido por fila.
    */
   private buildToothProcedureRows(
     applicationType: TreatmentApplicationType,
@@ -319,37 +404,15 @@ export class PatientsService {
       performedBy,
     };
 
-    if (applicationType === 'multiple_teeth') {
-      const applicationGroupId = randomUUID();
-      const sortedTeeth = [...data.teeth].sort((a, b) => a.number - b.number);
-      return sortedTeeth.map((tooth, index) => ({
-        ...shared,
-        toothNumber: tooth.number,
-        applicationGroupId,
-        priceCharged: index === 0 ? data.priceCharged : 0,
-        quantity: index === 0 ? (data.quantity ?? 1) : 1,
-        surfaceVestibular: tooth.surfaceVestibular,
-        surfacePalatal: tooth.surfacePalatal,
-        surfaceMesial: tooth.surfaceMesial,
-        surfaceDistal: tooth.surfaceDistal,
-        surfaceOcclusal: tooth.surfaceOcclusal,
-      }));
-    }
-
     if (applicationType === 'single_tooth') {
       const tooth = data.teeth[0];
       return [
         {
           ...shared,
           toothNumber: tooth.number,
-          applicationGroupId: null,
           priceCharged: data.priceCharged,
           quantity: data.quantity ?? 1,
-          surfaceVestibular: tooth.surfaceVestibular,
-          surfacePalatal: tooth.surfacePalatal,
-          surfaceMesial: tooth.surfaceMesial,
-          surfaceDistal: tooth.surfaceDistal,
-          surfaceOcclusal: tooth.surfaceOcclusal,
+          surfaceCodes: tooth.surfaces,
         },
       ];
     }
@@ -359,7 +422,6 @@ export class PatientsService {
         ...shared,
         quantity: data.quantity ?? 1,
         toothNumber: null,
-        applicationGroupId: null,
         priceCharged: data.priceCharged,
       },
     ];

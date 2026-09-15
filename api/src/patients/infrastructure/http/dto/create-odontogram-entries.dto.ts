@@ -3,7 +3,6 @@ import {
   ArrayMaxSize,
   ArrayMinSize,
   IsArray,
-  IsBoolean,
   IsIn,
   IsInt,
   IsNumber,
@@ -118,10 +117,6 @@ export class CreateOdontogramEntryDto {
   @Trim()
   @Length(3, 500)
   diagnosisDescription: string;
-
-  @IsBoolean()
-  @IsOptional()
-  xrayRequested?: boolean;
 
   @IsUUID()
   @IsOptional()

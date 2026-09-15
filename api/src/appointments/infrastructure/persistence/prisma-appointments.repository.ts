@@ -89,6 +89,7 @@ export class PrismaAppointmentsRepository implements IAppointmentRepository {
         return tx.appointments.create({
           data: {
             appointment_datetime: data.slot,
+            duration_minutes: data.durationMinutes,
             status: AppointmentStatus.HELD,
             source: data.source,
             treatment_id: data.treatmentId,
@@ -122,7 +123,9 @@ export class PrismaAppointmentsRepository implements IAppointmentRepository {
           hold_expires_at: { gt: now },
         },
         data: {
-          guest_full_name: data.fullName,
+          guest_first_name: data.firstName,
+          guest_last_name_paternal: data.lastNamePaternal,
+          guest_last_name_maternal: data.lastNameMaternal,
           guest_phone: data.phone,
           guest_email: data.email,
         },

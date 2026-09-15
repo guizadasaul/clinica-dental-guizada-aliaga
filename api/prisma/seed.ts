@@ -1014,6 +1014,76 @@ async function deactivateLegacyDiagnoses() {
   }
 }
 
+/** Catálogo de condiciones médicas relevantes para la práctica odontológica (CLI-50), mismo patrón que upsertDiagnosisCatalog. */
+const MEDICAL_CONDITIONS = [
+  { code: 'alergias', name: 'Alergias' },
+  { code: 'problemas_renales', name: 'Problemas renales' },
+  { code: 'ulceras', name: 'Úlceras' },
+  { code: 'reumatismo', name: 'Reumatismo' },
+  { code: 'problemas_cardiacos', name: 'Problemas cardíacos' },
+  { code: 'diabetes', name: 'Diabetes' },
+  { code: 'hipertension', name: 'Hipertensión' },
+  { code: 'hemorragias', name: 'Hemorragias' },
+  { code: 'anemia', name: 'Anemia' },
+  { code: 'its', name: 'ITS' },
+  { code: 'asma', name: 'Asma' },
+  { code: 'epilepsia', name: 'Epilepsia' },
+];
+
+async function upsertMedicalConditionsCatalog() {
+  for (const [index, condition] of MEDICAL_CONDITIONS.entries()) {
+    await prisma.medical_conditions.upsert({
+      where: { code: condition.code },
+      create: {
+        code: condition.code,
+        name: condition.name,
+        display_order: index,
+        is_active: true,
+      },
+      update: { name: condition.name, display_order: index, is_active: true },
+    });
+  }
+  console.log(
+    `✓ ${MEDICAL_CONDITIONS.length} condiciones médicas del catálogo sincronizadas.`,
+  );
+}
+
+/** Condiciones que ya no están en el catálogo real quedan inactivas, nunca se borran (FK con ON DELETE RESTRICT en patient_medical_conditions). */
+async function deactivateLegacyMedicalConditions() {
+  const catalogCodes = MEDICAL_CONDITIONS.map((c) => c.code);
+  const { count } = await prisma.medical_conditions.updateMany({
+    where: { code: { notIn: catalogCodes }, is_active: true },
+    data: { is_active: false },
+  });
+  if (count > 0) {
+    console.log(`✓ ${count} condiciones médicas fuera del catálogo desactivadas.`);
+  }
+}
+
+/** Catálogo fijo de superficies dentales (CLI-49) — no lo edita la clínica, pero se sincroniza igual que el resto de catálogos por consistencia con la migración que las inserta. */
+const TOOTH_SURFACES = [
+  { code: 'vestibular', name: 'Vestibular' },
+  { code: 'palatal', name: 'Palatal' },
+  { code: 'lingual', name: 'Lingual' },
+  { code: 'mesial', name: 'Mesial' },
+  { code: 'distal', name: 'Distal' },
+  { code: 'occlusal', name: 'Oclusal' },
+  { code: 'incisal', name: 'Incisal' },
+];
+
+async function upsertToothSurfacesCatalog() {
+  for (const [index, surface] of TOOTH_SURFACES.entries()) {
+    await prisma.tooth_surfaces.upsert({
+      where: { code: surface.code },
+      create: { code: surface.code, name: surface.name, display_order: index },
+      update: { name: surface.name, display_order: index },
+    });
+  }
+  console.log(
+    `✓ ${TOOTH_SURFACES.length} superficies dentales del catálogo sincronizadas.`,
+  );
+}
+
 const DEFAULT_CONSULTATION_CODE = 'consulta_odontologica';
 
 /** Las 8 categorías del catálogo de tratamientos (CLI-41), mismo patrón que upsertDiagnosisCatalog. */
@@ -1121,6 +1191,9 @@ async function main() {
   await syncDefaultConsultation();
   await upsertDiagnosisCatalog();
   await deactivateLegacyDiagnoses();
+  await upsertToothSurfacesCatalog();
+  await upsertMedicalConditionsCatalog();
+  await deactivateLegacyMedicalConditions();
   await upsertTestimonials();
 }
 
