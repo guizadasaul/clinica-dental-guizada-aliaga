@@ -8,9 +8,12 @@ import { Test } from '@nestjs/testing';
 import { AppointmentsService } from './appointments.service';
 import {
   AppointmentRepository,
+  GuestPhoneConflictError,
   SlotUnavailableError,
 } from '../domain/AppointmentRepository';
 import { Appointment, AppointmentStatus } from '../domain/Appointment';
+import { TreatmentRepository } from '../../treatments/domain/TreatmentRepository';
+import type { Treatment } from '../../treatments/domain/Treatment';
 
 const MONDAY = '2026-08-17';
 const VALID_SLOT_ISO = `${MONDAY}T09:00:00-04:00`;
@@ -26,9 +29,39 @@ const mockRepo = {
   findForAgenda: jest.fn(),
 };
 
+const mockTreatmentRepo = {
+  findActive: jest.fn(),
+  findById: jest.fn(),
+  findDefaultConsultation: jest.fn(),
+  create: jest.fn(),
+  update: jest.fn(),
+};
+
+function fakeTreatment(overrides: Partial<Treatment> = {}): Treatment {
+  return {
+    id: 'treatment-1',
+    code: 'tratamiento',
+    name: 'Tratamiento',
+    description: null,
+    basePrice: 100,
+    estimatedMinutes: 30,
+    applicationType: 'single_tooth',
+    currency: 'BOB',
+    categoryId: 'category-1',
+    categoryCode: 'operatoria_dental',
+    categoryName: 'Operatoria dental',
+    displayOrder: 0,
+    isActive: true,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+    ...overrides,
+  };
+}
+
 interface FakeAppointmentOptions {
   slot?: Date;
   status?: string;
+  durationMinutes?: number;
 }
 
 function fakeAppointment(options: FakeAppointmentOptions = {}): Appointment {
@@ -36,10 +69,13 @@ function fakeAppointment(options: FakeAppointmentOptions = {}): Appointment {
     'appt-1',
     null,
     null,
-    null,
     options.slot ?? new Date(VALID_SLOT_ISO),
+    options.durationMinutes ?? 30,
     options.status ?? AppointmentStatus.HELD,
     'public_web',
+    null,
+    null,
+    null,
     null,
     null,
     null,
@@ -66,6 +102,7 @@ describe('AppointmentsService', () => {
       providers: [
         AppointmentsService,
         { provide: AppointmentRepository, useValue: mockRepo },
+        { provide: TreatmentRepository, useValue: mockTreatmentRepo },
       ],
     }).compile();
     service = module.get(AppointmentsService);
@@ -93,6 +130,44 @@ describe('AppointmentsService', () => {
         new Date(VALID_SLOT_ISO).toISOString(),
       );
       expect(result.slots.length).toBeGreaterThan(0);
+    });
+
+    // CLI-47: antes solo se bloqueaba el instante de inicio exacto — un
+    // tratamiento de 90 min dejaba los 2 slots siguientes libres.
+    it('excludes every slot a long appointment occupies, not just its start', async () => {
+      const taken = fakeAppointment({
+        slot: new Date(VALID_SLOT_ISO),
+        durationMinutes: 90,
+      });
+      mockRepo.findActiveBetween.mockResolvedValue([taken]);
+
+      const result = await service.getAvailability(MONDAY);
+
+      const start = new Date(VALID_SLOT_ISO).getTime();
+      for (const offsetMin of [0, 30, 60]) {
+        expect(result.slots).not.toContain(
+          new Date(start + offsetMin * 60_000).toISOString(),
+        );
+      }
+      // El slot inmediatamente después de los 3 ocupados sigue libre.
+      expect(result.slots).toContain(
+        new Date(start + 90 * 60_000).toISOString(),
+      );
+    });
+
+    it('rounds a non-multiple-of-30 duration up to the next full slot', async () => {
+      const taken = fakeAppointment({
+        slot: new Date(VALID_SLOT_ISO),
+        durationMinutes: 45,
+      });
+      mockRepo.findActiveBetween.mockResolvedValue([taken]);
+
+      const result = await service.getAvailability(MONDAY);
+
+      const secondSlot = new Date(
+        new Date(VALID_SLOT_ISO).getTime() + 30 * 60_000,
+      ).toISOString();
+      expect(result.slots).not.toContain(secondSlot);
     });
   });
 
@@ -166,15 +241,47 @@ describe('AppointmentsService', () => {
       );
     });
 
-    it('returns the created hold on success', async () => {
+    it('returns the created hold on success, defaulting duration to one slot when no treatment is given', async () => {
       mockRepo.createHold.mockResolvedValue(fakeAppointment());
 
       const result = await service.holdSlot(VALID_SLOT_ISO);
 
       expect(result.appointmentId).toBe('appt-1');
       expect(mockRepo.createHold).toHaveBeenCalledWith(
-        expect.objectContaining({ source: 'public_web', treatmentId: null }),
+        expect.objectContaining({
+          source: 'public_web',
+          treatmentId: null,
+          durationMinutes: 30,
+        }),
       );
+      expect(mockTreatmentRepo.findById).not.toHaveBeenCalled();
+    });
+
+    // CLI-47: la duración real del tratamiento se congela en la cita.
+    it('freezes the treatment estimatedMinutes as durationMinutes when a treatmentId is given', async () => {
+      mockTreatmentRepo.findById.mockResolvedValue(
+        fakeTreatment({ estimatedMinutes: 90 }),
+      );
+      mockRepo.createHold.mockResolvedValue(fakeAppointment());
+
+      await service.holdSlot(VALID_SLOT_ISO, 'treatment-1');
+
+      expect(mockTreatmentRepo.findById).toHaveBeenCalledWith('treatment-1');
+      expect(mockRepo.createHold).toHaveBeenCalledWith(
+        expect.objectContaining({
+          treatmentId: 'treatment-1',
+          durationMinutes: 90,
+        }),
+      );
+    });
+
+    it('rejects with 404 when the treatmentId does not exist, without touching the repo', async () => {
+      mockTreatmentRepo.findById.mockResolvedValue(null);
+
+      await expect(
+        service.holdSlot(VALID_SLOT_ISO, 'missing-treatment'),
+      ).rejects.toThrow(NotFoundException);
+      expect(mockRepo.createHold).not.toHaveBeenCalled();
     });
   });
 
@@ -184,7 +291,9 @@ describe('AppointmentsService', () => {
 
       const result = await service.saveGuestContact(
         'appt-1',
-        'Juana Perez',
+        'Juana',
+        'Perez',
+        null,
         '70011122',
         null,
       );
@@ -192,12 +301,14 @@ describe('AppointmentsService', () => {
       expect(result.id).toBe('appt-1');
     });
 
-    it('passes the guest email through to the repository when provided', async () => {
+    it('passes the guest email and maternal surname through to the repository when provided', async () => {
       mockRepo.updateGuestContact.mockResolvedValue(fakeAppointment());
 
       await service.saveGuestContact(
         'appt-1',
-        'Juana Perez',
+        'Juana',
+        'Perez',
+        'Gomez',
         '70011122',
         'juana@example.com',
       );
@@ -205,7 +316,9 @@ describe('AppointmentsService', () => {
       expect(mockRepo.updateGuestContact).toHaveBeenCalledWith(
         'appt-1',
         {
-          fullName: 'Juana Perez',
+          firstName: 'Juana',
+          lastNamePaternal: 'Perez',
+          lastNameMaternal: 'Gomez',
           phone: '70011122',
           email: 'juana@example.com',
         },
@@ -218,7 +331,7 @@ describe('AppointmentsService', () => {
       mockRepo.findById.mockResolvedValue(null);
 
       await expect(
-        service.saveGuestContact('missing', 'Juana Perez', '70011122', null),
+        service.saveGuestContact('missing', 'Juana', 'Perez', null, '70011122', null),
       ).rejects.toThrow(NotFoundException);
     });
 
@@ -229,8 +342,18 @@ describe('AppointmentsService', () => {
       );
 
       await expect(
-        service.saveGuestContact('appt-1', 'Juana Perez', '70011122', null),
+        service.saveGuestContact('appt-1', 'Juana', 'Perez', null, '70011122', null),
       ).rejects.toThrow(GoneException);
+    });
+
+    it('maps GuestPhoneConflictError to ConflictException (409)', async () => {
+      mockRepo.updateGuestContact.mockRejectedValue(
+        new GuestPhoneConflictError(),
+      );
+
+      await expect(
+        service.saveGuestContact('appt-1', 'Juana', 'Perez', null, '70011122', null),
+      ).rejects.toThrow(ConflictException);
     });
   });
 

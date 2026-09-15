@@ -8,15 +8,26 @@ export class SlotUnavailableError extends Error {
   }
 }
 
+export class GuestPhoneConflictError extends Error {
+  constructor(message = 'Ya existe una cita activa con este número de teléfono') {
+    super(message);
+    this.name = 'GuestPhoneConflictError';
+  }
+}
+
 export interface CreateHoldData {
   slot: Date;
   holdExpiresAt: Date;
   treatmentId: string | null;
+  /** Congelada al crear el hold (CLI-47) — snapshot de treatments.estimatedMinutes, o SLOT_MINUTES si no se especificó tratamiento. */
+  durationMinutes: number;
   source: string;
 }
 
 export interface GuestContactData {
-  fullName: string;
+  firstName: string;
+  lastNamePaternal: string;
+  lastNameMaternal: string | null;
   phone: string;
   email: string | null;
 }
@@ -42,7 +53,7 @@ export interface IAppointmentRepository {
   findByQrId(qrId: string): Promise<Appointment | null>;
   /** Atómico: libera holds vencidos de ese slot e intenta tomar el hold. Lanza SlotUnavailableError ante colisión. */
   createHold(data: CreateHoldData): Promise<Appointment>;
-  /** UPDATE condicional (WHERE id AND status='held' AND hold_expires_at > now). null si el hold ya no está vigente. */
+  /** UPDATE condicional (WHERE id AND status='held' AND hold_expires_at > now). null si el hold ya no está vigente. Lanza GuestPhoneConflictError si el teléfono ya tiene otra cita held/confirmed. */
   updateGuestContact(
     id: string,
     data: GuestContactData,

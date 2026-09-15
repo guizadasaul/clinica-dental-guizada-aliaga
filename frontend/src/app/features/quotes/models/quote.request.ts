@@ -8,3 +8,9 @@ export interface AddQuoteItemRequest {
   customPrice?: number;
   quantity?: number;
 }
+
+export interface AddPaymentRequest {
+  amount: number;
+  paymentMethod?: string;
+  notes?: string;
+}
