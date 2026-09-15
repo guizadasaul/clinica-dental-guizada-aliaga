@@ -13,6 +13,8 @@ import {
 } from '../domain/Appointment.js';
 import {
   AppointmentRepository,
+  GuestEmailBelongsToAccountError,
+  GuestPhoneBelongsToAccountError,
   GuestPhoneConflictError,
   SlotUnavailableError,
 } from '../domain/AppointmentRepository.js';
@@ -107,7 +109,9 @@ export class AppointmentsService {
     from: string,
     days: number,
   ): Promise<AvailabilityRangeResult> {
-    const dates = Array.from({ length: days }, (_, i) => addDaysToDateString(from, i));
+    const dates = Array.from({ length: days }, (_, i) =>
+      addDaysToDateString(from, i),
+    );
     const slotsByDateRaw = new Map<string, Date[]>();
     let rangeStart: Date | null = null;
     let rangeEnd: Date | null = null;
@@ -132,7 +136,11 @@ export class AppointmentsService {
     const now = new Date();
     const active =
       rangeStart && rangeEnd
-        ? await this.appointmentRepo.findActiveBetween(rangeStart, rangeEnd, now)
+        ? await this.appointmentRepo.findActiveBetween(
+            rangeStart,
+            rangeEnd,
+            now,
+          )
         : [];
     const takenTimes = new Set(
       active.flatMap((a) =>
@@ -144,7 +152,8 @@ export class AppointmentsService {
     for (const date of dates) {
       slotsByDate[date] = (slotsByDateRaw.get(date) ?? [])
         .filter(
-          (slot) => !takenTimes.has(slot.getTime()) && slot.getTime() > now.getTime(),
+          (slot) =>
+            !takenTimes.has(slot.getTime()) && slot.getTime() > now.getTime(),
         )
         .map((s) => s.toISOString());
     }
@@ -213,6 +222,16 @@ export class AppointmentsService {
       if (error instanceof GuestPhoneConflictError) {
         throw new ConflictException(
           'Ya existe una cita activa con este número de teléfono',
+        );
+      }
+      if (error instanceof GuestEmailBelongsToAccountError) {
+        throw new ConflictException(
+          'Ese email ya pertenece a una cuenta existente. Iniciá sesión para reservar con tu cuenta.',
+        );
+      }
+      if (error instanceof GuestPhoneBelongsToAccountError) {
+        throw new ConflictException(
+          'Ese número de teléfono ya pertenece a una cuenta existente. Iniciá sesión para reservar con tu cuenta.',
         );
       }
       throw error;

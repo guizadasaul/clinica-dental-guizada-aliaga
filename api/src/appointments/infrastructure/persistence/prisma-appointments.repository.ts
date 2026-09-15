@@ -7,6 +7,8 @@ import {
   AttachQrData,
   CreateHoldData,
   GuestContactData,
+  GuestEmailBelongsToAccountError,
+  GuestPhoneBelongsToAccountError,
   GuestPhoneConflictError,
   IAppointmentRepository,
   SlotUnavailableError,
@@ -114,6 +116,25 @@ export class PrismaAppointmentsRepository implements IAppointmentRepository {
     data: GuestContactData,
     now: Date,
   ): Promise<Appointment | null> {
+    // Cortar ANTES del pago: si el email/teléfono ya es una cuenta (users)
+    // existente, dejar que el guest pague igual solo termina en la cita
+    // atada a la cuenta de otra persona (o, sin el fix de confirmación, en
+    // un hold trabado para siempre — ver prisma-booking-confirmation).
+    if (data.email) {
+      const emailOwner = await this.prisma.users.findUnique({
+        where: { email: data.email },
+      });
+      if (emailOwner) {
+        throw new GuestEmailBelongsToAccountError();
+      }
+    }
+    const phoneOwner = await this.prisma.users.findFirst({
+      where: { phone: data.phone },
+    });
+    if (phoneOwner) {
+      throw new GuestPhoneBelongsToAccountError();
+    }
+
     let count: number;
     try {
       ({ count } = await this.prisma.appointments.updateMany({

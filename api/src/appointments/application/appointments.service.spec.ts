@@ -8,6 +8,8 @@ import { Test } from '@nestjs/testing';
 import { AppointmentsService } from './appointments.service';
 import {
   AppointmentRepository,
+  GuestEmailBelongsToAccountError,
+  GuestPhoneBelongsToAccountError,
   GuestPhoneConflictError,
   SlotUnavailableError,
 } from '../domain/AppointmentRepository';
@@ -331,7 +333,14 @@ describe('AppointmentsService', () => {
       mockRepo.findById.mockResolvedValue(null);
 
       await expect(
-        service.saveGuestContact('missing', 'Juana', 'Perez', null, '70011122', null),
+        service.saveGuestContact(
+          'missing',
+          'Juana',
+          'Perez',
+          null,
+          '70011122',
+          null,
+        ),
       ).rejects.toThrow(NotFoundException);
     });
 
@@ -342,7 +351,14 @@ describe('AppointmentsService', () => {
       );
 
       await expect(
-        service.saveGuestContact('appt-1', 'Juana', 'Perez', null, '70011122', null),
+        service.saveGuestContact(
+          'appt-1',
+          'Juana',
+          'Perez',
+          null,
+          '70011122',
+          null,
+        ),
       ).rejects.toThrow(GoneException);
     });
 
@@ -352,7 +368,48 @@ describe('AppointmentsService', () => {
       );
 
       await expect(
-        service.saveGuestContact('appt-1', 'Juana', 'Perez', null, '70011122', null),
+        service.saveGuestContact(
+          'appt-1',
+          'Juana',
+          'Perez',
+          null,
+          '70011122',
+          null,
+        ),
+      ).rejects.toThrow(ConflictException);
+    });
+
+    it('maps GuestEmailBelongsToAccountError to ConflictException (409)', async () => {
+      mockRepo.updateGuestContact.mockRejectedValue(
+        new GuestEmailBelongsToAccountError(),
+      );
+
+      await expect(
+        service.saveGuestContact(
+          'appt-1',
+          'Juana',
+          'Perez',
+          null,
+          '70011122',
+          'juana@example.com',
+        ),
+      ).rejects.toThrow(ConflictException);
+    });
+
+    it('maps GuestPhoneBelongsToAccountError to ConflictException (409)', async () => {
+      mockRepo.updateGuestContact.mockRejectedValue(
+        new GuestPhoneBelongsToAccountError(),
+      );
+
+      await expect(
+        service.saveGuestContact(
+          'appt-1',
+          'Juana',
+          'Perez',
+          null,
+          '70011122',
+          null,
+        ),
       ).rejects.toThrow(ConflictException);
     });
   });

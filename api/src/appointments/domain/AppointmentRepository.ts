@@ -9,9 +9,32 @@ export class SlotUnavailableError extends Error {
 }
 
 export class GuestPhoneConflictError extends Error {
-  constructor(message = 'Ya existe una cita activa con este número de teléfono') {
+  constructor(
+    message = 'Ya existe una cita activa con este número de teléfono',
+  ) {
     super(message);
     this.name = 'GuestPhoneConflictError';
+  }
+}
+
+// Guest intentando reservar con el email/teléfono de una cuenta que ya
+// existe (users.email es UNIQUE — CLI-9 exploró re-vincular en confirmación,
+// pero eso deja que un desconocido pague y quede atado a la cuenta de otra
+// persona; mejor cortar acá, antes de que llegue a pagar, y pedirle que
+// inicie sesión).
+export class GuestEmailBelongsToAccountError extends Error {
+  constructor(message = 'Ese email ya pertenece a una cuenta existente') {
+    super(message);
+    this.name = 'GuestEmailBelongsToAccountError';
+  }
+}
+
+export class GuestPhoneBelongsToAccountError extends Error {
+  constructor(
+    message = 'Ese número de teléfono ya pertenece a una cuenta existente',
+  ) {
+    super(message);
+    this.name = 'GuestPhoneBelongsToAccountError';
   }
 }
 
@@ -53,7 +76,7 @@ export interface IAppointmentRepository {
   findByQrId(qrId: string): Promise<Appointment | null>;
   /** Atómico: libera holds vencidos de ese slot e intenta tomar el hold. Lanza SlotUnavailableError ante colisión. */
   createHold(data: CreateHoldData): Promise<Appointment>;
-  /** UPDATE condicional (WHERE id AND status='held' AND hold_expires_at > now). null si el hold ya no está vigente. Lanza GuestPhoneConflictError si el teléfono ya tiene otra cita held/confirmed. */
+  /** UPDATE condicional (WHERE id AND status='held' AND hold_expires_at > now). null si el hold ya no está vigente. Lanza GuestPhoneConflictError si el teléfono ya tiene otra cita held/confirmed, o GuestEmailBelongsToAccountError/GuestPhoneBelongsToAccountError si el email/teléfono ya pertenece a una cuenta (users) existente. */
   updateGuestContact(
     id: string,
     data: GuestContactData,

@@ -112,6 +112,14 @@ export class BookingPageComponent {
       if (err instanceof HttpErrorResponse && err.status === 410) {
         this.error.set('El horario reservado ya venció. Elegí uno nuevo.');
         this.resetToSlotSelection();
+      } else if (err instanceof HttpErrorResponse && err.status === 409) {
+        // 409 = el email/teléfono ya pertenece a una cuenta existente, o a
+        // otra cita activa — el backend manda el motivo puntual en el
+        // mensaje, mostrarlo tal cual en vez de un genérico.
+        this.error.set(
+          (err.error?.message as string | undefined) ??
+            'Ese email o teléfono ya está en uso. Revisá tus datos.',
+        );
       } else {
         this.error.set('No pudimos guardar tus datos. Intentá de nuevo.');
       }
