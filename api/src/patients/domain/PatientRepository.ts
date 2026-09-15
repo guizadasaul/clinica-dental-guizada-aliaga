@@ -113,7 +113,6 @@ export interface CreateDentalExamData {
 
 export interface CreateToothProcedureData {
   toothNumber: number | null;
-  applicationGroupId?: string | null;
   treatmentId: string;
   priceCharged: number;
   /** Para aplicaciones por unidad/caja (CLI-41) — price_charged = quantity × base_price. 1 para el resto. */
@@ -121,6 +120,26 @@ export interface CreateToothProcedureData {
   procedureDate?: Date;
   /** Códigos de tooth_surfaces (CLI-49) — [] o undefined si ninguna. */
   surfaceCodes?: string[];
+  notes?: string;
+  performedBy: string;
+}
+
+export interface ToothProcedureGroupMember {
+  toothNumber: number;
+  /** Códigos de tooth_surfaces (CLI-49) — [] o undefined si ninguna. */
+  surfaceCodes?: string[];
+}
+
+/**
+ * Una aplicación multiple_teeth: un precio (a nivel de grupo, CLI-53) y una
+ * fila de tooth_procedures por diente colgando de él, cada una con SUS
+ * PROPIAS superficies (CLI-41) pero sin precio propio.
+ */
+export interface CreateToothProcedureGroupData {
+  treatmentId: string;
+  teeth: ToothProcedureGroupMember[];
+  priceCharged: number;
+  procedureDate?: Date;
   notes?: string;
   performedBy: string;
 }
@@ -153,9 +172,15 @@ export interface IPatientRepository {
     entries: OdontogramEntryData[],
   ): Promise<OdontogramEntry[]>;
   findOdontogramEntries(patientId: string): Promise<OdontogramEntry[]>;
+  /** Filas sueltas (single_tooth/general/arcadas), cada una con su propio precio. */
   createToothProcedures(
     patientId: string,
     data: CreateToothProcedureData[],
+  ): Promise<ToothProcedure[]>;
+  /** Crea el application_groups (precio del grupo) + una fila de tooth_procedures por diente, sin precio propio. */
+  createToothProcedureGroup(
+    patientId: string,
+    data: CreateToothProcedureGroupData,
   ): Promise<ToothProcedure[]>;
   findToothProcedures(patientId: string): Promise<ToothProcedure[]>;
   /** Aditivo — a diferencia de createOdontogramEntries, no borra las entries existentes del paciente. */

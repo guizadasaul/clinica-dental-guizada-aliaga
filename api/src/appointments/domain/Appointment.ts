@@ -20,13 +20,18 @@ export const HOLD_TTL_MINUTES = 10;
 export class Appointment {
   constructor(
     readonly id: string,
-    readonly userId: string | null,
     readonly patientId: string | null,
     readonly treatmentId: string | null,
     readonly appointmentDatetime: Date,
+    /** Congelada al reservar (CLI-47) — ver AppointmentRepository.CreateHoldData. */
+    readonly durationMinutes: number,
     readonly status: string,
     readonly source: string,
+    /** @deprecated Reemplazado por guestFirstName/guestLastNamePaternal/guestLastNameMaternal (CLI-43). Se conserva como respaldo auditable de filas anteriores, ya no se escribe. */
     readonly guestFullName: string | null,
+    readonly guestFirstName: string | null,
+    readonly guestLastNamePaternal: string | null,
+    readonly guestLastNameMaternal: string | null,
     readonly guestPhone: string | null,
     readonly guestEmail: string | null,
     readonly holdExpiresAt: Date | null,

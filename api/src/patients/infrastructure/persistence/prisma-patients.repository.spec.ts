@@ -14,6 +14,12 @@ function makeMockTx() {
       createMany: jest.fn().mockResolvedValue({ count: 0 }),
       findMany: jest.fn().mockResolvedValue([]),
     },
+    application_groups: {
+      create: jest.fn(),
+    },
+    tooth_procedures: {
+      create: jest.fn(),
+    },
   };
 }
 
@@ -122,5 +128,60 @@ describe('PrismaPatientsRepository.createClinicalExam', () => {
     };
     expect(key.patient_id).toBe('patient-1');
     expect(key.exam_date).toBeInstanceOf(Date);
+  });
+});
+
+// CLI-53: mismo criterio que PrismaQuotesRepository.addItemGroup — el precio
+// vive una sola vez en application_groups, las filas de tooth_procedures no
+// tienen precio propio.
+describe('PrismaPatientsRepository.createToothProcedureGroup', () => {
+  it('creates the application_groups row first, then one tooth_procedures row per tooth pointing at it, without price on the rows', async () => {
+    const mockTx = makeMockTx();
+    mockTx.application_groups.create.mockResolvedValue({ id: 'group-1' });
+    mockTx.tooth_procedures.create.mockResolvedValue({
+      id: 'proc-1',
+      application_groups: { id: 'group-1', unit_price: 1700 },
+      tooth_procedure_surfaces: [],
+    });
+    const mockPrisma = makeMockPrismaService(mockTx);
+    const repo = new PrismaPatientsRepository(mockPrisma as never);
+
+    await repo.createToothProcedureGroup('patient-1', {
+      treatmentId: 'treatment-1',
+      teeth: [
+        { toothNumber: 16, surfaceCodes: ['occlusal'] },
+        { toothNumber: 17 },
+      ],
+      priceCharged: 1700,
+      performedBy: 'doctor-1',
+    });
+
+    expect(mockTx.application_groups.create).toHaveBeenCalledWith({
+      data: {
+        treatment_id: 'treatment-1',
+        unit_price: 1700,
+        subtotal: 1700,
+        currency: 'BOB',
+      },
+    });
+    expect(mockTx.tooth_procedures.create).toHaveBeenCalledTimes(2);
+    const firstCallArgs = mockTx.tooth_procedures.create.mock.calls[0] as [
+      { data: Record<string, unknown> },
+    ];
+    expect(firstCallArgs[0].data).toEqual(
+      expect.objectContaining({
+        patient_id: 'patient-1',
+        tooth_number: 16,
+        application_group_id: 'group-1',
+        treatment_id: 'treatment-1',
+        tooth_procedure_surfaces: {
+          create: [{ tooth_surfaces: { connect: { code: 'occlusal' } } }],
+        },
+        performed_by: 'doctor-1',
+      }),
+    );
+    // A diferencia del viejo esquema, ninguna llamada a tooth_procedures.create
+    // incluye price_charged — el precio vive solo en application_groups.
+    expect(firstCallArgs[0].data).not.toHaveProperty('price_charged');
   });
 });
