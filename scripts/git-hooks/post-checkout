@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+# Dispara setup-worktree.sh después de cada checkout. El script mismo se sale
+# de inmediato si esto es el worktree principal, así que en el día a día
+# (cambiar de rama, etc.) no hace nada; solo actúa en un worktree nuevo.
+#
+# Este archivo vive en scripts/git-hooks/ (versionado) en vez de .git/hooks/
+# directamente, porque .git/hooks/ no se trackea con git. Para que Git lo use
+# hace falta correr una vez, en el worktree principal:
+#   git config core.hooksPath scripts/git-hooks
+# Ese config es local al .git común, así que una sola vez alcanza para que
+# valga en todos los worktrees futuros (comparten el mismo .git/config).
+#
+# Referencia el script por la ruta absoluta del worktree principal, no por
+# $REPO_ROOT/scripts/... — en un worktree recién creado ese archivo todavía
+# no existe ahí si nunca se hizo commit; el principal siempre lo tiene.
+
+MAIN_SETUP_SCRIPT="/Users/saulguizada/Documents/clinica-dental-guizada-aliaga/scripts/setup-worktree.sh"
+if [ -x "$MAIN_SETUP_SCRIPT" ]; then
+  "$MAIN_SETUP_SCRIPT"
+fi
