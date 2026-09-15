@@ -122,7 +122,9 @@ export class PrismaAppointmentsRepository implements IAppointmentRepository {
           hold_expires_at: { gt: now },
         },
         data: {
-          guest_full_name: data.fullName,
+          guest_first_name: data.firstName,
+          guest_last_name_paternal: data.lastNamePaternal,
+          guest_last_name_maternal: data.lastNameMaternal,
           guest_phone: data.phone,
           guest_email: data.email,
         },
