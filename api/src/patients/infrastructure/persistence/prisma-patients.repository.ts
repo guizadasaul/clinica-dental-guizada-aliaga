@@ -10,6 +10,7 @@ import {
   ClinicalExamData,
   OdontogramEntryData,
   CreateToothProcedureData,
+  CreateToothProcedureGroupData,
   CreateDentalExamData,
 } from '../../domain/PatientRepository';
 import type { Patient } from '../../domain/Patient';
@@ -64,17 +65,23 @@ export class PrismaPatientsRepository implements IPatientRepository {
   }
 
   async findPatientById(id: string): Promise<Patient | null> {
-    const record = await this.prisma.patients.findUnique({ where: { id } });
+    const record = await this.prisma.patients.findUnique({
+      where: { id },
+      include: { users: true },
+    });
     return record ? PatientMapper.toDomainPatient(record) : null;
   }
 
   async findByUserId(userId: string): Promise<Patient | null> {
     const record = await this.prisma.patients.findUnique({
       where: { user_id: userId },
+      include: { users: true },
     });
     return record ? PatientMapper.toDomainPatient(record) : null;
   }
 
+  // El teléfono NO se escribe acá — vive en users.phone (CLI-51), lo
+  // sincroniza PatientsService vía UserRepository.updateContactInfo.
   async create(userId: string, data: CreatePatientData): Promise<Patient> {
     const record = await this.prisma.patients.create({
       data: {
@@ -87,7 +94,6 @@ export class PrismaPatientsRepository implements IPatientRepository {
         sex: data.sex ?? null,
         occupation: data.occupation ?? null,
         address: data.address ?? null,
-        phone: data.phone ?? null,
         emergency_contact_name: data.emergencyContactName ?? null,
         emergency_contact_phone: data.emergencyContactPhone ?? null,
         emergency_contact_relationship:
@@ -98,10 +104,13 @@ export class PrismaPatientsRepository implements IPatientRepository {
         family_history: data.familyHistory ?? null,
         dni: data.dni ?? null,
       },
+      include: { users: true },
     });
     return PatientMapper.toDomainPatient(record);
   }
 
+  // El teléfono NO se escribe acá tampoco — PatientsService.updatePatient ya
+  // lo sincroniza por separado vía UserRepository.updateContactInfo (CLI-51).
   async updatePatient(
     id: string,
     data: UpdatePatientData,
@@ -124,7 +133,6 @@ export class PrismaPatientsRepository implements IPatientRepository {
           ...(data.sex !== undefined && { sex: data.sex }),
           ...(data.occupation !== undefined && { occupation: data.occupation }),
           ...(data.address !== undefined && { address: data.address }),
-          ...(data.phone !== undefined && { phone: data.phone }),
           ...(data.emergencyContactName !== undefined && {
             emergency_contact_name: data.emergencyContactName,
           }),
@@ -149,6 +157,7 @@ export class PrismaPatientsRepository implements IPatientRepository {
           ...(data.dni !== undefined && { dni: data.dni }),
           updated_at: new Date(),
         },
+        include: { users: true },
       });
       return PatientMapper.toDomainPatient(record);
     } catch (error: unknown) {
@@ -343,7 +352,6 @@ export class PrismaPatientsRepository implements IPatientRepository {
             data: {
               patient_id: patientId,
               tooth_number: item.toothNumber,
-              application_group_id: item.applicationGroupId ?? null,
               treatment_id: item.treatmentId,
               price_charged: item.priceCharged,
               quantity: item.quantity ?? 1,
@@ -356,6 +364,7 @@ export class PrismaPatientsRepository implements IPatientRepository {
               notes: item.notes ?? null,
               performed_by: item.performedBy,
             },
+            include: { application_groups: true },
           }),
         ),
       ),
@@ -363,10 +372,53 @@ export class PrismaPatientsRepository implements IPatientRepository {
     return records.map((r) => ToothProcedureMapper.toDomain(r));
   }
 
+  // CLI-53: el precio del grupo vive una sola vez en application_groups —
+  // las N filas de tooth_procedures (una por diente) no tienen precio
+  // propio, a diferencia del viejo esquema donde una fila arbitraria lo
+  // tenía y el resto facturaba 0.
+  async createToothProcedureGroup(
+    patientId: string,
+    data: CreateToothProcedureGroupData,
+  ): Promise<ToothProcedure[]> {
+    return this.prisma.transaction(async (tx) => {
+      const group = await tx.application_groups.create({
+        data: {
+          treatment_id: data.treatmentId,
+          unit_price: data.priceCharged,
+          subtotal: data.priceCharged,
+          currency: 'BOB',
+        },
+      });
+      const records = await Promise.all(
+        data.teeth.map((tooth) =>
+          tx.tooth_procedures.create({
+            data: {
+              patient_id: patientId,
+              tooth_number: tooth.toothNumber,
+              application_group_id: group.id,
+              treatment_id: data.treatmentId,
+              procedure_date: data.procedureDate ?? new Date(),
+              surface_vestibular: tooth.surfaceVestibular ?? false,
+              surface_palatal: tooth.surfacePalatal ?? false,
+              surface_mesial: tooth.surfaceMesial ?? false,
+              surface_distal: tooth.surfaceDistal ?? false,
+              surface_occlusal: tooth.surfaceOcclusal ?? false,
+              notes: data.notes ?? null,
+              performed_by: data.performedBy,
+            },
+            include: { application_groups: true },
+          }),
+        ),
+      );
+      return records.map((r) => ToothProcedureMapper.toDomain(r));
+    });
+  }
+
   async findToothProcedures(patientId: string): Promise<ToothProcedure[]> {
     const records = await this.prisma.tooth_procedures.findMany({
       where: { patient_id: patientId },
       orderBy: { procedure_date: 'desc' },
+      include: { application_groups: true },
     });
     return records.map((r) => ToothProcedureMapper.toDomain(r));
   }

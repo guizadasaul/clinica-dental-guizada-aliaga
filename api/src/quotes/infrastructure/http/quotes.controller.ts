@@ -16,6 +16,7 @@ import { RolesGuard } from '../../../auth/infrastructure/RolesGuard.js';
 import { Roles } from '../../../auth/infrastructure/roles.decorator.js';
 import { UserRole } from '../../../auth/domain/value-objects/UserRole.js';
 import { AddQuoteItemDto } from './dto/add-quote-item.dto.js';
+import { AddPaymentDto } from './dto/add-payment.dto.js';
 
 @Controller('quotes')
 @UseGuards(SupabaseAuthGuard, RolesGuard)
@@ -48,5 +49,18 @@ export class QuotesController {
     @Param('itemId', ParseUUIDPipe) itemId: string,
   ) {
     return this.quotesService.removeItem(id, itemId);
+  }
+
+  @Post(':id/payments')
+  @HttpCode(HttpStatus.CREATED)
+  addPayment(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: AddPaymentDto,
+  ) {
+    return this.quotesService.addPayment(id, {
+      amount: dto.amount,
+      paymentMethod: dto.paymentMethod,
+      notes: dto.notes,
+    });
   }
 }

@@ -168,7 +168,9 @@ export class DoctorDashboardComponent {
   private toAppointmentSlot(a: AppointmentAgendaItem): AppointmentSlot {
     const patientName = a.patientFirstName
       ? `${a.patientFirstName} ${a.patientLastNamePaternal ?? ''}`.trim()
-      : (a.guestFullName ?? 'Paciente sin datos');
+      : a.guestFirstName
+        ? `${a.guestFirstName} ${a.guestLastNamePaternal ?? ''}`.trim()
+        : (a.guestFullName ?? 'Paciente sin datos');
     return {
       time: TIME_FORMATTER.format(new Date(a.appointmentDatetime)),
       patientName,

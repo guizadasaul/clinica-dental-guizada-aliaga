@@ -53,6 +53,12 @@ enum DiagnosisModifier {
 }
 
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// user_id se elimina (CLI-51) — nunca lo escribió ningún código (confirmado
+/// en CLI-46) y era redundante con patient_id: como patients.user_id es 1:1,
+/// nada impedía una cita con user_id=U y patient_id=P donde P.user_id≠U. Si
+/// algún día hace falta el usuario de una cita, se deriva por
+/// patient_id → patients.user_id, nunca se vuelve a guardar acá.
+///
 /// idx_one_active_appointment_slot solo protege el instante exacto de inicio
 /// (CLI-47) — dos citas que se solapan parcialmente (una de 90 min a las
 /// 9:00 y otra de 30 min a las 9:15) no chocan contra este índice. La
@@ -64,34 +70,36 @@ enum DiagnosisModifier {
 /// proyecto (no hay ninguna constraint de este tipo todavía) y agregarla sin
 /// verificar el código de error real arriesga romper el 409 limpio actual.
 model appointments {
-  id                    String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  user_id               String?     @unique(map: "idx_one_active_appointment_web", where: raw("(((status)::text = 'scheduled'::text) AND (user_id IS NOT NULL))")) @db.Uuid
-  patient_id            String?     @db.Uuid
-  treatment_id          String?     @db.Uuid
-  appointment_datetime  DateTime    @unique(map: "idx_one_active_appointment_slot", where: raw("(((status)::text = 'held'::text) OR ((status)::text = 'confirmed'::text))")) @db.Timestamptz(6)
+  id                       String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  patient_id               String?     @db.Uuid
+  treatment_id             String?     @db.Uuid
+  appointment_datetime     DateTime    @unique(map: "idx_one_active_appointment_slot", where: raw("(((status)::text = 'held'::text) OR ((status)::text = 'confirmed'::text))")) @db.Timestamptz(6)
   /// Congelada al reservar (CLI-47) — snapshot de treatments.estimated_minutes
   /// en el momento del hold, o 30 (un slot) si no se especificó tratamiento.
   /// Cambiar estimated_minutes en el catálogo después no debe reinterpretar
   /// agendas ya reservadas, mismo criterio que los precios de quote_items.
-  duration_minutes      Int         @default(30)
-  status                String      @default("scheduled") @db.VarChar(20)
-  source                String      @db.VarChar(20)
-  whatsapp_name         String?     @db.VarChar(200)
-  whatsapp_phone        String?     @unique(map: "idx_one_active_appointment_wa", where: raw("(((status)::text = 'scheduled'::text) AND (whatsapp_phone IS NOT NULL))")) @db.VarChar(20)
-  notes                 String?
-  created_at            DateTime    @default(now()) @db.Timestamptz(6)
-  hold_expires_at       DateTime?   @db.Timestamptz(6)
-  guest_full_name       String?     @db.VarChar(200)
-  guest_phone           String?     @db.VarChar(20)
-  guest_email           String?     @db.VarChar(255)
-  baneco_qr_id          String?     @unique @db.VarChar(50)
-  baneco_transaction_id String?     @unique @db.VarChar(50)
-  baneco_qr_image       String?
-  payment_amount        Decimal?    @db.Decimal(10, 2)
-  paid_at               DateTime?   @db.Timestamptz(6)
-  patients              patients?   @relation(fields: [patient_id], references: [id], onUpdate: NoAction)
-  treatments            treatments? @relation(fields: [treatment_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  users                 users?      @relation(fields: [user_id], references: [id], onUpdate: NoAction)
+  duration_minutes         Int         @default(30)
+  status                   String      @default("scheduled") @db.VarChar(20)
+  source                   String      @db.VarChar(20)
+  whatsapp_name            String?     @db.VarChar(200)
+  whatsapp_phone           String?     @db.VarChar(20)
+  notes                    String?
+  created_at               DateTime    @default(now()) @db.Timestamptz(6)
+  hold_expires_at          DateTime?   @db.Timestamptz(6)
+  /// @deprecated Reemplazado por guest_first_name/guest_last_name_paternal/guest_last_name_maternal (CLI-43). Se conserva sin escribir, como respaldo auditable de las filas anteriores.
+  guest_full_name          String?     @db.VarChar(200)
+  guest_first_name         String?     @db.VarChar(100)
+  guest_last_name_paternal String?     @db.VarChar(100)
+  guest_last_name_maternal String?     @db.VarChar(100)
+  guest_phone              String?     @unique(map: "idx_one_active_appointment_guest_phone", where: raw("((((status)::text = 'held'::text) OR ((status)::text = 'confirmed'::text)) AND (guest_phone IS NOT NULL))")) @db.VarChar(20)
+  guest_email              String?     @db.VarChar(255)
+  baneco_qr_id             String?     @unique @db.VarChar(50)
+  baneco_transaction_id    String?     @unique @db.VarChar(50)
+  baneco_qr_image          String?
+  payment_amount           Decimal?    @db.Decimal(10, 2)
+  paid_at                  DateTime?   @db.Timestamptz(6)
+  patients                 patients?   @relation(fields: [patient_id], references: [id], onUpdate: NoAction)
+  treatments               treatments? @relation(fields: [treatment_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
   @@index([appointment_datetime], map: "idx_appointments_datetime")
 }
@@ -244,6 +252,9 @@ model dental_exam_findings {
 }
 
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// El teléfono del paciente vive en users.phone (CLI-51) — patients.user_id
+/// es 1:1, así que un patients.phone propio era una dependencia transitiva
+/// de users.phone (violación de 3FN) y ya había divergido en producción.
 model patients {
   id                             String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   user_id                        String               @unique @db.Uuid
@@ -255,7 +266,6 @@ model patients {
   sex                            String?              @db.VarChar(20)
   occupation                     String?              @db.VarChar(150)
   address                        String?
-  phone                          String?              @db.VarChar(20)
   emergency_contact_name         String?              @db.VarChar(200)
   emergency_contact_phone        String?              @db.VarChar(20)
   emergency_contact_relationship String?              @db.VarChar(100)
@@ -303,20 +313,52 @@ model payments {
   quotes         quotes   @relation(fields: [quote_id], references: [id], onUpdate: NoAction)
 }
 
+/// Precio y tratamiento compartidos por un grupo de quote_items que
+/// corresponden a la misma aplicación multiple_teeth (CLI-45). Antes ese
+/// precio vivía en una fila arbitraria de quote_items (la del diente de
+/// número más bajo, con las demás facturando 0) — violación de 2FN:
+/// unit_price/subtotal dependían de (quote_id, application_group_id), no
+/// del diente. Borrar el grupo entero (quote_items.onDelete: Cascade sobre
+/// application_group_id) es la única forma soportada de borrarlo — ver
+/// removeItemGroup.
+model application_groups {
+  id               String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  /// NULL para un grupo de tooth_procedures (CLI-53) — esos no cuelgan de
+  /// ningún presupuesto, son procedimientos ya realizados.
+  quote_id         String?            @db.Uuid
+  treatment_id     String             @db.Uuid
+  unit_price       Decimal            @db.Decimal(10, 2)
+  subtotal         Decimal            @db.Decimal(10, 2)
+  currency         String             @default("BOB") @db.VarChar(3)
+  exchange_rate    Decimal?           @db.Decimal(12, 5)
+  created_at       DateTime           @default(now()) @db.Timestamptz(6)
+  quotes           quotes?            @relation(fields: [quote_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  treatments       treatments         @relation(fields: [treatment_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  quote_items      quote_items[]
+  tooth_procedures tooth_procedures[]
+
+  @@index([quote_id], map: "idx_application_groups_quote")
+}
+
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
 model quote_items {
-  id                   String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  quote_id             String     @db.Uuid
-  treatment_id         String     @db.Uuid
+  id                   String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  quote_id             String              @db.Uuid
+  treatment_id         String              @db.Uuid
   tooth_number         Int?
-  application_group_id String?    @db.Uuid
-  unit_price           Decimal    @db.Decimal(10, 2)
-  quantity             Int        @default(1)
-  subtotal             Decimal?   @db.Decimal(10, 2)
-  currency             String     @default("BOB") @db.VarChar(3)
-  exchange_rate        Decimal?   @db.Decimal(12, 5)
-  quotes               quotes     @relation(fields: [quote_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  treatments           treatments @relation(fields: [treatment_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  application_group_id String?             @db.Uuid
+  /// NULL cuando application_group_id está seteado (CLI-45) — el precio de
+  /// una aplicación multiple_teeth vive una sola vez en application_groups,
+  /// no repetido/mentido por fila. Solo las filas sueltas (single_tooth,
+  /// general) tienen su propio precio acá.
+  unit_price           Decimal?            @db.Decimal(10, 2)
+  quantity             Int                 @default(1)
+  subtotal             Decimal?            @db.Decimal(10, 2)
+  currency             String?             @db.VarChar(3)
+  exchange_rate        Decimal?            @db.Decimal(12, 5)
+  quotes               quotes              @relation(fields: [quote_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  treatments           treatments          @relation(fields: [treatment_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  application_groups   application_groups? @relation(fields: [application_group_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
   @@index([quote_id], map: "idx_quote_items_quote")
   @@index([application_group_id], map: "idx_quote_items_application_group")
@@ -324,41 +366,46 @@ model quote_items {
 
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
 model quotes {
-  id           String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  patient_id   String        @db.Uuid
-  total_amount Decimal       @default(0) @db.Decimal(10, 2)
-  total_paid   Decimal       @default(0) @db.Decimal(10, 2)
-  status       String        @default("pending") @db.VarChar(20)
-  notes        String?
-  created_at   DateTime      @default(now()) @db.Timestamptz(6)
-  updated_at   DateTime      @default(now()) @db.Timestamptz(6)
-  payments     payments[]
-  quote_items  quote_items[]
-  patients     patients      @relation(fields: [patient_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  id                 String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  patient_id         String               @db.Uuid
+  total_amount       Decimal              @default(0) @db.Decimal(10, 2)
+  total_paid         Decimal              @default(0) @db.Decimal(10, 2)
+  status             String               @default("pending") @db.VarChar(20)
+  notes              String?
+  created_at         DateTime             @default(now()) @db.Timestamptz(6)
+  updated_at         DateTime             @default(now()) @db.Timestamptz(6)
+  payments           payments[]
+  quote_items        quote_items[]
+  application_groups application_groups[]
+  patients           patients             @relation(fields: [patient_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
 }
 
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
 model tooth_procedures {
-  id                   String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  patient_id           String           @db.Uuid
+  id                   String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  patient_id           String              @db.Uuid
   tooth_number         Int?
-  application_group_id String?          @db.Uuid
-  treatment_id         String           @db.Uuid
-  price_charged        Decimal          @db.Decimal(10, 2)
+  application_group_id String?             @db.Uuid
+  treatment_id         String              @db.Uuid
+  /// NULL cuando application_group_id está seteado (CLI-53, mismo criterio
+  /// que quote_items) — el precio de una aplicación multiple_teeth vive una
+  /// sola vez en application_groups, no repetido/mentido por diente.
+  price_charged        Decimal?            @db.Decimal(10, 2)
   /// Para aplicaciones por unidad/caja (elásticos, cera ortodóntica, CLI-41) — price_charged = quantity × treatments.base_price. 1 para el resto.
-  quantity             Int              @default(1)
-  procedure_date       DateTime         @default(dbgenerated("CURRENT_DATE")) @db.Date
-  surface_vestibular   Boolean          @default(false)
-  surface_palatal      Boolean          @default(false)
-  surface_mesial       Boolean          @default(false)
-  surface_distal       Boolean          @default(false)
-  surface_occlusal     Boolean          @default(false)
+  quantity             Int                 @default(1)
+  procedure_date       DateTime            @default(dbgenerated("CURRENT_DATE")) @db.Date
+  surface_vestibular   Boolean             @default(false)
+  surface_palatal      Boolean             @default(false)
+  surface_mesial       Boolean             @default(false)
+  surface_distal       Boolean             @default(false)
+  surface_occlusal     Boolean             @default(false)
   notes                String?
-  performed_by         String           @db.Uuid
-  created_at           DateTime         @default(now()) @db.Timestamptz(6)
-  patients             patients         @relation(fields: [patient_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  users                users            @relation(fields: [performed_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  treatments           treatments       @relation(fields: [treatment_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  performed_by         String              @db.Uuid
+  created_at           DateTime            @default(now()) @db.Timestamptz(6)
+  patients             patients            @relation(fields: [patient_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  users                users               @relation(fields: [performed_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  treatments           treatments          @relation(fields: [treatment_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  application_groups   application_groups? @relation(fields: [application_group_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
   xray_documents       xray_documents[]
 
   @@index([procedure_date], map: "idx_tooth_procedures_date")
@@ -367,13 +414,23 @@ model tooth_procedures {
 }
 
 model testimonials {
-  id         String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  name       String            @db.VarChar(100)
-  treatment  String            @db.VarChar(150)
-  comment    String
-  status     TestimonialStatus @default(pending)
-  created_at DateTime          @default(now()) @db.Timestamptz(6)
-  updated_at DateTime          @default(now()) @db.Timestamptz(6)
+  id             String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name           String            @db.VarChar(100)
+  /// Texto libre a propósito (CLI-36): el visitante describe su experiencia
+  /// con sus propias palabras, a veces combinando varios tratamientos en una
+  /// frase ("Limpieza, profilaxis y flúor") — no siempre mapea 1:1 a una fila
+  /// del catálogo. treatment_code es la referencia real cuando corresponde;
+  /// treatment queda como el texto tal cual lo escribió.
+  treatment      String            @db.VarChar(150)
+  /// FK opcional a treatments.code (CLI-53) — permite filtrar por tratamiento
+  /// real sin que un rename rompa la referencia, sin forzar el formulario
+  /// público a un selector rígido. Hoy ningún flujo la completa todavía.
+  treatment_code String?           @db.VarChar(50)
+  comment        String
+  status         TestimonialStatus @default(pending)
+  created_at     DateTime          @default(now()) @db.Timestamptz(6)
+  updated_at     DateTime          @default(now()) @db.Timestamptz(6)
+  treatments     treatments?       @relation(fields: [treatment_code], references: [code], onDelete: SetNull, onUpdate: NoAction)
 
   @@index([status], map: "idx_testimonials_status")
 }
@@ -413,7 +470,9 @@ model treatments {
   appointments            appointments[]
   odontogram_entries      odontogram_entries[]
   quote_items             quote_items[]
+  application_groups      application_groups[]
   tooth_procedures        tooth_procedures[]
+  testimonials            testimonials[]
   treatment_categories    treatment_categories     @relation(fields: [category_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
 }
 
@@ -429,18 +488,27 @@ model users {
   created_at       DateTime           @default(now()) @db.Timestamptz(6)
   updated_at       DateTime           @default(now()) @db.Timestamptz(6)
   role             UserRole           @default(patient)
-  appointments     appointments?
   patients         patients?
   tooth_procedures tooth_procedures[]
   dental_exams     dental_exams[]
 }
 
+/// Sin código todavía — CLI-53. Notas para cuando se implemente:
+/// * google_drive_url se elimina a propósito (CLI-53, violación de 3FN): es
+///   derivable de google_drive_file_id vía plantilla fija
+///   (https://drive.google.com/file/d/{fileId}/view). Calcularla en el
+///   mapper/servicio al leer, nunca guardarla — guardar las dos permitía que
+///   discreparan (resubir un archivo actualiza una columna y no la otra).
+/// * patient_id debe coincidir con tooth_procedures.patient_id cuando
+///   tooth_procedure_id está seteado (CLI-53) — no hay constraint de base
+///   para esto (requiere trigger, y no hay ninguno en el schema todavía) así
+///   que el servicio que cree filas acá tiene que derivar patient_id del
+///   tooth_procedure en vez de aceptarlo como input independiente.
 model xray_documents {
   id                   String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   patient_id           String            @db.Uuid
   tooth_procedure_id   String?           @db.Uuid
   google_drive_file_id String            @unique @db.VarChar(200)
-  google_drive_url     String
   thumbnail_url        String?
   file_name            String?           @db.VarChar(255)
   taken_date           DateTime?         @db.Date

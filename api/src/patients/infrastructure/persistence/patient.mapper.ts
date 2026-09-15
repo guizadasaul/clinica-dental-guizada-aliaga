@@ -11,8 +11,12 @@ import { HygieneHabits } from '../../domain/HygieneHabits';
 import { ClinicalExam } from '../../domain/ClinicalExam';
 import { PatientWithUser } from '../../domain/PatientWithUser';
 
+type PatientRecordWithUser = patients & { users: { phone: string | null } };
+
 export class PatientMapper {
-  static toDomainPatient(r: patients): Patient {
+  // El teléfono vive en users.phone (CLI-51), no en patients — patients.user_id
+  // es 1:1, así que la relación siempre existe.
+  static toDomainPatient(r: PatientRecordWithUser): Patient {
     return new Patient(
       r.id,
       r.user_id,
@@ -24,7 +28,7 @@ export class PatientMapper {
       r.sex ?? null,
       r.occupation ?? null,
       r.address ?? null,
-      r.phone ?? null,
+      r.users.phone ?? null,
       r.emergency_contact_name ?? null,
       r.emergency_contact_phone ?? null,
       r.emergency_contact_relationship ?? null,
@@ -99,7 +103,9 @@ export class PatientMapper {
       u.email ?? null,
       u.phone ?? null,
       u.created_at,
-      u.patients ? PatientMapper.toDomainPatient(u.patients) : null,
+      u.patients
+        ? PatientMapper.toDomainPatient({ ...u.patients, users: u })
+        : null,
       u.patients?._count.dental_exams ?? 0,
       u.auth_user_id !== null,
     );

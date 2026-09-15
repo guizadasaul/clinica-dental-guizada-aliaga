@@ -1,33 +1,38 @@
 import { Transform } from 'class-transformer';
-import {
-  IsEmail,
-  IsOptional,
-  IsString,
-  Length,
-  Matches,
-  MaxLength,
-} from 'class-validator';
+import { IsEmail, IsOptional, IsString, Matches, MaxLength, MinLength } from 'class-validator';
 import { EMAIL_RE } from '../../../../shared/validators/email.validator.js';
-import {
-  IsFullName,
-  normalizeFullName,
-} from '../../../../shared/validators/full-name.validator.js';
+import { IsPersonName } from '../../../../shared/validators/full-name.validator.js';
+import { EmptyToUndefined, NormalizeName } from '../../../../shared/validators/transforms.js';
 import {
   E164_RE,
   IsE164Phone,
 } from '../../../../shared/validators/phone.validator.js';
 
 export class GuestContactDto {
-  // Nombre y apellido (regla estricta, ≥2 palabras) a diferencia del
-  // formulario de comentarios (CreateTestimonialDto.name, @IsPersonName) —
-  // ver el comentario de esa clase para el porqué de la divergencia.
+  // Tres campos atómicos, espejo de CreatePatientDto (CLI-43) — antes era un
+  // solo fullName que el backend partía a ciegas al confirmar el pago.
   @IsString()
-  @Transform(({ value }: { value: unknown }) =>
-    typeof value === 'string' ? normalizeFullName(value) : value,
-  )
-  @IsFullName()
-  @Length(5, 200)
-  fullName!: string;
+  @NormalizeName()
+  @IsPersonName()
+  @MinLength(3)
+  @MaxLength(100)
+  firstName!: string;
+
+  @IsString()
+  @NormalizeName()
+  @IsPersonName()
+  @MinLength(3)
+  @MaxLength(100)
+  lastNamePaternal!: string;
+
+  @IsOptional()
+  @EmptyToUndefined()
+  @IsString()
+  @NormalizeName()
+  @IsPersonName()
+  @MinLength(3)
+  @MaxLength(100)
+  lastNameMaternal?: string;
 
   // Salida siempre en E.164 (la emite <app-phone-input> en el frontend).
   // @MaxLength(20) por la columna VARCHAR(20), no por el formato en sí.
