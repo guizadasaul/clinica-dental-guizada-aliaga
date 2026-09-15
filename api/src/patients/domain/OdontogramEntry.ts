@@ -4,8 +4,8 @@ export interface OdontogramEntry {
   toothNumber: number;
   toothType: string;
   toothCondition: string;
-  diagnosisDescription: string;
-  xrayRequested: boolean;
+  /** Solo tiene contenido en filas pre-CLI-40 — las filas nuevas (arcada/boca completa) no lo necesitan, ver comentario del modelo. */
+  diagnosisDescription: string | null;
   treatmentId?: string;
   customPrice?: number;
   entryDate: Date;

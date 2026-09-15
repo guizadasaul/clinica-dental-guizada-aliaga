@@ -9,8 +9,7 @@ export class OdontogramEntryMapper {
       toothNumber: record.tooth_number,
       toothType: record.tooth_type,
       toothCondition: record.tooth_condition,
-      diagnosisDescription: record.diagnosis_description,
-      xrayRequested: record.xray_requested,
+      diagnosisDescription: record.diagnosis_description ?? null,
       treatmentId: record.treatment_id ?? undefined,
       customPrice: record.custom_price
         ? Number(record.custom_price)

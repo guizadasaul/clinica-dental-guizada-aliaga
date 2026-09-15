@@ -139,14 +139,21 @@ model medical_history {
 /// arcada/boca completa (`treatment_id NOT NULL`), que es lo que lee el
 /// treatment-scope-picker. El diagnóstico vive en `dental_exams` /
 /// `dental_exam_findings`, versionado y append-only.
+///
+/// CLI-52: diagnosis_description es nullable — antes de CLI-40 guardaba un
+/// diagnóstico real tipeado por el doctor; las filas post-CLI-40 (100% de
+/// las actuales, auditado contra la base real) no escriben nada ahí, porque
+/// duplicar treatments.name (accesible vía treatment_id) no aporta nada.
+/// xray_requested se eliminó — quedó del flujo viejo, ninguna fila la puso
+/// nunca en true. tooth_condition se mantiene: sigue alimentando el color
+/// del odontograma con el último estado conocido de cada diente.
 model odontogram_entries {
   id                    String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   patient_id            String      @db.Uuid
   tooth_number          Int
   tooth_type            String      @default("permanent") @db.VarChar(20)
   tooth_condition       String      @default("sano") @db.VarChar(30)
-  diagnosis_description String
-  xray_requested        Boolean     @default(false)
+  diagnosis_description String?
   treatment_id          String?     @db.Uuid
   custom_price          Decimal?    @db.Decimal(10, 2)
   entry_date            DateTime    @default(dbgenerated("CURRENT_DATE")) @db.Date

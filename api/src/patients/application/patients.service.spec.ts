@@ -568,8 +568,11 @@ describe('PatientsService', () => {
             1,
           );
           const [, entries] = mockPatientRepo.appendOdontogramEntries.mock
-            .calls[0] as [string, unknown[]];
+            .calls[0] as [string, Record<string, unknown>[]];
           expect(entries).toHaveLength(expectedTeethCount);
+          // CLI-52: diagnosisDescription ya no se rellena con el nombre del
+          // tratamiento — es redundante con treatmentId.
+          expect(entries[0]).not.toHaveProperty('diagnosisDescription');
         });
       },
     );

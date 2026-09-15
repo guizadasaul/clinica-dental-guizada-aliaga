@@ -284,12 +284,13 @@ export class PatientsService {
           conditionByTooth.set(entry.toothNumber, entry.toothCondition);
         }
       }
+      // CLI-52: diagnosisDescription ya no se llena acá — duplicaba
+      // treatments.name, accesible vía treatmentId sin necesidad de copiarlo.
       const entries: OdontogramEntryData[] = teethForApplicationType(
         treatment.applicationType,
       ).map((toothNumber) => ({
         toothNumber,
         toothCondition: conditionByTooth.get(toothNumber) ?? 'sano',
-        diagnosisDescription: treatment.name,
         treatmentId: treatment.id,
         notes: data.notes,
       }));
