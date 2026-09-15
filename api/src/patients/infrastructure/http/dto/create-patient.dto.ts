@@ -23,7 +23,10 @@ import {
   IsNotBefore,
   IsNotFutureDate,
 } from '../../../../shared/validators/date.validator.js';
-import { SEXES } from '../../../../shared/validators/clinical-options.js';
+import {
+  SEXES,
+  DOCUMENT_TYPES,
+} from '../../../../shared/validators/clinical-options.js';
 
 export class CreatePatientDto {
   @IsOptional()
@@ -88,7 +91,8 @@ export class CreatePatientDto {
   occupation: string;
 
   // MaxLength(300) es nuevo — antes era TEXT sin límite ni en el DTO ni en
-  // Postgres.
+  // Postgres. Resto de la dirección (calle, número, referencias) — zona y
+  // ciudad son campos propios (CLI-54), ver abajo.
   @EmptyToUndefined()
   @Trim()
   @IsString()
@@ -97,6 +101,26 @@ export class CreatePatientDto {
   @MaxLength(300)
   @NoHtml()
   address: string;
+
+  // CLI-54: separado de address para poder reportar por zona sin parsear
+  // texto libre.
+  @EmptyToUndefined()
+  @Trim()
+  @IsString()
+  @IsNotEmpty({ message: 'zona es obligatorio' })
+  @MinLength(2)
+  @MaxLength(100)
+  @NoHtml()
+  zona: string;
+
+  @EmptyToUndefined()
+  @Trim()
+  @IsString()
+  @IsNotEmpty({ message: 'ciudad es obligatorio' })
+  @MinLength(2)
+  @MaxLength(100)
+  @NoHtml()
+  ciudad: string;
 
   // Salida siempre en E.164 (la emite <app-phone-input> en el frontend).
   // @MaxLength(20) por la columna VARCHAR(20), no por el formato en sí.
@@ -175,10 +199,19 @@ export class CreatePatientDto {
   @NoHtml()
   familyHistory?: string;
 
-  // dni es @unique en la base — normalizado (mayúsculas, sin puntos ni
-  // espacios ni guiones) para que "12.345.678" y "12345678" no convivan
-  // como pacientes distintos. Obligatorio (antes opcional); DNI_RE ya exige
-  // 5-15 caracteres, por encima del mínimo de 3 del resto del texto libre.
+  // CLI-54: (documentType, dni) es el par único real — un pasaporte y una
+  // CI pueden coincidir en número sin ser la misma persona.
+  @EmptyToUndefined()
+  @Trim()
+  @IsNotEmpty({ message: 'documentType es obligatorio' })
+  @IsIn(DOCUMENT_TYPES)
+  documentType: string;
+
+  // dni + documentType son @@unique en la base — normalizado (mayúsculas,
+  // sin puntos ni espacios ni guiones) para que "12.345.678" y "12345678"
+  // no convivan como pacientes distintos. Obligatorio (antes opcional);
+  // DNI_RE ya exige 5-15 caracteres, por encima del mínimo de 3 del resto
+  // del texto libre.
   @EmptyToUndefined()
   @NormalizeDni()
   @IsNotEmpty({ message: 'dni es obligatorio' })

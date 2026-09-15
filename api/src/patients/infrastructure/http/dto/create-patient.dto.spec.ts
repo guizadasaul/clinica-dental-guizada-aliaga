@@ -16,8 +16,9 @@ function isoDaysFromNow(days: number): string {
 }
 
 // Campos obligatorios: nombre, apellido paterno, fecha de nacimiento, lugar
-// de nacimiento, sexo, ocupación, DNI, dirección y contacto de emergencia
-// completo (nombre, teléfono, parentesco). El resto sigue opcional.
+// de nacimiento, sexo, ocupación, tipo+número de documento (CLI-54),
+// dirección + zona + ciudad (CLI-54) y contacto de emergencia completo
+// (nombre, teléfono, parentesco). El resto sigue opcional.
 const VALID_PATIENT = {
   firstName: 'Juan',
   lastNamePaternal: 'Claros',
@@ -25,8 +26,11 @@ const VALID_PATIENT = {
   birthPlace: 'La Paz',
   sex: 'masculino',
   occupation: 'Ingeniero',
+  documentType: 'ci',
   dni: '12345678',
   address: 'Av. Siempre Viva 123',
+  zona: 'Zona Norte',
+  ciudad: 'Cochabamba',
   emergencyContactName: 'Maria Claros',
   emergencyContactPhone: '+59177777777',
   emergencyContactRelationship: 'Madre',
@@ -102,6 +106,37 @@ describe('CreatePatientDto', () => {
   it('rechaza un DNI mal formado luego de normalizar (muy corto)', async () => {
     const errors = await validatePatient({ dni: '123' });
     expect(errors.some((e) => e.property === 'dni')).toBe(true);
+  });
+
+  // CLI-54: (documentType, dni) es el par único real, no dni solo.
+  it.each(['ci', 'pasaporte', 'nit'])('acepta documentType %s', async (value) => {
+    const errors = await validatePatient({ documentType: value });
+    expect(errors).toHaveLength(0);
+  });
+
+  it('rechaza un documentType fuera del enum cerrado', async () => {
+    const errors = await validatePatient({ documentType: 'licencia' });
+    expect(errors.some((e) => e.property === 'documentType')).toBe(true);
+  });
+
+  it('rechaza documentType vacío', async () => {
+    const errors = await validatePatient({ documentType: '' });
+    expect(errors.some((e) => e.property === 'documentType')).toBe(true);
+  });
+
+  it('rechaza zona vacía', async () => {
+    const errors = await validatePatient({ zona: '' });
+    expect(errors.some((e) => e.property === 'zona')).toBe(true);
+  });
+
+  it('rechaza ciudad vacía', async () => {
+    const errors = await validatePatient({ ciudad: '' });
+    expect(errors.some((e) => e.property === 'ciudad')).toBe(true);
+  });
+
+  it('rechaza zona más larga que 100 caracteres', async () => {
+    const errors = await validatePatient({ zona: 'a'.repeat(101) });
+    expect(errors.some((e) => e.property === 'zona')).toBe(true);
   });
 
   it('rechaza un sex fuera del enum cerrado', async () => {

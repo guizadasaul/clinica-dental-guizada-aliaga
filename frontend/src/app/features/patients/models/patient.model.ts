@@ -8,7 +8,10 @@ export interface Patient {
   birthPlace: string | null;
   sex: string | null;
   occupation: string | null;
+  /** Resto de la dirección (calle, número, referencias) — zona/ciudad son campos propios (CLI-54). */
   address: string | null;
+  zona: string | null;
+  ciudad: string | null;
   phone: string | null;
   emergencyContactName: string | null;
   emergencyContactPhone: string | null;
@@ -17,6 +20,8 @@ export interface Patient {
   lastDentistVisit: string | null;
   lastVisitTreatment: string | null;
   familyHistory: string | null;
+  /** ci | pasaporte | nit (CLI-54) — junto con dni forman la clave única real. */
+  documentType: string | null;
   dni: string | null;
   createdAt: string;
   updatedAt: string;

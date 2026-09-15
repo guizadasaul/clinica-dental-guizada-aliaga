@@ -34,13 +34,15 @@
       </h3>
       <dl class="record__grid">
         <div class="record__field"><dt>Nombre completo</dt><dd>{{ fullName(patient()) }}</dd></div>
-        <div class="record__field"><dt>DNI</dt><dd>{{ patient().dni || '—' }}</dd></div>
+        <div class="record__field"><dt>Documento</dt><dd>{{ documentLabel(patient()) }}</dd></div>
         <div class="record__field"><dt>Fecha de nacimiento</dt><dd>{{ patient().birthDate ? (patient().birthDate | date: 'dd/MM/yyyy') : '—' }}</dd></div>
         <div class="record__field"><dt>Lugar de nacimiento</dt><dd>{{ patient().birthPlace || '—' }}</dd></div>
         <div class="record__field"><dt>Sexo</dt><dd class="record__capitalize">{{ patient().sex || '—' }}</dd></div>
         <div class="record__field"><dt>Ocupación</dt><dd>{{ patient().occupation || '—' }}</dd></div>
         <div class="record__field"><dt>Teléfono</dt><dd>{{ patient().phone || '—' }}</dd></div>
         <div class="record__field"><dt>Dirección</dt><dd>{{ patient().address || '—' }}</dd></div>
+        <div class="record__field"><dt>Zona</dt><dd>{{ patient().zona || '—' }}</dd></div>
+        <div class="record__field"><dt>Ciudad</dt><dd>{{ patient().ciudad || '—' }}</dd></div>
         <div class="record__field"><dt>Contacto de emergencia</dt><dd>{{ patient().emergencyContactName || '—' }}</dd></div>
         <div class="record__field"><dt>Teléfono de emergencia</dt><dd>{{ patient().emergencyContactPhone || '—' }}</dd></div>
         <div class="record__field"><dt>Parentesco</dt><dd>{{ patient().emergencyContactRelationship || '—' }}</dd></div>

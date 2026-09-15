@@ -16,6 +16,8 @@ export interface CreatePatientData {
   sex?: string;
   occupation?: string;
   address?: string;
+  zona?: string;
+  ciudad?: string;
   phone?: string;
   emergencyContactName?: string;
   emergencyContactPhone?: string;
@@ -24,6 +26,7 @@ export interface CreatePatientData {
   lastDentistVisit?: Date;
   lastVisitTreatment?: string;
   familyHistory?: string;
+  documentType?: string;
   dni?: string;
 }
 
@@ -36,6 +39,8 @@ export interface UpdatePatientData {
   sex?: string;
   occupation?: string;
   address?: string;
+  zona?: string;
+  ciudad?: string;
   phone?: string;
   emergencyContactName?: string;
   emergencyContactPhone?: string;
@@ -44,6 +49,7 @@ export interface UpdatePatientData {
   lastDentistVisit?: Date;
   lastVisitTreatment?: string;
   familyHistory?: string;
+  documentType?: string;
   dni?: string;
 }
 
