@@ -205,7 +205,6 @@ export class PatientsController {
         toothType: e.toothType,
         toothCondition: e.toothCondition,
         diagnosisDescription: e.diagnosisDescription,
-        xrayRequested: e.xrayRequested,
         treatmentId: e.treatmentId,
         customPrice: e.customPrice,
         notes: e.notes,

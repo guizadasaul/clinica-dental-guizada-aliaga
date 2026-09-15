@@ -93,8 +93,8 @@ export interface OdontogramEntryData {
   toothNumber: number;
   toothType?: string;
   toothCondition: string;
-  diagnosisDescription: string;
-  xrayRequested?: boolean;
+  /** Opcional (CLI-52) — solo lo llena el endpoint manual viejo, createToothProcedure ya no necesita rellenarlo. */
+  diagnosisDescription?: string;
   treatmentId?: string;
   customPrice?: number;
   notes?: string;
