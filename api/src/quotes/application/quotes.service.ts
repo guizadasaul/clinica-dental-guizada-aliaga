@@ -1,4 +1,3 @@
-import { randomUUID } from 'node:crypto';
 import {
   BadRequestException,
   Inject,
@@ -123,6 +122,18 @@ export class QuotesService {
       exchangeRate = rate.rate;
     }
 
+    if (treatment.applicationType === 'multiple_teeth') {
+      const sortedTeeth = [...toothNumbers].sort((a, b) => a - b);
+      return this.quoteRepo.addItemGroup(quoteId, {
+        treatmentId: treatment.id,
+        toothNumbers: sortedTeeth,
+        unitPrice,
+        subtotal: round2(unitPrice),
+        currency: treatment.currency,
+        exchangeRate,
+      });
+    }
+
     const rows = this.buildQuoteItemRows(
       treatment.applicationType,
       toothNumbers,
@@ -170,28 +181,11 @@ export class QuotesService {
   ): NewQuoteItemData[] {
     const shared = { treatmentId, currency, exchangeRate };
 
-    if (applicationType === 'multiple_teeth') {
-      const applicationGroupId = randomUUID();
-      const sortedTeeth = [...toothNumbers].sort((a, b) => a - b);
-      return sortedTeeth.map((toothNumber, index) => {
-        const rowUnitPrice = index === 0 ? unitPrice : 0;
-        return {
-          ...shared,
-          toothNumber,
-          applicationGroupId,
-          unitPrice: rowUnitPrice,
-          quantity: 1,
-          subtotal: round2(rowUnitPrice),
-        };
-      });
-    }
-
     if (applicationType === 'single_tooth') {
       return [
         {
           ...shared,
           toothNumber: toothNumbers[0],
-          applicationGroupId: null,
           unitPrice,
           quantity: 1,
           subtotal: round2(unitPrice),
@@ -203,7 +197,6 @@ export class QuotesService {
       {
         ...shared,
         toothNumber: null,
-        applicationGroupId: null,
         unitPrice,
         quantity,
         subtotal: round2(unitPrice * quantity),

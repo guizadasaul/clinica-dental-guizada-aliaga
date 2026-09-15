@@ -292,20 +292,49 @@ model payments {
   quotes         quotes   @relation(fields: [quote_id], references: [id], onUpdate: NoAction)
 }
 
+/// Precio y tratamiento compartidos por un grupo de quote_items que
+/// corresponden a la misma aplicación multiple_teeth (CLI-45). Antes ese
+/// precio vivía en una fila arbitraria de quote_items (la del diente de
+/// número más bajo, con las demás facturando 0) — violación de 2FN:
+/// unit_price/subtotal dependían de (quote_id, application_group_id), no
+/// del diente. Borrar el grupo entero (quote_items.onDelete: Cascade sobre
+/// application_group_id) es la única forma soportada de borrarlo — ver
+/// removeItemGroup.
+model application_groups {
+  id            String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  quote_id      String        @db.Uuid
+  treatment_id  String        @db.Uuid
+  unit_price    Decimal       @db.Decimal(10, 2)
+  subtotal      Decimal       @db.Decimal(10, 2)
+  currency      String        @default("BOB") @db.VarChar(3)
+  exchange_rate Decimal?      @db.Decimal(12, 5)
+  created_at    DateTime      @default(now()) @db.Timestamptz(6)
+  quotes        quotes        @relation(fields: [quote_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  treatments    treatments    @relation(fields: [treatment_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  quote_items   quote_items[]
+
+  @@index([quote_id], map: "idx_application_groups_quote")
+}
+
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
 model quote_items {
-  id                   String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  quote_id             String     @db.Uuid
-  treatment_id         String     @db.Uuid
+  id                   String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  quote_id             String              @db.Uuid
+  treatment_id         String              @db.Uuid
   tooth_number         Int?
-  application_group_id String?    @db.Uuid
-  unit_price           Decimal    @db.Decimal(10, 2)
-  quantity             Int        @default(1)
-  subtotal             Decimal?   @db.Decimal(10, 2)
-  currency             String     @default("BOB") @db.VarChar(3)
-  exchange_rate        Decimal?   @db.Decimal(12, 5)
-  quotes               quotes     @relation(fields: [quote_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  treatments           treatments @relation(fields: [treatment_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  application_group_id String?             @db.Uuid
+  /// NULL cuando application_group_id está seteado (CLI-45) — el precio de
+  /// una aplicación multiple_teeth vive una sola vez en application_groups,
+  /// no repetido/mentido por fila. Solo las filas sueltas (single_tooth,
+  /// general) tienen su propio precio acá.
+  unit_price           Decimal?            @db.Decimal(10, 2)
+  quantity             Int                 @default(1)
+  subtotal             Decimal?            @db.Decimal(10, 2)
+  currency             String?             @db.VarChar(3)
+  exchange_rate        Decimal?            @db.Decimal(12, 5)
+  quotes               quotes              @relation(fields: [quote_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  treatments           treatments          @relation(fields: [treatment_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  application_groups   application_groups? @relation(fields: [application_group_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
   @@index([quote_id], map: "idx_quote_items_quote")
   @@index([application_group_id], map: "idx_quote_items_application_group")
@@ -313,17 +342,18 @@ model quote_items {
 
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
 model quotes {
-  id           String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  patient_id   String        @db.Uuid
-  total_amount Decimal       @default(0) @db.Decimal(10, 2)
-  total_paid   Decimal       @default(0) @db.Decimal(10, 2)
-  status       String        @default("pending") @db.VarChar(20)
-  notes        String?
-  created_at   DateTime      @default(now()) @db.Timestamptz(6)
-  updated_at   DateTime      @default(now()) @db.Timestamptz(6)
-  payments     payments[]
-  quote_items  quote_items[]
-  patients     patients      @relation(fields: [patient_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  id                 String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  patient_id         String               @db.Uuid
+  total_amount       Decimal              @default(0) @db.Decimal(10, 2)
+  total_paid         Decimal              @default(0) @db.Decimal(10, 2)
+  status             String               @default("pending") @db.VarChar(20)
+  notes              String?
+  created_at         DateTime             @default(now()) @db.Timestamptz(6)
+  updated_at         DateTime             @default(now()) @db.Timestamptz(6)
+  payments           payments[]
+  quote_items        quote_items[]
+  application_groups application_groups[]
+  patients           patients             @relation(fields: [patient_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
 }
 
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
@@ -402,6 +432,7 @@ model treatments {
   appointments            appointments[]
   odontogram_entries      odontogram_entries[]
   quote_items             quote_items[]
+  application_groups      application_groups[]
   tooth_procedures        tooth_procedures[]
   treatment_categories    treatment_categories     @relation(fields: [category_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
 }
