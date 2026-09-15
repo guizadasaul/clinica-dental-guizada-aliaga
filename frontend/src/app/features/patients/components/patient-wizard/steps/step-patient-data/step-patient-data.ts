@@ -20,6 +20,7 @@ import { normalizeText, optionalTextError } from '../../../../../../shared/valid
 import { isNotFutureDate, isAgeWithin, isNotBefore } from '../../../../../../shared/validation/date.validator';
 import type { Patient } from '../../../../models/patient.model';
 import type { CreatePatientRequest } from '../../../../models/patient.request';
+import { DOCUMENT_TYPES } from '../../../../../../shared/validation/clinical-options';
 
 // MaxLength(200) del DTO — más laxo que PERSON_NAME_MAX_LENGTH (100), así que
 // para este campo puntual no reusamos el tope interno de validatePersonName.
@@ -111,6 +112,7 @@ export class StepPatientDataComponent {
   readonly submitStep = output<Omit<CreatePatientRequest, 'userId'>>();
 
   protected readonly emergencyContactNameMaxLength = EMERGENCY_CONTACT_NAME_MAX_LENGTH;
+  protected readonly documentTypes = DOCUMENT_TYPES;
 
   protected readonly firstName = field<string>('', (v: string) => requiredPersonNameError(v, 'El nombre'));
   protected readonly lastNamePaternal = field<string>('', (v: string) =>
@@ -125,8 +127,11 @@ export class StepPatientDataComponent {
   );
   protected readonly sex = field<string>('', (v: string) => (v ? null : 'El sexo es obligatorio.'));
   protected readonly occupation = field<string>('', (v: string) => requiredTextFieldError(v, 150, 'La ocupación'));
+  protected readonly documentType = field<string>('', (v: string) => (v ? null : 'El tipo de documento es obligatorio.'));
   protected readonly dni = field<string>('', dniFieldError);
   protected readonly address = field<string>('', (v: string) => requiredTextFieldError(v, 300, 'La dirección'));
+  protected readonly zona = field<string>('', (v: string) => requiredTextFieldError(v, 100, 'La zona'));
+  protected readonly ciudad = field<string>('', (v: string) => requiredTextFieldError(v, 100, 'La ciudad'));
   protected readonly emergencyContactName = field<string>('', emergencyContactNameError);
   protected readonly emergencyContactRelationship = field<string>('', (v: string) =>
     requiredTextFieldError(v, 100, 'El parentesco'),
@@ -164,8 +169,11 @@ export class StepPatientDataComponent {
     this.birthPlace,
     this.sex,
     this.occupation,
+    this.documentType,
     this.dni,
     this.address,
+    this.zona,
+    this.ciudad,
     this.emergencyContactName,
     this.emergencyContactRelationship,
     this.consultationReason,
@@ -191,8 +199,11 @@ export class StepPatientDataComponent {
         this.birthPlace.reset(patient.birthPlace ?? '');
         this.sex.reset(patient.sex ?? '');
         this.occupation.reset(patient.occupation ?? '');
+        this.documentType.reset(patient.documentType ?? '');
         this.dni.reset(patient.dni ?? '');
         this.address.reset(patient.address ?? '');
+        this.zona.reset(patient.zona ?? '');
+        this.ciudad.reset(patient.ciudad ?? '');
         this.emergencyContactName.reset(patient.emergencyContactName ?? '');
         this.emergencyContactRelationship.reset(patient.emergencyContactRelationship ?? '');
         this.consultationReason.reset(patient.consultationReason ?? '');
@@ -244,7 +255,10 @@ export class StepPatientDataComponent {
       sex: this.sex.value(),
       occupation: normalizeText(this.occupation.value()),
       address: normalizeText(this.address.value()),
+      zona: normalizeText(this.zona.value()),
+      ciudad: normalizeText(this.ciudad.value()),
       phone: isBareCallingCode(this.phoneE164()) ? undefined : this.phoneE164(),
+      documentType: this.documentType.value(),
       dni: normalizeDni(this.dni.value()),
       emergencyContactName: normalizeFullName(this.emergencyContactName.value()),
       emergencyContactPhone: this.emergencyContactPhoneE164(),

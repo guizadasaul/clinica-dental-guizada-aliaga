@@ -165,6 +165,21 @@ export class ClinicalRecordViewComponent {
     return `${p.firstName} ${p.lastNamePaternal}${p.lastNameMaternal ? ' ' + p.lastNameMaternal : ''}`;
   }
 
+  private static readonly DOCUMENT_TYPE_LABELS: Record<string, string> = {
+    ci: 'CI',
+    pasaporte: 'Pasaporte',
+    nit: 'NIT',
+  };
+
+  /** (documentType, dni) es el par único real (CLI-54) — se muestran juntos. */
+  protected documentLabel(p: Patient): string {
+    if (!p.dni) { return '—'; }
+    const typeLabel = p.documentType
+      ? (ClinicalRecordViewComponent.DOCUMENT_TYPE_LABELS[p.documentType] ?? p.documentType)
+      : null;
+    return typeLabel ? `${typeLabel} ${p.dni}` : p.dni;
+  }
+
   protected brushingFrequencyLabel(value: string | null): string {
     if (!value) { return ''; }
     return BRUSHING_FREQUENCY_LABELS[value as BrushingFrequency] ?? value;

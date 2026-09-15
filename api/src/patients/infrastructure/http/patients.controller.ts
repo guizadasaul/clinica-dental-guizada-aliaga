@@ -63,6 +63,8 @@ export class PatientsController {
       sex: dto.sex,
       occupation: dto.occupation,
       address: dto.address,
+      zona: dto.zona,
+      ciudad: dto.ciudad,
       phone: dto.phone,
       emergencyContactName: dto.emergencyContactName,
       emergencyContactPhone: dto.emergencyContactPhone,
@@ -73,6 +75,7 @@ export class PatientsController {
         : undefined,
       lastVisitTreatment: dto.lastVisitTreatment,
       familyHistory: dto.familyHistory,
+      documentType: dto.documentType,
       dni: dto.dni,
     });
   }
@@ -92,6 +95,8 @@ export class PatientsController {
       sex: dto.sex,
       occupation: dto.occupation,
       address: dto.address,
+      zona: dto.zona,
+      ciudad: dto.ciudad,
       phone: dto.phone,
       emergencyContactName: dto.emergencyContactName,
       emergencyContactPhone: dto.emergencyContactPhone,
@@ -102,6 +107,7 @@ export class PatientsController {
         : undefined,
       lastVisitTreatment: dto.lastVisitTreatment,
       familyHistory: dto.familyHistory,
+      documentType: dto.documentType,
       dni: dto.dni,
       email: dto.email,
     });

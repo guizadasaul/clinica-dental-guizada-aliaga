@@ -87,6 +87,8 @@ export class PrismaPatientsRepository implements IPatientRepository {
         sex: data.sex ?? null,
         occupation: data.occupation ?? null,
         address: data.address ?? null,
+        zona: data.zona ?? null,
+        ciudad: data.ciudad ?? null,
         phone: data.phone ?? null,
         emergency_contact_name: data.emergencyContactName ?? null,
         emergency_contact_phone: data.emergencyContactPhone ?? null,
@@ -96,6 +98,7 @@ export class PrismaPatientsRepository implements IPatientRepository {
         last_dentist_visit: data.lastDentistVisit ?? null,
         last_visit_treatment: data.lastVisitTreatment ?? null,
         family_history: data.familyHistory ?? null,
+        document_type: data.documentType ?? null,
         dni: data.dni ?? null,
       },
     });
@@ -124,6 +127,8 @@ export class PrismaPatientsRepository implements IPatientRepository {
           ...(data.sex !== undefined && { sex: data.sex }),
           ...(data.occupation !== undefined && { occupation: data.occupation }),
           ...(data.address !== undefined && { address: data.address }),
+          ...(data.zona !== undefined && { zona: data.zona }),
+          ...(data.ciudad !== undefined && { ciudad: data.ciudad }),
           ...(data.phone !== undefined && { phone: data.phone }),
           ...(data.emergencyContactName !== undefined && {
             emergency_contact_name: data.emergencyContactName,
@@ -145,6 +150,9 @@ export class PrismaPatientsRepository implements IPatientRepository {
           }),
           ...(data.familyHistory !== undefined && {
             family_history: data.familyHistory,
+          }),
+          ...(data.documentType !== undefined && {
+            document_type: data.documentType,
           }),
           ...(data.dni !== undefined && { dni: data.dni }),
           updated_at: new Date(),

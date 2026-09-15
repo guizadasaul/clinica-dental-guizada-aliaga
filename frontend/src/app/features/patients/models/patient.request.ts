@@ -8,6 +8,8 @@ export interface CreatePatientRequest {
   sex: string;
   occupation: string;
   address: string;
+  zona: string;
+  ciudad: string;
   // El teléfono del PACIENTE sigue opcional — a diferencia del contacto de
   // emergencia, no está en la lista de campos obligatorios.
   phone?: string;
@@ -18,6 +20,7 @@ export interface CreatePatientRequest {
   lastDentistVisit?: string;
   lastVisitTreatment?: string;
   familyHistory?: string;
+  documentType: string;
   dni: string;
 }
 
@@ -30,6 +33,8 @@ export interface UpdatePatientRequest {
   sex?: string;
   occupation?: string;
   address?: string;
+  zona?: string;
+  ciudad?: string;
   phone?: string;
   emergencyContactName?: string;
   emergencyContactPhone?: string;
@@ -38,6 +43,7 @@ export interface UpdatePatientRequest {
   lastDentistVisit?: string;
   lastVisitTreatment?: string;
   familyHistory?: string;
+  documentType?: string;
   dni?: string;
   email?: string;
 }

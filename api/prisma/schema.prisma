@@ -239,7 +239,10 @@ model patients {
   birth_place                    String?              @db.VarChar(150)
   sex                            String?              @db.VarChar(20)
   occupation                     String?              @db.VarChar(150)
+  /// Resto de la dirección (calle, número, referencias) — zona/ciudad son campos propios (CLI-54), para poder reportar por zona sin parsear texto.
   address                        String?
+  zona                           String?              @db.VarChar(100)
+  ciudad                         String?              @db.VarChar(100)
   phone                          String?              @db.VarChar(20)
   emergency_contact_name         String?              @db.VarChar(200)
   emergency_contact_phone        String?              @db.VarChar(20)
@@ -248,7 +251,9 @@ model patients {
   last_dentist_visit             DateTime?            @db.Date
   last_visit_treatment           String?
   family_history                 String?
-  dni                            String?              @unique @db.VarChar(20)
+  /// CI/pasaporte/nit (CLI-54, ver DOCUMENT_TYPES) — null solo si dni también es null. La unicidad real es (document_type, dni), no dni solo: un pasaporte y una CI pueden coincidir en número sin ser la misma persona.
+  document_type                  String?              @db.VarChar(20)
+  dni                            String?              @db.VarChar(20)
   created_at                     DateTime             @default(now()) @db.Timestamptz(6)
   updated_at                     DateTime             @default(now()) @db.Timestamptz(6)
   appointments                   appointments[]
@@ -262,6 +267,8 @@ model patients {
   tooth_procedures               tooth_procedures[]
   xray_documents                 xray_documents[]
   patient_invites                patient_invites[]
+
+  @@unique([document_type, dni], map: "patients_document_type_dni_key")
 }
 
 model patient_invites {

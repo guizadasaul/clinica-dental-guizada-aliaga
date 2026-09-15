@@ -6,6 +6,12 @@
 export const SEXES = ['masculino', 'femenino', 'otro'] as const;
 export type Sex = (typeof SEXES)[number];
 
+// Alineado con el CHECK patients_document_type_check (CLI-54). La unicidad
+// real es (document_type, dni) — un pasaporte y una CI pueden coincidir en
+// número sin ser la misma persona.
+export const DOCUMENT_TYPES = ['ci', 'pasaporte', 'nit'] as const;
+export type DocumentType = (typeof DOCUMENT_TYPES)[number];
+
 // Códigos estables en vez del texto visible con tildes que se guardaba hoy
 // ("1 vez al día"). hygiene_habits está vacía (CLI-39): no hay datos que
 // migrar para este cambio.

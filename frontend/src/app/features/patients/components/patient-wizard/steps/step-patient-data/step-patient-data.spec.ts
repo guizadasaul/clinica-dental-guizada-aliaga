@@ -45,8 +45,11 @@ const BIRTH_DATE = '#birthDate';
 const BIRTH_PLACE = '#birthPlace';
 const SEX = '#sex';
 const OCCUPATION = '#occupation';
+const DOCUMENT_TYPE = '#documentType';
 const DNI = '#dni';
 const ADDRESS = '#address';
+const ZONA = '#zona';
+const CIUDAD = '#ciudad';
 const EMERGENCY_CONTACT_NAME = '#emergencyContactName';
 const EMERGENCY_CONTACT_RELATIONSHIP = '#emergencyContactRelationship';
 // Hay dos <app-phone-input> en el formulario: teléfono del paciente primero,
@@ -73,8 +76,11 @@ function fillRequiredFields(fixture: ReturnType<typeof setup>): void {
   type(el(fixture, BIRTH_PLACE), 'La Paz');
   select(el<HTMLSelectElement>(fixture, SEX), 'masculino');
   type(el(fixture, OCCUPATION), 'Ingeniero');
+  select(el<HTMLSelectElement>(fixture, DOCUMENT_TYPE), 'ci');
   type(el(fixture, DNI), '12345678');
   type(el(fixture, ADDRESS), 'Av. Siempre Viva 123');
+  type(el(fixture, ZONA), 'Zona Norte');
+  type(el(fixture, CIUDAD), 'Cochabamba');
   type(el(fixture, EMERGENCY_CONTACT_NAME), 'Maria Perez');
   type(el(fixture, EMERGENCY_CONTACT_RELATIONSHIP), 'Madre');
   const [, emergencyPhoneNational] = elAll<HTMLInputElement>(fixture, PHONE_NATIONAL_INPUTS);
@@ -98,12 +104,16 @@ describe('StepPatientDataComponent', () => {
     expect(el(fixture, `${BIRTH_DATE}.step-form__input--invalid`)).toBeTruthy();
     expect(el(fixture, `${BIRTH_PLACE}.step-form__input--invalid`)).toBeTruthy();
     expect(el(fixture, `${OCCUPATION}.step-form__input--invalid`)).toBeTruthy();
+    expect(el(fixture, `${DOCUMENT_TYPE}.step-form__input--invalid`)).toBeTruthy();
     expect(el(fixture, `${DNI}.step-form__input--invalid`)).toBeTruthy();
     expect(el(fixture, `${ADDRESS}.step-form__input--invalid`)).toBeTruthy();
+    expect(el(fixture, `${ZONA}.step-form__input--invalid`)).toBeTruthy();
+    expect(el(fixture, `${CIUDAD}.step-form__input--invalid`)).toBeTruthy();
     expect(el(fixture, `${EMERGENCY_CONTACT_NAME}.step-form__input--invalid`)).toBeTruthy();
     expect(el(fixture, `${EMERGENCY_CONTACT_RELATIONSHIP}.step-form__input--invalid`)).toBeTruthy();
     expect(el(fixture, '#firstName-err')?.textContent).toContain('El nombre es obligatorio.');
     expect(el(fixture, '#dni-err')?.textContent).toContain('El DNI es obligatorio.');
+    expect(el(fixture, '#documentType-err')?.textContent).toContain('El tipo de documento es obligatorio.');
   });
 
   it('rechaza una fecha de nacimiento futura sin llegar a emitir', async () => {
@@ -208,7 +218,10 @@ describe('StepPatientDataComponent', () => {
       sex: 'masculino',
       occupation: 'Ingeniero',
       address: 'Av. Siempre Viva 123',
+      zona: 'Zona Norte',
+      ciudad: 'Cochabamba',
       phone: undefined,
+      documentType: 'ci',
       dni: '12345678',
       emergencyContactName: 'Maria Perez',
       emergencyContactPhone: '+59177777777',
@@ -233,6 +246,8 @@ describe('StepPatientDataComponent', () => {
       sex: null,
       occupation: null,
       address: null,
+      zona: null,
+      ciudad: null,
       phone: '+59177001122',
       emergencyContactName: null,
       emergencyContactPhone: null,
@@ -241,6 +256,7 @@ describe('StepPatientDataComponent', () => {
       lastDentistVisit: null,
       lastVisitTreatment: null,
       familyHistory: null,
+      documentType: null,
       dni: '87654321',
       createdAt: '2020-01-01T00:00:00.000Z',
       updatedAt: '2020-01-01T00:00:00.000Z',
@@ -269,6 +285,8 @@ describe('StepPatientDataComponent', () => {
       sex: 'femenino',
       occupation: 'Doctora',
       address: 'Calle Falsa 123',
+      zona: 'Zona Sur',
+      ciudad: 'La Paz',
       phone: null,
       emergencyContactName: 'Pedro Lopez',
       emergencyContactPhone: '+59177001122',
@@ -277,6 +295,7 @@ describe('StepPatientDataComponent', () => {
       lastDentistVisit: null,
       lastVisitTreatment: null,
       familyHistory: null,
+      documentType: 'ci',
       dni: '87654321',
       createdAt: '2020-01-01T00:00:00.000Z',
       updatedAt: '2020-01-01T00:00:00.000Z',

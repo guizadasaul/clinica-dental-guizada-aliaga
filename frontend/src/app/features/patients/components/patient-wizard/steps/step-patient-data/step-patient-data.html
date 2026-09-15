@@ -136,7 +136,28 @@
         }
       </div>
       <div class="step-form__field">
-        <label class="step-form__label" for="dni">DNI <span class="step-form__req">*</span></label>
+        <label class="step-form__label" for="documentType">Tipo de documento <span class="step-form__req">*</span></label>
+        <select
+          id="documentType"
+          class="step-form__input"
+          [class.step-form__input--invalid]="documentType.showError()"
+          [value]="documentType.value()"
+          (change)="documentType.set($any($event.target).value)"
+          (blur)="documentType.markTouched()"
+          [attr.aria-invalid]="documentType.showError() || null"
+          [attr.aria-describedby]="documentType.showError() ? 'documentType-err' : null"
+        >
+          <option value="">Seleccionar</option>
+          @for (type of documentTypes; track type) {
+            <option [value]="type">{{ type === 'ci' ? 'CI' : type === 'pasaporte' ? 'Pasaporte' : 'NIT' }}</option>
+          }
+        </select>
+        @if (documentType.showError()) {
+          <p class="step-form__field-error" id="documentType-err" role="alert">{{ documentType.error() }}</p>
+        }
+      </div>
+      <div class="step-form__field">
+        <label class="step-form__label" for="dni">Número de documento <span class="step-form__req">*</span></label>
         <input
           id="dni"
           class="step-form__input"
@@ -170,12 +191,50 @@
         (input)="address.set($any($event.target).value)"
         (blur)="address.markTouched()"
         maxlength="300"
-        placeholder="Ej: Av. Heroínas 456, Zona Centro"
+        placeholder="Ej: Av. Heroínas 456"
         [attr.aria-invalid]="address.showError() || null"
         [attr.aria-describedby]="address.showError() ? 'address-err' : null"
       />
       @if (address.showError()) {
         <p class="step-form__field-error" id="address-err" role="alert">{{ address.error() }}</p>
+      }
+    </div>
+    <div class="step-form__field">
+      <label class="step-form__label" for="zona">Zona <span class="step-form__req">*</span></label>
+      <input
+        id="zona"
+        class="step-form__input"
+        [class.step-form__input--invalid]="zona.showError()"
+        type="text"
+        [value]="zona.value()"
+        (input)="zona.set($any($event.target).value)"
+        (blur)="zona.markTouched()"
+        maxlength="100"
+        placeholder="Ej: Zona Norte"
+        [attr.aria-invalid]="zona.showError() || null"
+        [attr.aria-describedby]="zona.showError() ? 'zona-err' : null"
+      />
+      @if (zona.showError()) {
+        <p class="step-form__field-error" id="zona-err" role="alert">{{ zona.error() }}</p>
+      }
+    </div>
+    <div class="step-form__field">
+      <label class="step-form__label" for="ciudad">Ciudad <span class="step-form__req">*</span></label>
+      <input
+        id="ciudad"
+        class="step-form__input"
+        [class.step-form__input--invalid]="ciudad.showError()"
+        type="text"
+        [value]="ciudad.value()"
+        (input)="ciudad.set($any($event.target).value)"
+        (blur)="ciudad.markTouched()"
+        maxlength="100"
+        placeholder="Ej: Cochabamba"
+        [attr.aria-invalid]="ciudad.showError() || null"
+        [attr.aria-describedby]="ciudad.showError() ? 'ciudad-err' : null"
+      />
+      @if (ciudad.showError()) {
+        <p class="step-form__field-error" id="ciudad-err" role="alert">{{ ciudad.error() }}</p>
       }
     </div>
   </div>
