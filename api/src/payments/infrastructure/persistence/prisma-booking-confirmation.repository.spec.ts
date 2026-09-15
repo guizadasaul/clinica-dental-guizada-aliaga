@@ -6,8 +6,8 @@ const NOW = new Date('2026-08-17T13:05:00.000Z');
 describe('PrismaBookingConfirmationRepository', () => {
   let prismaMock: {
     appointments: { updateMany: jest.Mock; update: jest.Mock };
-    users: { create: jest.Mock };
-    patients: { create: jest.Mock };
+    users: { create: jest.Mock; findUnique: jest.Mock };
+    patients: { create: jest.Mock; findUnique: jest.Mock };
     transaction: jest.Mock;
   };
   let repo: PrismaBookingConfirmationRepository;
@@ -15,8 +15,11 @@ describe('PrismaBookingConfirmationRepository', () => {
   beforeEach(() => {
     prismaMock = {
       appointments: { updateMany: jest.fn(), update: jest.fn() },
-      users: { create: jest.fn() },
-      patients: { create: jest.fn() },
+      users: { create: jest.fn(), findUnique: jest.fn() },
+      patients: {
+        create: jest.fn(),
+        findUnique: jest.fn().mockResolvedValue(null),
+      },
       transaction: jest.fn((fn: (tx: unknown) => unknown) => fn(prismaMock)),
     };
     repo = new PrismaBookingConfirmationRepository(
@@ -158,6 +161,43 @@ describe('PrismaBookingConfirmationRepository', () => {
     expect(prismaMock.appointments.update).toHaveBeenCalledWith({
       where: { id: 'appt-1' },
       data: { patient_id: 'patient-1' },
+    });
+  });
+
+  // El guest usó un email que ya es una cuenta existente (p. ej. ya se
+  // registró antes, o reserva "para otra persona" con su propio email).
+  // tx.users.create() pegaría contra el UNIQUE de email y, como Postgres
+  // aborta toda la transacción ante un error, la cita quedaría trabada en
+  // 'held' para siempre pese a estar pagada — hay que reusar el usuario y su
+  // paciente existentes en vez de intentar crear otros.
+  it('reuses the existing user and patient when the guest email already belongs to an account', async () => {
+    prismaMock.appointments.updateMany.mockResolvedValue({ count: 1 });
+    prismaMock.users.findUnique.mockResolvedValue({ id: 'existing-user' });
+    prismaMock.patients.findUnique.mockResolvedValue({
+      id: 'existing-patient',
+    });
+
+    const result = await repo.confirmPaidBooking({
+      appointmentId: 'appt-1',
+      paidAt: NOW,
+      amount: 50,
+      qrId: 'qr-1',
+      guestFirstName: 'Kevin',
+      guestLastNamePaternal: 'Perez',
+      guestLastNameMaternal: null,
+      guestPhone: '70011122',
+      guestEmail: 'ya@existe.com',
+    });
+
+    expect(prismaMock.users.findUnique).toHaveBeenCalledWith({
+      where: { email: 'ya@existe.com' },
+    });
+    expect(prismaMock.users.create).not.toHaveBeenCalled();
+    expect(prismaMock.patients.create).not.toHaveBeenCalled();
+    expect(result).toEqual({
+      appointmentId: 'appt-1',
+      patientId: 'existing-patient',
+      userId: 'existing-user',
     });
   });
 });

@@ -2,6 +2,8 @@ import { Prisma } from '@prisma/client';
 import { PrismaAppointmentsRepository } from './prisma-appointments.repository';
 import { PrismaService } from '../../../shared/prisma/prisma.service';
 import {
+  GuestEmailBelongsToAccountError,
+  GuestPhoneBelongsToAccountError,
   GuestPhoneConflictError,
   SlotUnavailableError,
 } from '../../domain/AppointmentRepository';
@@ -46,6 +48,7 @@ describe('PrismaAppointmentsRepository', () => {
       updateMany: jest.Mock;
       create: jest.Mock;
     };
+    users: { findUnique: jest.Mock; findFirst: jest.Mock };
     transaction: jest.Mock;
   };
   let repo: PrismaAppointmentsRepository;
@@ -57,6 +60,10 @@ describe('PrismaAppointmentsRepository', () => {
         findUnique: jest.fn(),
         updateMany: jest.fn(),
         create: jest.fn(),
+      },
+      users: {
+        findUnique: jest.fn().mockResolvedValue(null),
+        findFirst: jest.fn().mockResolvedValue(null),
       },
       transaction: jest.fn((fn: (tx: unknown) => unknown) => fn(prismaMock)),
     };
@@ -152,7 +159,13 @@ describe('PrismaAppointmentsRepository', () => {
 
       const result = await repo.updateGuestContact(
         'appt-1',
-        { firstName: 'X', lastNamePaternal: 'Y', lastNameMaternal: null, phone: '7', email: null },
+        {
+          firstName: 'X',
+          lastNamePaternal: 'Y',
+          lastNameMaternal: null,
+          phone: '7',
+          email: null,
+        },
         NOW,
       );
 
@@ -172,7 +185,13 @@ describe('PrismaAppointmentsRepository', () => {
 
       const result = await repo.updateGuestContact(
         'appt-1',
-        { firstName: 'X', lastNamePaternal: 'Y', lastNameMaternal: null, phone: '7', email: null },
+        {
+          firstName: 'X',
+          lastNamePaternal: 'Y',
+          lastNameMaternal: null,
+          phone: '7',
+          email: null,
+        },
         NOW,
       );
 
@@ -213,6 +232,50 @@ describe('PrismaAppointmentsRepository', () => {
           NOW,
         ),
       ).rejects.toThrow(GuestPhoneConflictError);
+    });
+
+    it('throws GuestEmailBelongsToAccountError when the email already belongs to a user, without touching appointments', async () => {
+      prismaMock.users.findUnique.mockResolvedValue({ id: 'user-1' });
+
+      await expect(
+        repo.updateGuestContact(
+          'appt-1',
+          {
+            firstName: 'X',
+            lastNamePaternal: 'Y',
+            lastNameMaternal: null,
+            phone: '70011122',
+            email: 'ya@existe.com',
+          },
+          NOW,
+        ),
+      ).rejects.toThrow(GuestEmailBelongsToAccountError);
+      expect(prismaMock.users.findUnique).toHaveBeenCalledWith({
+        where: { email: 'ya@existe.com' },
+      });
+      expect(prismaMock.appointments.updateMany).not.toHaveBeenCalled();
+    });
+
+    it('throws GuestPhoneBelongsToAccountError when the phone already belongs to a user, without touching appointments', async () => {
+      prismaMock.users.findFirst.mockResolvedValue({ id: 'user-1' });
+
+      await expect(
+        repo.updateGuestContact(
+          'appt-1',
+          {
+            firstName: 'X',
+            lastNamePaternal: 'Y',
+            lastNameMaternal: null,
+            phone: '70011122',
+            email: null,
+          },
+          NOW,
+        ),
+      ).rejects.toThrow(GuestPhoneBelongsToAccountError);
+      expect(prismaMock.users.findFirst).toHaveBeenCalledWith({
+        where: { phone: '70011122' },
+      });
+      expect(prismaMock.appointments.updateMany).not.toHaveBeenCalled();
     });
   });
 
