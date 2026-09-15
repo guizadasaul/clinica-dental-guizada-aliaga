@@ -141,6 +141,7 @@ describe('PrismaPatientsRepository.createToothProcedureGroup', () => {
     mockTx.tooth_procedures.create.mockResolvedValue({
       id: 'proc-1',
       application_groups: { id: 'group-1', unit_price: 1700 },
+      tooth_procedure_surfaces: [],
     });
     const mockPrisma = makeMockPrismaService(mockTx);
     const repo = new PrismaPatientsRepository(mockPrisma as never);
@@ -148,7 +149,7 @@ describe('PrismaPatientsRepository.createToothProcedureGroup', () => {
     await repo.createToothProcedureGroup('patient-1', {
       treatmentId: 'treatment-1',
       teeth: [
-        { toothNumber: 16, surfaceOcclusal: true },
+        { toothNumber: 16, surfaceCodes: ['occlusal'] },
         { toothNumber: 17 },
       ],
       priceCharged: 1700,
@@ -173,7 +174,9 @@ describe('PrismaPatientsRepository.createToothProcedureGroup', () => {
         tooth_number: 16,
         application_group_id: 'group-1',
         treatment_id: 'treatment-1',
-        surface_occlusal: true,
+        tooth_procedure_surfaces: {
+          create: [{ tooth_surfaces: { connect: { code: 'occlusal' } } }],
+        },
         performed_by: 'doctor-1',
       }),
     );

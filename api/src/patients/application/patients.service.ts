@@ -39,6 +39,10 @@ import type { IDiagnosisRepository } from '../../diagnoses/domain/DiagnosisRepos
 import type { Diagnosis } from '../../diagnoses/domain/Diagnosis';
 import { toothTypeFor } from '../../shared/validators/tooth.validator';
 import {
+  assertValidSurfacesForTooth,
+  InvalidToothSurfaceError,
+} from '../../shared/validators/tooth-surface.validator';
+import {
   BLACK_CLASSES,
   MOBILITY_GRADES,
 } from '../../shared/validators/clinical-options';
@@ -57,11 +61,8 @@ import type {
 /** Un diente dentro de una aplicación, con sus propias superficies (CLI-41). */
 interface ToothApplicationInput {
   number: number;
-  surfaceVestibular?: boolean;
-  surfacePalatal?: boolean;
-  surfaceMesial?: boolean;
-  surfaceDistal?: boolean;
-  surfaceOcclusal?: boolean;
+  /** Códigos de tooth_surfaces (CLI-49) — p.ej. ['vestibular', 'occlusal']. */
+  surfaces?: string[];
 }
 
 interface CreateToothProcedureInput {
@@ -268,8 +269,16 @@ export class PatientsService {
         treatment.applicationType,
         data.teeth.map((t) => t.number),
       );
+      for (const tooth of data.teeth) {
+        if (tooth.surfaces?.length) {
+          assertValidSurfacesForTooth(tooth.number, tooth.surfaces);
+        }
+      }
     } catch (error: unknown) {
-      if (error instanceof InvalidApplicationTypeError) {
+      if (
+        error instanceof InvalidApplicationTypeError ||
+        error instanceof InvalidToothSurfaceError
+      ) {
         throw new BadRequestException(error.message);
       }
       throw error;
@@ -282,11 +291,7 @@ export class PatientsService {
         treatmentId: treatment.id,
         teeth: sortedTeeth.map((tooth) => ({
           toothNumber: tooth.number,
-          surfaceVestibular: tooth.surfaceVestibular,
-          surfacePalatal: tooth.surfacePalatal,
-          surfaceMesial: tooth.surfaceMesial,
-          surfaceDistal: tooth.surfaceDistal,
-          surfaceOcclusal: tooth.surfaceOcclusal,
+          surfaceCodes: tooth.surfaces,
         })),
         priceCharged: data.priceCharged,
         procedureDate: data.procedureDate,
@@ -352,11 +357,7 @@ export class PatientsService {
           toothNumber: tooth.number,
           priceCharged: data.priceCharged,
           quantity: data.quantity ?? 1,
-          surfaceVestibular: tooth.surfaceVestibular,
-          surfacePalatal: tooth.surfacePalatal,
-          surfaceMesial: tooth.surfaceMesial,
-          surfaceDistal: tooth.surfaceDistal,
-          surfaceOcclusal: tooth.surfaceOcclusal,
+          surfaceCodes: tooth.surfaces,
         },
       ];
     }

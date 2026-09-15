@@ -11,7 +11,17 @@ import {
 import { DecimalPipe } from '@angular/common';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { TreatmentsService } from '../../services/treatments.service';
-import type { Treatment, ToothProcedure } from '../../models/treatment.model';
+import type { Treatment, ToothProcedure, ToothSurfaceCode } from '../../models/treatment.model';
+
+const SURFACE_ABBREVIATIONS: Record<ToothSurfaceCode, string> = {
+  vestibular: 'Vest.',
+  palatal: 'Pal.',
+  lingual: 'Ling.',
+  mesial: 'Mes.',
+  distal: 'Dis.',
+  occlusal: 'Ocl.',
+  incisal: 'Inc.',
+};
 
 interface GroupedProcedure {
   readonly key: string;
@@ -124,13 +134,9 @@ export class TreatmentHistoryComponent {
   }
 
   protected getSurfaces(proc: ToothProcedure): string {
-    const surfaces: string[] = [];
-    if (proc.surfaceVestibular) { surfaces.push('Vest.'); }
-    if (proc.surfacePalatal) { surfaces.push('Pal.'); }
-    if (proc.surfaceMesial) { surfaces.push('Mes.'); }
-    if (proc.surfaceDistal) { surfaces.push('Dis.'); }
-    if (proc.surfaceOcclusal) { surfaces.push('Ocl.'); }
-    return surfaces.length ? surfaces.join(', ') : '—';
+    return proc.surfaces.length
+      ? proc.surfaces.map((code) => SURFACE_ABBREVIATIONS[code]).join(', ')
+      : '—';
   }
 
   protected onClose(): void {

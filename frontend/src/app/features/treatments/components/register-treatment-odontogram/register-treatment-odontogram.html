@@ -85,26 +85,17 @@
                 <div class="rto__panel-field">
                   <label class="rto__panel-label">Superficies afectadas — diente #{{ n }}</label>
                   <div class="rto__surfaces">
-                    <label class="rto__check">
-                      <input type="checkbox" [checked]="getSurface(n).vestibular" (change)="setSurface(n, 'vestibular', $any($event.target).checked)" />
-                      Vestibular
-                    </label>
-                    <label class="rto__check">
-                      <input type="checkbox" [checked]="getSurface(n).palatal" (change)="setSurface(n, 'palatal', $any($event.target).checked)" />
-                      Palatal
-                    </label>
-                    <label class="rto__check">
-                      <input type="checkbox" [checked]="getSurface(n).mesial" (change)="setSurface(n, 'mesial', $any($event.target).checked)" />
-                      Mesial
-                    </label>
-                    <label class="rto__check">
-                      <input type="checkbox" [checked]="getSurface(n).distal" (change)="setSurface(n, 'distal', $any($event.target).checked)" />
-                      Distal
-                    </label>
-                    <label class="rto__check">
-                      <input type="checkbox" [checked]="getSurface(n).occlusal" (change)="setSurface(n, 'occlusal', $any($event.target).checked)" />
-                      Oclusal
-                    </label>
+                    @for (option of surfaceOptionsFor(n); track option.code) {
+                      <label class="rto__check">
+                        <input
+                          type="checkbox"
+                          [attr.data-surface]="option.code"
+                          [checked]="getSurface(n)[option.code]"
+                          (change)="setSurface(n, option.code, $any($event.target).checked)"
+                        />
+                        {{ option.label }}
+                      </label>
+                    }
                   </div>
                 </div>
               }

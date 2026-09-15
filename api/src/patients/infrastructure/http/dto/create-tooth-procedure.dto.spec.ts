@@ -10,7 +10,7 @@ import { CreateToothProcedureDto } from './create-tooth-procedure.dto';
 import { INJECTION_PAYLOADS } from '../../../../shared/validators/__fixtures__/injection-payloads';
 
 const VALID_PROCEDURE = {
-  teeth: [{ number: 16, surfaceOcclusal: true }],
+  teeth: [{ number: 16, surfaces: ['occlusal'] }],
   treatmentId: 'd290f1ee-6c54-4b01-90e6-d701748f0851',
   priceCharged: 150,
   notes: 'Sin complicaciones',
@@ -38,11 +38,18 @@ describe('CreateToothProcedureDto', () => {
   it('acepta varios dientes con superficies distintas cada uno', async () => {
     const errors = await validateProcedure({
       teeth: [
-        { number: 16, surfaceOcclusal: true },
-        { number: 17, surfaceMesial: true, surfaceDistal: true },
+        { number: 16, surfaces: ['occlusal'] },
+        { number: 17, surfaces: ['mesial', 'distal'] },
       ],
     });
     expect(errors).toHaveLength(0);
+  });
+
+  it('rechaza un código de superficie desconocido', async () => {
+    const errors = await validateProcedure({
+      teeth: [{ number: 16, surfaces: ['inventada'] }],
+    });
+    expect(errors.length).toBeGreaterThan(0);
   });
 
   it('acepta quantity para tratamientos por unidad/caja', async () => {
