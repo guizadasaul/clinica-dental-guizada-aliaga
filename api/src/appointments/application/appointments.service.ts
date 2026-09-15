@@ -13,6 +13,7 @@ import {
 } from '../domain/Appointment.js';
 import {
   AppointmentRepository,
+  GuestPhoneConflictError,
   SlotUnavailableError,
 } from '../domain/AppointmentRepository.js';
 import type {
@@ -161,11 +162,21 @@ export class AppointmentsService {
     phone: string,
     email: string | null,
   ): Promise<Appointment> {
-    const updated = await this.appointmentRepo.updateGuestContact(
-      id,
-      { firstName, lastNamePaternal, lastNameMaternal, phone, email },
-      new Date(),
-    );
+    let updated: Appointment | null;
+    try {
+      updated = await this.appointmentRepo.updateGuestContact(
+        id,
+        { firstName, lastNamePaternal, lastNameMaternal, phone, email },
+        new Date(),
+      );
+    } catch (error) {
+      if (error instanceof GuestPhoneConflictError) {
+        throw new ConflictException(
+          'Ya existe una cita activa con este número de teléfono',
+        );
+      }
+      throw error;
+    }
     if (!updated) {
       const existing = await this.appointmentRepo.findById(id);
       if (!existing) {

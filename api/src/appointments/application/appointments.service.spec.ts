@@ -8,6 +8,7 @@ import { Test } from '@nestjs/testing';
 import { AppointmentsService } from './appointments.service';
 import {
   AppointmentRepository,
+  GuestPhoneConflictError,
   SlotUnavailableError,
 } from '../domain/AppointmentRepository';
 import { Appointment, AppointmentStatus } from '../domain/Appointment';
@@ -240,6 +241,16 @@ describe('AppointmentsService', () => {
       await expect(
         service.saveGuestContact('appt-1', 'Juana', 'Perez', null, '70011122', null),
       ).rejects.toThrow(GoneException);
+    });
+
+    it('maps GuestPhoneConflictError to ConflictException (409)', async () => {
+      mockRepo.updateGuestContact.mockRejectedValue(
+        new GuestPhoneConflictError(),
+      );
+
+      await expect(
+        service.saveGuestContact('appt-1', 'Juana', 'Perez', null, '70011122', null),
+      ).rejects.toThrow(ConflictException);
     });
   });
 

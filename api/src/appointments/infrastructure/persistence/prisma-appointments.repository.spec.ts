@@ -1,7 +1,10 @@
 import { Prisma } from '@prisma/client';
 import { PrismaAppointmentsRepository } from './prisma-appointments.repository';
 import { PrismaService } from '../../../shared/prisma/prisma.service';
-import { SlotUnavailableError } from '../../domain/AppointmentRepository';
+import {
+  GuestPhoneConflictError,
+  SlotUnavailableError,
+} from '../../domain/AppointmentRepository';
 
 const NOW = new Date('2026-08-17T13:00:00.000Z');
 const SLOT = new Date('2026-08-17T13:00:00.000Z');
@@ -157,6 +160,31 @@ describe('PrismaAppointmentsRepository', () => {
       });
       expect(result?.guestFirstName).toBe('X');
       expect(result?.guestLastNamePaternal).toBe('Y');
+    });
+
+    it('translates a unique-guest_phone conflict (P2002) into GuestPhoneConflictError', async () => {
+      const error = new Prisma.PrismaClientKnownRequestError(
+        'Unique constraint failed',
+        {
+          code: 'P2002',
+          clientVersion: 'test',
+        },
+      );
+      prismaMock.appointments.updateMany.mockRejectedValue(error);
+
+      await expect(
+        repo.updateGuestContact(
+          'appt-1',
+          {
+            firstName: 'X',
+            lastNamePaternal: 'Y',
+            lastNameMaternal: null,
+            phone: '7',
+            email: null,
+          },
+          NOW,
+        ),
+      ).rejects.toThrow(GuestPhoneConflictError);
     });
   });
 
