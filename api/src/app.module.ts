@@ -8,6 +8,7 @@ import { PrismaModule } from './shared/prisma/prisma.module';
 import { AuthModule } from './auth/auth.module';
 import { PatientsModule } from './patients/patients.module';
 import { TreatmentsModule } from './treatments/treatments.module';
+import { DoctorsModule } from './doctors/doctors.module';
 import { AppointmentsModule } from './appointments/appointments.module';
 import { PaymentsModule } from './payments/payments.module';
 import { ExchangeRateModule } from './exchange-rate/exchange-rate.module';
@@ -33,6 +34,7 @@ import { MedicalConditionsModule } from './medical-conditions/medical-conditions
     MedicalConditionsModule,
     PatientsModule,
     TreatmentsModule,
+    DoctorsModule,
     AppointmentsModule,
     PaymentsModule,
     QuotesModule,

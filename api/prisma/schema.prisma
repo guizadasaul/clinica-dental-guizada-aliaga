@@ -73,15 +73,11 @@ model appointments {
   id                       String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   patient_id               String?     @db.Uuid
   treatment_id             String?     @db.Uuid
-  /// CLI-61: default transicional — la función SQL cli61_default_doctor_id()
-  /// (creada en la migración, Postgres no permite un subquery inline en un
-  /// DEFAULT) resuelve al único doctor con role='odontologist' (hoy solo hay
-  /// uno en la base real). Existe para que el código que todavía no es
-  /// doctor-aware (createHold y afines, hasta CLI-56) siga compilando e
-  /// insertando sin pasar doctor_id explícito, sin dejar de ser NOT NULL a
-  /// nivel de Postgres. CLI-56 debe quitar este @default y la función cuando
-  /// toda escritura de appointments pase doctorId explícito.
-  doctor_id                String      @default(dbgenerated("cli61_default_doctor_id()")) @db.Uuid
+  /// FK al doctor con el que se reserva (CLI-61: columna + índice compuesto;
+  /// CLI-56: createHold ya pasa doctor_id explícito, así que se retira el
+  /// default transicional a la función cli61_default_doctor_id() — la
+  /// función misma se dropea en la migración de CLI-56).
+  doctor_id                String      @db.Uuid
   appointment_datetime     DateTime    @db.Timestamptz(6)
   /// Congelada al reservar (CLI-47) — snapshot de treatments.estimated_minutes
   /// en el momento del hold, o 30 (un slot) si no se especificó tratamiento.

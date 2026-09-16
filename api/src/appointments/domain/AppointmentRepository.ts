@@ -39,6 +39,8 @@ export class GuestPhoneBelongsToAccountError extends Error {
 }
 
 export interface CreateHoldData {
+  /** CLI-56: el doctor con el que se reserva — cada uno tiene su propia agenda. */
+  doctorId: string;
   slot: Date;
   holdExpiresAt: Date;
   treatmentId: string | null;
@@ -70,8 +72,13 @@ export interface AgendaFilters {
 export interface IAppointmentRepository {
   /** Agenda del doctor — citas con datos básicos del paciente embebidos. */
   findForAgenda(filters: AgendaFilters): Promise<AppointmentWithPatient[]>;
-  /** Citas activas (confirmed, o held vigente) que se solapan con el rango dado. */
-  findActiveBetween(from: Date, to: Date, now: Date): Promise<Appointment[]>;
+  /** Citas activas (confirmed, o held vigente) de ESE doctor que se solapan con el rango dado — CLI-56: cada doctor tiene su propia agenda. */
+  findActiveBetween(
+    from: Date,
+    to: Date,
+    now: Date,
+    doctorId: string,
+  ): Promise<Appointment[]>;
   findById(id: string): Promise<Appointment | null>;
   findByQrId(qrId: string): Promise<Appointment | null>;
   /** Atómico: libera holds vencidos de ese slot e intenta tomar el hold. Lanza SlotUnavailableError ante colisión. */

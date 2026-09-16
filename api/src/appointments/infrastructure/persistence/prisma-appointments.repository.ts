@@ -49,9 +49,11 @@ export class PrismaAppointmentsRepository implements IAppointmentRepository {
     from: Date,
     to: Date,
     now: Date,
+    doctorId: string,
   ): Promise<Appointment[]> {
     const records = await this.prisma.appointments.findMany({
       where: {
+        doctor_id: doctorId,
         appointment_datetime: { gte: from, lt: to },
         OR: [
           { status: AppointmentStatus.CONFIRMED },
@@ -78,10 +80,14 @@ export class PrismaAppointmentsRepository implements IAppointmentRepository {
   async createHold(data: CreateHoldData): Promise<Appointment> {
     try {
       const record = await this.prisma.transaction(async (tx) => {
-        // Libera holds vencidos de ese slot puntual — el UPDATE toma row-lock y
-        // serializa requests concurrentes sobre el mismo horario.
+        // Libera holds vencidos de ese slot puntual, para ESE doctor — el
+        // UPDATE toma row-lock y serializa requests concurrentes sobre el
+        // mismo horario. Desde CLI-56 el mismo horario ya no es exclusivo de
+        // la clínica entera, así que filtra por doctor_id: un hold vencido
+        // del doctor B a esa hora no debe tocarse al reservar con el doctor A.
         await tx.appointments.updateMany({
           where: {
+            doctor_id: data.doctorId,
             appointment_datetime: data.slot,
             status: AppointmentStatus.HELD,
             hold_expires_at: { lt: new Date() },
@@ -90,6 +96,7 @@ export class PrismaAppointmentsRepository implements IAppointmentRepository {
         });
         return tx.appointments.create({
           data: {
+            doctor_id: data.doctorId,
             appointment_datetime: data.slot,
             duration_minutes: data.durationMinutes,
             status: AppointmentStatus.HELD,

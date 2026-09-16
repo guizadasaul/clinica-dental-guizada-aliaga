@@ -82,6 +82,12 @@ export class PrismaService implements OnModuleInit, OnModuleDestroy {
   get dental_exam_findings() {
     return this._client.dental_exam_findings;
   }
+  get doctor_profiles() {
+    return this._client.doctor_profiles;
+  }
+  get doctor_schedule_blocks() {
+    return this._client.doctor_schedule_blocks;
+  }
 
   transaction<T>(fn: (tx: Prisma.TransactionClient) => Promise<T>): Promise<T> {
     return this._client.$transaction(fn);

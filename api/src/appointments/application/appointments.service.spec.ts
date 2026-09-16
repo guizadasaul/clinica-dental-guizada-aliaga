@@ -16,9 +16,28 @@ import {
 import { Appointment, AppointmentStatus } from '../domain/Appointment';
 import { TreatmentRepository } from '../../treatments/domain/TreatmentRepository';
 import type { Treatment } from '../../treatments/domain/Treatment';
+import { DoctorRepository } from '../../doctors/domain/DoctorRepository';
+import { DoctorScheduleRepository } from '../../doctors/domain/DoctorScheduleRepository';
 
 const MONDAY = '2026-08-17';
 const VALID_SLOT_ISO = `${MONDAY}T09:00:00-04:00`;
+const DOCTOR_ID = 'doctor-1';
+
+// Mismo horario que el WEEKDAY_BLOCKS hardcodeado que ClinicSchedule tenía
+// antes de CLI-56 — Lun-Vie 09-12/15-19, Sáb 09-12, domingo cerrado.
+const CLINIC_HOURS_FIXTURE = [
+  { weekday: 1, start: '09:00', end: '12:00' },
+  { weekday: 1, start: '15:00', end: '19:00' },
+  { weekday: 2, start: '09:00', end: '12:00' },
+  { weekday: 2, start: '15:00', end: '19:00' },
+  { weekday: 3, start: '09:00', end: '12:00' },
+  { weekday: 3, start: '15:00', end: '19:00' },
+  { weekday: 4, start: '09:00', end: '12:00' },
+  { weekday: 4, start: '15:00', end: '19:00' },
+  { weekday: 5, start: '09:00', end: '12:00' },
+  { weekday: 5, start: '15:00', end: '19:00' },
+  { weekday: 6, start: '09:00', end: '12:00' },
+];
 
 const mockRepo = {
   findActiveBetween: jest.fn(),
@@ -37,6 +56,15 @@ const mockTreatmentRepo = {
   findDefaultConsultation: jest.fn(),
   create: jest.fn(),
   update: jest.fn(),
+};
+
+const mockDoctorRepo = {
+  findBookable: jest.fn(),
+  isBookable: jest.fn(),
+};
+
+const mockDoctorScheduleRepo = {
+  findBlocksForDoctor: jest.fn(),
 };
 
 function fakeTreatment(overrides: Partial<Treatment> = {}): Treatment {
@@ -100,11 +128,17 @@ describe('AppointmentsService', () => {
     // slots fijos de este spec como "pasados" a medida que el tiempo avanza.
     jest.useFakeTimers().setSystemTime(new Date('2026-08-14T12:00:00-04:00'));
     jest.clearAllMocks();
+    mockDoctorRepo.isBookable.mockResolvedValue(true);
+    mockDoctorScheduleRepo.findBlocksForDoctor.mockResolvedValue(
+      CLINIC_HOURS_FIXTURE,
+    );
     const module = await Test.createTestingModule({
       providers: [
         AppointmentsService,
         { provide: AppointmentRepository, useValue: mockRepo },
         { provide: TreatmentRepository, useValue: mockTreatmentRepo },
+        { provide: DoctorRepository, useValue: mockDoctorRepo },
+        { provide: DoctorScheduleRepository, useValue: mockDoctorScheduleRepo },
       ],
     }).compile();
     service = module.get(AppointmentsService);
@@ -115,8 +149,34 @@ describe('AppointmentsService', () => {
   });
 
   describe('getAvailability', () => {
+    it('rejects with 404 when the doctorId is not bookable, without touching the schedule or the repo', async () => {
+      mockDoctorRepo.isBookable.mockResolvedValue(false);
+
+      await expect(
+        service.getAvailability('missing-doctor', MONDAY),
+      ).rejects.toThrow(NotFoundException);
+      expect(mockDoctorScheduleRepo.findBlocksForDoctor).not.toHaveBeenCalled();
+      expect(mockRepo.findActiveBetween).not.toHaveBeenCalled();
+    });
+
+    it('queries the repository scoped to the given doctorId', async () => {
+      mockRepo.findActiveBetween.mockResolvedValue([]);
+
+      await service.getAvailability(DOCTOR_ID, MONDAY);
+
+      expect(mockDoctorScheduleRepo.findBlocksForDoctor).toHaveBeenCalledWith(
+        DOCTOR_ID,
+      );
+      expect(mockRepo.findActiveBetween).toHaveBeenCalledWith(
+        expect.any(Date),
+        expect.any(Date),
+        expect.any(Date),
+        DOCTOR_ID,
+      );
+    });
+
     it('returns no slots and never queries the repo on a closed day (Sunday)', async () => {
-      const result = await service.getAvailability('2026-08-16');
+      const result = await service.getAvailability(DOCTOR_ID, '2026-08-16');
 
       expect(result.slots).toHaveLength(0);
       expect(mockRepo.findActiveBetween).not.toHaveBeenCalled();
@@ -126,7 +186,7 @@ describe('AppointmentsService', () => {
       const taken = fakeAppointment({ slot: new Date(VALID_SLOT_ISO) });
       mockRepo.findActiveBetween.mockResolvedValue([taken]);
 
-      const result = await service.getAvailability(MONDAY);
+      const result = await service.getAvailability(DOCTOR_ID, MONDAY);
 
       expect(result.slots).not.toContain(
         new Date(VALID_SLOT_ISO).toISOString(),
@@ -143,7 +203,7 @@ describe('AppointmentsService', () => {
       });
       mockRepo.findActiveBetween.mockResolvedValue([taken]);
 
-      const result = await service.getAvailability(MONDAY);
+      const result = await service.getAvailability(DOCTOR_ID, MONDAY);
 
       const start = new Date(VALID_SLOT_ISO).getTime();
       for (const offsetMin of [0, 30, 60]) {
@@ -164,7 +224,7 @@ describe('AppointmentsService', () => {
       });
       mockRepo.findActiveBetween.mockResolvedValue([taken]);
 
-      const result = await service.getAvailability(MONDAY);
+      const result = await service.getAvailability(DOCTOR_ID, MONDAY);
 
       const secondSlot = new Date(
         new Date(VALID_SLOT_ISO).getTime() + 30 * 60_000,
@@ -174,10 +234,19 @@ describe('AppointmentsService', () => {
   });
 
   describe('getAvailabilityRange', () => {
+    it('rejects with 404 when the doctorId is not bookable, without touching the repo', async () => {
+      mockDoctorRepo.isBookable.mockResolvedValue(false);
+
+      await expect(
+        service.getAvailabilityRange('missing-doctor', MONDAY, 3),
+      ).rejects.toThrow(NotFoundException);
+      expect(mockRepo.findActiveBetween).not.toHaveBeenCalled();
+    });
+
     it('returns one entry per day, in order, keyed by date', async () => {
       mockRepo.findActiveBetween.mockResolvedValue([]);
 
-      const result = await service.getAvailabilityRange(MONDAY, 3);
+      const result = await service.getAvailabilityRange(DOCTOR_ID, MONDAY, 3);
 
       expect(Object.keys(result.slotsByDate)).toEqual([
         '2026-08-17',
@@ -192,7 +261,11 @@ describe('AppointmentsService', () => {
       mockRepo.findActiveBetween.mockResolvedValue([]);
 
       // 2026-08-16 es domingo.
-      const result = await service.getAvailabilityRange('2026-08-15', 3);
+      const result = await service.getAvailabilityRange(
+        DOCTOR_ID,
+        '2026-08-15',
+        3,
+      );
 
       expect(result.slotsByDate['2026-08-16']).toEqual([]);
       expect(result.slotsByDate['2026-08-15'].length).toBeGreaterThan(0);
@@ -201,7 +274,7 @@ describe('AppointmentsService', () => {
     it('queries the repository once for the whole range, not once per day', async () => {
       mockRepo.findActiveBetween.mockResolvedValue([]);
 
-      await service.getAvailabilityRange(MONDAY, 14);
+      await service.getAvailabilityRange(DOCTOR_ID, MONDAY, 14);
 
       expect(mockRepo.findActiveBetween).toHaveBeenCalledTimes(1);
     });
@@ -212,7 +285,7 @@ describe('AppointmentsService', () => {
       });
       mockRepo.findActiveBetween.mockResolvedValue([takenOnDayTwo]);
 
-      const result = await service.getAvailabilityRange(MONDAY, 3);
+      const result = await service.getAvailabilityRange(DOCTOR_ID, MONDAY, 3);
 
       expect(result.slotsByDate['2026-08-18']).not.toContain(
         new Date('2026-08-18T09:00:00-04:00').toISOString(),
@@ -223,14 +296,14 @@ describe('AppointmentsService', () => {
   describe('holdSlot', () => {
     it('rejects an off-grid slot without touching the repo', async () => {
       await expect(
-        service.holdSlot(`${MONDAY}T09:15:00-04:00`),
+        service.holdSlot(DOCTOR_ID, `${MONDAY}T09:15:00-04:00`),
       ).rejects.toThrow(BadRequestException);
       expect(mockRepo.createHold).not.toHaveBeenCalled();
     });
 
     it('rejects a slot in the past without touching the repo', async () => {
       await expect(
-        service.holdSlot('2020-01-06T09:00:00-04:00'),
+        service.holdSlot(DOCTOR_ID, '2020-01-06T09:00:00-04:00'),
       ).rejects.toThrow(BadRequestException);
       expect(mockRepo.createHold).not.toHaveBeenCalled();
     });
@@ -238,7 +311,7 @@ describe('AppointmentsService', () => {
     it('maps SlotUnavailableError to ConflictException (409)', async () => {
       mockRepo.createHold.mockRejectedValue(new SlotUnavailableError());
 
-      await expect(service.holdSlot(VALID_SLOT_ISO)).rejects.toThrow(
+      await expect(service.holdSlot(DOCTOR_ID, VALID_SLOT_ISO)).rejects.toThrow(
         ConflictException,
       );
     });
@@ -246,11 +319,12 @@ describe('AppointmentsService', () => {
     it('returns the created hold on success, defaulting duration to one slot when no treatment is given', async () => {
       mockRepo.createHold.mockResolvedValue(fakeAppointment());
 
-      const result = await service.holdSlot(VALID_SLOT_ISO);
+      const result = await service.holdSlot(DOCTOR_ID, VALID_SLOT_ISO);
 
       expect(result.appointmentId).toBe('appt-1');
       expect(mockRepo.createHold).toHaveBeenCalledWith(
         expect.objectContaining({
+          doctorId: DOCTOR_ID,
           source: 'public_web',
           treatmentId: null,
           durationMinutes: 30,
@@ -266,7 +340,7 @@ describe('AppointmentsService', () => {
       );
       mockRepo.createHold.mockResolvedValue(fakeAppointment());
 
-      await service.holdSlot(VALID_SLOT_ISO, 'treatment-1');
+      await service.holdSlot(DOCTOR_ID, VALID_SLOT_ISO, 'treatment-1');
 
       expect(mockTreatmentRepo.findById).toHaveBeenCalledWith('treatment-1');
       expect(mockRepo.createHold).toHaveBeenCalledWith(
@@ -281,8 +355,18 @@ describe('AppointmentsService', () => {
       mockTreatmentRepo.findById.mockResolvedValue(null);
 
       await expect(
-        service.holdSlot(VALID_SLOT_ISO, 'missing-treatment'),
+        service.holdSlot(DOCTOR_ID, VALID_SLOT_ISO, 'missing-treatment'),
       ).rejects.toThrow(NotFoundException);
+      expect(mockRepo.createHold).not.toHaveBeenCalled();
+    });
+
+    it('rejects with 404 when the doctorId is not bookable, without touching the repo', async () => {
+      mockDoctorRepo.isBookable.mockResolvedValue(false);
+
+      await expect(
+        service.holdSlot('missing-doctor', VALID_SLOT_ISO),
+      ).rejects.toThrow(NotFoundException);
+      expect(mockDoctorScheduleRepo.findBlocksForDoctor).not.toHaveBeenCalled();
       expect(mockRepo.createHold).not.toHaveBeenCalled();
     });
   });
