@@ -32,14 +32,75 @@ describe('PrismaPatientInviteRepository', () => {
     );
   });
 
-  describe('invalidatePendingForPatient', () => {
-    it('marks every pending invite of the patient as used, regardless of channel', async () => {
+  describe('create', () => {
+    it('persists user_id and patient_id (patient invite)', async () => {
+      prismaMock.patient_invites.create.mockResolvedValue({
+        id: 'invite-1',
+        user_id: 'user-1',
+        patient_id: 'patient-1',
+        channel: 'email',
+        expires_at: NOW,
+        used_at: null,
+        created_at: NOW,
+      });
+
+      await repo.create({
+        userId: 'user-1',
+        patientId: 'patient-1',
+        channel: 'email',
+        tokenHash: 'hash-1',
+        expiresAt: NOW,
+      });
+
+      expect(prismaMock.patient_invites.create).toHaveBeenCalledWith({
+        data: {
+          user_id: 'user-1',
+          patient_id: 'patient-1',
+          channel: 'email',
+          token_hash: 'hash-1',
+          expires_at: NOW,
+        },
+      });
+    });
+
+    it('persists patient_id as null when omitted (e.g. a doctor invite)', async () => {
+      prismaMock.patient_invites.create.mockResolvedValue({
+        id: 'invite-1',
+        user_id: 'user-doctor-1',
+        patient_id: null,
+        channel: 'email',
+        expires_at: NOW,
+        used_at: null,
+        created_at: NOW,
+      });
+
+      await repo.create({
+        userId: 'user-doctor-1',
+        channel: 'email',
+        tokenHash: 'hash-1',
+        expiresAt: NOW,
+      });
+
+      expect(prismaMock.patient_invites.create).toHaveBeenCalledWith({
+        data: {
+          user_id: 'user-doctor-1',
+          patient_id: null,
+          channel: 'email',
+          token_hash: 'hash-1',
+          expires_at: NOW,
+        },
+      });
+    });
+  });
+
+  describe('invalidatePendingForUser', () => {
+    it('marks every pending invite of the user as used, regardless of channel', async () => {
       prismaMock.patient_invites.updateMany.mockResolvedValue({ count: 2 });
 
-      await repo.invalidatePendingForPatient('patient-1', NOW);
+      await repo.invalidatePendingForUser('user-1', NOW);
 
       expect(prismaMock.patient_invites.updateMany).toHaveBeenCalledWith({
-        where: { patient_id: 'patient-1', used_at: null },
+        where: { user_id: 'user-1', used_at: null },
         data: { used_at: NOW },
       });
     });
@@ -51,9 +112,9 @@ describe('PrismaPatientInviteRepository', () => {
         .mockResolvedValueOnce({ count: 1 }) // claim the matched invite
         .mockResolvedValueOnce({ count: 0 }); // invalidate siblings (none in this test)
       prismaMock.patient_invites.findUnique.mockResolvedValue({
+        user_id: 'user-1',
         patient_id: 'patient-1',
       });
-      prismaMock.patients.findUnique.mockResolvedValue({ user_id: 'user-1' });
 
       const result = await repo.redeemByTokenHash('hash-1', NOW);
 
@@ -61,32 +122,45 @@ describe('PrismaPatientInviteRepository', () => {
         where: { token_hash: 'hash-1', used_at: null, expires_at: { gt: NOW } },
         data: { used_at: NOW },
       });
-      expect(result).toEqual({ patientId: 'patient-1', userId: 'user-1' });
+      expect(result).toEqual({ userId: 'user-1', patientId: 'patient-1' });
     });
 
-    it('is idempotent: a duplicate/late redemption never reaches the sibling-invalidation or patient lookup', async () => {
+    it('resolves patientId as null when the invite has none (e.g. a doctor invite)', async () => {
+      prismaMock.patient_invites.updateMany
+        .mockResolvedValueOnce({ count: 1 })
+        .mockResolvedValueOnce({ count: 0 });
+      prismaMock.patient_invites.findUnique.mockResolvedValue({
+        user_id: 'user-1',
+        patient_id: null,
+      });
+
+      const result = await repo.redeemByTokenHash('hash-1', NOW);
+
+      expect(result).toEqual({ userId: 'user-1', patientId: null });
+    });
+
+    it('is idempotent: a duplicate/late redemption never reaches the sibling-invalidation or lookup', async () => {
       prismaMock.patient_invites.updateMany.mockResolvedValue({ count: 0 });
 
       const result = await repo.redeemByTokenHash('hash-1', NOW);
 
       expect(result).toBeNull();
       expect(prismaMock.patient_invites.findUnique).not.toHaveBeenCalled();
-      expect(prismaMock.patients.findUnique).not.toHaveBeenCalled();
     });
 
-    it('invalidates every other pending invite for the same patient (e.g. sent by both channels)', async () => {
+    it('invalidates every other pending invite for the same user (e.g. sent by both channels)', async () => {
       prismaMock.patient_invites.updateMany
         .mockResolvedValueOnce({ count: 1 })
         .mockResolvedValueOnce({ count: 1 });
       prismaMock.patient_invites.findUnique.mockResolvedValue({
+        user_id: 'user-1',
         patient_id: 'patient-1',
       });
-      prismaMock.patients.findUnique.mockResolvedValue({ user_id: 'user-1' });
 
       await repo.redeemByTokenHash('hash-1', NOW);
 
       expect(prismaMock.patient_invites.updateMany).toHaveBeenNthCalledWith(2, {
-        where: { patient_id: 'patient-1', used_at: null },
+        where: { user_id: 'user-1', used_at: null },
         data: { used_at: NOW },
       });
     });

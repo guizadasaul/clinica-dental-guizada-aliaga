@@ -54,6 +54,7 @@ import { ResendEmailSender } from '../patient-invites/infrastructure/email/resen
     AccessTokenVerifier,
     UserRepository,
     SupabaseAdminService,
+    PatientInvitesService,
   ],
 })
 export class AuthModule {}

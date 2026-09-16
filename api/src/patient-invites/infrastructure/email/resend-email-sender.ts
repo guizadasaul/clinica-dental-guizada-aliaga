@@ -1,6 +1,7 @@
 import { Injectable, ServiceUnavailableException } from '@nestjs/common';
 import type {
   EmailSender,
+  InviteEmailKind,
   SendInviteEmailParams,
 } from '../../domain/EmailSender.js';
 import { CLINIC_LOGO_PNG_BASE64 } from './clinic-logo.js';
@@ -13,6 +14,35 @@ interface ResendErrorBody {
 // HTML por seguridad — el logo hay que mandarlo como adjunto inline referenciado
 // por content_id y usar `cid:` en el <img>, no un data URI directo.
 const CLINIC_LOGO_CONTENT_ID = 'clinic-logo';
+
+interface InviteEmailCopy {
+  subject: string;
+  eyebrow: string;
+  heading: string;
+  intro: string;
+}
+
+// Copy específico por tipo de invitado. El resto del template (layout, logo,
+// botón, footer) se mantiene idéntico — solo cambia este contenido.
+const INVITE_EMAIL_COPY: Record<InviteEmailKind, InviteEmailCopy> = {
+  patient: {
+    subject: 'Completá tu registro en Clínica Dental Guizada-Aliaga',
+    eyebrow: 'Invitación de registro',
+    heading: 'Completá tu registro',
+    intro:
+      'te invita a completar tu registro para que puedas ' +
+      'ver tus citas, tu historial clínico y tus presupuestos desde un solo lugar. Es rápido y te toma ' +
+      'menos de un minuto.',
+  },
+  doctor: {
+    subject: 'Invitación para unirte al staff de Clínica Dental Guizada-Aliaga',
+    eyebrow: 'Invitación al equipo',
+    heading: 'Unite al equipo',
+    intro:
+      'te invita a sumarte a su staff de odontólogos. Completá tu cuenta para acceder a tu ' +
+      'panel, tu agenda y las fichas de tus pacientes.',
+  },
+};
 
 /**
  * Mismo patrón que BanecoClient (api/src/payments/infrastructure/baneco/baneco.client.ts):
@@ -44,7 +74,7 @@ export class ResendEmailSender implements EmailSender {
         body: JSON.stringify({
           from: fromEmail,
           to: params.to,
-          subject: 'Completá tu registro en Clínica Dental Guizada-Aliaga',
+          subject: INVITE_EMAIL_COPY[params.kind].subject,
           html: this.buildHtml(params),
           text: this.buildText(params),
           attachments: [
@@ -73,8 +103,9 @@ export class ResendEmailSender implements EmailSender {
   }
 
   private buildHtml(params: SendInviteEmailParams): string {
-    const name = this.escapeHtml(params.patientDisplayName);
+    const name = this.escapeHtml(params.displayName);
     const url = this.escapeHtml(params.inviteUrl);
+    const copy = INVITE_EMAIL_COPY[params.kind];
 
     return `
 <!doctype html>
@@ -82,7 +113,7 @@ export class ResendEmailSender implements EmailSender {
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Completá tu registro</title>
+    <title>${copy.heading}</title>
   </head>
   <body style="margin:0; padding:0; background-color:#f3ede1; font-family:'Source Sans 3', Arial, Helvetica, sans-serif;">
     <span style="display:none; visibility:hidden; opacity:0; overflow:hidden; height:0; width:0; max-height:0; max-width:0; mso-hide:all;">
@@ -114,18 +145,16 @@ export class ResendEmailSender implements EmailSender {
             <tr>
               <td style="padding:24px 40px 8px;">
                 <p style="margin:0 0 12px; font-family:Georgia, 'Libre Caslon Text', serif; font-size:11px; font-weight:700; letter-spacing:0.12em; text-transform:uppercase; color:#e89858; text-align:center;">
-                  Invitación de registro
+                  ${copy.eyebrow}
                 </p>
                 <h1 style="margin:0 0 20px; font-family:Georgia, 'Libre Caslon Text', serif; font-size:26px; line-height:1.3; font-weight:400; color:#1c1b1f; text-align:center;">
-                  Completá tu registro
+                  ${copy.heading}
                 </h1>
                 <p style="margin:0 0 16px; font-size:16px; line-height:1.6; color:#1c1b1f;">
                   Hola ${name},
                 </p>
                 <p style="margin:0 0 24px; font-size:16px; line-height:1.6; color:#1c1b1f;">
-                  El equipo de <strong>Clínica Dental Guizada-Aliaga</strong> te invita a completar tu registro para que puedas
-                  ver tus citas, tu historial clínico y tus presupuestos desde un solo lugar. Es rápido y te toma
-                  menos de un minuto.
+                  El equipo de <strong>Clínica Dental Guizada-Aliaga</strong> ${copy.intro}
                 </p>
               </td>
             </tr>
@@ -207,10 +236,11 @@ export class ResendEmailSender implements EmailSender {
   }
 
   private buildText(params: SendInviteEmailParams): string {
+    const copy = INVITE_EMAIL_COPY[params.kind];
     return `
-Hola ${params.patientDisplayName},
+Hola ${params.displayName},
 
-El equipo de Clínica Dental Guizada-Aliaga te invita a completar tu registro para que puedas ver tus citas, tu historial clínico y tus presupuestos desde un solo lugar.
+El equipo de Clínica Dental Guizada-Aliaga ${copy.intro}
 
 Completá tu registro acá: ${params.inviteUrl}
 

@@ -1,15 +1,16 @@
 import type { PatientInvite } from './PatientInvite';
 
 export interface CreateInviteData {
-  patientId: string;
+  userId: string;
+  patientId?: string | null;
   channel: string;
   tokenHash: string;
   expiresAt: Date;
 }
 
 export interface RedeemedInvite {
-  patientId: string;
   userId: string;
+  patientId: string | null;
 }
 
 export interface PatientContactInfo {
@@ -24,17 +25,17 @@ export interface IPatientInviteRepository {
 
   /**
    * Marca como usados todos los invites pendientes (`used_at IS NULL`) de un
-   * patient, sin importar el canal. Se llama antes de crear un invite nuevo
+   * user, sin importar el canal. Se llama antes de crear un invite nuevo
    * para que un link viejo (mandado por error, a la casilla equivocada, o
    * simplemente reemplazado) deje de servir de inmediato en vez de quedar
    * válido en paralelo hasta que venza o alguien lo use.
    */
-  invalidatePendingForPatient(patientId: string, now: Date): Promise<void>;
+  invalidatePendingForUser(userId: string, now: Date): Promise<void>;
 
   /**
    * Atómico: UPDATE condicional (WHERE token_hash AND used_at IS NULL AND
    * expires_at > now) — mismo patrón que linkAuthIdentity/confirmPaidBooking.
-   * Si matchea, además marca TODOS los invites pendientes de ese patient_id
+   * Si matchea, además marca TODOS los invites pendientes de ese user_id
    * como usados (no solo el que matcheó). null si no había nada válido.
    */
   redeemByTokenHash(
