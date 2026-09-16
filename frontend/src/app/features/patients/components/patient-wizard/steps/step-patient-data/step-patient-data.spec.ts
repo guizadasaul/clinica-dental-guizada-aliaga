@@ -260,6 +260,7 @@ describe('StepPatientDataComponent', () => {
       dni: '87654321',
       createdAt: '2020-01-01T00:00:00.000Z',
       updatedAt: '2020-01-01T00:00:00.000Z',
+      assignedDoctorId: null,
     };
     fixture.componentRef.setInput('existingPatient', patient);
     await settle(fixture);
@@ -299,6 +300,7 @@ describe('StepPatientDataComponent', () => {
       dni: '87654321',
       createdAt: '2020-01-01T00:00:00.000Z',
       updatedAt: '2020-01-01T00:00:00.000Z',
+      assignedDoctorId: null,
     };
     fixture.componentRef.setInput('existingPatient', patient);
     await settle(fixture);

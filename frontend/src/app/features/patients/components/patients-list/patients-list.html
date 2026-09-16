@@ -15,6 +15,28 @@
           (input)="filter.set($any($event.target).value)"
         />
       </div>
+      <div class="patients-list__owner-toggle" role="tablist" aria-label="Filtrar por doctor">
+        <button
+          type="button"
+          role="tab"
+          class="patients-list__owner-btn"
+          [class.patients-list__owner-btn--active]="!onlyMine()"
+          [attr.aria-selected]="!onlyMine()"
+          (click)="onlyMine() && toggleOnlyMine()"
+        >
+          Todos
+        </button>
+        <button
+          type="button"
+          role="tab"
+          class="patients-list__owner-btn"
+          [class.patients-list__owner-btn--active]="onlyMine()"
+          [attr.aria-selected]="onlyMine()"
+          (click)="!onlyMine() && toggleOnlyMine()"
+        >
+          Los míos
+        </button>
+      </div>
     </div>
   </div>
 
@@ -35,6 +57,7 @@
           <tr>
             <th>Paciente</th>
             <th>Nro Teléfono</th>
+            <th>Doctor asignado</th>
             <th>Estado</th>
             <th>Acción</th>
           </tr>
@@ -51,6 +74,14 @@
                 </div>
               </td>
               <td class="patients-list__cell">{{ phoneLabel(p) }}</td>
+              <td class="patients-list__cell">
+                <span
+                  class="patients-list__badge"
+                  [class.patients-list__badge--pending]="!p.patient?.assignedDoctorId"
+                >
+                  {{ doctorName(p.patient?.assignedDoctorId) }}
+                </span>
+              </td>
               <td class="patients-list__cell">
                 @if (!p.patient) {
                   <span class="patients-list__badge patients-list__badge--pending">Sin ficha</span>

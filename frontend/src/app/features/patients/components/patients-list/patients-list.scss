@@ -73,6 +73,35 @@
     }
   }
 
+  // Toggle "Todos / Los míos" (CLI-60) — mismo patrón visual que el
+  // segmented control de week-picker__week-toggle.
+  &__owner-toggle {
+    display: inline-flex;
+    gap: var(--space-1);
+    padding: var(--space-1);
+    background: var(--color-surface-var);
+    border-radius: var(--radius-full);
+  }
+
+  &__owner-btn {
+    padding: var(--space-2) var(--space-4);
+    border: none;
+    border-radius: var(--radius-full);
+    background: transparent;
+    color: var(--color-text-muted);
+    font-family: var(--font-body);
+    font-size: var(--font-size-sm);
+    font-weight: 600;
+    cursor: pointer;
+    transition: background var(--transition-fast), color var(--transition-fast);
+
+    &--active {
+      background: var(--color-primary);
+      color: white;
+      box-shadow: var(--shadow-sm);
+    }
+  }
+
   &__table-wrap {
     overflow-x: auto;
     border: 1px solid var(--color-border);
