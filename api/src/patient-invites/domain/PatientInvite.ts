@@ -9,7 +9,8 @@ export const INVITE_TTL_MINUTES = 5;
 export class PatientInvite {
   constructor(
     readonly id: string,
-    readonly patientId: string,
+    readonly userId: string,
+    readonly patientId: string | null,
     readonly channel: string,
     readonly expiresAt: Date,
     readonly usedAt: Date | null,

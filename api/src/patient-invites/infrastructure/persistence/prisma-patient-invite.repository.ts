@@ -15,7 +15,8 @@ export class PrismaPatientInviteRepository implements IPatientInviteRepository {
   async create(data: CreateInviteData): Promise<PatientInvite> {
     const record = await this.prisma.patient_invites.create({
       data: {
-        patient_id: data.patientId,
+        user_id: data.userId,
+        patient_id: data.patientId ?? null,
         channel: data.channel,
         token_hash: data.tokenHash,
         expires_at: data.expiresAt,
@@ -23,6 +24,7 @@ export class PrismaPatientInviteRepository implements IPatientInviteRepository {
     });
     return new PatientInvite(
       record.id,
+      record.user_id,
       record.patient_id,
       record.channel,
       record.expires_at,
@@ -31,12 +33,9 @@ export class PrismaPatientInviteRepository implements IPatientInviteRepository {
     );
   }
 
-  async invalidatePendingForPatient(
-    patientId: string,
-    now: Date,
-  ): Promise<void> {
+  async invalidatePendingForUser(userId: string, now: Date): Promise<void> {
     await this.prisma.patient_invites.updateMany({
-      where: { patient_id: patientId, used_at: null },
+      where: { user_id: userId, used_at: null },
       data: { used_at: now },
     });
   }
@@ -64,22 +63,16 @@ export class PrismaPatientInviteRepository implements IPatientInviteRepository {
       if (!invite) {
         return null;
       }
-      const patientId = invite.patient_id;
+      const { user_id: userId, patient_id: patientId } = invite;
 
       // Un invite se canjeó — invalida cualquier otro invite pendiente del
-      // mismo patient (ej. mandado también por el otro canal).
+      // mismo user (ej. mandado también por el otro canal).
       await tx.patient_invites.updateMany({
-        where: { patient_id: patientId, used_at: null },
+        where: { user_id: userId, used_at: null },
         data: { used_at: now },
       });
 
-      const patient = await tx.patients.findUnique({
-        where: { id: patientId },
-      });
-      if (!patient) {
-        return null;
-      }
-      return { patientId, userId: patient.user_id };
+      return { userId, patientId };
     });
   }
 

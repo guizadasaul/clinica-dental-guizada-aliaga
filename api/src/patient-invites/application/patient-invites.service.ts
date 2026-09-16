@@ -12,7 +12,10 @@ import type {
   RedeemedInvite,
 } from '../domain/PatientInviteRepository.js';
 import { EmailSender } from '../domain/EmailSender.js';
-import type { EmailSender as IEmailSender } from '../domain/EmailSender.js';
+import type {
+  EmailSender as IEmailSender,
+  InviteEmailKind,
+} from '../domain/EmailSender.js';
 import { toE164Bolivia } from '../../shared/phone.util.js';
 
 export interface CreateInviteResult {
@@ -63,14 +66,51 @@ export class PatientInvitesService {
     if (!contact) {
       throw new NotFoundException('Paciente no encontrado');
     }
+    return this.buildAndSendInvite({
+      userId: contact.userId,
+      patientId,
+      channel,
+      contact,
+      kind: 'patient',
+    });
+  }
+
+  /**
+   * Mismo mecanismo que createInvite, generalizado a cualquier user (no solo
+   * pacientes) — CLI-63 lo usa para invitar doctores nuevos por email.
+   */
+  createInviteForUser(
+    userId: string,
+    channel: string,
+    contact: { fullName: string; phone: string | null; email: string | null },
+    kind: InviteEmailKind,
+  ): Promise<CreateInviteResult> {
+    return this.buildAndSendInvite({
+      userId,
+      patientId: null,
+      channel,
+      contact,
+      kind,
+    });
+  }
+
+  private async buildAndSendInvite(params: {
+    userId: string;
+    patientId: string | null;
+    channel: string;
+    contact: { fullName: string; phone: string | null; email: string | null };
+    kind: InviteEmailKind;
+  }): Promise<CreateInviteResult> {
+    const { userId, patientId, channel, contact, kind } = params;
+    const subject = kind === 'doctor' ? 'El doctor' : 'El paciente';
     if (channel === InviteChannel.EMAIL && !contact.email) {
       throw new ConflictException(
-        'El paciente no tiene un email cargado todavía',
+        `${subject} no tiene un email cargado todavía`,
       );
     }
     if (channel === InviteChannel.WHATSAPP && !contact.phone) {
       throw new ConflictException(
-        'El paciente no tiene un teléfono cargado todavía',
+        `${subject} no tiene un teléfono cargado todavía`,
       );
     }
 
@@ -78,11 +118,17 @@ export class PatientInvitesService {
     const tokenHash = hashToken(rawToken);
     const now = new Date();
     const expiresAt = new Date(now.getTime() + INVITE_TTL_MINUTES * 60 * 1000);
-    // Cualquier invite pendiente anterior de este patient (mismo canal u
+    // Cualquier invite pendiente anterior de este user (mismo canal u
     // otro) muere apenas se manda uno nuevo — nunca conviven dos links
     // válidos en paralelo.
-    await this.inviteRepo.invalidatePendingForPatient(patientId, now);
-    await this.inviteRepo.create({ patientId, channel, tokenHash, expiresAt });
+    await this.inviteRepo.invalidatePendingForUser(userId, now);
+    await this.inviteRepo.create({
+      userId,
+      patientId,
+      channel,
+      tokenHash,
+      expiresAt,
+    });
 
     const frontendUrl = (
       process.env['FRONTEND_URL'] ?? 'http://localhost:4200'
@@ -92,8 +138,9 @@ export class PatientInvitesService {
     if (channel === InviteChannel.EMAIL) {
       await this.emailSender.sendInviteEmail({
         to: contact.email!,
-        patientDisplayName: contact.fullName,
+        displayName: contact.fullName,
         inviteUrl,
+        kind,
       });
       return {};
     }

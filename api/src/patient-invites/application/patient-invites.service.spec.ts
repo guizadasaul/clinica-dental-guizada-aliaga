@@ -6,7 +6,7 @@ import { EmailSender } from '../domain/EmailSender';
 
 const mockInviteRepo = {
   create: jest.fn(),
-  invalidatePendingForPatient: jest.fn(),
+  invalidatePendingForUser: jest.fn(),
   redeemByTokenHash: jest.fn(),
   findPatientContactInfo: jest.fn(),
   isTokenValid: jest.fn(),
@@ -80,12 +80,17 @@ describe('PatientInvitesService', () => {
       const result = await service.createInvite('patient-1', 'email');
 
       expect(mockInviteRepo.create).toHaveBeenCalledWith(
-        expect.objectContaining({ patientId: 'patient-1', channel: 'email' }),
+        expect.objectContaining({
+          userId: 'user-1',
+          patientId: 'patient-1',
+          channel: 'email',
+        }),
       );
       expect(mockEmailSender.sendInviteEmail).toHaveBeenCalledWith(
         expect.objectContaining({
           to: 'juana@example.com',
-          patientDisplayName: 'Juana Perez',
+          displayName: 'Juana Perez',
+          kind: 'patient',
         }),
       );
       expect(result).toEqual({});
@@ -115,13 +120,13 @@ describe('PatientInvitesService', () => {
       expect(result.whatsappUrl).toContain('https://wa.me/59170011122?text=');
     });
 
-    it('invalidates any pending invite for the patient before creating the new one', async () => {
+    it('invalidates any pending invite for the user before creating the new one', async () => {
       mockInviteRepo.findPatientContactInfo.mockResolvedValue(
         CONTACT_WITH_BOTH,
       );
       mockInviteRepo.create.mockResolvedValue({});
       const callOrder: string[] = [];
-      mockInviteRepo.invalidatePendingForPatient.mockImplementation(() => {
+      mockInviteRepo.invalidatePendingForUser.mockImplementation(() => {
         callOrder.push('invalidate');
         return Promise.resolve();
       });
@@ -132,8 +137,8 @@ describe('PatientInvitesService', () => {
 
       await service.createInvite('patient-1', 'email');
 
-      expect(mockInviteRepo.invalidatePendingForPatient).toHaveBeenCalledWith(
-        'patient-1',
+      expect(mockInviteRepo.invalidatePendingForUser).toHaveBeenCalledWith(
+        'user-1',
         expect.any(Date),
       );
       expect(callOrder).toEqual(['invalidate', 'create']);
@@ -172,11 +177,63 @@ describe('PatientInvitesService', () => {
     });
   });
 
+  describe('createInviteForUser', () => {
+    const DOCTOR_CONTACT = {
+      fullName: 'Dr. Juan Gomez',
+      phone: null,
+      email: 'juan.gomez@example.com',
+    };
+
+    it('creates the invite for the given userId (no patientId) and sends an email tagged kind=doctor', async () => {
+      mockInviteRepo.create.mockResolvedValue({});
+
+      const result = await service.createInviteForUser(
+        'user-doctor-1',
+        'email',
+        DOCTOR_CONTACT,
+        'doctor',
+      );
+
+      expect(mockInviteRepo.findPatientContactInfo).not.toHaveBeenCalled();
+      expect(mockInviteRepo.invalidatePendingForUser).toHaveBeenCalledWith(
+        'user-doctor-1',
+        expect.any(Date),
+      );
+      expect(mockInviteRepo.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          userId: 'user-doctor-1',
+          patientId: null,
+          channel: 'email',
+        }),
+      );
+      expect(mockEmailSender.sendInviteEmail).toHaveBeenCalledWith(
+        expect.objectContaining({
+          to: 'juan.gomez@example.com',
+          displayName: 'Dr. Juan Gomez',
+          kind: 'doctor',
+        }),
+      );
+      expect(result).toEqual({});
+    });
+
+    it('throws ConflictException when the requested channel has no contact info', async () => {
+      await expect(
+        service.createInviteForUser(
+          'user-doctor-1',
+          'email',
+          { ...DOCTOR_CONTACT, email: null },
+          'doctor',
+        ),
+      ).rejects.toThrow(ConflictException);
+      expect(mockInviteRepo.create).not.toHaveBeenCalled();
+    });
+  });
+
   describe('redeem', () => {
     it('hashes the raw token before delegating to the repository', async () => {
       mockInviteRepo.redeemByTokenHash.mockResolvedValue({
-        patientId: 'p1',
         userId: 'u1',
+        patientId: 'p1',
       });
 
       const result = await service.redeem('raw-token-value');
@@ -187,7 +244,7 @@ describe('PatientInvitesService', () => {
       ];
       expect(hashArg).toMatch(/^[0-9a-f]{64}$/);
       expect(hashArg).not.toBe('raw-token-value');
-      expect(result).toEqual({ patientId: 'p1', userId: 'u1' });
+      expect(result).toEqual({ userId: 'u1', patientId: 'p1' });
     });
 
     it('returns null for an invalid/expired/already-used token', async () => {

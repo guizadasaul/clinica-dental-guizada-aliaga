@@ -1,4 +1,5 @@
 import { User } from './User';
+import { UserRole } from './value-objects/UserRole';
 
 export interface UpsertUserData {
   authUserId: string;
@@ -12,6 +13,7 @@ export interface CreatePlaceholderUserData {
   displayName: string | null;
   phone: string | null;
   email?: string | null;
+  role?: UserRole;
 }
 
 export interface LinkAuthIdentityData {

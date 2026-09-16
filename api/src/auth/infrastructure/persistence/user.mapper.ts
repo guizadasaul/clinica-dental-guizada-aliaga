@@ -27,7 +27,7 @@ export class UserMapper {
       email: data.email ?? null,
       display_name: data.displayName,
       phone: data.phone,
-      role: UserRole.PATIENT,
+      role: data.role ?? UserRole.PATIENT,
     };
   }
 }

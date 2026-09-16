@@ -1,7 +1,10 @@
+export type InviteEmailKind = 'patient' | 'doctor';
+
 export interface SendInviteEmailParams {
   to: string;
-  patientDisplayName: string;
+  displayName: string;
   inviteUrl: string;
+  kind: InviteEmailKind;
 }
 
 /** Mismo patrón que AccessTokenVerifier/PaymentGateway — abstrae el proveedor de email del dominio. */
