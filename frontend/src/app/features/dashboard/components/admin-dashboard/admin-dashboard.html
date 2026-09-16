@@ -39,19 +39,5 @@
 }
 
 @if (activeNav() === 'reports') {
-  <div class="admin">
-    <section class="admin__section">
-      <h2 class="admin__section-title">
-        <span class="material-symbols-outlined" aria-hidden="true">bar_chart</span>
-        Reportes
-      </h2>
-      <div class="coming-soon">
-        <div class="coming-soon__icon" aria-hidden="true">
-          <span class="material-symbols-outlined">construction</span>
-        </div>
-        <p class="coming-soon__text">Próximamente</p>
-        <p class="coming-soon__sub">Los reportes operativos y financieros se habilitarán acá.</p>
-      </div>
-    </section>
-  </div>
+  <app-reports-page />
 }
