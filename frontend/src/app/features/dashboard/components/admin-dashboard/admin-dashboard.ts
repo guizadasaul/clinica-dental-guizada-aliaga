@@ -8,12 +8,13 @@ import {
 } from '@angular/core';
 import { AuthService } from '../../../../auth/application/auth.service';
 import { LogoComponent } from '../../../../shared/ui/logo/logo';
+import { AdminDoctorsComponent } from '../../../admin/components/admin-doctors/admin-doctors';
 
 @Component({
   selector: 'app-admin-dashboard',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [LogoComponent],
+  imports: [LogoComponent, AdminDoctorsComponent],
   templateUrl: './admin-dashboard.html',
   styleUrl: './admin-dashboard.scss',
 })

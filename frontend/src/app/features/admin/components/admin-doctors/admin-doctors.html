@@ -1,0 +1,256 @@
+<div class="admin-doctors">
+  @if (successMessage()) {
+    <div class="admin-doctors__banner admin-doctors__banner--success">
+      <span class="material-symbols-outlined">check_circle</span>
+      <span>{{ successMessage() }}</span>
+    </div>
+  }
+
+  @if (mode() === 'list') {
+    <div class="admin-doctors__header">
+      <div class="admin-doctors__title-row">
+        <h2 class="admin-doctors__title">Doctores</h2>
+        <span class="admin-doctors__count">{{ doctors().length }} doctores</span>
+      </div>
+      <button type="button" class="admin-doctors__btn admin-doctors__btn--primary" (click)="openCreate()">
+        <span class="material-symbols-outlined">person_add</span>
+        Nuevo doctor
+      </button>
+    </div>
+
+    @if (loadError()) {
+      <div class="admin-doctors__banner admin-doctors__banner--error">
+        <span class="material-symbols-outlined">error</span>
+        <span>{{ loadError() }}</span>
+      </div>
+    }
+
+    @if (loading()) {
+      <p class="admin-doctors__loading">Cargando doctores...</p>
+    } @else if (doctors().length === 0) {
+      <div class="admin-doctors__empty">
+        <span class="material-symbols-outlined admin-doctors__empty-icon">group</span>
+        <p>Todavía no hay doctores registrados.</p>
+      </div>
+    } @else {
+      <div class="admin-doctors__table-wrap">
+        <table class="admin-doctors__table">
+          <thead>
+            <tr>
+              <th>Doctor</th>
+              <th>Especialidad</th>
+              <th>Email</th>
+              <th>Teléfono</th>
+              <th>Estado</th>
+              <th>Acción</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (doctor of doctors(); track doctor.id) {
+              <tr class="admin-doctors__row">
+                <td class="admin-doctors__cell admin-doctors__cell--name">
+                  <div class="admin-doctors__avatar-wrap">
+                    <div class="admin-doctors__avatar">
+                      <span class="material-symbols-outlined">person</span>
+                    </div>
+                    <span>{{ doctor.displayName ?? 'Sin nombre' }}</span>
+                  </div>
+                </td>
+                <td class="admin-doctors__cell">{{ doctor.specialty ?? '—' }}</td>
+                <td class="admin-doctors__cell">{{ doctor.email ?? '—' }}</td>
+                <td class="admin-doctors__cell">{{ doctor.phone ?? '—' }}</td>
+                <td class="admin-doctors__cell">
+                  @if (doctor.isActive && doctor.isBookable) {
+                    <span class="admin-doctors__badge admin-doctors__badge--active">Activo</span>
+                  } @else {
+                    <span class="admin-doctors__badge admin-doctors__badge--inactive">Dado de baja</span>
+                  }
+                </td>
+                <td class="admin-doctors__cell admin-doctors__cell--actions">
+                  @if (confirmingDeactivateFor() === doctor.id) {
+                    <span class="admin-doctors__confirm">¿Confirmar baja?</span>
+                    <button
+                      type="button"
+                      class="admin-doctors__btn admin-doctors__btn--danger"
+                      [disabled]="deactivating()"
+                      (click)="confirmDeactivate(doctor.id)"
+                    >
+                      Sí, dar de baja
+                    </button>
+                    <button type="button" class="admin-doctors__btn admin-doctors__btn--ghost" (click)="cancelDeactivate()">
+                      Cancelar
+                    </button>
+                  } @else {
+                    <button type="button" class="admin-doctors__btn" (click)="openEdit(doctor.id)">
+                      <span class="material-symbols-outlined">edit</span>
+                      Editar
+                    </button>
+                    @if (doctor.isActive) {
+                      <button
+                        type="button"
+                        class="admin-doctors__btn admin-doctors__btn--ghost"
+                        (click)="requestDeactivate(doctor.id)"
+                      >
+                        <span class="material-symbols-outlined">person_off</span>
+                        Dar de baja
+                      </button>
+                    }
+                  }
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    }
+  } @else {
+    <div class="admin-doctors__form-panel">
+      <div class="admin-doctors__form-header">
+        <h2 class="admin-doctors__title">{{ mode() === 'create' ? 'Nuevo doctor' : 'Editar doctor' }}</h2>
+        <button type="button" class="admin-doctors__btn admin-doctors__btn--ghost" (click)="closeForm()">
+          <span class="material-symbols-outlined">close</span>
+          Cancelar
+        </button>
+      </div>
+
+      @if (formError()) {
+        <div class="admin-doctors__banner admin-doctors__banner--error">
+          <span class="material-symbols-outlined">error</span>
+          <span>{{ formError() }}</span>
+        </div>
+      }
+
+      <form class="admin-doctors__form" (ngSubmit)="submit()">
+        <div class="admin-doctors__field">
+          <label for="admin-doctor-name">Nombre completo</label>
+          <input
+            id="admin-doctor-name"
+            type="text"
+            [value]="displayNameField.value()"
+            (input)="displayNameField.set($any($event.target).value)"
+            (blur)="displayNameField.markTouched()"
+            [class.admin-doctors__input--error]="displayNameField.showError()"
+          />
+          @if (displayNameField.showError()) {
+            <p class="admin-doctors__field-error">{{ displayNameField.error() }}</p>
+          }
+        </div>
+
+        <div class="admin-doctors__field">
+          <label for="admin-doctor-email">Email</label>
+          <input
+            id="admin-doctor-email"
+            type="email"
+            [value]="emailField.value()"
+            (input)="emailField.set($any($event.target).value)"
+            (blur)="emailField.markTouched()"
+            [class.admin-doctors__input--error]="emailField.showError()"
+          />
+          @if (emailField.showError()) {
+            <p class="admin-doctors__field-error">{{ emailField.error() }}</p>
+          }
+        </div>
+
+        <div class="admin-doctors__field">
+          <label>Teléfono (opcional)</label>
+          <app-phone-input [value]="phoneE164()" (changed)="onPhoneChange($event)" />
+        </div>
+
+        <div class="admin-doctors__field">
+          <label for="admin-doctor-specialty">Especialidad (opcional)</label>
+          <input
+            id="admin-doctor-specialty"
+            type="text"
+            [value]="specialtyField.value()"
+            (input)="specialtyField.set($any($event.target).value)"
+            (blur)="specialtyField.markTouched()"
+            [class.admin-doctors__input--error]="specialtyField.showError()"
+          />
+          @if (specialtyField.showError()) {
+            <p class="admin-doctors__field-error">{{ specialtyField.error() }}</p>
+          }
+        </div>
+
+        <div class="admin-doctors__field">
+          <label for="admin-doctor-bio">Bio (opcional)</label>
+          <textarea
+            id="admin-doctor-bio"
+            rows="3"
+            [value]="bioField.value()"
+            (input)="bioField.set($any($event.target).value)"
+            (blur)="bioField.markTouched()"
+            [class.admin-doctors__input--error]="bioField.showError()"
+          ></textarea>
+          @if (bioField.showError()) {
+            <p class="admin-doctors__field-error">{{ bioField.error() }}</p>
+          }
+        </div>
+
+        <div class="admin-doctors__field">
+          <label for="admin-doctor-photo">URL de foto (opcional)</label>
+          <input
+            id="admin-doctor-photo"
+            type="text"
+            placeholder="https://..."
+            [value]="photoUrl()"
+            (input)="photoUrl.set($any($event.target).value)"
+          />
+        </div>
+
+        <div class="admin-doctors__field">
+          <label for="admin-doctor-order">Orden de aparición (opcional)</label>
+          <input
+            id="admin-doctor-order"
+            type="number"
+            min="0"
+            [value]="displayOrder()"
+            (input)="onDisplayOrderInput($event)"
+          />
+        </div>
+
+        <div class="admin-doctors__field admin-doctors__field--schedule">
+          <div class="admin-doctors__schedule-header">
+            <label>Horario de atención</label>
+            <button type="button" class="admin-doctors__btn admin-doctors__btn--ghost" (click)="addScheduleBlock()">
+              <span class="material-symbols-outlined">add</span>
+              Agregar bloque
+            </button>
+          </div>
+
+          @if (scheduleBlocks().length === 0) {
+            <p class="admin-doctors__schedule-empty">Sin bloques de horario cargados.</p>
+          } @else {
+            <div class="admin-doctors__schedule-list">
+              @for (block of scheduleBlocks(); track $index) {
+                <div class="admin-doctors__schedule-row">
+                  <select [value]="block.weekday" (change)="setBlockWeekday($index, $event)">
+                    @for (label of weekdayLabels; track $index) {
+                      <option [value]="$index">{{ label }}</option>
+                    }
+                  </select>
+                  <input type="time" [value]="block.start" (change)="setBlockStart($index, $event)" />
+                  <span>a</span>
+                  <input type="time" [value]="block.end" (change)="setBlockEnd($index, $event)" />
+                  <button
+                    type="button"
+                    class="admin-doctors__icon-btn"
+                    aria-label="Quitar bloque"
+                    (click)="removeScheduleBlock($index)"
+                  >
+                    <span class="material-symbols-outlined">delete</span>
+                  </button>
+                </div>
+              }
+            </div>
+          }
+        </div>
+
+        <div class="admin-doctors__form-actions">
+          <button type="submit" class="admin-doctors__btn admin-doctors__btn--primary" [disabled]="submitting()">
+            {{ submitting() ? 'Guardando...' : mode() === 'create' ? 'Crear doctor' : 'Guardar cambios' }}
+          </button>
+        </div>
+      </form>
+    </div>
+  }
+</div>

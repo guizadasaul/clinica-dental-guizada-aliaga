@@ -16,6 +16,7 @@ import { QuotesModule } from './quotes/quotes.module';
 import { TestimonialsModule } from './testimonials/testimonials.module';
 import { DiagnosesModule } from './diagnoses/diagnoses.module';
 import { MedicalConditionsModule } from './medical-conditions/medical-conditions.module';
+import { AdminModule } from './admin/admin.module';
 
 @Module({
   imports: [
@@ -39,6 +40,7 @@ import { MedicalConditionsModule } from './medical-conditions/medical-conditions
     PaymentsModule,
     QuotesModule,
     TestimonialsModule,
+    AdminModule,
   ],
   controllers: [AppController],
   providers: [AppService, { provide: APP_GUARD, useClass: ThrottlerGuard }],
