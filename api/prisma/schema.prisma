@@ -73,7 +73,16 @@ model appointments {
   id                       String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   patient_id               String?     @db.Uuid
   treatment_id             String?     @db.Uuid
-  appointment_datetime     DateTime    @unique(map: "idx_one_active_appointment_slot", where: raw("(((status)::text = 'held'::text) OR ((status)::text = 'confirmed'::text))")) @db.Timestamptz(6)
+  /// CLI-61: default transicional — la función SQL cli61_default_doctor_id()
+  /// (creada en la migración, Postgres no permite un subquery inline en un
+  /// DEFAULT) resuelve al único doctor con role='odontologist' (hoy solo hay
+  /// uno en la base real). Existe para que el código que todavía no es
+  /// doctor-aware (createHold y afines, hasta CLI-56) siga compilando e
+  /// insertando sin pasar doctor_id explícito, sin dejar de ser NOT NULL a
+  /// nivel de Postgres. CLI-56 debe quitar este @default y la función cuando
+  /// toda escritura de appointments pase doctorId explícito.
+  doctor_id                String      @default(dbgenerated("cli61_default_doctor_id()")) @db.Uuid
+  appointment_datetime     DateTime    @db.Timestamptz(6)
   /// Congelada al reservar (CLI-47) — snapshot de treatments.estimated_minutes
   /// en el momento del hold, o 30 (un slot) si no se especificó tratamiento.
   /// Cambiar estimated_minutes en el catálogo después no debe reinterpretar
@@ -100,7 +109,9 @@ model appointments {
   paid_at                  DateTime?   @db.Timestamptz(6)
   patients                 patients?   @relation(fields: [patient_id], references: [id], onUpdate: NoAction)
   treatments               treatments? @relation(fields: [treatment_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  users                    users       @relation(fields: [doctor_id], references: [id], onDelete: Restrict, onUpdate: NoAction)
 
+  @@unique([doctor_id, appointment_datetime], map: "idx_one_active_appointment_slot", where: raw("(((status)::text = 'held'::text) OR ((status)::text = 'confirmed'::text))"))
   @@index([appointment_datetime], map: "idx_appointments_datetime")
 }
 
@@ -329,6 +340,13 @@ model patients {
   /// CI/pasaporte/nit (CLI-54, ver DOCUMENT_TYPES) — null solo si dni también es null. La unicidad real es (document_type, dni), no dni solo: un pasaporte y una CI pueden coincidir en número sin ser la misma persona.
   document_type                  String?                      @db.VarChar(20)
   dni                            String?                      @db.VarChar(20)
+  /// Doctor asignado (CLI-61) — informativo, no restringe acceso: cualquier
+  /// odontólogo logueado sigue viendo y editando cualquier paciente (decisión
+  /// de alcance de la épica). Nullable porque un paciente puede no tener
+  /// doctor asignado todavía (alta manual sin ese dato); CLI-58 lo completa
+  /// automáticamente al confirmar pago de reserva pública o al crear la
+  /// ficha a mano.
+  assigned_doctor_id             String?                      @db.Uuid
   created_at                     DateTime                     @default(now()) @db.Timestamptz(6)
   updated_at                     DateTime                     @default(now()) @db.Timestamptz(6)
   appointments                   appointments[]
@@ -343,7 +361,8 @@ model patients {
   // no puede poner NULL en una columna que no lo admite) — borrar un usuario
   // con ficha se rechaza en vez de dejar la ficha huérfana. La baja de
   // cuenta se maneja con users.is_active, no con borrado físico.
-  users                          users                        @relation(fields: [user_id], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  users                          users                        @relation("PatientAccount", fields: [user_id], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  assigned_doctor                users?                       @relation("PatientAssignedDoctor", fields: [assigned_doctor_id], references: [id], onDelete: SetNull, onUpdate: NoAction)
   quotes                         quotes[]
   tooth_procedures               tooth_procedures[]
   xray_documents                 xray_documents[]
@@ -565,21 +584,63 @@ model treatments {
   treatment_categories    treatment_categories     @relation(fields: [category_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
 }
 
+/// Perfil profesional público de un doctor (CLI-61) — 1:1 con la fila de
+/// `users` donde `role = odontologist`. `photo_url` es la foto profesional
+/// que se muestra en la reserva pública, distinta del avatar de Google que
+/// ya vive en `users.photo_url`. Alta manual (fuera de alcance de esta
+/// épica una pantalla de gestión): se carga a mano en la base/seed igual
+/// que hoy se cargan los tratamientos.
+model doctor_profiles {
+  id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id       String   @unique @db.Uuid
+  specialty     String?  @db.VarChar(150)
+  bio           String?
+  photo_url     String?
+  display_order Int      @default(0)
+  is_bookable   Boolean  @default(true)
+  created_at    DateTime @default(now()) @db.Timestamptz(6)
+  updated_at    DateTime @default(now()) @db.Timestamptz(6)
+  users         users    @relation(fields: [user_id], references: [id], onDelete: Restrict, onUpdate: NoAction)
+}
+
+/// Bloques de horario de atención por doctor (CLI-61) — reemplaza el
+/// WEEKDAY_BLOCKS hardcodeado y compartido de ClinicSchedule.ts. Varias filas
+/// por (doctor_id, weekday) porque un día puede tener más de un bloque (ej.
+/// lunes 09:00-12:00 y 15:00-19:00). start_time/end_time quedan como string
+/// "HH:MM" a propósito, mismo formato que ScheduleBlock en ClinicSchedule.ts
+/// hoy — CLI-56 decide si migra el tipo cuando conecte esta tabla al dominio.
+model doctor_schedule_blocks {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  doctor_id  String   @db.Uuid
+  /// 0=domingo … 6=sábado, mismo criterio que Date#getDay/ClinicSchedule.ts.
+  weekday    Int
+  start_time String   @db.VarChar(5)
+  end_time   String   @db.VarChar(5)
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  users      users    @relation(fields: [doctor_id], references: [id], onDelete: Restrict, onUpdate: NoAction)
+
+  @@index([doctor_id, weekday])
+}
+
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
 model users {
-  id               String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  auth_user_id     String?            @unique @db.Uuid
-  email            String?            @unique @db.VarChar(255)
-  display_name     String?            @db.VarChar(255)
-  photo_url        String?
-  phone            String?            @db.VarChar(20)
-  is_active        Boolean            @default(true)
-  created_at       DateTime           @default(now()) @db.Timestamptz(6)
-  updated_at       DateTime           @default(now()) @db.Timestamptz(6)
-  role             UserRole           @default(patient)
-  patients         patients?
-  tooth_procedures tooth_procedures[]
-  dental_exams     dental_exams[]
+  id                     String                   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  auth_user_id           String?                  @unique @db.Uuid
+  email                  String?                  @unique @db.VarChar(255)
+  display_name           String?                  @db.VarChar(255)
+  photo_url              String?
+  phone                  String?                  @db.VarChar(20)
+  is_active              Boolean                  @default(true)
+  created_at             DateTime                 @default(now()) @db.Timestamptz(6)
+  updated_at             DateTime                 @default(now()) @db.Timestamptz(6)
+  role                   UserRole                 @default(patient)
+  patients               patients?                @relation("PatientAccount")
+  assigned_patients      patients[]               @relation("PatientAssignedDoctor")
+  appointments           appointments[]
+  doctor_profiles        doctor_profiles?
+  doctor_schedule_blocks doctor_schedule_blocks[]
+  tooth_procedures       tooth_procedures[]
+  dental_exams           dental_exams[]
 }
 
 /// Sin código todavía — CLI-53. Notas para cuando se implemente:
