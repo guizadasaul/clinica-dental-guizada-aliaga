@@ -16,12 +16,20 @@ const DOCTOR: Doctor = {
   isBookable: true,
 };
 
+// Slot fijo, siempre en el futuro relativo al momento en que corre el test
+// (no una fecha hardcodeada) — HoldCountdownComponent compara holdExpiresAt
+// contra Date.now() real y emite (expired) apenas se renderiza si ya venció,
+// lo que devolvía al paso 'slot' cada vez que el test corría después de esa
+// hora del día.
+const SLOT_ISO = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+const HOLD_EXPIRES_AT_ISO = new Date(Date.now() + 10 * 60 * 1000).toISOString();
+
 function createBookingServiceStub(overrides: Record<string, unknown> = {}) {
   return {
     getDoctors: vi.fn().mockReturnValue(of([DOCTOR])),
     getAvailabilityRange: vi.fn().mockReturnValue(of({ from: '2026-09-16', days: 14, slotsByDate: {} })),
     holdSlot: vi.fn().mockReturnValue(
-      of({ appointmentId: 'appt-1', slot: '2026-09-16T09:00:00-04:00', holdExpiresAt: '2026-09-16T09:10:00-04:00' }),
+      of({ appointmentId: 'appt-1', slot: SLOT_ISO, holdExpiresAt: HOLD_EXPIRES_AT_ISO }),
     ),
     ...overrides,
   };
@@ -85,13 +93,10 @@ describe('BookingPageComponent', () => {
     fixture.componentInstance['onDoctorSelected']('doctor-1');
     await settle(fixture);
 
-    await fixture.componentInstance['onSlotSelected']('2026-09-16T09:00:00-04:00');
+    await fixture.componentInstance['onSlotSelected'](SLOT_ISO);
     await settle(fixture);
 
-    expect(bookingService.holdSlot).toHaveBeenCalledWith(
-      '2026-09-16T09:00:00-04:00',
-      'doctor-1',
-    );
+    expect(bookingService.holdSlot).toHaveBeenCalledWith(SLOT_ISO, 'doctor-1');
     expect(fixture.componentInstance['step']()).toBe('contact');
   });
 
@@ -101,15 +106,12 @@ describe('BookingPageComponent', () => {
     const bookingService = createBookingServiceStub();
     const fixture = setup(bookingService, {
       doctorId: 'doctor-1',
-      slot: '2026-09-16T09:00:00-04:00',
+      slot: SLOT_ISO,
     });
     await settle(fixture);
 
     expect(bookingService.getDoctors).not.toHaveBeenCalled();
-    expect(bookingService.holdSlot).toHaveBeenCalledWith(
-      '2026-09-16T09:00:00-04:00',
-      'doctor-1',
-    );
+    expect(bookingService.holdSlot).toHaveBeenCalledWith(SLOT_ISO, 'doctor-1');
     expect(fixture.componentInstance['step']()).toBe('contact');
   });
 });

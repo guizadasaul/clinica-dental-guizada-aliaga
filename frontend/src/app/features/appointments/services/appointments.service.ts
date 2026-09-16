@@ -8,6 +8,8 @@ export interface AgendaFilters {
   status?: string;
   from?: string;
   to?: string;
+  /** CLI-64: solo tiene efecto si quien pide la agenda es admin — un odontólogo siempre ve la suya (lo aplica el backend). */
+  doctorId?: string;
 }
 
 @Injectable({ providedIn: 'root' })
@@ -25,6 +27,9 @@ export class AppointmentsService {
     }
     if (filters.to) {
       params['to'] = filters.to;
+    }
+    if (filters.doctorId) {
+      params['doctorId'] = filters.doctorId;
     }
     return this.http.get<AppointmentAgendaItem[]>(this.base, { params });
   }

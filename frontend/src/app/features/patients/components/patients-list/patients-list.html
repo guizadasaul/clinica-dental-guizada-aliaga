@@ -15,28 +15,30 @@
           (input)="filter.set($any($event.target).value)"
         />
       </div>
-      <div class="patients-list__owner-toggle" role="tablist" aria-label="Filtrar por doctor">
-        <button
-          type="button"
-          role="tab"
-          class="patients-list__owner-btn"
-          [class.patients-list__owner-btn--active]="!onlyMine()"
-          [attr.aria-selected]="!onlyMine()"
-          (click)="onlyMine() && toggleOnlyMine()"
-        >
-          Todos
-        </button>
-        <button
-          type="button"
-          role="tab"
-          class="patients-list__owner-btn"
-          [class.patients-list__owner-btn--active]="onlyMine()"
-          [attr.aria-selected]="onlyMine()"
-          (click)="!onlyMine() && toggleOnlyMine()"
-        >
-          Los míos
-        </button>
-      </div>
+      @if (!forcedDoctorId()) {
+        <div class="patients-list__owner-toggle" role="tablist" aria-label="Filtrar por doctor">
+          <button
+            type="button"
+            role="tab"
+            class="patients-list__owner-btn"
+            [class.patients-list__owner-btn--active]="!onlyMine()"
+            [attr.aria-selected]="!onlyMine()"
+            (click)="onlyMine() && toggleOnlyMine()"
+          >
+            Todos
+          </button>
+          <button
+            type="button"
+            role="tab"
+            class="patients-list__owner-btn"
+            [class.patients-list__owner-btn--active]="onlyMine()"
+            [attr.aria-selected]="onlyMine()"
+            (click)="!onlyMine() && toggleOnlyMine()"
+          >
+            Los míos
+          </button>
+        </div>
+      }
     </div>
   </div>
 
@@ -59,7 +61,9 @@
             <th>Nro Teléfono</th>
             <th>Doctor asignado</th>
             <th>Estado</th>
-            <th>Acción</th>
+            @if (!readOnly()) {
+              <th>Acción</th>
+            }
           </tr>
         </thead>
         <tbody>
@@ -93,7 +97,8 @@
                   <span class="patients-list__badge patients-list__badge--complete">Paciente activo</span>
                 }
               </td>
-              <td class="patients-list__cell patients-list__cell--actions">
+              @if (!readOnly()) {
+                <td class="patients-list__cell patients-list__cell--actions">
                 @if (!p.patient) {
                   <button
                     class="patients-list__btn"
@@ -189,7 +194,8 @@
                     }
                   </div>
                 }
-              </td>
+                </td>
+              }
             </tr>
           }
         </tbody>

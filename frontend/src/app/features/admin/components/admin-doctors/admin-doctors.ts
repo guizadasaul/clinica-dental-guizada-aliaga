@@ -3,12 +3,17 @@ import { HttpErrorResponse } from '@angular/common/http';
 import { FormsModule } from '@angular/forms';
 import { firstValueFrom } from 'rxjs';
 import { AdminDoctorsService } from '../../services/admin-doctors.service';
+import { BookingService } from '../../../booking/services/booking.service';
+import { DoctorPickerComponent } from '../../../booking/components/doctor-picker/doctor-picker';
+import { DoctorAgendaComponent } from '../../../appointments/components/doctor-agenda/doctor-agenda';
+import { PatientsListComponent } from '../../../patients/components/patients-list/patients-list';
 import { PhoneInputComponent } from '../../../../shared/ui/phone-input/phone-input';
 import { field, allValid, touchAll } from '../../../../shared/validation/field';
 import { requiredTextError, optionalTextError, normalizeText } from '../../../../shared/validation/text.validator';
 import { isValidEmail, normalizeEmail } from '../../../../shared/validation/email.validator';
 import type { AdminDoctorSummary } from '../../models/admin-doctor.model';
 import type { CreateDoctorRequest, UpdateDoctorRequest } from '../../models/admin-doctor.request';
+import type { Doctor } from '../../../booking/models/booking.model';
 
 const WEEKDAY_LABELS = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
 
@@ -16,7 +21,8 @@ const DISPLAY_NAME_MAX_LENGTH = 200;
 const SPECIALTY_MAX_LENGTH = 150;
 const BIO_MAX_LENGTH = 2000;
 
-type ViewMode = 'list' | 'create' | 'edit';
+type ViewMode = 'list' | 'create' | 'edit' | 'detail';
+type DetailTab = 'agenda' | 'patients';
 
 interface ScheduleBlockDraft {
   weekday: number;
@@ -40,12 +46,13 @@ function emailFieldError(value: string): string | null {
   selector: 'app-admin-doctors',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [FormsModule, PhoneInputComponent],
+  imports: [FormsModule, PhoneInputComponent, DoctorPickerComponent, DoctorAgendaComponent, PatientsListComponent],
   templateUrl: './admin-doctors.html',
   styleUrl: './admin-doctors.scss',
 })
 export class AdminDoctorsComponent {
   private readonly adminDoctorsService = inject(AdminDoctorsService);
+  private readonly bookingService = inject(BookingService);
 
   protected readonly weekdayLabels = WEEKDAY_LABELS;
 
@@ -74,6 +81,13 @@ export class AdminDoctorsComponent {
   protected readonly confirmingDeactivateFor = signal<string | null>(null);
   protected readonly deactivating = signal(false);
 
+  // CLI-64: vista de detalle de solo lectura — agenda y pacientes de un
+  // doctor elegido, reusando el mismo picker que alimenta /reservar.
+  protected readonly pickerDoctors = signal<Doctor[]>([]);
+  protected readonly pickerLoading = signal(false);
+  protected readonly selectedDoctorId = signal<string | null>(null);
+  protected readonly detailTab = signal<DetailTab>('agenda');
+
   protected readonly formValid = computed(
     () =>
       allValid(this.displayNameField, this.specialtyField, this.bioField) &&
@@ -83,6 +97,7 @@ export class AdminDoctorsComponent {
 
   constructor() {
     void this.loadDoctors();
+    void this.loadPickerDoctors();
   }
 
   private async loadDoctors(): Promise<void> {
@@ -96,6 +111,38 @@ export class AdminDoctorsComponent {
     } finally {
       this.loading.set(false);
     }
+  }
+
+  private async loadPickerDoctors(): Promise<void> {
+    this.pickerLoading.set(true);
+    try {
+      const result = await firstValueFrom(this.bookingService.getDoctors());
+      this.pickerDoctors.set(result);
+    } catch {
+      this.pickerDoctors.set([]);
+    } finally {
+      this.pickerLoading.set(false);
+    }
+  }
+
+  protected openDetail(doctorId?: string): void {
+    this.confirmingDeactivateFor.set(null);
+    this.selectedDoctorId.set(doctorId ?? null);
+    this.detailTab.set('agenda');
+    this.mode.set('detail');
+  }
+
+  protected closeDetail(): void {
+    this.mode.set('list');
+    this.selectedDoctorId.set(null);
+  }
+
+  protected onPickerSelect(doctorId: string): void {
+    this.selectedDoctorId.set(doctorId);
+  }
+
+  protected setDetailTab(tab: DetailTab): void {
+    this.detailTab.set(tab);
   }
 
   protected openCreate(): void {

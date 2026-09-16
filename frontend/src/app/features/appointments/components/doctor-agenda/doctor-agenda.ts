@@ -1,4 +1,13 @@
-import { Component, ChangeDetectionStrategy, inject, signal, computed } from '@angular/core';
+import {
+  Component,
+  ChangeDetectionStrategy,
+  inject,
+  input,
+  signal,
+  computed,
+  effect,
+  untracked,
+} from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 import { AppointmentsService } from '../../services/appointments.service';
 import { PatientWizardComponent } from '../../../patients/components/patient-wizard/patient-wizard';
@@ -121,6 +130,12 @@ interface SlotLabel {
 })
 export class DoctorAgendaComponent {
   private readonly appointmentsService = inject(AppointmentsService);
+
+  // CLI-64: cuando viene seteado (panel de admin), la agenda mostrada es la
+  // de ESE doctor en vez de la del usuario logueado; readOnly apaga cualquier
+  // acción de edición (hoy, abrir la ficha del paciente desde un turno).
+  readonly doctorId = input<string | null>(null);
+  readonly readOnly = input(false);
 
   // Grilla horaria: 09:00–21:00 en franjas de 30 min (igual duración que
   // reserva cada cita, ver SLOT_MINUTES en api/src/appointments/domain/ClinicSchedule.ts).
@@ -247,7 +262,16 @@ export class DoctorAgendaComponent {
   });
 
   constructor() {
-    void this.load();
+    // Reactivo a doctorId (no a selectedDate, que ya dispara su propio
+    // reload explícito desde onPrevPage/onNextPage/onToday) — cambia cuando
+    // el admin elige otro doctor desde el panel sin desmontar el componente.
+    effect(
+      () => {
+        this.doctorId();
+        untracked(() => void this.load());
+      },
+      { allowSignalWrites: true },
+    );
   }
 
   private dayHeaderParts(dateStr: string): { weekday: string; dayNum: string } {
@@ -265,7 +289,12 @@ export class DoctorAgendaComponent {
       const from = this.selectedDate();
       const to = addDaysToDateString(from, this.VIEW_DAYS);
       const result = await firstValueFrom(
-        this.appointmentsService.getAgenda({ status: 'confirmed', from, to }),
+        this.appointmentsService.getAgenda({
+          status: 'confirmed',
+          from,
+          to,
+          doctorId: this.doctorId() ?? undefined,
+        }),
       );
       this.appointments.set(result);
     } catch {
@@ -319,7 +348,7 @@ export class DoctorAgendaComponent {
   }
 
   protected onOpenHistory(a: AppointmentAgendaItem): void {
-    if (!a.patientId) {
+    if (this.readOnly() || !a.patientId) {
       return;
     }
     this.historyPatientId.set(a.patientId);

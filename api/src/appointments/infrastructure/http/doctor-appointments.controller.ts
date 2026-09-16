@@ -10,20 +10,28 @@ import type { User } from '../../../auth/domain/User.js';
 import { ListAppointmentsQueryDto } from './dto/list-appointments-query.dto.js';
 
 // Agenda del doctor — distinto del AppointmentsController público (mismo
-// prefijo /appointments pero otras rutas, con guard y solo para odontólogos).
+// prefijo /appointments pero otras rutas, con guard y solo para odontólogos
+// y, desde CLI-64, admin en modo solo lectura sobre la agenda de cualquier doctor).
 @Controller('appointments')
 @UseGuards(SupabaseAuthGuard, RolesGuard)
-@Roles(UserRole.ODONTOLOGIST)
+@Roles(UserRole.ODONTOLOGIST, UserRole.ADMIN)
 export class DoctorAppointmentsController {
   constructor(private readonly appointmentsService: AppointmentsService) {}
 
   @Get()
   findForAgenda(
-    @CurrentAppUser() doctor: User,
+    @CurrentAppUser() appUser: User,
     @Query() query: ListAppointmentsQueryDto,
   ): Promise<AppointmentWithPatient[]> {
+    // CLI-64: solo un ADMIN puede pedir la agenda de otro doctor vía
+    // doctorId; un odontólogo lo manda o no, siempre ve la propia.
+    const doctorId =
+      appUser.role === UserRole.ADMIN && query.doctorId
+        ? query.doctorId
+        : appUser.id;
+
     return this.appointmentsService.getAgenda({
-      doctorId: doctor.id,
+      doctorId,
       status: query.status,
       from: query.from ? new Date(`${query.from}T00:00:00Z`) : undefined,
       to: query.to ? new Date(`${query.to}T00:00:00Z`) : undefined,

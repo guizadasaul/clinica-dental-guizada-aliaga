@@ -34,7 +34,7 @@ export class PatientsController {
   constructor(private readonly patientsService: PatientsService) {}
 
   @Get()
-  @Roles(UserRole.ODONTOLOGIST)
+  @Roles(UserRole.ODONTOLOGIST, UserRole.ADMIN)
   findAll(@Query() query: ListPatientsQueryDto) {
     return this.patientsService.findAll(query.doctorId);
   }
