@@ -19,8 +19,11 @@ export class PatientsService {
   private readonly http = inject(HttpClient);
   private readonly base = `${environment.backendUrl}/patients`;
 
-  getAll(): Observable<PatientWithUser[]> {
-    return this.http.get<PatientWithUser[]>(this.base);
+  /** doctorId es un filtro de conveniencia (no de seguridad) — sin él, todos los pacientes. */
+  getAll(doctorId?: string): Observable<PatientWithUser[]> {
+    return this.http.get<PatientWithUser[]>(this.base, {
+      params: doctorId ? { doctorId } : {},
+    });
   }
 
   getMyPatient(): Observable<Patient> {

@@ -12,6 +12,7 @@ function toAuthenticatedUser(user: SupabaseUser): AuthenticatedUser {
   const meta = (user.user_metadata ?? {}) as Record<string, unknown>;
   return {
     uid: user.id,
+    id: null,
     email: user.email ?? null,
     displayName: (meta['name'] ?? meta['full_name'] ?? null) as string | null,
     photoURL: (meta['picture'] ?? meta['avatar_url'] ?? null) as string | null,
@@ -293,6 +294,7 @@ export class AuthService {
       u
         ? {
             ...u,
+            id: user.id,
             role: user.role,
             photoURL: user.photoUrl ?? u.photoURL,
             displayName: user.displayName ?? u.displayName,

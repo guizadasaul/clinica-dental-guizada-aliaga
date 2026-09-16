@@ -7,9 +7,12 @@ import {
   signal,
   computed,
 } from '@angular/core';
-import { toSignal } from '@angular/core/rxjs-interop';
+import { firstValueFrom } from 'rxjs';
 import { PatientsService } from '../../services/patients.service';
+import { BookingService } from '../../../booking/services/booking.service';
+import { AuthService } from '../../../../auth/application/auth.service';
 import type { Patient, PatientWithUser, PatientInviteContact } from '../../models/patient.model';
+import type { Doctor } from '../../../booking/models/booking.model';
 
 @Component({
   selector: 'app-patients-list',
@@ -20,6 +23,8 @@ import type { Patient, PatientWithUser, PatientInviteContact } from '../../model
 })
 export class PatientsListComponent {
   private readonly patientsService = inject(PatientsService);
+  private readonly bookingService = inject(BookingService);
+  private readonly authService = inject(AuthService);
 
   readonly startWizard = output<string>();
   readonly openOdontogram = output<string>();
@@ -62,10 +67,44 @@ export class PatientsListComponent {
     }
   }
 
-  protected readonly patients = toSignal(
-    this.patientsService.getAll(),
-    { initialValue: [] as PatientWithUser[] },
-  );
+  protected readonly patients = signal<PatientWithUser[]>([]);
+  protected readonly doctors = signal<Doctor[]>([]);
+  // Conveniencia de UI, no de seguridad — sin filtrar, la lista sigue
+  // trayendo a todos los pacientes (visibilidad compartida, CLI-58).
+  protected readonly onlyMine = signal(false);
+
+  constructor() {
+    void this.loadPatients();
+    void this.loadDoctors();
+  }
+
+  private async loadPatients(): Promise<void> {
+    const myDoctorId = this.authService.currentUser()?.id ?? undefined;
+    const doctorId = this.onlyMine() ? myDoctorId : undefined;
+    const result = await firstValueFrom(this.patientsService.getAll(doctorId));
+    this.patients.set(result);
+  }
+
+  private async loadDoctors(): Promise<void> {
+    try {
+      const result = await firstValueFrom(this.bookingService.getDoctors());
+      this.doctors.set(result);
+    } catch {
+      this.doctors.set([]);
+    }
+  }
+
+  protected toggleOnlyMine(): void {
+    this.onlyMine.update((v) => !v);
+    void this.loadPatients();
+  }
+
+  protected doctorName(doctorId: string | null | undefined): string {
+    if (!doctorId) {
+      return 'Sin asignar';
+    }
+    return this.doctors().find((d) => d.id === doctorId)?.displayName ?? 'Sin asignar';
+  }
 
   protected readonly filter = signal('');
 

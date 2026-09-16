@@ -25,6 +25,8 @@ export interface Patient {
   dni: string | null;
   createdAt: string;
   updatedAt: string;
+  /** Doctor asignado (CLI-58) — informativo, no restringe acceso a la ficha. */
+  assignedDoctorId: string | null;
 }
 
 export interface PatientProfileStatus {
