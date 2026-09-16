@@ -8,6 +8,7 @@ import {
   ParseUUIDPipe,
   Patch,
   Post,
+  Query,
   UseGuards,
 } from '@nestjs/common';
 import { PatientsService } from '../../application/patients.service.js';
@@ -18,6 +19,7 @@ import { CurrentUser } from '../../../auth/infrastructure/CurrentUserDecorator.j
 import type { AuthenticatedUser } from '../../../auth/domain/AuthenticatedUser.js';
 import { UserRole } from '../../../auth/domain/value-objects/UserRole.js';
 import { CreatePatientDto } from './dto/create-patient.dto.js';
+import { ListPatientsQueryDto } from './dto/list-patients-query.dto.js';
 import { UpdatePatientDto } from './dto/update-patient.dto.js';
 import { CreateMedicalHistoryDto } from './dto/create-medical-history.dto.js';
 import { CreateHygieneHabitsDto } from './dto/create-hygiene-habits.dto.js';
@@ -33,8 +35,8 @@ export class PatientsController {
 
   @Get()
   @Roles(UserRole.ODONTOLOGIST)
-  findAll() {
-    return this.patientsService.findAll();
+  findAll(@Query() query: ListPatientsQueryDto) {
+    return this.patientsService.findAll(query.doctorId);
   }
 
   @Get('me')

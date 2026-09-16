@@ -54,9 +54,12 @@ function todayDateOnly(): Date {
 export class PrismaPatientsRepository implements IPatientRepository {
   constructor(private readonly prisma: PrismaService) {}
 
-  async findAllWithUsers(): Promise<PatientWithUser[]> {
+  async findAllWithUsers(doctorId?: string): Promise<PatientWithUser[]> {
     const records = await this.prisma.users.findMany({
-      where: { role: 'patient' },
+      where: {
+        role: 'patient',
+        ...(doctorId && { patients: { assigned_doctor_id: doctorId } }),
+      },
       include: {
         patients: {
           include: {
@@ -111,6 +114,7 @@ export class PrismaPatientsRepository implements IPatientRepository {
         family_history: data.familyHistory ?? null,
         document_type: data.documentType ?? null,
         dni: data.dni ?? null,
+        assigned_doctor_id: data.assignedDoctorId ?? null,
       },
       include: { users: true },
     });

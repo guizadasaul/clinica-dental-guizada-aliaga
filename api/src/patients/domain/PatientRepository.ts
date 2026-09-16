@@ -28,6 +28,8 @@ export interface CreatePatientData {
   familyHistory?: string;
   documentType?: string;
   dni?: string;
+  /** CLI-58: el doctor que hace el alta manual, si quien crea la ficha es odontólogo. */
+  assignedDoctorId?: string;
 }
 
 export interface UpdatePatientData {
@@ -157,7 +159,8 @@ export interface CreateToothProcedureGroupData {
 }
 
 export interface IPatientRepository {
-  findAllWithUsers(): Promise<PatientWithUser[]>;
+  /** CLI-58: doctorId es un filtro de conveniencia, no de seguridad — sin él devuelve todos los pacientes, igual que siempre (visibilidad compartida). */
+  findAllWithUsers(doctorId?: string): Promise<PatientWithUser[]>;
   findPatientById(id: string): Promise<Patient | null>;
   findByUserId(userId: string): Promise<Patient | null>;
   create(userId: string, data: CreatePatientData): Promise<Patient>;
