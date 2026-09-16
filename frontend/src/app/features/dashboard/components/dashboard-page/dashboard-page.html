@@ -65,6 +65,8 @@
       <app-patient-dashboard [activeNav]="activeNav()" (navChange)="setActive($event)" />
     } @else if (role() === 'odontologist') {
       <app-doctor-dashboard [activeNav]="activeNav()" (navChange)="setActive($event)" />
+    } @else if (role() === 'admin') {
+      <app-admin-dashboard [activeNav]="activeNav()" (navChange)="setActive($event)" />
     }
   </div>
 </div>

@@ -10,6 +10,7 @@ datasource db {
 enum UserRole {
   odontologist
   patient
+  admin
 }
 
 enum TreatmentApplicationType {
@@ -629,7 +630,7 @@ model users {
   is_active              Boolean                  @default(true)
   created_at             DateTime                 @default(now()) @db.Timestamptz(6)
   updated_at             DateTime                 @default(now()) @db.Timestamptz(6)
-  role                   UserRole                 @default(patient)
+  role                   UserRole                 @unique(map: "idx_one_admin_user", where: raw("(role = 'admin'::\"UserRole\")")) @default(patient)
   patients               patients?                @relation("PatientAccount")
   assigned_patients      patients[]               @relation("PatientAssignedDoctor")
   appointments           appointments[]
