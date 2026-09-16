@@ -64,6 +64,8 @@ export interface AttachQrData {
 }
 
 export interface AgendaFilters {
+  /** CLI-57: siempre el doctor autenticado (request.appUser.id), nunca un query param — un doctor no debe poder pedir la agenda de otro. */
+  doctorId: string;
   status?: string;
   from?: Date;
   to?: Date;

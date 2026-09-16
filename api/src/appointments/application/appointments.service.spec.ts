@@ -501,7 +501,7 @@ describe('AppointmentsService', () => {
   describe('getAgenda', () => {
     it('delegates the filters straight to the repository', async () => {
       mockRepo.findForAgenda.mockResolvedValue([]);
-      const filters = { status: 'confirmed' };
+      const filters = { doctorId: DOCTOR_ID, status: 'confirmed' };
 
       await service.getAgenda(filters);
 

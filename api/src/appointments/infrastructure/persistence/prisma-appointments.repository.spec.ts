@@ -184,6 +184,23 @@ describe('PrismaAppointmentsRepository', () => {
     });
   });
 
+  describe('findForAgenda', () => {
+    // CLI-57: la agenda de un doctor no debe traer turnos de otro.
+    it('scopes the query to the given doctorId', async () => {
+      prismaMock.appointments.findMany.mockResolvedValue([]);
+
+      await repo.findForAgenda({ doctorId: 'doctor-1' });
+
+      expect(prismaMock.appointments.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            doctor_id: 'doctor-1',
+          }) as Record<string, unknown>,
+        }),
+      );
+    });
+  });
+
   describe('findActiveBetween', () => {
     it('scopes the query to the given doctorId', async () => {
       prismaMock.appointments.findMany.mockResolvedValue([]);
