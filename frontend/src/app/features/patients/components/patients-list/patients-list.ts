@@ -3,9 +3,12 @@ import {
   ChangeDetectionStrategy,
   HostListener,
   inject,
+  input,
   output,
   signal,
   computed,
+  effect,
+  untracked,
 } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 import { PatientsService } from '../../services/patients.service';
@@ -25,6 +28,12 @@ export class PatientsListComponent {
   private readonly patientsService = inject(PatientsService);
   private readonly bookingService = inject(BookingService);
   private readonly authService = inject(AuthService);
+
+  // CLI-64: panel de admin viendo a un doctor puntual — reemplaza la lógica
+  // de onlyMine y oculta el toggle "Solo mis pacientes" (no aplica en modo
+  // admin). readOnly apaga el menú de acciones por fila entero.
+  readonly forcedDoctorId = input<string | null>(null);
+  readonly readOnly = input(false);
 
   readonly startWizard = output<string>();
   readonly openOdontogram = output<string>();
@@ -74,14 +83,24 @@ export class PatientsListComponent {
   protected readonly onlyMine = signal(false);
 
   constructor() {
-    void this.loadPatients();
+    // Reactivo a forcedDoctorId (no a onlyMine, que ya dispara su propio
+    // reload explícito desde toggleOnlyMine) — cambia cuando el admin elige
+    // otro doctor desde el panel sin desmontar el componente.
+    effect(
+      () => {
+        this.forcedDoctorId();
+        untracked(() => void this.loadPatients());
+      },
+      { allowSignalWrites: true },
+    );
     void this.loadDoctors();
   }
 
   private async loadPatients(): Promise<void> {
+    const forcedDoctorId = this.forcedDoctorId();
     const myDoctorId = this.authService.currentUser()?.id ?? undefined;
-    const doctorId = this.onlyMine() ? myDoctorId : undefined;
-    const result = await firstValueFrom(this.patientsService.getAll(doctorId));
+    const doctorId = forcedDoctorId ?? (this.onlyMine() ? myDoctorId : undefined);
+    const result = await firstValueFrom(this.patientsService.getAll(doctorId ?? undefined));
     this.patients.set(result);
   }
 

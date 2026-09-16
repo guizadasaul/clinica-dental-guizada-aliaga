@@ -18,6 +18,13 @@
     gap: var(--space-4);
   }
 
+  &__header-actions {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    flex-wrap: wrap;
+  }
+
   &__title {
     font-family: var(--font-headline);
     font-size: var(--font-size-2xl);
@@ -223,6 +230,16 @@
         border-color: #b91c1c;
       }
     }
+
+    &--outline {
+      background: #fff;
+      color: var(--color-primary-dark);
+      border-color: var(--color-primary);
+
+      &:hover {
+        background: var(--color-primary-subtle);
+      }
+    }
   }
 
   &__icon-btn {
@@ -385,5 +402,41 @@
     display: flex;
     justify-content: flex-end;
     padding-top: var(--space-2);
+  }
+
+  // ─── Vista de detalle (agenda/pacientes de un doctor, CLI-64) ──────────────
+
+  &__detail {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-5);
+  }
+
+  &__tabs {
+    display: inline-flex;
+    align-self: flex-start;
+    background: var(--color-surface-dim);
+    border-radius: var(--radius-full);
+    padding: var(--space-1);
+    gap: var(--space-1);
+  }
+
+  &__tab {
+    padding: var(--space-2) var(--space-4);
+    border: none;
+    border-radius: var(--radius-full);
+    background: transparent;
+    color: var(--color-text-muted);
+    font-family: var(--font-body);
+    font-size: var(--font-size-sm);
+    font-weight: 600;
+    cursor: pointer;
+    transition: background var(--transition-fast), color var(--transition-fast);
+
+    &--active {
+      background: #fff;
+      color: var(--color-text);
+      box-shadow: 0 1px 2px rgb(0 0 0 / 0.08);
+    }
   }
 }

@@ -12,10 +12,20 @@
         <h2 class="admin-doctors__title">Doctores</h2>
         <span class="admin-doctors__count">{{ doctors().length }} doctores</span>
       </div>
-      <button type="button" class="admin-doctors__btn admin-doctors__btn--primary" (click)="openCreate()">
-        <span class="material-symbols-outlined">person_add</span>
-        Nuevo doctor
-      </button>
+      <div class="admin-doctors__header-actions">
+        <button
+          type="button"
+          class="admin-doctors__btn admin-doctors__btn--outline"
+          (click)="openDetail()"
+        >
+          <span class="material-symbols-outlined">calendar_month</span>
+          Ver agenda y pacientes
+        </button>
+        <button type="button" class="admin-doctors__btn admin-doctors__btn--primary" (click)="openCreate()">
+          <span class="material-symbols-outlined">person_add</span>
+          Nuevo doctor
+        </button>
+      </div>
     </div>
 
     @if (loadError()) {
@@ -81,6 +91,14 @@
                       Cancelar
                     </button>
                   } @else {
+                    <button
+                      type="button"
+                      class="admin-doctors__btn admin-doctors__btn--outline"
+                      (click)="openDetail(doctor.id)"
+                    >
+                      <span class="material-symbols-outlined">calendar_month</span>
+                      Ver agenda y pacientes
+                    </button>
                     <button type="button" class="admin-doctors__btn" (click)="openEdit(doctor.id)">
                       <span class="material-symbols-outlined">edit</span>
                       Editar
@@ -103,6 +121,53 @@
         </table>
       </div>
     }
+  } @else if (mode() === 'detail') {
+    <div class="admin-doctors__detail">
+      <div class="admin-doctors__form-header">
+        <h2 class="admin-doctors__title">Agenda y pacientes por doctor</h2>
+        <button type="button" class="admin-doctors__btn admin-doctors__btn--ghost" (click)="closeDetail()">
+          <span class="material-symbols-outlined">close</span>
+          Volver
+        </button>
+      </div>
+
+      <app-doctor-picker
+        [doctors]="pickerDoctors()"
+        [loading]="pickerLoading()"
+        (doctorSelected)="onPickerSelect($event)"
+      />
+
+      @if (selectedDoctorId(); as doctorId) {
+        <div class="admin-doctors__tabs" role="tablist" aria-label="Ver agenda o pacientes del doctor">
+          <button
+            type="button"
+            role="tab"
+            class="admin-doctors__tab"
+            [class.admin-doctors__tab--active]="detailTab() === 'agenda'"
+            [attr.aria-selected]="detailTab() === 'agenda'"
+            (click)="setDetailTab('agenda')"
+          >
+            Agenda
+          </button>
+          <button
+            type="button"
+            role="tab"
+            class="admin-doctors__tab"
+            [class.admin-doctors__tab--active]="detailTab() === 'patients'"
+            [attr.aria-selected]="detailTab() === 'patients'"
+            (click)="setDetailTab('patients')"
+          >
+            Pacientes
+          </button>
+        </div>
+
+        @if (detailTab() === 'agenda') {
+          <app-doctor-agenda [doctorId]="doctorId" [readOnly]="true" />
+        } @else {
+          <app-patients-list [forcedDoctorId]="doctorId" [readOnly]="true" />
+        }
+      }
+    </div>
   } @else {
     <div class="admin-doctors__form-panel">
       <div class="admin-doctors__form-header">
