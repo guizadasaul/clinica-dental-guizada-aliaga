@@ -1,3 +1,13 @@
+export interface Doctor {
+  id: string;
+  displayName: string | null;
+  specialty: string | null;
+  bio: string | null;
+  photoUrl: string | null;
+  displayOrder: number;
+  isBookable: boolean;
+}
+
 export interface AvailabilityResponse {
   date: string;
   slots: string[];

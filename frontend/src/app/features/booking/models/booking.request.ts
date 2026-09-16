@@ -1,5 +1,6 @@
 export interface HoldSlotRequest {
   slot: string;
+  doctorId: string;
 }
 
 export interface GuestContactRequest {

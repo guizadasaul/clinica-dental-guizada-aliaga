@@ -1,0 +1,88 @@
+// Selector de doctor — solo var(--token), sin hex hardcodeado.
+
+.doctor-picker {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.doctor-picker__prompt {
+  margin: 0;
+  font-family: var(--font-body);
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  color: var(--color-text-muted);
+}
+
+.doctor-picker__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(9rem, 1fr));
+  gap: var(--space-3);
+}
+
+.doctor-picker__card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  cursor: pointer;
+  text-align: center;
+  transition: border-color var(--transition-fast), background var(--transition-fast), box-shadow var(--transition-fast);
+
+  &:hover {
+    border-color: var(--color-primary);
+    background: var(--color-primary-subtle);
+    box-shadow: var(--shadow-sm);
+  }
+}
+
+.doctor-picker__photo {
+  width: 4.5rem;
+  height: 4.5rem;
+  border-radius: var(--radius-full);
+  object-fit: cover;
+}
+
+.doctor-picker__placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 4.5rem;
+  height: 4.5rem;
+  border-radius: var(--radius-full);
+  background: var(--color-surface-var);
+  color: var(--color-text-muted);
+}
+
+.doctor-picker__name {
+  font-family: var(--font-headline);
+  font-size: var(--font-size-md);
+  color: var(--color-navy);
+}
+
+.doctor-picker__specialty {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+}
+
+.doctor-picker__hint {
+  margin: 0;
+  padding-block: var(--space-6);
+  text-align: center;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+}
+
+.doctor-picker__error {
+  margin: 0;
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--color-error-light);
+  border-radius: var(--radius-lg);
+  background: var(--color-error-light);
+  color: var(--color-error);
+  font-size: var(--font-size-sm);
+}
