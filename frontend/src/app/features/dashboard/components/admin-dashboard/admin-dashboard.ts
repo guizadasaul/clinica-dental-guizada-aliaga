@@ -9,12 +9,13 @@ import {
 import { AuthService } from '../../../../auth/application/auth.service';
 import { LogoComponent } from '../../../../shared/ui/logo/logo';
 import { AdminDoctorsComponent } from '../../../admin/components/admin-doctors/admin-doctors';
+import { ReportsPageComponent } from '../../../reports/components/reports-page/reports-page';
 
 @Component({
   selector: 'app-admin-dashboard',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [LogoComponent, AdminDoctorsComponent],
+  imports: [LogoComponent, AdminDoctorsComponent, ReportsPageComponent],
   templateUrl: './admin-dashboard.html',
   styleUrl: './admin-dashboard.scss',
 })

@@ -1,0 +1,141 @@
+<div class="reports-page">
+  <div class="reports-page__header">
+    <h2 class="reports-page__title">Reportes</h2>
+  </div>
+
+  <div class="reports-page__filters">
+    <div class="reports-page__range">
+      <label class="reports-page__range-field">
+        <span>Desde</span>
+        <input type="date" [value]="from()" (change)="onFromInput($event)" />
+      </label>
+      <label class="reports-page__range-field">
+        <span>Hasta</span>
+        <input type="date" [value]="to()" (change)="onToInput($event)" />
+      </label>
+      <button type="button" class="reports-page__btn reports-page__btn--primary" (click)="applyRange()">
+        <span class="material-symbols-outlined">refresh</span>
+        Actualizar
+      </button>
+    </div>
+
+    <div class="reports-page__doctor-filter">
+      <button
+        type="button"
+        class="reports-page__chip"
+        [class.reports-page__chip--active]="selectedDoctorId() === null"
+        (click)="selectAllDoctors()"
+      >
+        Todos los doctores
+      </button>
+      <app-doctor-picker
+        [doctors]="doctors()"
+        [loading]="doctorsLoading()"
+        (doctorSelected)="selectDoctor($event)"
+      />
+    </div>
+  </div>
+
+  @if (error()) {
+    <div class="reports-page__banner reports-page__banner--error">
+      <span class="material-symbols-outlined">error</span>
+      <span>{{ error() }}</span>
+    </div>
+  }
+
+  <div class="reports-page__tabs" role="tablist" aria-label="Tipo de reporte">
+    <button
+      type="button"
+      role="tab"
+      class="reports-page__tab"
+      [class.reports-page__tab--active]="tab() === 'operational'"
+      [attr.aria-selected]="tab() === 'operational'"
+      (click)="setTab('operational')"
+    >
+      Operativo
+    </button>
+    <button
+      type="button"
+      role="tab"
+      class="reports-page__tab"
+      [class.reports-page__tab--active]="tab() === 'financial'"
+      [attr.aria-selected]="tab() === 'financial'"
+      (click)="setTab('financial')"
+    >
+      Financiero
+    </button>
+  </div>
+
+  @if (loading()) {
+    <p class="reports-page__loading">Cargando reportes...</p>
+  } @else if (tab() === 'operational') {
+    <div class="reports-page__table-wrap">
+      @if (!operationalReport() || operationalReport()!.doctors.length === 0) {
+        <p class="reports-page__empty">Sin datos para el rango elegido.</p>
+      } @else {
+        <table class="reports-page__table">
+          <thead>
+            <tr>
+              <th>Doctor</th>
+              <th>Confirmados</th>
+              <th>En espera</th>
+              <th>Vencidos</th>
+              <th>Atendidos</th>
+              <th>Total turnos</th>
+              <th>Pacientes nuevos</th>
+              <th>Ocupación</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (row of operationalReport()!.doctors; track row.doctorId) {
+              <tr>
+                <td class="reports-page__cell--name">{{ row.doctorName ?? 'Sin nombre' }}</td>
+                <td>{{ statusCount(row, 'confirmed') }}</td>
+                <td>{{ statusCount(row, 'held') }}</td>
+                <td>{{ statusCount(row, 'expired') }}</td>
+                <td>{{ statusCount(row, 'attended') }}</td>
+                <td>{{ row.totalAppointments }}</td>
+                <td>{{ row.newPatients }}</td>
+                <td>{{ occupancyPercent(row) }}%</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+        <p class="reports-page__note">
+          "Ocupación" compara los turnos confirmados contra la capacidad teórica de slots del horario del doctor en el
+          rango elegido. "Atendidos" refleja el estado tal cual está guardado — hoy no existe un flujo de check-in
+          propio que transicione un turno a ese estado.
+        </p>
+      }
+    </div>
+  } @else {
+    <div class="reports-page__table-wrap">
+      @if (!financialReport() || financialReport()!.doctors.length === 0) {
+        <p class="reports-page__empty">Sin datos para el rango elegido.</p>
+      } @else {
+        <table class="reports-page__table">
+          <thead>
+            <tr>
+              <th>Doctor</th>
+              <th>Cobrado en el rango</th>
+              <th>Pendiente actual</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (row of financialReport()!.doctors; track row.doctorId ?? 'unassigned') {
+              <tr>
+                <td class="reports-page__cell--name">{{ row.doctorName ?? 'Sin doctor asignado' }}</td>
+                <td>Bs. {{ row.collected | number: '1.2-2' }}</td>
+                <td>Bs. {{ row.pending | number: '1.2-2' }}</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+        <p class="reports-page__note">
+          "Cobrado" es la suma de pagos registrados en el rango elegido. "Pendiente" es el saldo actual de
+          presupuestos no pagados — no depende del rango de fechas.
+        </p>
+      }
+    </div>
+  }
+</div>
