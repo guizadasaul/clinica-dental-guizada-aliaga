@@ -25,11 +25,17 @@ import type {
 import type { AppointmentWithPatient } from '../domain/AppointmentWithPatient.js';
 import {
   buildSlotsForDate,
+  groupBlocksByWeekday,
   isValidSlot,
   SLOT_MINUTES,
 } from '../domain/ClinicSchedule.js';
+import type { WeeklySchedule } from '../domain/ClinicSchedule.js';
 import { TreatmentRepository } from '../../treatments/domain/TreatmentRepository.js';
 import type { ITreatmentRepository } from '../../treatments/domain/TreatmentRepository.js';
+import { DoctorRepository } from '../../doctors/domain/DoctorRepository.js';
+import type { IDoctorRepository } from '../../doctors/domain/DoctorRepository.js';
+import { DoctorScheduleRepository } from '../../doctors/domain/DoctorScheduleRepository.js';
+import type { IDoctorScheduleRepository } from '../../doctors/domain/DoctorScheduleRepository.js';
 
 // Bolivia no tiene horario de verano (UTC-4 fijo), así que sumar días de
 // calendario en UTC es seguro para generar el rango de fechas a consultar.
@@ -75,10 +81,37 @@ export class AppointmentsService {
     private readonly appointmentRepo: IAppointmentRepository,
     @Inject(TreatmentRepository)
     private readonly treatmentRepo: ITreatmentRepository,
+    @Inject(DoctorRepository)
+    private readonly doctorRepo: IDoctorRepository,
+    @Inject(DoctorScheduleRepository)
+    private readonly doctorScheduleRepo: IDoctorScheduleRepository,
   ) {}
 
-  async getAvailability(date: string): Promise<AvailabilityResult> {
-    const allSlots = buildSlotsForDate(date);
+  // CLI-56: valida antes de tocar disponibilidad/agenda — un doctorId que no
+  // existe o no es reservable no debe devolver "todo libre" (bloques vacíos
+  // harían que isValidSlot rechace todo, pero con un 400 genérico en vez de
+  // un 404 claro) ni dejar reservar contra un doctor dado de baja.
+  private async requireBookableDoctor(doctorId: string): Promise<void> {
+    const bookable = await this.doctorRepo.isBookable(doctorId);
+    if (!bookable) {
+      throw new NotFoundException(
+        `Doctor con id ${doctorId} no encontrado o no reservable`,
+      );
+    }
+  }
+
+  private async scheduleFor(doctorId: string): Promise<WeeklySchedule> {
+    const blocks = await this.doctorScheduleRepo.findBlocksForDoctor(doctorId);
+    return groupBlocksByWeekday(blocks);
+  }
+
+  async getAvailability(
+    doctorId: string,
+    date: string,
+  ): Promise<AvailabilityResult> {
+    await this.requireBookableDoctor(doctorId);
+    const schedule = await this.scheduleFor(doctorId);
+    const allSlots = buildSlotsForDate(date, schedule);
     if (allSlots.length === 0) {
       return { date, slots: [] };
     }
@@ -91,6 +124,7 @@ export class AppointmentsService {
       dayStart,
       dayEnd,
       now,
+      doctorId,
     );
     const takenTimes = new Set(
       active.flatMap((a) =>
@@ -106,9 +140,12 @@ export class AppointmentsService {
   }
 
   async getAvailabilityRange(
+    doctorId: string,
     from: string,
     days: number,
   ): Promise<AvailabilityRangeResult> {
+    await this.requireBookableDoctor(doctorId);
+    const schedule = await this.scheduleFor(doctorId);
     const dates = Array.from({ length: days }, (_, i) =>
       addDaysToDateString(from, i),
     );
@@ -117,7 +154,7 @@ export class AppointmentsService {
     let rangeEnd: Date | null = null;
 
     for (const date of dates) {
-      const slots = buildSlotsForDate(date);
+      const slots = buildSlotsForDate(date, schedule);
       slotsByDateRaw.set(date, slots);
       if (slots.length === 0) {
         continue;
@@ -140,6 +177,7 @@ export class AppointmentsService {
             rangeStart,
             rangeEnd,
             now,
+            doctorId,
           )
         : [];
     const takenTimes = new Set(
@@ -161,9 +199,15 @@ export class AppointmentsService {
     return { from, days, slotsByDate };
   }
 
-  async holdSlot(slotIso: string, treatmentId?: string): Promise<HoldResult> {
+  async holdSlot(
+    doctorId: string,
+    slotIso: string,
+    treatmentId?: string,
+  ): Promise<HoldResult> {
+    await this.requireBookableDoctor(doctorId);
+    const schedule = await this.scheduleFor(doctorId);
     const slot = new Date(slotIso);
-    if (!isValidSlot(slot) || slot.getTime() <= Date.now()) {
+    if (!isValidSlot(slot, schedule) || slot.getTime() <= Date.now()) {
       throw new BadRequestException('El horario solicitado no es válido');
     }
 
@@ -184,6 +228,7 @@ export class AppointmentsService {
     const holdExpiresAt = new Date(Date.now() + HOLD_TTL_MINUTES * 60 * 1000);
     try {
       const appointment = await this.appointmentRepo.createHold({
+        doctorId,
         slot,
         holdExpiresAt,
         treatmentId: treatmentId ?? null,

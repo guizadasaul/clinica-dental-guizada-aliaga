@@ -1,47 +1,46 @@
 /**
- * Horario de atención de la clínica (Bolivia, UTC-4, sin horario de verano).
- * Lunes a viernes: 09:00–12:00 y 15:00–19:00 (con turnos de 30 min, el
- * último arranca a las 18:30). Sábados: 09:00–12:00 (último turno 11:30).
- * Domingo cerrado. Coincide con lo que ya muestra el pie de la landing
- * (`landing.contact.hoursWeekdays` / `hoursSaturday` en los i18n).
+ * Cálculo de horarios de atención (Bolivia, UTC-4, sin horario de verano).
+ * El horario en sí (qué días/bloques atiende) ya no es fijo de la clínica —
+ * es propio de cada doctor (CLI-61: doctor_schedule_blocks, CLI-56: estas
+ * funciones lo reciben como parámetro en vez de leer una constante global).
  */
 export const CLINIC_TIMEZONE = 'America/La_Paz';
 export const CLINIC_UTC_OFFSET = '-04:00';
 export const SLOT_MINUTES = 30;
 
-interface ScheduleBlock {
+export interface ScheduleBlock {
   start: string;
   end: string;
 }
 
-const WEEKDAY_BLOCKS: Record<number, readonly ScheduleBlock[]> = {
-  // 0 = domingo, ..., 6 = sábado (Date#getDay / Intl weekday numbering base)
-  1: [
-    { start: '09:00', end: '12:00' },
-    { start: '15:00', end: '19:00' },
-  ], // lunes
-  2: [
-    { start: '09:00', end: '12:00' },
-    { start: '15:00', end: '19:00' },
-  ], // martes
-  3: [
-    { start: '09:00', end: '12:00' },
-    { start: '15:00', end: '19:00' },
-  ], // miércoles
-  4: [
-    { start: '09:00', end: '12:00' },
-    { start: '15:00', end: '19:00' },
-  ], // jueves
-  5: [
-    { start: '09:00', end: '12:00' },
-    { start: '15:00', end: '19:00' },
-  ], // viernes
-  6: [{ start: '09:00', end: '12:00' }], // sábado
-  // domingo (0): sin entrada — sin bloques, cerrado.
-};
+/** Fila plana tal como la devuelve el repositorio de horario por doctor. */
+export interface WeeklyScheduleBlock extends ScheduleBlock {
+  /** 0 = domingo, ..., 6 = sábado (Date#getDay / Intl weekday numbering base). */
+  weekday: number;
+}
 
-function blocksForWeekday(weekday: number): readonly ScheduleBlock[] {
-  return WEEKDAY_BLOCKS[weekday] ?? [];
+/** Bloques de un doctor agrupados por día de la semana. */
+export type WeeklySchedule = Record<number, readonly ScheduleBlock[]>;
+
+/** Agrupa las filas planas de doctor_schedule_blocks por weekday. */
+export function groupBlocksByWeekday(
+  blocks: readonly WeeklyScheduleBlock[],
+): WeeklySchedule {
+  const grouped: Record<number, ScheduleBlock[]> = {};
+  for (const block of blocks) {
+    (grouped[block.weekday] ??= []).push({
+      start: block.start,
+      end: block.end,
+    });
+  }
+  return grouped;
+}
+
+function blocksForWeekday(
+  schedule: WeeklySchedule,
+  weekday: number,
+): readonly ScheduleBlock[] {
+  return schedule[weekday] ?? [];
 }
 
 interface LocalDateParts {
@@ -92,7 +91,10 @@ function pad2(n: number): string {
 }
 
 /** Construye los horarios disponibles (inicio de turno) de un día dado, en orden. */
-export function buildSlotsForDate(date: string): Date[] {
+export function buildSlotsForDate(
+  date: string,
+  schedule: WeeklySchedule,
+): Date[] {
   const [year, month, day] = date.split('-').map(Number);
   if (!year || !month || !day) {
     return [];
@@ -102,7 +104,7 @@ export function buildSlotsForDate(date: string): Date[] {
   ).weekday;
 
   const slots: Date[] = [];
-  for (const block of blocksForWeekday(weekday)) {
+  for (const block of blocksForWeekday(schedule, weekday)) {
     const [startH, startM] = block.start.split(':').map(Number);
     const [endH, endM] = block.end.split(':').map(Number);
     const blockStartMinutes = startH * 60 + startM;
@@ -119,7 +121,7 @@ export function buildSlotsForDate(date: string): Date[] {
 }
 
 /** true si el slot cae exactamente en la grilla de un bloque de atención vigente. */
-export function isValidSlot(slot: Date): boolean {
+export function isValidSlot(slot: Date, schedule: WeeklySchedule): boolean {
   if (Number.isNaN(slot.getTime())) {
     return false;
   }
@@ -128,7 +130,7 @@ export function isValidSlot(slot: Date): boolean {
     return false;
   }
   const minutesOfDay = hour * 60 + minute;
-  return blocksForWeekday(weekday).some((block) => {
+  return blocksForWeekday(schedule, weekday).some((block) => {
     const [startH, startM] = block.start.split(':').map(Number);
     const [endH, endM] = block.end.split(':').map(Number);
     return (

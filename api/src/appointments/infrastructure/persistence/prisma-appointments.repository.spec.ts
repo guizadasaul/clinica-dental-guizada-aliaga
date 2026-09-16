@@ -78,6 +78,7 @@ describe('PrismaAppointmentsRepository', () => {
       prismaMock.appointments.create.mockResolvedValue(fakeAppointmentRecord());
 
       await repo.createHold({
+        doctorId: 'doctor-1',
         slot: SLOT,
         holdExpiresAt: NOW,
         treatmentId: null,
@@ -89,6 +90,7 @@ describe('PrismaAppointmentsRepository', () => {
       expect(prismaMock.appointments.updateMany).toHaveBeenCalledWith(
         expect.objectContaining({
           where: expect.objectContaining({
+            doctor_id: 'doctor-1',
             appointment_datetime: SLOT,
             status: 'held',
           }) as Record<string, unknown>,
@@ -98,8 +100,35 @@ describe('PrismaAppointmentsRepository', () => {
       expect(prismaMock.appointments.create).toHaveBeenCalledWith(
         expect.objectContaining({
           data: expect.objectContaining({
+            doctor_id: 'doctor-1',
             appointment_datetime: SLOT,
             status: 'held',
+          }) as Record<string, unknown>,
+        }),
+      );
+    });
+
+    // CLI-56: reservar al doctor A no debe tocar/consultar nada del doctor B
+    // — el guard de holds vencidos y el insert van scoped a doctor_id.
+    it('scopes the stale-hold guard to the given doctor only', async () => {
+      prismaMock.appointments.updateMany.mockResolvedValue({ count: 0 });
+      prismaMock.appointments.create.mockResolvedValue(
+        fakeAppointmentRecord({ doctor_id: 'doctor-b' }),
+      );
+
+      await repo.createHold({
+        doctorId: 'doctor-b',
+        slot: SLOT,
+        holdExpiresAt: NOW,
+        treatmentId: null,
+        durationMinutes: 30,
+        source: 'public_web',
+      });
+
+      expect(prismaMock.appointments.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            doctor_id: 'doctor-b',
           }) as Record<string, unknown>,
         }),
       );
@@ -114,6 +143,7 @@ describe('PrismaAppointmentsRepository', () => {
       );
 
       await repo.createHold({
+        doctorId: 'doctor-1',
         slot: SLOT,
         holdExpiresAt: NOW,
         treatmentId: 'treatment-1',
@@ -143,6 +173,7 @@ describe('PrismaAppointmentsRepository', () => {
 
       await expect(
         repo.createHold({
+          doctorId: 'doctor-1',
           slot: SLOT,
           holdExpiresAt: NOW,
           treatmentId: null,
@@ -150,6 +181,24 @@ describe('PrismaAppointmentsRepository', () => {
           source: 'public_web',
         }),
       ).rejects.toThrow(SlotUnavailableError);
+    });
+  });
+
+  describe('findActiveBetween', () => {
+    it('scopes the query to the given doctorId', async () => {
+      prismaMock.appointments.findMany.mockResolvedValue([]);
+      const from = new Date('2026-08-17T00:00:00.000Z');
+      const to = new Date('2026-08-18T00:00:00.000Z');
+
+      await repo.findActiveBetween(from, to, NOW, 'doctor-1');
+
+      expect(prismaMock.appointments.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            doctor_id: 'doctor-1',
+          }) as Record<string, unknown>,
+        }),
+      );
     });
   });
 

@@ -3,12 +3,16 @@ import {
   IsInt,
   IsOptional,
   IsString,
+  IsUUID,
   Matches,
   Max,
   Min,
 } from 'class-validator';
 
 export class AvailabilityRangeQueryDto {
+  @IsUUID()
+  doctorId!: string;
+
   @IsString()
   @Matches(/^\d{4}-\d{2}-\d{2}$/, {
     message: 'from debe tener el formato YYYY-MM-DD',

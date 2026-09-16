@@ -37,7 +37,7 @@ export class AppointmentsController {
   getAvailability(
     @Query() query: AvailabilityQueryDto,
   ): Promise<AvailabilityResult> {
-    return this.appointmentsService.getAvailability(query.date);
+    return this.appointmentsService.getAvailability(query.doctorId, query.date);
   }
 
   @Get('availability-range')
@@ -45,6 +45,7 @@ export class AppointmentsController {
     @Query() query: AvailabilityRangeQueryDto,
   ): Promise<AvailabilityRangeResult> {
     return this.appointmentsService.getAvailabilityRange(
+      query.doctorId,
       query.from,
       query.days ?? DEFAULT_RANGE_DAYS,
     );
@@ -61,7 +62,11 @@ export class AppointmentsController {
     },
   })
   holdSlot(@Body() dto: HoldSlotDto): Promise<HoldResult> {
-    return this.appointmentsService.holdSlot(dto.slot, dto.treatmentId);
+    return this.appointmentsService.holdSlot(
+      dto.doctorId,
+      dto.slot,
+      dto.treatmentId,
+    );
   }
 
   @Patch('appointments/:id/contact')

@@ -1,6 +1,9 @@
 import { IsISO8601, IsOptional, IsUUID } from 'class-validator';
 
 export class HoldSlotDto {
+  @IsUUID()
+  doctorId!: string;
+
   @IsISO8601({ strict: true })
   slot!: string;
 
