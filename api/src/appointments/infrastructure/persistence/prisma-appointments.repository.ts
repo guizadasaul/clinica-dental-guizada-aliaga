@@ -34,6 +34,7 @@ export class PrismaAppointmentsRepository implements IAppointmentRepository {
         : {};
     const records = await this.prisma.appointments.findMany({
       where: {
+        doctor_id: filters.doctorId,
         ...(filters.status && { status: filters.status }),
         ...dateFilter,
       },
