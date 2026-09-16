@@ -53,6 +53,7 @@ export class PatientMapper {
       r.dni ?? null,
       r.created_at,
       r.updated_at,
+      r.assigned_doctor_id ?? null,
     );
   }
 

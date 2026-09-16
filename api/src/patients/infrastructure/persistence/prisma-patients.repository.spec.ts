@@ -341,3 +341,93 @@ describe('PrismaPatientsRepository.createToothProcedureGroup', () => {
     expect(firstCallArgs[0].data).not.toHaveProperty('price_charged');
   });
 });
+
+// CLI-58: doctorId es un filtro de conveniencia sobre el paciente asignado,
+// no de seguridad — sin él, la consulta sigue trayendo todos los pacientes.
+describe('PrismaPatientsRepository.findAllWithUsers', () => {
+  it('does not filter by doctor when no doctorId is given', async () => {
+    const mockPrisma = {
+      users: { findMany: jest.fn().mockResolvedValue([]) },
+    };
+    const repo = new PrismaPatientsRepository(mockPrisma as never);
+
+    await repo.findAllWithUsers();
+
+    expect(mockPrisma.users.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { role: 'patient' } }),
+    );
+  });
+
+  it('filters by patients.assigned_doctor_id when doctorId is given', async () => {
+    const mockPrisma = {
+      users: { findMany: jest.fn().mockResolvedValue([]) },
+    };
+    const repo = new PrismaPatientsRepository(mockPrisma as never);
+
+    await repo.findAllWithUsers('doctor-a');
+
+    expect(mockPrisma.users.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          role: 'patient',
+          patients: { assigned_doctor_id: 'doctor-a' },
+        },
+      }),
+    );
+  });
+});
+
+describe('PrismaPatientsRepository.create', () => {
+  it('persists the given assignedDoctorId as assigned_doctor_id', async () => {
+    const mockPrisma = {
+      patients: {
+        create: jest.fn().mockResolvedValue({
+          id: 'patient-1',
+          users: { phone: null },
+        }),
+      },
+    };
+    const repo = new PrismaPatientsRepository(mockPrisma as never);
+
+    await repo.create('user-1', {
+      firstName: 'A',
+      lastNamePaternal: 'B',
+      birthDate: new Date(),
+      assignedDoctorId: 'doctor-a',
+    });
+
+    expect(mockPrisma.patients.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          assigned_doctor_id: 'doctor-a',
+        }) as Record<string, unknown>,
+      }),
+    );
+  });
+
+  it('defaults assigned_doctor_id to null when not given (patient self-registration)', async () => {
+    const mockPrisma = {
+      patients: {
+        create: jest.fn().mockResolvedValue({
+          id: 'patient-1',
+          users: { phone: null },
+        }),
+      },
+    };
+    const repo = new PrismaPatientsRepository(mockPrisma as never);
+
+    await repo.create('user-1', {
+      firstName: 'A',
+      lastNamePaternal: 'B',
+      birthDate: new Date(),
+    });
+
+    expect(mockPrisma.patients.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          assigned_doctor_id: null,
+        }) as Record<string, unknown>,
+      }),
+    );
+  });
+});

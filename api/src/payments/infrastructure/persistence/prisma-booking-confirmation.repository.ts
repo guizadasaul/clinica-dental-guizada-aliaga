@@ -30,6 +30,15 @@ export class PrismaBookingConfirmationRepository implements IBookingConfirmation
         return null;
       }
 
+      // CLI-58: el doctor asignado al crear la ficha es el de la cita que la
+      // originó — se lee de la propia appointment en vez de que el caller lo
+      // pase por separado (una sola fuente de verdad, sin riesgo de que
+      // diverja del doctor real de la cita que se está confirmando).
+      const { doctor_id: doctorId } = await tx.appointments.findUniqueOrThrow({
+        where: { id: data.appointmentId },
+        select: { doctor_id: true },
+      });
+
       const displayName = [
         data.guestFirstName,
         data.guestLastNamePaternal,
@@ -62,6 +71,7 @@ export class PrismaBookingConfirmationRepository implements IBookingConfirmation
             first_name: data.guestFirstName,
             last_name_paternal: data.guestLastNamePaternal,
             last_name_maternal: data.guestLastNameMaternal,
+            assigned_doctor_id: doctorId,
           },
         }));
       await tx.appointments.update({

@@ -43,6 +43,7 @@ function fakePatient(
     id: string;
     userId: string;
     authUserId: string | null;
+    assignedDoctorId: string | null;
   }> = {},
 ): Patient {
   return new Patient(
@@ -70,6 +71,7 @@ function fakePatient(
     null,
     new Date(),
     new Date(),
+    overrides.assignedDoctorId ?? null,
   );
 }
 
@@ -284,6 +286,47 @@ describe('PatientsService', () => {
       );
     });
 
+    // CLI-58: el doctor asignado es quien hace el alta, cuando es odontólogo.
+    it('assigns the doctor doing the alta as assignedDoctorId', async () => {
+      mockUserRepo.findByAuthUserId.mockResolvedValue(
+        makeAppUser(UserRole.ODONTOLOGIST, 'doctor-id'),
+      );
+      mockPatientRepo.create.mockResolvedValue(
+        fakePatient({ userId: 'some-other-user-id' }),
+      );
+
+      await service.createPatient(DOCTOR_AUTH_ID, 'some-other-user-id', {
+        firstName: 'A',
+        lastNamePaternal: 'B',
+        birthDate: new Date(),
+      });
+
+      expect(mockPatientRepo.create).toHaveBeenCalledWith(
+        'some-other-user-id',
+        expect.objectContaining({ assignedDoctorId: 'doctor-id' }),
+      );
+    });
+
+    it('leaves assignedDoctorId unset when a patient creates their own ficha', async () => {
+      mockUserRepo.findByAuthUserId.mockResolvedValue(
+        makeAppUser(UserRole.PATIENT, 'caller-user-id'),
+      );
+      mockPatientRepo.create.mockResolvedValue(
+        fakePatient({ userId: 'caller-user-id' }),
+      );
+
+      await service.createPatient(PATIENT_AUTH_ID, undefined, {
+        firstName: 'A',
+        lastNamePaternal: 'B',
+        birthDate: new Date(),
+      });
+
+      expect(mockPatientRepo.create).toHaveBeenCalledWith(
+        'caller-user-id',
+        expect.objectContaining({ assignedDoctorId: undefined }),
+      );
+    });
+
     it('translates a unique-constraint violation into ConflictException', async () => {
       mockUserRepo.findByAuthUserId.mockResolvedValue(
         makeAppUser(UserRole.ODONTOLOGIST, 'doctor-id'),
@@ -349,6 +392,24 @@ describe('PatientsService', () => {
       });
 
       expect(mockUserRepo.updateContactInfo).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('findAll', () => {
+    it('passes no doctorId through by default (visibilidad compartida)', async () => {
+      mockPatientRepo.findAllWithUsers.mockResolvedValue([]);
+
+      await service.findAll();
+
+      expect(mockPatientRepo.findAllWithUsers).toHaveBeenCalledWith(undefined);
+    });
+
+    it('forwards doctorId as a convenience filter when given', async () => {
+      mockPatientRepo.findAllWithUsers.mockResolvedValue([]);
+
+      await service.findAll('doctor-a');
+
+      expect(mockPatientRepo.findAllWithUsers).toHaveBeenCalledWith('doctor-a');
     });
   });
 

@@ -132,8 +132,9 @@ export class PatientsService {
     private readonly supabaseAdminService: SupabaseAdminService,
   ) {}
 
-  findAll(): Promise<PatientWithUser[]> {
-    return this.patientRepo.findAllWithUsers();
+  /** doctorId es un filtro de conveniencia (no de seguridad) — visibilidad compartida sin él, igual que siempre. */
+  findAll(doctorId?: string): Promise<PatientWithUser[]> {
+    return this.patientRepo.findAllWithUsers(doctorId);
   }
 
   /**
@@ -173,8 +174,17 @@ export class PatientsService {
       });
     }
 
+    // CLI-58: doctor asignado = quien hace el alta, solo cuando quien la hace
+    // es un odontólogo — un paciente autorregistrando su propia ficha (rama
+    // de arriba) no tiene doctor asignado todavía.
+    const assignedDoctorId =
+      caller.role === UserRole.ODONTOLOGIST ? caller.id : undefined;
+
     try {
-      return await this.patientRepo.create(targetUserId, data);
+      return await this.patientRepo.create(targetUserId, {
+        ...data,
+        assignedDoctorId,
+      });
     } catch (error: unknown) {
       const msg = error instanceof Error ? error.message : '';
       if (msg.includes('Unique constraint') || msg.includes('unique')) {

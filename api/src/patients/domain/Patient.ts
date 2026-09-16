@@ -26,5 +26,7 @@ export class Patient {
     readonly dni: string | null,
     readonly createdAt: Date,
     readonly updatedAt: Date,
+    /** Doctor asignado (CLI-58) — informativo, no restringe acceso a la ficha. */
+    readonly assignedDoctorId: string | null,
   ) {}
 }
