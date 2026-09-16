@@ -3,14 +3,16 @@ import { HttpErrorResponse } from '@angular/common/http';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
 import { BookingService } from '../../services/booking.service';
+import { DoctorPickerComponent } from '../doctor-picker/doctor-picker';
 import { WeekSlotPickerComponent } from '../week-slot-picker/week-slot-picker';
 import { StepGuestContactComponent } from '../step-guest-contact/step-guest-contact';
 import { StepPaymentQrComponent } from '../step-payment-qr/step-payment-qr';
 import { BookingConfirmedComponent } from '../booking-confirmed/booking-confirmed';
 import { HoldCountdownComponent } from '../hold-countdown/hold-countdown';
 import type { GuestContactRequest } from '../../models/booking.request';
+import type { Doctor } from '../../models/booking.model';
 
-type BookingStep = 'slot' | 'contact' | 'payment' | 'confirmed';
+type BookingStep = 'doctor' | 'slot' | 'contact' | 'payment' | 'confirmed';
 
 function todayIso(): string {
   return new Date().toISOString().slice(0, 10);
@@ -22,6 +24,7 @@ function todayIso(): string {
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
     RouterLink,
+    DoctorPickerComponent,
     WeekSlotPickerComponent,
     StepGuestContactComponent,
     StepPaymentQrComponent,
@@ -35,7 +38,10 @@ export class BookingPageComponent {
   private readonly bookingService = inject(BookingService);
   private readonly route = inject(ActivatedRoute);
 
-  protected readonly step = signal<BookingStep>('slot');
+  protected readonly step = signal<BookingStep>('doctor');
+  protected readonly doctors = signal<Doctor[]>([]);
+  protected readonly doctorsLoading = signal(false);
+  protected readonly selectedDoctorId = signal<string | null>(null);
   protected readonly slotsByDate = signal<Record<string, string[]>>({});
   protected readonly loading = signal(false);
   protected readonly error = signal<string | null>(null);
@@ -46,23 +52,47 @@ export class BookingPageComponent {
   protected readonly amount = signal<number | null>(null);
 
   constructor() {
-    void this.loadAvailability();
-
-    // Si venimos de la landing con un horario ya elegido (?slot=iso), lo
-    // reservamos directo y saltamos al paso de contacto. Si el hold falla
-    // (409/410) onSlotSelected ya nos deja en el paso 'slot' con la
-    // disponibilidad recién cargada.
+    // Si venimos de la landing con doctor y horario ya elegidos
+    // (?doctorId=&slot=iso), reservamos directo y saltamos al paso de
+    // contacto — sin pasar por el picker de doctor ni el de horarios. Si
+    // el hold falla (409/410) onSlotSelected ya nos deja en el paso 'slot'
+    // con la disponibilidad de ESE doctor recién cargada.
     const preselectedSlot = this.route.snapshot.queryParamMap.get('slot');
-    if (preselectedSlot) {
+    const preselectedDoctorId = this.route.snapshot.queryParamMap.get('doctorId');
+    if (preselectedSlot && preselectedDoctorId) {
+      this.selectedDoctorId.set(preselectedDoctorId);
+      this.step.set('slot');
+      void this.loadAvailability(preselectedDoctorId);
       void this.onSlotSelected(preselectedSlot);
+    } else {
+      void this.loadDoctors();
     }
   }
 
-  private async loadAvailability(): Promise<void> {
+  private async loadDoctors(): Promise<void> {
+    this.doctorsLoading.set(true);
+    this.error.set(null);
+    try {
+      const result = await firstValueFrom(this.bookingService.getDoctors());
+      this.doctors.set(result);
+    } catch {
+      this.error.set('No pudimos cargar los doctores disponibles. Intentá de nuevo.');
+    } finally {
+      this.doctorsLoading.set(false);
+    }
+  }
+
+  protected onDoctorSelected(doctorId: string): void {
+    this.selectedDoctorId.set(doctorId);
+    this.step.set('slot');
+    void this.loadAvailability(doctorId);
+  }
+
+  private async loadAvailability(doctorId: string): Promise<void> {
     this.loading.set(true);
     this.error.set(null);
     try {
-      const result = await firstValueFrom(this.bookingService.getAvailabilityRange(todayIso()));
+      const result = await firstValueFrom(this.bookingService.getAvailabilityRange(todayIso(), doctorId));
       this.slotsByDate.set(result.slotsByDate);
     } catch {
       this.slotsByDate.set({});
@@ -73,17 +103,22 @@ export class BookingPageComponent {
   }
 
   protected async onSlotSelected(slot: string): Promise<void> {
+    const doctorId = this.selectedDoctorId();
+    if (!doctorId) {
+      return;
+    }
     this.loading.set(true);
     this.error.set(null);
     try {
-      const hold = await firstValueFrom(this.bookingService.holdSlot(slot));
+      const hold = await firstValueFrom(this.bookingService.holdSlot(slot, doctorId));
       this.appointmentId.set(hold.appointmentId);
       this.holdExpiresAt.set(hold.holdExpiresAt);
       this.step.set('contact');
     } catch (err) {
       if (err instanceof HttpErrorResponse && err.status === 409) {
         this.error.set('Ese horario ya no está disponible, elegí otro.');
-        await this.loadAvailability();
+        this.step.set('slot');
+        await this.loadAvailability(doctorId);
       } else {
         this.error.set('No pudimos reservar ese horario. Intentá de nuevo.');
       }
@@ -138,9 +173,12 @@ export class BookingPageComponent {
   }
 
   private resetToSlotSelection(): void {
+    const doctorId = this.selectedDoctorId();
     this.appointmentId.set(null);
     this.holdExpiresAt.set(null);
     this.step.set('slot');
-    void this.loadAvailability();
+    if (doctorId) {
+      void this.loadAvailability(doctorId);
+    }
   }
 }

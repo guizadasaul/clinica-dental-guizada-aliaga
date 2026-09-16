@@ -1,0 +1,28 @@
+<div class="doctor-picker">
+  @if (loading()) {
+    <p class="doctor-picker__hint">Cargando doctores…</p>
+  } @else if (error()) {
+    <p class="doctor-picker__error">{{ error() }}</p>
+  } @else if (doctors().length === 0) {
+    <p class="doctor-picker__hint">No hay doctores disponibles por el momento.</p>
+  } @else {
+    <p class="doctor-picker__prompt">¿Con quién querés reservar?</p>
+    <div class="doctor-picker__grid">
+      @for (doctor of doctors(); track doctor.id) {
+        <button type="button" class="doctor-picker__card" (click)="select(doctor.id)">
+          @if (doctor.photoUrl) {
+            <img [src]="doctor.photoUrl" [alt]="doctor.displayName ?? ''" class="doctor-picker__photo" loading="lazy">
+          } @else {
+            <div class="doctor-picker__placeholder" aria-hidden="true">
+              <span class="material-symbols-outlined">person</span>
+            </div>
+          }
+          <span class="doctor-picker__name">{{ doctor.displayName }}</span>
+          @if (doctor.specialty) {
+            <span class="doctor-picker__specialty">{{ doctor.specialty }}</span>
+          }
+        </button>
+      }
+    </div>
+  }
+</div>

@@ -175,12 +175,21 @@
       <h2 class="booking-modal__title">{{ 'landing.booking.title' | translate }}</h2>
       <p class="booking-modal__subtitle">{{ 'landing.booking.subtitle' | translate }}</p>
 
-      <app-week-slot-picker
-        [slotsByDate]="bookingSlotsByDate()"
-        [loading]="bookingLoading()"
-        [error]="bookingError()"
-        (slotSelected)="onBookingSlotSelected($event)"
-      />
+      @if (!bookingSelectedDoctorId()) {
+        <app-doctor-picker
+          [doctors]="bookingDoctors()"
+          [loading]="bookingDoctorsLoading()"
+          [error]="bookingError()"
+          (doctorSelected)="onBookingDoctorSelected($event)"
+        />
+      } @else {
+        <app-week-slot-picker
+          [slotsByDate]="bookingSlotsByDate()"
+          [loading]="bookingLoading()"
+          [error]="bookingError()"
+          (slotSelected)="onBookingSlotSelected($event)"
+        />
+      }
     </div>
   </div>
 }

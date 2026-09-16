@@ -18,8 +18,10 @@ import { TranslatePipe } from '@ngx-translate/core';
 import { OriginFillDirective } from '../../../shared/directives/origin-fill.directive';
 import { LangSwitcherComponent } from '../../../shared/ui/lang-switcher/lang-switcher';
 import { ScrollLockService } from '../../../shared/services/scroll-lock.service';
+import { DoctorPickerComponent } from '../../../features/booking/components/doctor-picker/doctor-picker';
 import { WeekSlotPickerComponent } from '../../../features/booking/components/week-slot-picker/week-slot-picker';
 import { BookingService } from '../../../features/booking/services/booking.service';
+import type { Doctor } from '../../../features/booking/models/booking.model';
 import { TestimonialsService } from '../../../features/testimonials/services/testimonials.service';
 import {
   CarouselTreatment,
@@ -50,6 +52,7 @@ interface Instrument {
     OriginFillDirective,
     TranslatePipe,
     LangSwitcherComponent,
+    DoctorPickerComponent,
     WeekSlotPickerComponent,
     ThreeDCarouselComponent,
     WorkShowcaseComponent,
@@ -77,8 +80,11 @@ export class LandingComponent implements AfterViewInit, OnDestroy {
     this.route.snapshot.queryParamMap.get('sinFicha') === '1',
   );
 
+  protected readonly bookingDoctors = signal<Doctor[]>([]);
+  protected readonly bookingDoctorsLoading = signal(true);
+  protected readonly bookingSelectedDoctorId = signal<string | null>(null);
   protected readonly bookingSlotsByDate = signal<Record<string, string[]>>({});
-  protected readonly bookingLoading = signal(true);
+  protected readonly bookingLoading = signal(false);
   protected readonly bookingError = signal<string | null>(null);
   // El selector de horarios ya no vive fijo en la landing: se abre en un
   // modal al apretar "Reservar Cita" (navbar o CTA de contacto).
@@ -263,7 +269,7 @@ export class LandingComponent implements AfterViewInit, OnDestroy {
   protected readonly testimonials = signal<StaggerTestimonial[]>([]);
 
   constructor() {
-    void this.loadBookingAvailability();
+    void this.loadBookingDoctors();
     void this.loadApprovedTestimonials();
 
     effect((onCleanup) => {
@@ -332,16 +338,38 @@ export class LandingComponent implements AfterViewInit, OnDestroy {
     }
   }
 
-  protected onBookingSlotSelected(slot: string): void {
-    void this.router.navigate(['/reservar'], { queryParams: { slot } });
+  protected onBookingDoctorSelected(doctorId: string): void {
+    this.bookingSelectedDoctorId.set(doctorId);
+    void this.loadBookingAvailability(doctorId);
   }
 
-  private async loadBookingAvailability(): Promise<void> {
+  protected onBookingSlotSelected(slot: string): void {
+    const doctorId = this.bookingSelectedDoctorId();
+    if (!doctorId) {
+      return;
+    }
+    void this.router.navigate(['/reservar'], { queryParams: { slot, doctorId } });
+  }
+
+  private async loadBookingDoctors(): Promise<void> {
+    this.bookingDoctorsLoading.set(true);
+    this.bookingError.set(null);
+    try {
+      const result = await firstValueFrom(this.bookingService.getDoctors());
+      this.bookingDoctors.set(result);
+    } catch {
+      this.bookingError.set('No pudimos cargar los doctores disponibles. Intentá de nuevo más tarde.');
+    } finally {
+      this.bookingDoctorsLoading.set(false);
+    }
+  }
+
+  private async loadBookingAvailability(doctorId: string): Promise<void> {
     this.bookingLoading.set(true);
     this.bookingError.set(null);
     try {
       const today = new Date().toISOString().slice(0, 10);
-      const result = await firstValueFrom(this.bookingService.getAvailabilityRange(today));
+      const result = await firstValueFrom(this.bookingService.getAvailabilityRange(today, doctorId));
       this.bookingSlotsByDate.set(result.slotsByDate);
     } catch {
       this.bookingError.set('No pudimos cargar los horarios disponibles. Intentá de nuevo más tarde.');

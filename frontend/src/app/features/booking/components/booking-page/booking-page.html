@@ -15,12 +15,20 @@
     }
   }
 
-  @if (error() && step() !== 'slot') {
+  @if (error() && step() !== 'doctor' && step() !== 'slot') {
     <p class="booking-page__error" role="alert">{{ error() }}</p>
   }
 
   <div class="booking-page__body">
     @switch (step()) {
+      @case ('doctor') {
+        <app-doctor-picker
+          [doctors]="doctors()"
+          [loading]="doctorsLoading()"
+          [error]="error()"
+          (doctorSelected)="onDoctorSelected($event)"
+        />
+      }
       @case ('slot') {
         <app-week-slot-picker
           [slotsByDate]="slotsByDate()"
