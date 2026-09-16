@@ -1,0 +1,71 @@
+@if (activeNav() === 'home') {
+  <div class="admin">
+    <!-- Header -->
+    <header class="admin__header">
+      <div class="admin__greeting">
+        <p class="admin__date">{{ today() }}</p>
+        <h1 class="admin__title">{{ greeting() }}, {{ firstName() }}</h1>
+        <p class="admin__subtitle">Panel de administración de la clínica.</p>
+      </div>
+      <app-logo class="admin__header-deco" tone="light" />
+    </header>
+
+    <!-- Quick access -->
+    <section class="admin__section">
+      <h2 class="admin__section-title">
+        <span class="material-symbols-outlined" aria-hidden="true">apps</span>
+        Accesos rápidos
+      </h2>
+      <div class="actions-grid">
+        <button type="button" class="action-card action-card--primary" (click)="onGoTo('doctors')">
+          <span class="material-symbols-outlined action-card__icon" aria-hidden="true">group</span>
+          <p class="action-card__label">Doctores</p>
+          <p class="action-card__desc">Alta y gestión de los doctores de la clínica</p>
+          <span class="material-symbols-outlined action-card__arrow" aria-hidden="true">arrow_forward</span>
+        </button>
+        <button type="button" class="action-card action-card--tertiary" (click)="onGoTo('reports')">
+          <span class="material-symbols-outlined action-card__icon" aria-hidden="true">bar_chart</span>
+          <p class="action-card__label">Reportes</p>
+          <p class="action-card__desc">Indicadores operativos y financieros</p>
+          <span class="material-symbols-outlined action-card__arrow" aria-hidden="true">arrow_forward</span>
+        </button>
+      </div>
+    </section>
+  </div>
+}
+
+@if (activeNav() === 'doctors') {
+  <div class="admin">
+    <section class="admin__section">
+      <h2 class="admin__section-title">
+        <span class="material-symbols-outlined" aria-hidden="true">group</span>
+        Doctores
+      </h2>
+      <div class="coming-soon">
+        <div class="coming-soon__icon" aria-hidden="true">
+          <span class="material-symbols-outlined">construction</span>
+        </div>
+        <p class="coming-soon__text">Próximamente</p>
+        <p class="coming-soon__sub">El alta y la gestión de doctores se habilitarán acá.</p>
+      </div>
+    </section>
+  </div>
+}
+
+@if (activeNav() === 'reports') {
+  <div class="admin">
+    <section class="admin__section">
+      <h2 class="admin__section-title">
+        <span class="material-symbols-outlined" aria-hidden="true">bar_chart</span>
+        Reportes
+      </h2>
+      <div class="coming-soon">
+        <div class="coming-soon__icon" aria-hidden="true">
+          <span class="material-symbols-outlined">construction</span>
+        </div>
+        <p class="coming-soon__text">Próximamente</p>
+        <p class="coming-soon__sub">Los reportes operativos y financieros se habilitarán acá.</p>
+      </div>
+    </section>
+  </div>
+}

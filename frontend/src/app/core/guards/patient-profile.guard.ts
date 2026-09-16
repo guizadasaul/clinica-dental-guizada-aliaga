@@ -21,7 +21,7 @@ export const patientProfileGuard: CanActivateFn = async () => {
   await authService.waitForSync();
 
   const user = authService.currentUser();
-  if (user?.role === 'odontologist') {
+  if (user?.role === 'odontologist' || user?.role === 'admin') {
     return true;
   }
 

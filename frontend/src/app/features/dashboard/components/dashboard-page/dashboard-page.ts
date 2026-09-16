@@ -9,6 +9,7 @@ import { Router } from '@angular/router';
 import { AuthService } from '../../../../auth/application/auth.service';
 import { PatientDashboardComponent } from '../patient-dashboard/patient-dashboard';
 import { DoctorDashboardComponent } from '../doctor-dashboard/doctor-dashboard';
+import { AdminDashboardComponent } from '../admin-dashboard/admin-dashboard';
 import { LogoComponent } from '../../../../shared/ui/logo/logo';
 
 interface NavItem {
@@ -35,11 +36,22 @@ const DOCTOR_NAV: NavItem[] = [
   { icon: 'settings', label: 'Configuración', key: 'settings' },
 ];
 
+const ADMIN_NAV: NavItem[] = [
+  { icon: 'home', label: 'Inicio', key: 'home' },
+  { icon: 'group', label: 'Doctores', key: 'doctors' },
+  { icon: 'bar_chart', label: 'Reportes', key: 'reports' },
+];
+
 @Component({
   selector: 'app-dashboard-page',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [PatientDashboardComponent, DoctorDashboardComponent, LogoComponent],
+  imports: [
+    PatientDashboardComponent,
+    DoctorDashboardComponent,
+    AdminDashboardComponent,
+    LogoComponent,
+  ],
   templateUrl: './dashboard-page.html',
   styleUrl: './dashboard-page.scss',
 })
@@ -53,9 +65,16 @@ export class DashboardPageComponent {
 
   protected readonly role = computed(() => this.user()?.role ?? null);
 
-  protected readonly navItems = computed<NavItem[]>(() =>
-    this.role() === 'odontologist' ? DOCTOR_NAV : PATIENT_NAV,
-  );
+  protected readonly navItems = computed<NavItem[]>(() => {
+    switch (this.role()) {
+      case 'odontologist':
+        return DOCTOR_NAV;
+      case 'admin':
+        return ADMIN_NAV;
+      default:
+        return PATIENT_NAV;
+    }
+  });
 
   protected readonly roleLabel = computed(() => {
     const r = this.role();
@@ -64,6 +83,9 @@ export class DashboardPageComponent {
     }
     if (r === 'patient') {
       return 'Paciente';
+    }
+    if (r === 'admin') {
+      return 'Administrador';
     }
     return '';
   });
