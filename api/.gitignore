@@ -1,6 +1,8 @@
 node_modules
 dist
 generated
+coverage
+.scannerwork
 
 # Keep environment variables out of version control
 .env
