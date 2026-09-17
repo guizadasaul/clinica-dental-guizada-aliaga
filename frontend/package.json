@@ -7,6 +7,7 @@
     "build": "ng build",
     "watch": "ng build --watch --configuration development",
     "test": "ng test",
+    "test:cov": "ng test --coverage",
     "check:i18n": "node scripts/check-i18n.mjs",
     "pretest": "npm run check:i18n"
   },
@@ -35,6 +36,7 @@
     "@angular/build": "^21.2.11",
     "@angular/cli": "^21.2.11",
     "@angular/compiler-cli": "^21.2.0",
+    "@vitest/coverage-v8": "^4.1.7",
     "jsdom": "^28.0.0",
     "prettier": "^3.8.1",
     "typescript": "~5.9.2",
