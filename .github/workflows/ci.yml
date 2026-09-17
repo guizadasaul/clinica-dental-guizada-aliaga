@@ -23,6 +23,8 @@ jobs:
       - working-directory: api
         run: npm ci
       - working-directory: api
+        run: npx prisma generate
+      - working-directory: api
         run: npm run test:cov
       - working-directory: api
         run: npm run sonar -- -Dsonar.qualitygate.wait=true
