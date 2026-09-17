@@ -1,0 +1,45 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  api:
+    runs-on: self-hosted
+    env:
+      SONAR_HOST_URL: ${{ vars.SONAR_HOST_URL }}
+      SONAR_TOKEN: ${{ secrets.SONAR_TOKEN_API }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - working-directory: api
+        run: npm ci
+      - working-directory: api
+        run: npm run test:cov
+      - working-directory: api
+        run: npm run sonar -- -Dsonar.qualitygate.wait=true
+
+  frontend:
+    runs-on: self-hosted
+    env:
+      SONAR_HOST_URL: ${{ vars.SONAR_HOST_URL }}
+      SONAR_TOKEN: ${{ secrets.SONAR_TOKEN_FRONTEND }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - working-directory: frontend
+        run: npm ci
+      - working-directory: frontend
+        run: npm run test:cov
+      - working-directory: frontend
+        run: npm run sonar -- -Dsonar.qualitygate.wait=true
