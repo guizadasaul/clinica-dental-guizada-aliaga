@@ -59,6 +59,49 @@ services:
     depends_on:
       - api
 
+  sonarqube-db:
+    image: postgres:16-alpine
+    container_name: cga-sonarqube-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: sonarqube
+      POSTGRES_PASSWORD: sonarqube
+      POSTGRES_DB: sonarqube
+    volumes:
+      - sonarqube_db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U sonarqube -d sonarqube"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  sonarqube:
+    image: sonarqube:community
+    container_name: cga-sonarqube
+    restart: unless-stopped
+    environment:
+      SONAR_JDBC_URL: jdbc:postgresql://sonarqube-db:5432/sonarqube
+      SONAR_JDBC_USERNAME: sonarqube
+      SONAR_JDBC_PASSWORD: sonarqube
+    ports:
+      # Bind a 127.0.0.1 a propósito — Sonar nunca debe quedar expuesto más
+      # allá de esta máquina (ver CLAUDE.md, decisión de la épica CLI-72).
+      - "127.0.0.1:9000:9000"
+    volumes:
+      - sonarqube_data:/opt/sonarqube/data
+      - sonarqube_extensions:/opt/sonarqube/extensions
+      - sonarqube_logs:/opt/sonarqube/logs
+    ulimits:
+      nofile:
+        soft: 131072
+        hard: 131072
+      nproc:
+        soft: 8192
+        hard: 8192
+    depends_on:
+      sonarqube-db:
+        condition: service_healthy
+
 volumes:
   db_data:
     # Nombre fijo (no derivado del directorio del worktree) para que la base
@@ -69,3 +112,11 @@ volumes:
     name: cga_db_data
   api_node_modules:
   frontend_node_modules:
+  sonarqube_db_data:
+    name: cga_sonarqube_db_data
+  sonarqube_data:
+    name: cga_sonarqube_data
+  sonarqube_extensions:
+    name: cga_sonarqube_extensions
+  sonarqube_logs:
+    name: cga_sonarqube_logs
