@@ -1,0 +1,3 @@
+# Los scripts de shell corren dentro de contenedores Linux: si git en Windows
+# los convierte a CRLF (core.autocrlf), `sh` falla con "\r: command not found".
+*.sh text eol=lf

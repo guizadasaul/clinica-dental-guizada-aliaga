@@ -16,5 +16,12 @@ npx prisma migrate deploy
 echo "→ Sembrando datos base (idempotente)..."
 npx prisma db seed
 
+# Solo para quien evalúa/demuestra el proyecto en una base limpia: crea un
+# usuario por rol. Apagado por defecto para no tocar la base de desarrollo real.
+if [ "$SEED_DEMO" = "true" ]; then
+  echo "→ Sembrando usuarios de demo (SEED_DEMO=true)..."
+  npx ts-node prisma/seed-demo.ts
+fi
+
 echo "→ Iniciando API..."
 exec "$@"
