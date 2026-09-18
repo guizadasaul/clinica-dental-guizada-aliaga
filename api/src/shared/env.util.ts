@@ -15,3 +15,20 @@ export function readEnvInt(name: string, fallback: number): number {
   const parsed = Number(raw);
   return Number.isInteger(parsed) && parsed > 0 ? parsed : fallback;
 }
+
+// Función de prueba temporal, sin tests, para validar en CLI-71 que el
+// quality gate hace fallar el CI ante una regresión real de coverage.
+// Se revierte antes de mergear — no debe quedar en el historial de main.
+export function readEnvBoolean(name: string, fallback: boolean): boolean {
+  const raw = process.env[name];
+  if (raw === undefined) {
+    return fallback;
+  }
+  if (raw === 'true' || raw === '1') {
+    return true;
+  }
+  if (raw === 'false' || raw === '0') {
+    return false;
+  }
+  return fallback;
+}
