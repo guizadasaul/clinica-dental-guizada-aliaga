@@ -108,9 +108,13 @@ cp api/.env.example api/.env
 #    - SUPABASE_URL: copiar el valor de `supabase.url` en frontend/src/environments/environment.ts
 #    - descomentar SEED_DEMO="true"  (crea los usuarios de prueba)
 
-# 3) Levantar todo
-docker compose up --build
+# 3) Levantar la aplicación (indicando los 3 servicios)
+docker compose up --build db api frontend
 ```
+
+> **No ejecutar `docker compose up` sin indicar servicios.** El `docker-compose.yml` también define
+> `sonarqube` y `sonarqube-db`, una instancia de SonarQube para el análisis de calidad del código
+> (desarrollo y CI). Es pesada, publica el puerto 9000 y no hace falta para evaluar la aplicación.
 
 La primera vez tarda varios minutos (instala dependencias y compila). Cuando el frontend termine de
 compilar, abrir **http://localhost:4200** e ingresar con las credenciales entregadas.
@@ -126,7 +130,8 @@ Comprobación rápida de la API: `curl http://localhost:2999/` responde `Hello W
 | PostgreSQL 16                  | `cga-db`       | `localhost:5433`      | base `GuizadaAliaga`, ver `docker-compose.yml` |
 
 PostgreSQL usa el 5433 en el host para no chocar con un Postgres local en el 5432. Entre contenedores
-sigue siendo `db:5432`.
+sigue siendo `db:5432`. Los servicios de SonarQube (`cga-sonarqube`, en `127.0.0.1:9000`) quedan fuera
+de este flujo.
 
 ### Qué pasa en cada arranque de la API
 
@@ -147,11 +152,13 @@ El frontend solo ejecuta `npm install` y `ng serve`.
 
 ```bash
 docker compose down        # conserva los datos
-docker compose down -v     # además borra la base y los node_modules (parte de cero)
+docker compose down -v     # además borra la base y los node_modules (parte de cero); si se usó SonarQube, también sus datos
 ```
 
 Los contenedores tienen `restart: unless-stopped`: vuelven a levantarse solos al reiniciar Docker hasta
 que se ejecute `docker compose down`.
+
+Si se levantó SonarQube sin querer: `docker compose stop sonarqube sonarqube-db`.
 
 ---
 
@@ -283,6 +290,7 @@ configurado el proveedor en el proyecto de Supabase; para evaluar se recomienda 
 | Autenticación | Supabase Auth (JWT verificado localmente contra el JWKS)                                              |
 | Integraciones | BANECO API Market (QR de cobro), Resend (correo), factura.bo (tipo de cambio)                         |
 | Tests         | Jest (API), Vitest vía `@angular/build:unit-test` (frontend)                                          |
+| Calidad y CI  | SonarQube (self-hosted, Docker), GitHub Actions con runner propio                                     |
 
 ### Backend: arquitectura hexagonal por módulo
 
@@ -364,9 +372,11 @@ Usuario    Angular (AuthService)        Supabase Auth          API NestJS       
 
 ```
 clinica-dental-guizada-aliaga/
-├── docker-compose.yml           # db + api + frontend (modo desarrollo)
+├── docker-compose.yml           # db + api + frontend (desarrollo) y sonarqube + sonarqube-db (calidad)
+├── .github/workflows/ci.yml     # CI: tests con cobertura, SonarQube y e2e
 ├── api/                         # NestJS, puerto 2999
 │   ├── .env.example
+│   ├── sonar-project.properties
 │   ├── docker/entrypoint.sh     # instala, genera Prisma, migra, siembra y arranca
 │   ├── prisma/
 │   │   ├── schema.prisma        # modelo de datos
@@ -381,6 +391,7 @@ clinica-dental-guizada-aliaga/
 ├── frontend/                    # Angular 21, puerto 4200
 │   ├── public/assets/           # i18n (es, en, pt), imágenes, odontograma SVG
 │   ├── scripts/check-i18n.mjs
+│   ├── sonar-project.properties
 │   └── src/
 │       ├── environments/        # URL de la API y proyecto de Supabase
 │       └── app/
@@ -503,13 +514,27 @@ Los formularios públicos de escritura tienen límite de peticiones por IP y hor
 | Acción              | Backend (`cd api`)                                        | Frontend (`cd frontend`)                     |
 | ------------------- | --------------------------------------------------------- | -------------------------------------------- |
 | Tests unitarios     | `npm test` (Jest; antes ejecuta `check:no-raw-sql`)       | `npm test` (Vitest; antes ejecuta `check:i18n`) |
-| Cobertura           | `npm run test:cov`                                        | no disponible                                |
+| Cobertura           | `npm run test:cov`                                        | `npm run test:cov`                           |
 | E2E                 | `npm run test:e2e` (requiere base levantada y `api/.env`) | no hay                                       |
 | Lint / formato      | `npm run lint` (**aplica `--fix`**), `npm run format`     | no hay script de lint                        |
 | Build               | `npm run build`; `npm run start:prod`                     | `npm run build`                              |
 | Validación de i18n  | n/a                                                       | `npm run check:i18n`                         |
+| Análisis de calidad | `npm run sonar` (requiere SonarQube y `SONAR_TOKEN`)      | `npm run sonar` (ídem)                       |
 
 Con el stack en Docker: `docker compose exec api npm test` y `docker compose exec frontend npm test`.
+
+### Integración continua
+
+`.github/workflows/ci.yml` corre en cada pull request y en cada push a `main`, sobre un runner
+self-hosted, con tres jobs:
+
+- **api**: `npm ci`, `prisma generate`, `npm run test:cov` y análisis de SonarQube con quality gate.
+- **frontend**: `npm ci`, `npm run test:cov` y análisis de SonarQube con quality gate.
+- **e2e**: levanta una base PostgreSQL efímera (puerto 5434), aplica las migraciones y ejecuta
+  `npm run test:e2e`. Usa una `SUPABASE_URL` de relleno: los e2e actuales no validan JWTs reales.
+
+El análisis de SonarQube necesita la instancia local y sus tokens (`SONAR_HOST_URL`, `SONAR_TOKEN`), por
+lo que no se puede reproducir en un clon sin esa configuración.
 
 ---
 
@@ -530,6 +555,7 @@ Con el stack en Docker: `docker compose exec api npm test` y `docker compose exe
 | `/reservar` muestra un doctor sin horarios                                                               | El doctor no tiene bloques en `doctor_schedule_blocks`, no es reservable o está inactivo.                                                                                                                                                           |
 | El paso de pago da error 503                                                                             | Faltan las variables `BANECO_*`.                                                                                                                                                                                                                    |
 | La invitación por correo da error 503                                                                    | Faltan las variables `RESEND_*`. Usar el canal WhatsApp.                                                                                                                                                                                            |
+| Se levantó SonarQube (contenedores `cga-sonarqube*`, puerto 9000) sin querer                              | Se ejecutó `docker compose up` sin indicar servicios. Ejecutar `docker compose stop sonarqube sonarqube-db` y, la próxima vez, `docker compose up --build db api frontend`. |
 | Arranque lento o pantalla en blanco al inicio                                                            | Cada arranque ejecuta `npm install`; esperar a que el frontend termine de compilar (`docker compose logs -f frontend`).                                                                                                                             |
 | En Windows aparece `\r: command not found` al arrancar la API                                            | Los `.sh` deben tener finales de línea LF: `git config core.autocrlf false` y volver a clonar.                                                                                                                                                      |
 
@@ -571,6 +597,8 @@ Con el stack en Docker: `docker compose exec api npm test` y `docker compose exe
 - El límite de peticiones se guarda **en memoria**, por proceso: se reinicia con la API.
 - Zona horaria fija (`America/La_Paz`) y turnos de 30 minutos.
 - Stack de **desarrollo** (`Dockerfile.dev`, `ng serve`, `nest --watch`): no hay imágenes de producción ni
-  pipeline de CI en este repositorio, y el frontend tiene un único `environment.ts`.
+  despliegue automatizado, y el frontend tiene un único `environment.ts`.
+- El **CI corre en un runner self-hosted** con SonarQube local (ver la sección 12): los checks de calidad
+  dependen de esa máquina y no se pueden ejecutar tal cual en un clon nuevo.
 - `xray_documents` (radiografías) existe solo como tabla, sin lógica.
 - Solo puede haber un administrador por base de datos.
