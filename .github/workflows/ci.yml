@@ -50,6 +50,12 @@ jobs:
     runs-on: self-hosted
     env:
       DATABASE_URL: postgresql://postgres:postgres@localhost:5434/cga_e2e_ci?schema=public
+      # Placeholder, no un proyecto real de Supabase — SupabaseJwtVerifier
+      # tira error en el constructor si falta (AppModule completo se
+      # bootstrapea en los e2e), pero ninguno de los e2e-spec actuales
+      # verifica JWTs reales contra Supabase, así que alcanza con que la URL
+      # tenga forma válida.
+      SUPABASE_URL: https://placeholder.supabase.co
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
