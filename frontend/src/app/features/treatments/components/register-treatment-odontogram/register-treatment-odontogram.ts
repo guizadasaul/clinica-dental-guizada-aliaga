@@ -46,7 +46,7 @@ function emptySurfaces(): ToothSurfaces {
 
 const SURFACE_LABELS: Record<ToothSurfaceCode, string> = {
   vestibular: 'Vestibular',
-  palatal: 'Palatal',
+  palatal: 'Palatina',
   lingual: 'Lingual',
   mesial: 'Mesial',
   distal: 'Distal',
