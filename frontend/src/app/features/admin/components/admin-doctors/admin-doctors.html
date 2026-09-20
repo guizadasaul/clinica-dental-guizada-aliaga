@@ -291,7 +291,7 @@
         </div>
 
         <div class="admin-doctors__field">
-          <label>Teléfono</label>
+          <span class="admin-doctors__label">Teléfono</span>
           <app-phone-input [value]="phoneE164()" (changed)="onPhoneChange($event)" />
           <p class="admin-doctors__hint">Cargá al menos uno de los dos, email o teléfono: es por donde se le manda la invitación.</p>
           @if (contactAttempted() && contactMissing()) {
