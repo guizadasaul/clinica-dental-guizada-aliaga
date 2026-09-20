@@ -1,0 +1,65 @@
+<div class="invite-panel">
+  <div class="invite-panel__header">
+    <h2 class="invite-panel__title">Enviar invitación</h2>
+    <button type="button" class="invite-panel__btn invite-panel__btn--ghost" (click)="onClose()">
+      <span class="material-symbols-outlined">close</span>
+      Cerrar
+    </button>
+  </div>
+
+  <p class="invite-panel__intro">
+    <strong>{{ doctor().displayName ?? 'El doctor' }}</strong> va a crear su acceso desde un link personal. Elegí por
+    dónde mandárselo: el link sirve una sola vez y vence a las 48 horas.
+  </p>
+
+  <dl class="invite-panel__contact">
+    <div class="invite-panel__contact-row">
+      <dt>Email</dt>
+      <dd class="invite-panel__contact-email">{{ doctor().email ?? 'No cargado' }}</dd>
+    </div>
+    <div class="invite-panel__contact-row">
+      <dt>Teléfono</dt>
+      <dd class="invite-panel__contact-phone">{{ doctor().phone ?? 'No cargado' }}</dd>
+    </div>
+  </dl>
+
+  @if (sendError()) {
+    <p class="invite-panel__error">{{ sendError() }}</p>
+  }
+
+  <div class="invite-panel__actions">
+    <button
+      type="button"
+      class="invite-panel__btn invite-panel__btn--email"
+      [disabled]="!doctor().email || loadingChannel() !== null"
+      [title]="!doctor().email ? 'El doctor no tiene un email cargado' : ''"
+      (click)="send('email')"
+    >
+      <span class="material-symbols-outlined">mail</span>
+      {{ loadingChannel() === 'email' ? 'Enviando...' : 'Enviar por email' }}
+    </button>
+
+    <button
+      type="button"
+      class="invite-panel__btn invite-panel__btn--whatsapp"
+      [disabled]="!doctor().phone || loadingChannel() !== null"
+      [title]="!doctor().phone ? 'El doctor no tiene un teléfono cargado' : ''"
+      (click)="send('whatsapp')"
+    >
+      <span class="material-symbols-outlined">chat</span>
+      {{ loadingChannel() === 'whatsapp' ? 'Abriendo...' : 'Enviar por WhatsApp' }}
+    </button>
+  </div>
+
+  @if (!doctor().email || !doctor().phone) {
+    <p class="invite-panel__hint">
+      Para usar el canal que está deshabilitado, cargá ese dato en
+      <button type="button" class="invite-panel__link" (click)="onEditContact()">Editar datos de contacto</button>.
+    </p>
+  }
+
+  <p class="invite-panel__hint">
+    Si preferís mandarlo más tarde, cerrá este panel: el doctor queda como «Pendiente de registro» y podés enviarle la
+    invitación desde la lista.
+  </p>
+</div>
