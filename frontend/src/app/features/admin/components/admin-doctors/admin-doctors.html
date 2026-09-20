@@ -70,10 +70,19 @@
                 <td class="admin-doctors__cell">{{ doctor.email ?? '—' }}</td>
                 <td class="admin-doctors__cell">{{ doctor.phone ?? '—' }}</td>
                 <td class="admin-doctors__cell">
-                  @if (doctor.isActive && doctor.isBookable) {
-                    <span class="admin-doctors__badge admin-doctors__badge--active">Activo</span>
-                  } @else {
-                    <span class="admin-doctors__badge admin-doctors__badge--inactive">Dado de baja</span>
+                  @switch (statusOf(doctor)) {
+                    @case ('active') {
+                      <span class="admin-doctors__badge admin-doctors__badge--active">Activo</span>
+                    }
+                    @case ('pending') {
+                      <span class="admin-doctors__badge admin-doctors__badge--pending">Pendiente de registro</span>
+                    }
+                    @case ('unbookable') {
+                      <span class="admin-doctors__badge admin-doctors__badge--inactive">No reservable</span>
+                    }
+                    @default {
+                      <span class="admin-doctors__badge admin-doctors__badge--inactive">Dado de baja</span>
+                    }
                   }
                 </td>
                 <td class="admin-doctors__cell admin-doctors__cell--actions">
@@ -99,6 +108,16 @@
                       <span class="material-symbols-outlined">calendar_month</span>
                       Ver agenda y pacientes
                     </button>
+                    @if (statusOf(doctor) === 'pending') {
+                      <button
+                        type="button"
+                        class="admin-doctors__btn admin-doctors__btn--invite"
+                        (click)="openInvite(doctor)"
+                      >
+                        <span class="material-symbols-outlined">send</span>
+                        Enviar invitación
+                      </button>
+                    }
                     <button type="button" class="admin-doctors__btn" (click)="openEdit(doctor.id)">
                       <span class="material-symbols-outlined">edit</span>
                       Editar
@@ -168,6 +187,15 @@
         }
       }
     </div>
+  } @else if (mode() === 'invite') {
+    @if (invitingDoctor(); as doctor) {
+      <app-admin-doctor-invite-panel
+        [doctor]="doctor"
+        (sent)="onInviteSent($event)"
+        (editRequested)="editInvitedDoctor()"
+        (closed)="closeInvite()"
+      />
+    }
   } @else {
     <div class="admin-doctors__form-panel">
       <div class="admin-doctors__form-header">
@@ -192,7 +220,7 @@
             id="admin-doctor-first-name"
             type="text"
             [value]="firstNameField.value()"
-            (input)="firstNameField.set($any($event.target).value)"
+            (input)="onNamePartInput('first', $event)"
             (blur)="firstNameField.markTouched()"
             [class.admin-doctors__input--error]="firstNameField.showError()"
           />
@@ -207,7 +235,7 @@
             id="admin-doctor-last-name-paternal"
             type="text"
             [value]="lastNamePaternalField.value()"
-            (input)="lastNamePaternalField.set($any($event.target).value)"
+            (input)="onNamePartInput('paternal', $event)"
             (blur)="lastNamePaternalField.markTouched()"
             [class.admin-doctors__input--error]="lastNamePaternalField.showError()"
           />
@@ -232,18 +260,19 @@
         </div>
 
         <div class="admin-doctors__field">
-          <label for="admin-doctor-name">Nombre público (ej. Dra. Marylu Aliaga)</label>
+          <label for="admin-doctor-name">Nombre público</label>
           <input
             id="admin-doctor-name"
             type="text"
             [value]="displayNameField.value()"
-            (input)="displayNameField.set($any($event.target).value)"
+            (input)="onPublicNameInput($event)"
             (blur)="displayNameField.markTouched()"
             [class.admin-doctors__input--error]="displayNameField.showError()"
           />
           @if (displayNameField.showError()) {
             <p class="admin-doctors__field-error">{{ displayNameField.error() }}</p>
           }
+          <p class="admin-doctors__hint">Es como lo ven los pacientes al reservar. Dejá Dr. o Dra. según corresponda.</p>
         </div>
 
         <div class="admin-doctors__field">
@@ -262,8 +291,14 @@
         </div>
 
         <div class="admin-doctors__field">
-          <label>Teléfono (opcional)</label>
+          <label>Teléfono</label>
           <app-phone-input [value]="phoneE164()" (changed)="onPhoneChange($event)" />
+          <p class="admin-doctors__hint">Cargá al menos uno de los dos, email o teléfono: es por donde se le manda la invitación.</p>
+          @if (contactAttempted() && contactMissing()) {
+            <p class="admin-doctors__field-error admin-doctors__field-error--contact">
+              Cargá al menos un contacto: email o teléfono.
+            </p>
+          }
         </div>
 
         <div class="admin-doctors__field">

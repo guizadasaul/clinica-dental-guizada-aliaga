@@ -5,7 +5,8 @@ export interface CreateDoctorRequest {
   firstName: string;
   lastNamePaternal: string;
   lastNameMaternal?: string;
-  email: string;
+  /** Alcanza con un contacto: email o teléfono (CLI-77). */
+  email?: string;
   phone?: string;
   specialty?: string;
   bio?: string;

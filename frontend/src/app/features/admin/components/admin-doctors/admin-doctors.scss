@@ -170,6 +170,18 @@
       background: var(--color-gray-100);
       color: var(--color-gray-500);
     }
+
+    &--pending {
+      background: #fef3c7;
+      color: #b45309;
+    }
+  }
+
+  &__hint {
+    margin: 0;
+    font-family: var(--font-body);
+    font-size: var(--font-size-xs);
+    color: var(--color-text-muted);
   }
 
   &__confirm {
@@ -218,6 +230,17 @@
         background: var(--color-surface-dim);
         border-color: var(--color-gray-300);
         color: var(--color-text);
+      }
+    }
+
+    &--invite {
+      background: #fff;
+      color: #b45309;
+      border-color: #f59e0b;
+
+      &:hover {
+        background: #fef3c7;
+        border-color: #f59e0b;
       }
     }
 

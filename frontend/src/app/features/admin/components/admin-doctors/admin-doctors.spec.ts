@@ -3,7 +3,9 @@ import { signal } from '@angular/core';
 import { of, throwError } from 'rxjs';
 import { HttpErrorResponse } from '@angular/common/http';
 import { provideTranslateService } from '@ngx-translate/core';
+import { By } from '@angular/platform-browser';
 import { AdminDoctorsComponent } from './admin-doctors';
+import { PhoneInputComponent } from '../../../../shared/ui/phone-input/phone-input';
 import { AdminDoctorsService } from '../../services/admin-doctors.service';
 import { BookingService } from '../../../booking/services/booking.service';
 import { AppointmentsService } from '../../../appointments/services/appointments.service';
@@ -19,7 +21,7 @@ const DOCTOR_SUMMARY: AdminDoctorSummary = {
   firstName: 'Juan',
   lastNamePaternal: 'Perez',
   lastNameMaternal: null,
-  registrationStatus: 'pending',
+  registrationStatus: 'active',
   email: 'juan@example.com',
   phone: '+59170011122',
   specialty: 'Ortodoncia',
@@ -93,6 +95,7 @@ function setup(
     create: vi.fn().mockReturnValue(of({ doctor: DOCTOR_DETAIL })),
     update: vi.fn().mockReturnValue(of(DOCTOR_DETAIL)),
     deactivate: vi.fn().mockReturnValue(of({ ...DOCTOR_DETAIL, isActive: false, isBookable: false })),
+    createInvite: vi.fn().mockReturnValue(of({})),
   };
   const bookingService = { getDoctors: vi.fn().mockReturnValue(of(pickerDoctors)) };
   const appointmentsService = { getAgenda: vi.fn().mockReturnValue(of([])) };
@@ -197,7 +200,7 @@ describe('AdminDoctorsComponent', () => {
     expect(el(fixture, '.admin-doctors__field-error')).toBeTruthy();
   });
 
-  it('submits the create form with the entered data and tells the admin the invitation still has to be sent', async () => {
+  it('submits the create form with the entered data and then opens the "Enviar invitación" step for the new doctor', async () => {
     const { fixture, adminDoctorsService } = setup();
     await settle(fixture);
 
@@ -227,7 +230,10 @@ describe('AdminDoctorsComponent', () => {
       }),
     );
     expect(adminDoctorsService.getAll).toHaveBeenCalledTimes(2);
-    expect(el(fixture, '.admin-doctors__banner--success')?.textContent).toContain('falta enviarle la invitación');
+    // El doctor queda creado y se pasa directo al paso 2: elegir cómo mandarle el link.
+    expect(el(fixture, 'app-admin-doctor-invite-panel')).toBeTruthy();
+    expect(el(fixture, '.admin-doctors__form')).toBeFalsy();
+    expect(adminDoctorsService.createInvite).not.toHaveBeenCalled();
   });
 
   it('surfaces a friendly message on a 409 (duplicate email) instead of a raw error', async () => {
@@ -314,6 +320,186 @@ describe('AdminDoctorsComponent', () => {
       'doctor-1',
       expect.objectContaining({ firstName: undefined, lastNamePaternal: undefined }),
     );
+  });
+
+  // CLI-78: alcanza con un contacto (email o teléfono).
+  it('does not submit when neither an email nor a phone were loaded, and asks for at least one contact', async () => {
+    const { fixture, adminDoctorsService } = setup();
+    await settle(fixture);
+
+    el<HTMLButtonElement>(fixture, '.admin-doctors__header .admin-doctors__btn--primary').click();
+    await settle(fixture);
+    fillCreateNames(fixture);
+    fillInput(fixture, '#admin-doctor-name', 'Dra. Maria Lopez');
+    await settle(fixture);
+
+    submitForm(fixture);
+    await settle(fixture);
+
+    expect(adminDoctorsService.create).not.toHaveBeenCalled();
+    expect(el(fixture, '.admin-doctors__field-error--contact')?.textContent).toContain('al menos un contacto');
+  });
+
+  it('creates a doctor with only a phone (no email) and sends email as undefined', async () => {
+    const { fixture, adminDoctorsService } = setup();
+    await settle(fixture);
+
+    el<HTMLButtonElement>(fixture, '.admin-doctors__header .admin-doctors__btn--primary').click();
+    await settle(fixture);
+    fillCreateNames(fixture);
+    fillInput(fixture, '#admin-doctor-name', 'Dra. Maria Lopez');
+    fixture.debugElement
+      .query(By.directive(PhoneInputComponent))
+      .componentInstance.changed.emit({ e164: '+59170011122', valid: true });
+    await settle(fixture);
+
+    submitForm(fixture);
+    await settle(fixture);
+    await settle(fixture);
+
+    expect(adminDoctorsService.create).toHaveBeenCalledWith(
+      expect.objectContaining({ phone: '+59170011122', email: undefined }),
+    );
+  });
+
+  it('rejects a malformed email even when a phone is present', async () => {
+    const { fixture, adminDoctorsService } = setup();
+    await settle(fixture);
+
+    el<HTMLButtonElement>(fixture, '.admin-doctors__header .admin-doctors__btn--primary').click();
+    await settle(fixture);
+    fillCreateNames(fixture);
+    fillInput(fixture, '#admin-doctor-name', 'Dra. Maria Lopez');
+    fillInput(fixture, '#admin-doctor-email', 'no-es-un-email');
+    fixture.debugElement
+      .query(By.directive(PhoneInputComponent))
+      .componentInstance.changed.emit({ e164: '+59170011122', valid: true });
+    await settle(fixture);
+
+    submitForm(fixture);
+    await settle(fixture);
+
+    expect(adminDoctorsService.create).not.toHaveBeenCalled();
+    expect(el(fixture, '.admin-doctors__form')?.textContent).toContain('El email no es válido');
+  });
+
+  describe('public name suggestion', () => {
+    it('fills the public name as "Dr./Dra. nombre apellido" while the admin has not edited it', async () => {
+      const { fixture } = setup();
+      await settle(fixture);
+
+      el<HTMLButtonElement>(fixture, '.admin-doctors__header .admin-doctors__btn--primary').click();
+      await settle(fixture);
+      fillInput(fixture, '#admin-doctor-first-name', 'marylu');
+      fillInput(fixture, '#admin-doctor-last-name-paternal', 'ALIAGA');
+      await settle(fixture);
+
+      expect(el<HTMLInputElement>(fixture, '#admin-doctor-name').value).toBe('Dr./Dra. Marylu Aliaga');
+    });
+
+    it('stops suggesting once the admin edits the public name by hand', async () => {
+      const { fixture } = setup();
+      await settle(fixture);
+
+      el<HTMLButtonElement>(fixture, '.admin-doctors__header .admin-doctors__btn--primary').click();
+      await settle(fixture);
+      fillInput(fixture, '#admin-doctor-first-name', 'Marylu');
+      fillInput(fixture, '#admin-doctor-name', 'Dra. Marylu');
+      fillInput(fixture, '#admin-doctor-last-name-paternal', 'Aliaga');
+      await settle(fixture);
+
+      expect(el<HTMLInputElement>(fixture, '#admin-doctor-name').value).toBe('Dra. Marylu');
+    });
+
+    it('never rewrites the public name of an existing doctor when opening the edit form', async () => {
+      const { fixture } = setup();
+      await settle(fixture);
+
+      el<HTMLButtonElement>(fixture, '.admin-doctors__cell--actions .admin-doctors__btn:not(.admin-doctors__btn--outline):not(.admin-doctors__btn--ghost)').click();
+      await settle(fixture);
+      await settle(fixture);
+      fillInput(fixture, '#admin-doctor-first-name', 'Otro');
+      await settle(fixture);
+
+      expect(el<HTMLInputElement>(fixture, '#admin-doctor-name').value).toBe('Juan Perez');
+    });
+  });
+
+  describe('registration status and invitations', () => {
+    const PENDING = { ...DOCTOR_SUMMARY, id: 'doctor-pending', displayName: 'Dra. Pendiente', registrationStatus: 'pending' as const };
+
+    it('shows "Pendiente de registro" for a doctor that has not redeemed the invitation, even though is_bookable is false', async () => {
+      const { fixture } = setup([{ ...PENDING, isBookable: false }]);
+      await settle(fixture);
+
+      const badge = el(fixture, '.admin-doctors__badge');
+      expect(badge?.textContent).toContain('Pendiente de registro');
+      expect(badge?.textContent).not.toContain('Dado de baja');
+    });
+
+    it('offers "Enviar invitación" only for pending doctors', async () => {
+      const { fixture } = setup([{ ...PENDING, isBookable: false }, DOCTOR_SUMMARY]);
+      await settle(fixture);
+
+      const invites = allEls(fixture, '.admin-doctors__btn--invite');
+      expect(invites).toHaveLength(1);
+      expect(invites[0]?.closest('tr')?.textContent).toContain('Dra. Pendiente');
+    });
+
+    it('does not offer "Enviar invitación" for a deactivated pending doctor', async () => {
+      const { fixture } = setup([{ ...PENDING, isBookable: false, isActive: false }]);
+      await settle(fixture);
+
+      expect(el(fixture, '.admin-doctors__btn--invite')).toBeFalsy();
+      expect(el(fixture, '.admin-doctors__badge')?.textContent).toContain('Dado de baja');
+    });
+
+    it('opens the invitation panel from the list and, after sending, goes back to the list with a confirmation', async () => {
+      const { fixture, adminDoctorsService } = setup([{ ...PENDING, isBookable: false }]);
+      await settle(fixture);
+
+      el<HTMLButtonElement>(fixture, '.admin-doctors__btn--invite').click();
+      await settle(fixture);
+      expect(el(fixture, 'app-admin-doctor-invite-panel')).toBeTruthy();
+
+      el<HTMLButtonElement>(fixture, '.invite-panel__btn--email').click();
+      await settle(fixture);
+      await settle(fixture);
+
+      expect(adminDoctorsService.createInvite).toHaveBeenCalledWith('doctor-pending', 'email');
+      expect(el(fixture, 'app-admin-doctor-invite-panel')).toBeFalsy();
+      expect(el(fixture, '.admin-doctors__table')).toBeTruthy();
+      expect(el(fixture, '.admin-doctors__banner--success')?.textContent).toContain('Invitación enviada por email');
+    });
+
+    it('closing the panel without sending leaves the doctor pending in the list', async () => {
+      const { fixture, adminDoctorsService } = setup([{ ...PENDING, isBookable: false }]);
+      await settle(fixture);
+
+      el<HTMLButtonElement>(fixture, '.admin-doctors__btn--invite').click();
+      await settle(fixture);
+      el<HTMLButtonElement>(fixture, '.invite-panel__header .invite-panel__btn').click();
+      await settle(fixture);
+
+      expect(adminDoctorsService.createInvite).not.toHaveBeenCalled();
+      expect(el(fixture, 'app-admin-doctor-invite-panel')).toBeFalsy();
+      expect(el(fixture, '.admin-doctors__badge')?.textContent).toContain('Pendiente de registro');
+    });
+
+    it('"Editar datos de contacto" from the panel opens the edit form of that doctor', async () => {
+      const { fixture, adminDoctorsService } = setup([{ ...PENDING, phone: null, isBookable: false }]);
+      await settle(fixture);
+
+      el<HTMLButtonElement>(fixture, '.admin-doctors__btn--invite').click();
+      await settle(fixture);
+      el<HTMLButtonElement>(fixture, '.invite-panel__link').click();
+      await settle(fixture);
+      await settle(fixture);
+
+      expect(adminDoctorsService.getById).toHaveBeenCalledWith('doctor-pending');
+      expect(el(fixture, '.admin-doctors__form')).toBeTruthy();
+      expect(el(fixture, 'app-admin-doctor-invite-panel')).toBeFalsy();
+    });
   });
 
   it('deactivating a doctor requires a two-step confirmation before calling the service', async () => {

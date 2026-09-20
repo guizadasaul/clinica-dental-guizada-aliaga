@@ -7,6 +7,7 @@ import { BookingService } from '../../../booking/services/booking.service';
 import { DoctorPickerComponent } from '../../../booking/components/doctor-picker/doctor-picker';
 import { DoctorAgendaComponent } from '../../../appointments/components/doctor-agenda/doctor-agenda';
 import { PatientsListComponent } from '../../../patients/components/patients-list/patients-list';
+import { AdminDoctorInvitePanelComponent } from '../admin-doctor-invite-panel/admin-doctor-invite-panel';
 import { PhoneInputComponent } from '../../../../shared/ui/phone-input/phone-input';
 import { field, allValid, touchAll } from '../../../../shared/validation/field';
 import { requiredTextError, optionalTextError, normalizeText } from '../../../../shared/validation/text.validator';
@@ -19,6 +20,7 @@ import {
 import type { AdminDoctorSummary } from '../../models/admin-doctor.model';
 import type { CreateDoctorRequest, UpdateDoctorRequest } from '../../models/admin-doctor.request';
 import type { Doctor } from '../../../booking/models/booking.model';
+import type { InviteChannel } from '../../../patient-invites/services/patient-invites.service';
 
 const WEEKDAY_LABELS = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
 
@@ -26,7 +28,7 @@ const DISPLAY_NAME_MAX_LENGTH = 200;
 const SPECIALTY_MAX_LENGTH = 150;
 const BIO_MAX_LENGTH = 2000;
 
-type ViewMode = 'list' | 'create' | 'edit' | 'detail';
+type ViewMode = 'list' | 'create' | 'edit' | 'detail' | 'invite';
 type DetailTab = 'agenda' | 'patients';
 
 interface ScheduleBlockDraft {
@@ -55,18 +57,32 @@ function personNameError(value: string, label: string, required: boolean): strin
   return null;
 }
 
+/** Solo el formato: el email ya no es obligatorio por sí solo, alcanza con un contacto (email o teléfono) — ver `contactMissing`. */
 function emailFieldError(value: string): string | null {
   const trimmed = value.trim();
-  if (!trimmed) return 'El email es obligatorio.';
+  if (!trimmed) return null;
   if (!isValidEmail(trimmed)) return 'El email no es válido.';
   return null;
+}
+
+/** Sugerencia para el nombre público: el admin elige Dr. o Dra. y lo ajusta a mano. */
+function suggestPublicName(firstName: string, lastNamePaternal: string): string {
+  const parts = [normalizeFullName(firstName), normalizeFullName(lastNamePaternal)].filter(Boolean);
+  return parts.length > 0 ? `Dr./Dra. ${parts.join(' ')}` : '';
 }
 
 @Component({
   selector: 'app-admin-doctors',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [FormsModule, PhoneInputComponent, DoctorPickerComponent, DoctorAgendaComponent, PatientsListComponent],
+  imports: [
+    FormsModule,
+    PhoneInputComponent,
+    AdminDoctorInvitePanelComponent,
+    DoctorPickerComponent,
+    DoctorAgendaComponent,
+    PatientsListComponent,
+  ],
   templateUrl: './admin-doctors.html',
   styleUrl: './admin-doctors.scss',
 })
@@ -100,6 +116,13 @@ export class AdminDoctorsComponent {
   protected readonly phoneOk = signal(true);
   protected readonly scheduleBlocks = signal<ScheduleBlockDraft[]>([]);
 
+  // Mientras el admin no toque el nombre público a mano, se va armando solo con nombre + apellido paterno.
+  private readonly publicNameEdited = signal(false);
+  protected readonly contactAttempted = signal(false);
+
+  // Paso 2 del alta (y "Enviar invitación" desde la lista): el doctor al que se le manda el link.
+  protected readonly invitingDoctor = signal<AdminDoctorSummary | null>(null);
+
   protected readonly submitting = signal(false);
   protected readonly formError = signal<string | null>(null);
   protected readonly successMessage = signal<string | null>(null);
@@ -115,6 +138,11 @@ export class AdminDoctorsComponent {
   protected readonly selectedDoctorId = signal<string | null>(null);
   protected readonly detailTab = signal<DetailTab>('agenda');
 
+  /** Alcanza con un contacto: la invitación sale por email o por WhatsApp. */
+  protected readonly contactMissing = computed(
+    () => this.emailField.value().trim() === '' && isBareCallingCode(this.phoneE164()),
+  );
+
   protected readonly formValid = computed(
     () =>
       allValid(
@@ -126,7 +154,8 @@ export class AdminDoctorsComponent {
         this.bioField,
       ) &&
       this.emailField.error() === null &&
-      this.phoneOk(),
+      this.phoneOk() &&
+      !this.contactMissing(),
   );
 
   constructor() {
@@ -181,6 +210,7 @@ export class AdminDoctorsComponent {
 
   protected openCreate(): void {
     this.resetForm();
+    this.publicNameEdited.set(false);
     this.formError.set(null);
     this.mode.set('create');
   }
@@ -203,6 +233,7 @@ export class AdminDoctorsComponent {
       this.displayOrder.set(detail.displayOrder);
       this.scheduleBlocks.set(detail.scheduleBlocks.map((b) => ({ ...b })));
       this.editingId.set(doctorId);
+      this.publicNameEdited.set(true);
       this.mode.set('edit');
     } catch {
       this.formError.set('No se pudo cargar los datos del doctor.');
@@ -229,6 +260,20 @@ export class AdminDoctorsComponent {
     this.displayOrder.set(null);
     this.scheduleBlocks.set([]);
     this.formError.set(null);
+    this.contactAttempted.set(false);
+  }
+
+  protected onNamePartInput(target: 'first' | 'paternal', event: Event): void {
+    const value = (event.target as HTMLInputElement).value;
+    (target === 'first' ? this.firstNameField : this.lastNamePaternalField).set(value);
+    if (this.mode() === 'create' && !this.publicNameEdited()) {
+      this.displayNameField.set(suggestPublicName(this.firstNameField.value(), this.lastNamePaternalField.value()));
+    }
+  }
+
+  protected onPublicNameInput(event: Event): void {
+    this.publicNameEdited.set(true);
+    this.displayNameField.set((event.target as HTMLInputElement).value);
   }
 
   protected onPhoneChange(event: { e164: string; valid: boolean }): void {
@@ -265,6 +310,7 @@ export class AdminDoctorsComponent {
   }
 
   protected async submit(): Promise<void> {
+    this.contactAttempted.set(true);
     touchAll(
       this.firstNameField,
       this.lastNamePaternalField,
@@ -283,7 +329,7 @@ export class AdminDoctorsComponent {
     try {
       const shared = {
         displayName: normalizeText(this.displayNameField.value()),
-        email: normalizeEmail(this.emailField.value()),
+        email: normalizeEmail(this.emailField.value()) || undefined,
         phone: isBareCallingCode(this.phoneE164()) ? undefined : this.phoneE164(),
         specialty: this.specialtyField.value().trim() || undefined,
         bio: this.bioField.value().trim() || undefined,
@@ -298,10 +344,11 @@ export class AdminDoctorsComponent {
 
       if (this.mode() === 'create') {
         const request: CreateDoctorRequest = { ...shared, firstName, lastNamePaternal, lastNameMaternal };
-        await firstValueFrom(this.adminDoctorsService.create(request));
+        const result = await firstValueFrom(this.adminDoctorsService.create(request));
         this.closeForm();
         await this.loadDoctors();
-        this.showSuccess('Doctor creado. Todavía falta enviarle la invitación para que pueda registrarse.');
+        // Paso 2: el doctor ya existe como pendiente, ahora se elige cómo mandarle el link.
+        this.openInvite(result.doctor);
       } else {
         const id = this.editingId();
         if (!id) {
@@ -324,6 +371,44 @@ export class AdminDoctorsComponent {
     } finally {
       this.submitting.set(false);
     }
+  }
+
+  /** Abre el paso "Enviar invitación" para un doctor pendiente (recién creado o desde la lista). */
+  protected openInvite(doctor: AdminDoctorSummary): void {
+    this.confirmingDeactivateFor.set(null);
+    this.invitingDoctor.set(doctor);
+    this.mode.set('invite');
+  }
+
+  protected closeInvite(): void {
+    this.invitingDoctor.set(null);
+    this.mode.set('list');
+  }
+
+  protected onInviteSent(channel: InviteChannel): void {
+    this.closeInvite();
+    this.showSuccess(
+      channel === 'email'
+        ? 'Invitación enviada por email.'
+        : 'Se abrió WhatsApp con el mensaje listo para enviar.',
+    );
+  }
+
+  /** "Editar datos de contacto" desde el panel de invitación: vuelve al form de edición de ese doctor. */
+  protected async editInvitedDoctor(): Promise<void> {
+    const doctor = this.invitingDoctor();
+    if (!doctor) {
+      return;
+    }
+    this.closeInvite();
+    await this.openEdit(doctor.id);
+  }
+
+  /** Estado que ve el admin en la lista: la baja pesa más que el registro, y el registro más que la reserva. */
+  protected statusOf(doctor: AdminDoctorSummary): 'inactive' | 'pending' | 'unbookable' | 'active' {
+    if (!doctor.isActive) return 'inactive';
+    if (doctor.registrationStatus === 'pending') return 'pending';
+    return doctor.isBookable ? 'active' : 'unbookable';
   }
 
   protected requestDeactivate(doctorId: string): void {
