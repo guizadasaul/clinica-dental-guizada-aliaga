@@ -16,10 +16,8 @@
         Te enviamos un correo de confirmación a <strong>{{ email() }}</strong>. Hacé clic en el enlace para activar tu cuenta y completar tu registro.
       </p>
     } @else if (valid()) {
-      <h1 class="login-card__title">Completá tu registro</h1>
-      <p class="login-card__subtitle">
-        Creá tu cuenta para ver tus citas y tu historial.
-      </p>
+      <h1 class="login-card__title">{{ copy().title }}</h1>
+      <p class="login-card__subtitle">{{ copy().subtitle }}</p>
 
       @if (errorMessage()) {
         <div class="login-card__error" role="alert">

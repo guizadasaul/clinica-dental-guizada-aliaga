@@ -26,6 +26,12 @@ export interface CreateInviteResult {
   whatsappUrl?: string;
 }
 
+/** Respuesta pública de /invites/:token/status. Sin `kind` cuando el token no existe. */
+export interface InviteStatus {
+  valid: boolean;
+  kind?: InviteEmailKind;
+}
+
 function hashToken(rawToken: string): string {
   return createHash('sha256').update(rawToken).digest('hex');
 }
@@ -174,7 +180,12 @@ export class PatientInvitesService {
     return this.inviteRepo.redeemByTokenHash(hashToken(rawToken), new Date());
   }
 
-  checkStatus(rawToken: string): Promise<boolean> {
-    return this.inviteRepo.isTokenValid(hashToken(rawToken), new Date());
+  async checkStatus(rawToken: string): Promise<InviteStatus> {
+    const status = await this.inviteRepo.findTokenStatus(
+      hashToken(rawToken),
+      new Date(),
+    );
+    // Un token que no existe no revela nada: ni siquiera a quién iría dirigido.
+    return status ?? { valid: false };
   }
 }

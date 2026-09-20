@@ -1,4 +1,5 @@
 import type { PatientInvite } from './PatientInvite';
+import type { InviteEmailKind } from './EmailSender';
 
 export interface CreateInviteData {
   userId: string;
@@ -11,6 +12,11 @@ export interface CreateInviteData {
 export interface RedeemedInvite {
   userId: string;
   patientId: string | null;
+}
+
+export interface InviteTokenStatus {
+  valid: boolean;
+  kind: InviteEmailKind;
 }
 
 export interface PatientContactInfo {
@@ -46,8 +52,17 @@ export interface IPatientInviteRepository {
   /** Lee patients+users directo (no depende de PatientsModule). null si el patient no existe. */
   findPatientContactInfo(patientId: string): Promise<PatientContactInfo | null>;
 
-  /** Chequeo de solo lectura — nunca consume el token. Para /invitacion/:token antes de mandar a Google. */
-  isTokenValid(tokenHash: string, now: Date): Promise<boolean>;
+  /**
+   * Chequeo de solo lectura — nunca consume el token. Para /invitacion/:token
+   * antes de mandar a Google. null si el token no existe; si existe devuelve
+   * si sigue siendo canjeable y a quién iba dirigido (`kind`, derivado del rol
+   * del user invitado), aunque ya esté vencido o usado — así la landing puede
+   * decir a quién pedirle el reenvío.
+   */
+  findTokenStatus(
+    tokenHash: string,
+    now: Date,
+  ): Promise<InviteTokenStatus | null>;
 }
 
 export const PatientInviteRepository = Symbol('IPatientInviteRepository');

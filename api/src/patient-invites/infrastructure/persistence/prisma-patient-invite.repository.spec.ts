@@ -211,23 +211,102 @@ describe('PrismaPatientInviteRepository', () => {
     });
   });
 
-  describe('isTokenValid', () => {
-    it('checks validity without ever calling updateMany (never consumes the token)', async () => {
-      prismaMock.patient_invites.count.mockResolvedValue(1);
+  describe('findTokenStatus', () => {
+    const HOUR = 60 * 60 * 1000;
 
-      const result = await repo.isTokenValid('hash-1', NOW);
+    function record(overrides: Record<string, unknown> = {}) {
+      return {
+        used_at: null,
+        expires_at: new Date(NOW.getTime() + HOUR),
+        users: { role: 'patient' },
+        ...overrides,
+      };
+    }
 
-      expect(result).toBe(true);
-      expect(prismaMock.patient_invites.count).toHaveBeenCalledWith({
-        where: { token_hash: 'hash-1', used_at: null, expires_at: { gt: NOW } },
+    it('reads by token_hash and never writes (never consumes the token)', async () => {
+      prismaMock.patient_invites.findUnique.mockResolvedValue(record());
+
+      await repo.findTokenStatus('hash-1', NOW);
+
+      expect(prismaMock.patient_invites.findUnique).toHaveBeenCalledWith({
+        where: { token_hash: 'hash-1' },
+        select: {
+          used_at: true,
+          expires_at: true,
+          users: { select: { role: true } },
+        },
       });
       expect(prismaMock.patient_invites.updateMany).not.toHaveBeenCalled();
     });
 
-    it('returns false when no matching valid invite exists', async () => {
-      prismaMock.patient_invites.count.mockResolvedValue(0);
+    it('returns null when the token does not exist', async () => {
+      prismaMock.patient_invites.findUnique.mockResolvedValue(null);
 
-      expect(await repo.isTokenValid('hash-1', NOW)).toBe(false);
+      expect(await repo.findTokenStatus('unknown', NOW)).toBeNull();
+    });
+
+    it('is valid and kind=patient for a pending invite of a patient', async () => {
+      prismaMock.patient_invites.findUnique.mockResolvedValue(record());
+
+      expect(await repo.findTokenStatus('hash-1', NOW)).toEqual({
+        valid: true,
+        kind: 'patient',
+      });
+    });
+
+    it('is valid and kind=doctor for a pending invite of an odontologist', async () => {
+      prismaMock.patient_invites.findUnique.mockResolvedValue(
+        record({ users: { role: 'odontologist' } }),
+      );
+
+      expect(await repo.findTokenStatus('hash-1', NOW)).toEqual({
+        valid: true,
+        kind: 'doctor',
+      });
+    });
+
+    it('treats any non-patient role (e.g. the admin, invited with the same mechanism) as kind=doctor', async () => {
+      prismaMock.patient_invites.findUnique.mockResolvedValue(
+        record({ users: { role: 'admin' } }),
+      );
+
+      expect(await repo.findTokenStatus('hash-1', NOW)).toEqual({
+        valid: true,
+        kind: 'doctor',
+      });
+    });
+
+    it('is not valid but still reports the kind once the invite expired', async () => {
+      prismaMock.patient_invites.findUnique.mockResolvedValue(
+        record({
+          expires_at: new Date(NOW.getTime() - 1),
+          users: { role: 'odontologist' },
+        }),
+      );
+
+      expect(await repo.findTokenStatus('hash-1', NOW)).toEqual({
+        valid: false,
+        kind: 'doctor',
+      });
+    });
+
+    it('is not valid but still reports the kind once the invite was used', async () => {
+      prismaMock.patient_invites.findUnique.mockResolvedValue(
+        record({ used_at: new Date(NOW.getTime() - HOUR) }),
+      );
+
+      expect(await repo.findTokenStatus('hash-1', NOW)).toEqual({
+        valid: false,
+        kind: 'patient',
+      });
+    });
+
+    it('an invite that expires exactly now is no longer valid (expires_at > now is required)', async () => {
+      prismaMock.patient_invites.findUnique.mockResolvedValue(
+        record({ expires_at: NOW }),
+      );
+
+      expect((await repo.findTokenStatus('hash-1', NOW))?.valid).toBe(false);
     });
   });
 });

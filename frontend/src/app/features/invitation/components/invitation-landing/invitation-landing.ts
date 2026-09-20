@@ -5,11 +5,36 @@ import { HttpErrorResponse } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
 import { AuthService } from '../../../../auth/application/auth.service';
 import { PatientInvitesService } from '../../../patient-invites/services/patient-invites.service';
+import type { InviteKind } from '../../../patient-invites/models/invite.model';
 import { PhoneInputComponent } from '../../../../shared/ui/phone-input/phone-input';
 import { isValidEmail, normalizeEmail } from '../../../../shared/validation/email.validator';
 import { passwordsMatch, validatePassword } from '../../../../shared/validation/password.validator';
 
 type RegisterMode = 'email' | 'phone';
+
+interface InviteCopy {
+  title: string;
+  subtitle: string;
+  /** Link vencido o ya usado: a quién hay que pedirle uno nuevo. */
+  expired: string;
+}
+
+// El doctor invitado recibe el link del administrador, no de otro doctor
+// (CLI-79). Un token que no existe no dice a quién iba dirigido: cae en el
+// copy de paciente, igual que antes de esta issue.
+const INVITE_COPY: Record<InviteKind, InviteCopy> = {
+  patient: {
+    title: 'Completá tu registro',
+    subtitle: 'Creá tu cuenta para ver tus citas y tu historial.',
+    expired: 'Este link venció o ya fue usado. Pedile al doctor que te lo reenvíe.',
+  },
+  doctor: {
+    title: 'Sumate al equipo',
+    subtitle: 'Creá tu acceso para entrar a tu panel, tu agenda y las fichas de tus pacientes.',
+    expired:
+      'Este link venció o ya fue usado. Pedile a la administración de la clínica que te lo reenvíe.',
+  },
+};
 
 @Component({
   selector: 'app-invitation-landing',
@@ -29,6 +54,8 @@ export class InvitationLandingComponent implements OnInit {
 
   protected readonly loading = signal(true);
   protected readonly valid = signal(false);
+  protected readonly kind = signal<InviteKind>('patient');
+  protected readonly copy = computed(() => INVITE_COPY[this.kind()]);
   protected readonly errorMessage = signal<string | null>(null);
   protected readonly connecting = signal(false);
 
@@ -63,10 +90,9 @@ export class InvitationLandingComponent implements OnInit {
     try {
       const result = await firstValueFrom(this.patientInvitesService.checkStatus(this.token));
       this.valid.set(result.valid);
+      this.kind.set(result.kind ?? 'patient');
       if (!result.valid) {
-        this.errorMessage.set(
-          'Este link venció o ya fue usado. Pedile al doctor que te lo reenvíe.',
-        );
+        this.errorMessage.set(this.copy().expired);
       }
     } catch {
       this.errorMessage.set('No pudimos verificar el link. Intentá de nuevo más tarde.');
