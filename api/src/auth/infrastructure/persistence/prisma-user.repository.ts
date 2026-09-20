@@ -23,7 +23,23 @@ export class PrismaUserRepository implements UserRepository {
     return record ? UserMapper.toDomain(record) : null;
   }
 
+  /**
+   * El display_name de un doctor es su nombre público ("Dra. Marylu Aliaga"),
+   * el que ve el paciente al reservar y que cargó el admin (CLI-77). Un login
+   * jamás lo pisa con el nombre de la cuenta de Google/Supabase — el resto de
+   * los perfiles (pacientes, admin) sí lo siguen sincronizando.
+   */
+  private async isDoctor(where: Prisma.usersWhereInput): Promise<boolean> {
+    const count = await this.prisma.doctor_profiles.count({
+      where: { users: where },
+    });
+    return count > 0;
+  }
+
   async upsertByAuthUserId(data: UpsertUserData): Promise<User> {
+    const keepPublicName = await this.isDoctor({
+      auth_user_id: data.authUserId,
+    });
     try {
       const record = await this.prisma.users.upsert({
         where: { auth_user_id: data.authUserId },
@@ -43,7 +59,7 @@ export class PrismaUserRepository implements UserRepository {
           // doctor).
           ...(data.email !== null && { email: data.email }),
           ...(data.phone !== undefined && { phone: data.phone }),
-          display_name: data.displayName,
+          ...(!keepPublicName && { display_name: data.displayName }),
           photo_url: data.photoUrl,
           updated_at: new Date(),
         },
@@ -61,11 +77,12 @@ export class PrismaUserRepository implements UserRepository {
         // email en el login, así que es seguro re-vincular esa fila al
         // auth_user_id actual en vez de romper con 500 y dejar afuera a
         // alguien que sí tiene una cuenta legítima.
+        const keepRelinkedName = await this.isDoctor({ email: data.email });
         const record = await this.prisma.users.update({
           where: { email: data.email },
           data: {
             auth_user_id: data.authUserId,
-            display_name: data.displayName,
+            ...(!keepRelinkedName && { display_name: data.displayName }),
             photo_url: data.photoUrl,
             updated_at: new Date(),
           },
@@ -88,24 +105,37 @@ export class PrismaUserRepository implements UserRepository {
     data: LinkAuthIdentityData,
   ): Promise<User | null> {
     try {
-      const { count } = await this.prisma.users.updateMany({
-        where: { id: userId, auth_user_id: null },
-        data: {
-          auth_user_id: data.authUserId,
-          // Mismo motivo que en upsertByAuthUserId: un login por teléfono no
-          // trae email (null) — no pisar el que ya haya en la ficha.
-          ...(data.email !== null && { email: data.email }),
-          ...(data.phone !== undefined && { phone: data.phone }),
-          display_name: data.displayName,
-          photo_url: data.photoUrl,
-          updated_at: new Date(),
-        },
-      });
-      if (count === 0) {
-        return null;
-      }
-      const record = await this.prisma.users.findUnique({
-        where: { id: userId },
+      const record = await this.prisma.transaction(async (tx) => {
+        const isDoctor =
+          (await tx.doctor_profiles.count({ where: { user_id: userId } })) > 0;
+        const { count } = await tx.users.updateMany({
+          where: { id: userId, auth_user_id: null },
+          data: {
+            auth_user_id: data.authUserId,
+            // Mismo motivo que en upsertByAuthUserId: un login por teléfono no
+            // trae email (null) — no pisar el que ya haya en la ficha.
+            ...(data.email !== null && { email: data.email }),
+            ...(data.phone !== undefined && { phone: data.phone }),
+            // Un doctor conserva el nombre público que le cargó el admin
+            // (CLI-77) — ver isDoctor().
+            ...(!isDoctor && { display_name: data.displayName }),
+            photo_url: data.photoUrl,
+            updated_at: new Date(),
+          },
+        });
+        if (count === 0) {
+          return null;
+        }
+        if (isDoctor) {
+          // Canjear la invitación es lo que vuelve reservable a un doctor
+          // recién creado (nace con is_bookable=false). Uno dado de baja
+          // (is_active=false) sigue sin poder reservarse.
+          await tx.doctor_profiles.updateMany({
+            where: { user_id: userId, users: { is_active: true } },
+            data: { is_bookable: true, updated_at: new Date() },
+          });
+        }
+        return tx.users.findUnique({ where: { id: userId } });
       });
       return record ? UserMapper.toDomain(record) : null;
     } catch (error: unknown) {

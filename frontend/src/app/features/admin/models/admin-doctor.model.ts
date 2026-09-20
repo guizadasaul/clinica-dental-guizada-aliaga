@@ -34,9 +34,7 @@ export interface AdminDoctorDetail extends AdminDoctorSummary {
   scheduleBlocks: AdminDoctorScheduleBlock[];
 }
 
-/** Respuesta de POST /admin/doctors. */
+/** Respuesta de POST /admin/doctors. Crear no manda ninguna invitación: se envía aparte (CLI-77). */
 export interface CreateDoctorResult {
   doctor: AdminDoctorDetail;
-  /** false si el doctor se creó bien pero el email de invitación falló (Resend caído, etc.) — el admin puede reintentarla desde el panel de invitaciones. */
-  inviteSent: boolean;
 }

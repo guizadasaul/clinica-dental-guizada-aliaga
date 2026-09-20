@@ -23,6 +23,11 @@ function fakeUserRecord(overrides: Record<string, unknown> = {}) {
   };
 }
 
+/** Primer argumento de la primera llamada a un mock, tipado — evita el `any` de `mock.calls[0][0]`. */
+function firstCallArg<T>(mock: jest.Mock): T {
+  return (mock.mock.calls as unknown[][])[0][0] as T;
+}
+
 describe('PrismaUserRepository', () => {
   let prismaMock: {
     users: {
@@ -32,6 +37,8 @@ describe('PrismaUserRepository', () => {
       upsert: jest.Mock;
       findUnique: jest.Mock;
     };
+    doctor_profiles: { count: jest.Mock; updateMany: jest.Mock };
+    transaction: jest.Mock;
   };
   let repo: PrismaUserRepository;
 
@@ -44,6 +51,12 @@ describe('PrismaUserRepository', () => {
         upsert: jest.fn(),
         findUnique: jest.fn(),
       },
+      // Por defecto ningún user es doctor: los tests de pacientes/admin no cambian.
+      doctor_profiles: {
+        count: jest.fn().mockResolvedValue(0),
+        updateMany: jest.fn(),
+      },
+      transaction: jest.fn((fn: (tx: unknown) => unknown) => fn(prismaMock)),
     };
     repo = new PrismaUserRepository(prismaMock as unknown as PrismaService);
   });
@@ -133,6 +146,79 @@ describe('PrismaUserRepository', () => {
     });
   });
 
+  // CLI-77: el nombre público de un doctor lo carga el admin, un login no lo pisa.
+  describe('upsertByAuthUserId — doctor public name', () => {
+    it('keeps display_name untouched for a user that has a doctor profile (but still syncs the avatar)', async () => {
+      prismaMock.doctor_profiles.count.mockResolvedValue(1);
+      prismaMock.users.upsert.mockResolvedValue(
+        fakeUserRecord({ auth_user_id: AUTH_USER_ID, role: 'odontologist' }),
+      );
+
+      await repo.upsertByAuthUserId({
+        authUserId: AUTH_USER_ID,
+        email: 'doc@b.com',
+        displayName: 'Nombre de Google',
+        photoUrl: 'https://google.example/avatar.jpg',
+      });
+
+      expect(prismaMock.doctor_profiles.count).toHaveBeenCalledWith({
+        where: { users: { auth_user_id: AUTH_USER_ID } },
+      });
+      const upsertArgs = firstCallArg<{ update: Record<string, unknown> }>(
+        prismaMock.users.upsert,
+      );
+      expect(upsertArgs.update).not.toHaveProperty('display_name');
+      expect(upsertArgs.update['photo_url']).toBe(
+        'https://google.example/avatar.jpg',
+      );
+    });
+
+    it('keeps syncing display_name for everyone else (patients, admin)', async () => {
+      prismaMock.users.upsert.mockResolvedValue(
+        fakeUserRecord({ auth_user_id: AUTH_USER_ID }),
+      );
+
+      await repo.upsertByAuthUserId({
+        authUserId: AUTH_USER_ID,
+        email: 'a@b.com',
+        displayName: 'Real Name',
+        photoUrl: null,
+      });
+
+      const upsertArgs = firstCallArg<{ update: Record<string, unknown> }>(
+        prismaMock.users.upsert,
+      );
+      expect(upsertArgs.update['display_name']).toBe('Real Name');
+    });
+
+    it('also keeps the public name when the email-relink fallback hits a doctor row', async () => {
+      prismaMock.users.upsert.mockRejectedValue(
+        new Prisma.PrismaClientKnownRequestError('Unique constraint failed', {
+          code: 'P2002',
+          clientVersion: 'test',
+        }),
+      );
+      prismaMock.doctor_profiles.count
+        .mockResolvedValueOnce(0) // por auth_user_id: todavía no es de nadie
+        .mockResolvedValueOnce(1); // por email: la fila que se re-vincula es de un doctor
+      prismaMock.users.update.mockResolvedValue(
+        fakeUserRecord({ auth_user_id: AUTH_USER_ID, role: 'odontologist' }),
+      );
+
+      await repo.upsertByAuthUserId({
+        authUserId: AUTH_USER_ID,
+        email: 'doc@b.com',
+        displayName: 'Nombre de Google',
+        photoUrl: null,
+      });
+
+      const updateArgs = firstCallArg<{ data: Record<string, unknown> }>(
+        prismaMock.users.update,
+      );
+      expect(updateArgs.data).not.toHaveProperty('display_name');
+    });
+  });
+
   describe('createPlaceholder', () => {
     it('creates a user with auth_user_id null and role patient', async () => {
       prismaMock.users.create.mockResolvedValue(fakeUserRecord());
@@ -178,6 +264,73 @@ describe('PrismaUserRepository', () => {
         }) as Record<string, unknown>,
       });
       expect(result?.authUserId).toBe(AUTH_USER_ID);
+    });
+
+    it("keeps the doctor's public display_name and makes a pending doctor bookable when the invite is redeemed (CLI-77)", async () => {
+      prismaMock.doctor_profiles.count.mockResolvedValue(1);
+      prismaMock.users.updateMany.mockResolvedValue({ count: 1 });
+      prismaMock.users.findUnique.mockResolvedValue(
+        fakeUserRecord({
+          auth_user_id: AUTH_USER_ID,
+          role: 'odontologist',
+          display_name: 'Dra. Marylu Aliaga',
+        }),
+      );
+
+      const result = await repo.linkAuthIdentity(USER_ID, {
+        authUserId: AUTH_USER_ID,
+        email: 'marylu@b.com',
+        displayName: 'marylu aliaga (google)',
+        photoUrl: 'https://google.example/avatar.jpg',
+      });
+
+      const updateArgs = firstCallArg<{ data: Record<string, unknown> }>(
+        prismaMock.users.updateMany,
+      );
+      expect(updateArgs.data).not.toHaveProperty('display_name');
+      expect(updateArgs.data['photo_url']).toBe(
+        'https://google.example/avatar.jpg',
+      );
+      expect(prismaMock.doctor_profiles.updateMany).toHaveBeenCalledWith({
+        where: { user_id: USER_ID, users: { is_active: true } },
+        data: { is_bookable: true, updated_at: expect.any(Date) as Date },
+      });
+      expect(result?.displayName).toBe('Dra. Marylu Aliaga');
+    });
+
+    it('does not touch doctor_profiles nor keep the name for a patient', async () => {
+      prismaMock.users.updateMany.mockResolvedValue({ count: 1 });
+      prismaMock.users.findUnique.mockResolvedValue(
+        fakeUserRecord({ auth_user_id: AUTH_USER_ID }),
+      );
+
+      await repo.linkAuthIdentity(USER_ID, {
+        authUserId: AUTH_USER_ID,
+        email: 'a@b.com',
+        displayName: 'Real Name',
+        photoUrl: null,
+      });
+
+      const updateArgs = firstCallArg<{ data: Record<string, unknown> }>(
+        prismaMock.users.updateMany,
+      );
+      expect(updateArgs.data['display_name']).toBe('Real Name');
+      expect(prismaMock.doctor_profiles.updateMany).not.toHaveBeenCalled();
+    });
+
+    it('does not make a doctor bookable when the row was already linked (idempotent no-op)', async () => {
+      prismaMock.doctor_profiles.count.mockResolvedValue(1);
+      prismaMock.users.updateMany.mockResolvedValue({ count: 0 });
+
+      const result = await repo.linkAuthIdentity(USER_ID, {
+        authUserId: AUTH_USER_ID,
+        email: 'a@b.com',
+        displayName: 'Real Name',
+        photoUrl: null,
+      });
+
+      expect(result).toBeNull();
+      expect(prismaMock.doctor_profiles.updateMany).not.toHaveBeenCalled();
     });
 
     it('is idempotent: returns null and never reads the row when it was already linked', async () => {

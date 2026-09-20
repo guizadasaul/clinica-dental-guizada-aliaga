@@ -5,7 +5,11 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { randomBytes, createHash } from 'node:crypto';
-import { INVITE_TTL_MINUTES, InviteChannel } from '../domain/PatientInvite.js';
+import {
+  INVITE_TTL_MINUTES,
+  InviteChannel,
+  formatInviteTtl,
+} from '../domain/PatientInvite.js';
 import { PatientInviteRepository } from '../domain/PatientInviteRepository.js';
 import type {
   IPatientInviteRepository,
@@ -37,16 +41,32 @@ function buildWhatsappUrl(phone: string, message: string): string {
 // `text` — verificado navegando directo a api.whatsapp.com/send con una URL
 // armada a mano, sin pasar por nuestro código. Los acentos españoles (2
 // bytes) sí sobreviven, por eso el resto del mensaje no se ve afectado.
-function buildWhatsappMessage(fullName: string, inviteUrl: string): string {
+const WHATSAPP_INTRO: Record<InviteEmailKind, string> = {
+  patient:
+    'Te escribimos del equipo de *Clínica Dental Guizada-Aliaga* para invitarte a completar tu registro. Así vas a poder ver tus citas, tu historial clínico y tus presupuestos, todo desde un solo lugar.',
+  doctor:
+    'Te escribimos de la administración de *Clínica Dental Guizada-Aliaga* para invitarte a sumarte a nuestro equipo de odontólogos. Vas a poder acceder a tu panel, tu agenda y las fichas de tus pacientes.',
+};
+
+const WHATSAPP_CALL_TO_ACTION: Record<InviteEmailKind, string> = {
+  patient: 'Completá tu registro acá:',
+  doctor: 'Creá tu acceso acá:',
+};
+
+function buildWhatsappMessage(
+  fullName: string,
+  inviteUrl: string,
+  kind: InviteEmailKind,
+): string {
   return [
     `¡Hola *${fullName}*!`,
     '',
-    'Te escribimos del equipo de *Clínica Dental Guizada-Aliaga* para invitarte a completar tu registro. Así vas a poder ver tus citas, tu historial clínico y tus presupuestos, todo desde un solo lugar.',
+    WHATSAPP_INTRO[kind],
     '',
-    'Completá tu registro acá:',
+    WHATSAPP_CALL_TO_ACTION[kind],
     inviteUrl,
     '',
-    '_Por tu seguridad, este enlace vence en 5 minutos._',
+    `_Por tu seguridad, este enlace vence en ${formatInviteTtl(INVITE_TTL_MINUTES[kind])}._`,
   ].join('\n');
 }
 
@@ -117,7 +137,8 @@ export class PatientInvitesService {
     const rawToken = randomBytes(32).toString('base64url');
     const tokenHash = hashToken(rawToken);
     const now = new Date();
-    const expiresAt = new Date(now.getTime() + INVITE_TTL_MINUTES * 60 * 1000);
+    const ttlMinutes = INVITE_TTL_MINUTES[kind];
+    const expiresAt = new Date(now.getTime() + ttlMinutes * 60 * 1000);
     // Cualquier invite pendiente anterior de este user (mismo canal u
     // otro) muere apenas se manda uno nuevo — nunca conviven dos links
     // válidos en paralelo.
@@ -145,7 +166,7 @@ export class PatientInvitesService {
       return {};
     }
 
-    const message = buildWhatsappMessage(contact.fullName, inviteUrl);
+    const message = buildWhatsappMessage(contact.fullName, inviteUrl, kind);
     return { whatsappUrl: buildWhatsappUrl(contact.phone!, message) };
   }
 

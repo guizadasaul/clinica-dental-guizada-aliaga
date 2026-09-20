@@ -298,14 +298,10 @@ export class AdminDoctorsComponent {
 
       if (this.mode() === 'create') {
         const request: CreateDoctorRequest = { ...shared, firstName, lastNamePaternal, lastNameMaternal };
-        const result = await firstValueFrom(this.adminDoctorsService.create(request));
+        await firstValueFrom(this.adminDoctorsService.create(request));
         this.closeForm();
         await this.loadDoctors();
-        this.showSuccess(
-          result.inviteSent
-            ? 'Doctor creado. Se envió el email de invitación.'
-            : 'Doctor creado, pero no se pudo enviar el email de invitación. Reintentá desde el panel de invitaciones.',
-        );
+        this.showSuccess('Doctor creado. Todavía falta enviarle la invitación para que pueda registrarse.');
       } else {
         const id = this.editingId();
         if (!id) {

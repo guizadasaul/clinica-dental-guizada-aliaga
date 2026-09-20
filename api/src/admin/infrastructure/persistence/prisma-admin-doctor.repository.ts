@@ -65,7 +65,10 @@ export class PrismaAdminDoctorRepository implements IAdminDoctorRepository {
             bio: data.bio,
             photo_url: data.photoUrl,
             display_order: data.displayOrder ?? 0,
-            is_bookable: true,
+            // Nace no reservable: recién pasa a true cuando el doctor canjea su
+            // invitación (CLI-77), así no aparece en la reserva pública sin
+            // poder ver todavía su agenda.
+            is_bookable: false,
           },
         });
         if (data.scheduleBlocks.length > 0) {

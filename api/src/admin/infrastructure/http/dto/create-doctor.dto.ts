@@ -9,7 +9,9 @@ import {
   IsUrl,
   MaxLength,
   Min,
+  ValidateIf,
   ValidateNested,
+  ValidationArguments,
 } from 'class-validator';
 import {
   EmptyToUndefined,
@@ -42,12 +44,26 @@ export class CreateDoctorDto {
   @PersonNamePart()
   lastNameMaternal?: string;
 
-  // Obligatorio (a diferencia del resto de campos opcionales): hace falta
-  // para poder mandarle la invitación por email al doctor nuevo.
+  // Alcanza con UN contacto (CLI-77): la invitación se manda por email o por
+  // WhatsApp, y cuál de los dos usar se elige después de crear. El email solo
+  // se exige cuando no vino teléfono (o si vino, para validarlo).
+  @ValidateIf(
+    (dto: CreateDoctorDto) =>
+      dto.phone === undefined || dto.email !== undefined,
+  )
+  @EmptyToUndefined()
   @Trim()
-  @IsEmail()
+  @IsEmail(
+    {},
+    {
+      message: (args: ValidationArguments) =>
+        args.value === undefined
+          ? 'Ingresá al menos un contacto: email o teléfono'
+          : 'email must be an email',
+    },
+  )
   @MaxLength(255)
-  email: string;
+  email?: string;
 
   @IsOptional()
   @EmptyToUndefined()

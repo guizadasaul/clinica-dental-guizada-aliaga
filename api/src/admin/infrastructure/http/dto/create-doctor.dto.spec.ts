@@ -62,6 +62,50 @@ describe('CreateDoctorDto (CLI-76: nombre y apellidos separados)', () => {
   });
 });
 
+describe('CreateDoctorDto — al menos un contacto (CLI-77)', () => {
+  it('accepts a doctor with only a phone (email is not required then)', async () => {
+    const { errors } = await validateCreate({
+      email: undefined,
+      phone: '+59170011122',
+    });
+    expect(errors).toEqual([]);
+  });
+
+  it('accepts a doctor with only an email', async () => {
+    const { errors } = await validateCreate({ phone: undefined });
+    expect(errors).toEqual([]);
+  });
+
+  it('treats an empty-string email as not provided when a phone is present', async () => {
+    const { dto, errors } = await validateCreate({
+      email: '',
+      phone: '+59170011122',
+    });
+    expect(errors).toEqual([]);
+    expect(dto.email).toBeUndefined();
+  });
+
+  it('rejects a doctor with neither email nor phone, with a message that names both', async () => {
+    const { errors } = await validateCreate({
+      email: undefined,
+      phone: undefined,
+    });
+    const emailError = errors.find((e) => e.property === 'email');
+    expect(emailError).toBeDefined();
+    expect(Object.values(emailError?.constraints ?? {}).join(' ')).toContain(
+      'al menos un contacto',
+    );
+  });
+
+  it('still validates the email when it is provided next to a phone', async () => {
+    const { errors } = await validateCreate({
+      email: 'no-es-un-email',
+      phone: '+59170011122',
+    });
+    expect(errors.some((e) => e.property === 'email')).toBe(true);
+  });
+});
+
 describe('UpdateDoctorDto (CLI-76)', () => {
   it('does not require the name parts, so legacy doctors can still be edited', async () => {
     const dto = plainToInstance(UpdateDoctorDto, { specialty: 'Ortodoncia' });
