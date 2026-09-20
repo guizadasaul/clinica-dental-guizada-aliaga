@@ -90,7 +90,7 @@ function setup(
   const adminDoctorsService = {
     getAll: vi.fn().mockReturnValue(of(doctors)),
     getById: vi.fn().mockReturnValue(of(DOCTOR_DETAIL)),
-    create: vi.fn().mockReturnValue(of({ doctor: DOCTOR_DETAIL, inviteSent: true })),
+    create: vi.fn().mockReturnValue(of({ doctor: DOCTOR_DETAIL })),
     update: vi.fn().mockReturnValue(of(DOCTOR_DETAIL)),
     deactivate: vi.fn().mockReturnValue(of({ ...DOCTOR_DETAIL, isActive: false, isBookable: false })),
   };
@@ -197,7 +197,7 @@ describe('AdminDoctorsComponent', () => {
     expect(el(fixture, '.admin-doctors__field-error')).toBeTruthy();
   });
 
-  it('submits the create form with the entered data and shows the invite result', async () => {
+  it('submits the create form with the entered data and tells the admin the invitation still has to be sent', async () => {
     const { fixture, adminDoctorsService } = setup();
     await settle(fixture);
 
@@ -227,7 +227,7 @@ describe('AdminDoctorsComponent', () => {
       }),
     );
     expect(adminDoctorsService.getAll).toHaveBeenCalledTimes(2);
-    expect(el(fixture, '.admin-doctors__banner--success')?.textContent).toContain('invitación');
+    expect(el(fixture, '.admin-doctors__banner--success')?.textContent).toContain('falta enviarle la invitación');
   });
 
   it('surfaces a friendly message on a 409 (duplicate email) instead of a raw error', async () => {

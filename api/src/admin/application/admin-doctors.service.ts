@@ -1,4 +1,9 @@
-import { Inject, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import {
+  ConflictException,
+  Inject,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import {
   AdminDoctorDetail,
   AdminDoctorSummary,
@@ -7,18 +12,17 @@ import {
 } from '../domain/AdminDoctor';
 import { AdminDoctorRepository } from '../domain/AdminDoctorRepository';
 import type { IAdminDoctorRepository } from '../domain/AdminDoctorRepository';
-import { PatientInvitesService } from '../../patient-invites/application/patient-invites.service';
+import {
+  CreateInviteResult,
+  PatientInvitesService,
+} from '../../patient-invites/application/patient-invites.service';
 
 export interface CreateDoctorResult {
   doctor: AdminDoctorDetail;
-  /** false si el doctor se creó bien pero el envío del email de invitación falló (ver createDoctor). */
-  inviteSent: boolean;
 }
 
 @Injectable()
 export class AdminDoctorsService {
-  private readonly logger = new Logger(AdminDoctorsService.name);
-
   constructor(
     @Inject(AdminDoctorRepository)
     private readonly adminDoctorRepo: IAdminDoctorRepository,
@@ -38,34 +42,38 @@ export class AdminDoctorsService {
   }
 
   /**
-   * El alta del doctor (users + doctor_profiles + doctor_schedule_blocks) y
-   * el envío del email de invitación son dos pasos separados a propósito: el
-   * segundo va FUERA de la transacción del repo — si Resend falla
-   * transitoriamente no hay que revertir el alta ni bloquear al admin, solo
-   * avisarle que reintente la invitación (inviteSent: false).
+   * Solo crea el doctor (users + doctor_profiles + doctor_schedule_blocks) y
+   * lo deja pendiente y no reservable: la invitación se manda aparte
+   * (inviteDoctor), por el canal que elija el admin — igual que con los
+   * pacientes (CLI-77).
    */
   async createDoctor(data: CreateAdminDoctorData): Promise<CreateDoctorResult> {
     const doctor = await this.adminDoctorRepo.create(data);
-    let inviteSent = true;
-    try {
-      await this.patientInvitesService.createInviteForUser(
-        doctor.id,
-        'email',
-        {
-          fullName: doctor.displayName ?? '',
-          phone: doctor.phone,
-          email: doctor.email,
-        },
-        'doctor',
-      );
-    } catch (error) {
-      this.logger.error(
-        'Doctor creado pero falló el envío de la invitación',
-        error,
-      );
-      inviteSent = false;
+    return { doctor };
+  }
+
+  /**
+   * Manda (o reenvía) la invitación a un doctor que todavía no canjeó la
+   * anterior. Reenviar invalida el link previo (lo hace PatientInvitesService).
+   */
+  async inviteDoctor(id: string, channel: string): Promise<CreateInviteResult> {
+    const doctor = await this.findById(id);
+    if (doctor.registrationStatus === 'active') {
+      throw new ConflictException('El doctor ya se registró');
     }
-    return { doctor, inviteSent };
+    if (!doctor.isActive) {
+      throw new ConflictException('El doctor está dado de baja');
+    }
+    return this.patientInvitesService.createInviteForUser(
+      id,
+      channel,
+      {
+        fullName: doctor.displayName ?? '',
+        phone: doctor.phone,
+        email: doctor.email,
+      },
+      'doctor',
+    );
   }
 
   async updateDoctor(

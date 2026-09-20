@@ -14,6 +14,7 @@ import {
   AdminDoctorsService,
   CreateDoctorResult,
 } from '../../application/admin-doctors.service.js';
+import type { CreateInviteResult } from '../../../patient-invites/application/patient-invites.service.js';
 import type {
   AdminDoctorDetail,
   AdminDoctorSummary,
@@ -24,6 +25,7 @@ import { Roles } from '../../../auth/infrastructure/roles.decorator.js';
 import { UserRole } from '../../../auth/domain/value-objects/UserRole.js';
 import { CreateDoctorDto } from './dto/create-doctor.dto.js';
 import { UpdateDoctorDto } from './dto/update-doctor.dto.js';
+import { CreateInviteDto } from '../../../patient-invites/infrastructure/http/dto/create-invite.dto.js';
 
 // Toda la ruta es exclusiva de admin (CLI-63) — a diferencia de
 // PatientsController (mezcla rutas por-rol método a método), acá conviene
@@ -53,7 +55,7 @@ export class AdminDoctorsController {
       firstName: dto.firstName,
       lastNamePaternal: dto.lastNamePaternal,
       lastNameMaternal: dto.lastNameMaternal ?? null,
-      email: dto.email,
+      email: dto.email ?? null,
       phone: dto.phone ?? null,
       specialty: dto.specialty ?? null,
       bio: dto.bio ?? null,
@@ -65,6 +67,18 @@ export class AdminDoctorsController {
         end: block.end,
       })),
     });
+  }
+
+  // Mismo mecanismo que POST /patients/:id/invites, pero el que invita es el
+  // admin y el invitado es un doctor (CLI-77). Sirve tanto para la primera
+  // invitación como para reenviarla.
+  @Post(':id/invites')
+  @HttpCode(HttpStatus.CREATED)
+  createInvite(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: CreateInviteDto,
+  ): Promise<CreateInviteResult> {
+    return this.adminDoctorsService.inviteDoctor(id, dto.channel);
   }
 
   @Patch(':id')

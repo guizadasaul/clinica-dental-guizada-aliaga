@@ -1,4 +1,4 @@
-import { NotFoundException } from '@nestjs/common';
+import { ConflictException, NotFoundException } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { AdminDoctorsService } from './admin-doctors.service';
 import { AdminDoctorRepository } from '../domain/AdminDoctorRepository';
@@ -91,18 +91,41 @@ describe('AdminDoctorsService', () => {
       scheduleBlocks: [],
     };
 
-    it('creates the doctor and sends the invite email tagged kind=doctor, reporting inviteSent=true', async () => {
+    it('only creates the doctor: it never sends an invitation by itself (CLI-77)', async () => {
       mockAdminDoctorRepo.create.mockResolvedValue(DOCTOR);
-      mockPatientInvitesService.createInviteForUser.mockResolvedValue({});
 
       const result = await service.createDoctor(CREATE_DATA);
 
       expect(mockAdminDoctorRepo.create).toHaveBeenCalledWith(CREATE_DATA);
       expect(
         mockPatientInvitesService.createInviteForUser,
+      ).not.toHaveBeenCalled();
+      expect(result).toEqual({ doctor: DOCTOR });
+    });
+
+    it('propagates a repository failure (e.g. duplicate email) untouched', async () => {
+      mockAdminDoctorRepo.create.mockRejectedValue(new Error('email en uso'));
+
+      await expect(service.createDoctor(CREATE_DATA)).rejects.toThrow(
+        'email en uso',
+      );
+    });
+  });
+
+  describe('inviteDoctor', () => {
+    it('sends the invite for the requested channel with the public name and the contact data of the doctor, tagged kind=doctor', async () => {
+      mockAdminDoctorRepo.findById.mockResolvedValue(DOCTOR);
+      mockPatientInvitesService.createInviteForUser.mockResolvedValue({
+        whatsappUrl: 'https://wa.me/59170011122?text=hola',
+      });
+
+      const result = await service.inviteDoctor('doctor-1', 'whatsapp');
+
+      expect(
+        mockPatientInvitesService.createInviteForUser,
       ).toHaveBeenCalledWith(
         'doctor-1',
-        'email',
+        'whatsapp',
         {
           fullName: 'Juan Perez',
           phone: '+59170011122',
@@ -110,29 +133,67 @@ describe('AdminDoctorsService', () => {
         },
         'doctor',
       );
-      expect(result).toEqual({ doctor: DOCTOR, inviteSent: true });
+      expect(result).toEqual({
+        whatsappUrl: 'https://wa.me/59170011122?text=hola',
+      });
     });
 
-    it('still returns the created doctor with inviteSent=false when the invite email fails, without throwing', async () => {
-      mockAdminDoctorRepo.create.mockResolvedValue(DOCTOR);
-      mockPatientInvitesService.createInviteForUser.mockRejectedValue(
-        new Error('Resend caído'),
-      );
+    it('throws NotFoundException when the doctor does not exist', async () => {
+      mockAdminDoctorRepo.findById.mockResolvedValue(null);
 
-      const result = await service.createDoctor(CREATE_DATA);
-
-      expect(result).toEqual({ doctor: DOCTOR, inviteSent: false });
-    });
-
-    it('never calls the invite service if the repository create itself fails (no doctor to invite)', async () => {
-      mockAdminDoctorRepo.create.mockRejectedValue(new Error('email en uso'));
-
-      await expect(service.createDoctor(CREATE_DATA)).rejects.toThrow(
-        'email en uso',
+      await expect(service.inviteDoctor('missing', 'email')).rejects.toThrow(
+        NotFoundException,
       );
       expect(
         mockPatientInvitesService.createInviteForUser,
       ).not.toHaveBeenCalled();
+    });
+
+    it('throws ConflictException when the doctor already redeemed an invitation (already registered)', async () => {
+      mockAdminDoctorRepo.findById.mockResolvedValue({
+        ...DOCTOR,
+        registrationStatus: 'active',
+      });
+
+      await expect(service.inviteDoctor('doctor-1', 'email')).rejects.toThrow(
+        ConflictException,
+      );
+      expect(
+        mockPatientInvitesService.createInviteForUser,
+      ).not.toHaveBeenCalled();
+    });
+
+    it('throws ConflictException when the doctor was deactivated', async () => {
+      mockAdminDoctorRepo.findById.mockResolvedValue({
+        ...DOCTOR,
+        isActive: false,
+      });
+
+      await expect(service.inviteDoctor('doctor-1', 'email')).rejects.toThrow(
+        ConflictException,
+      );
+      expect(
+        mockPatientInvitesService.createInviteForUser,
+      ).not.toHaveBeenCalled();
+    });
+
+    it('falls back to an empty name when the doctor has no public name yet', async () => {
+      mockAdminDoctorRepo.findById.mockResolvedValue({
+        ...DOCTOR,
+        displayName: null,
+      });
+      mockPatientInvitesService.createInviteForUser.mockResolvedValue({});
+
+      await service.inviteDoctor('doctor-1', 'email');
+
+      expect(
+        mockPatientInvitesService.createInviteForUser,
+      ).toHaveBeenCalledWith(
+        'doctor-1',
+        'email',
+        expect.objectContaining({ fullName: '' }),
+        'doctor',
+      );
     });
   });
 

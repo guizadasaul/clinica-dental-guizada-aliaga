@@ -3,6 +3,7 @@ import { Test } from '@nestjs/testing';
 import { PatientInvitesService } from './patient-invites.service';
 import { PatientInviteRepository } from '../domain/PatientInviteRepository';
 import { EmailSender } from '../domain/EmailSender';
+import { INVITE_TTL_MINUTES, formatInviteTtl } from '../domain/PatientInvite';
 
 const mockInviteRepo = {
   create: jest.fn(),
@@ -216,6 +217,50 @@ describe('PatientInvitesService', () => {
       expect(result).toEqual({});
     });
 
+    it('expires a doctor invite 48 hours from creation (a patient one still takes 5 minutes)', async () => {
+      mockInviteRepo.create.mockResolvedValue({});
+      const before = Date.now();
+
+      await service.createInviteForUser(
+        'user-doctor-1',
+        'email',
+        DOCTOR_CONTACT,
+        'doctor',
+      );
+
+      const after = Date.now();
+      const calls = mockInviteRepo.create.mock.calls as [{ expiresAt: Date }][];
+      const [[createArg]] = calls;
+      const ttlMs = createArg.expiresAt.getTime() - before;
+      const expectedMs = 48 * 60 * 60 * 1000;
+      expect(ttlMs).toBeGreaterThanOrEqual(expectedMs);
+      expect(ttlMs).toBeLessThanOrEqual(expectedMs + (after - before));
+    });
+
+    it('builds a wa.me URL with the doctor copy (team invitation, 48 hours, no emojis) for channel=whatsapp', async () => {
+      mockInviteRepo.create.mockResolvedValue({});
+
+      const result = await service.createInviteForUser(
+        'user-doctor-1',
+        'whatsapp',
+        { ...DOCTOR_CONTACT, phone: '70011122' },
+        'doctor',
+      );
+
+      expect(mockEmailSender.sendInviteEmail).not.toHaveBeenCalled();
+      const url = new URL(result.whatsappUrl!);
+      expect(url.origin + url.pathname).toBe('https://wa.me/59170011122');
+      const text = url.searchParams.get('text')!;
+      expect(text).toContain('Dr. Juan Gomez');
+      expect(text).toContain('equipo de odontólogos');
+      expect(text).toContain('Creá tu acceso acá:');
+      expect(text).toContain('/invitacion/');
+      expect(text).toContain('vence en 48 horas');
+      expect(text).not.toContain('vence en 5 minutos');
+      // Nada de caracteres de 3+ bytes en UTF-8 (wa.me los corrompe).
+      expect(text).not.toMatch(/[\u0800-\uFFFF]/);
+    });
+
     it('throws ConflictException when the requested channel has no contact info', async () => {
       await expect(
         service.createInviteForUser(
@@ -226,6 +271,21 @@ describe('PatientInvitesService', () => {
         ),
       ).rejects.toThrow(ConflictException);
       expect(mockInviteRepo.create).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('formatInviteTtl', () => {
+    it('formats minutes and whole hours for the copy of the messages', () => {
+      expect(formatInviteTtl(1)).toBe('1 minuto');
+      expect(formatInviteTtl(5)).toBe('5 minutos');
+      expect(formatInviteTtl(90)).toBe('90 minutos');
+      expect(formatInviteTtl(60)).toBe('1 hora');
+      expect(formatInviteTtl(48 * 60)).toBe('48 horas');
+    });
+
+    it('keeps patient invites at 5 minutes and doctor invites at 48 hours', () => {
+      expect(INVITE_TTL_MINUTES.patient).toBe(5);
+      expect(INVITE_TTL_MINUTES.doctor).toBe(48 * 60);
     });
   });
 

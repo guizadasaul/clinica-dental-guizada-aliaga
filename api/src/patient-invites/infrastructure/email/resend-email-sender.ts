@@ -4,6 +4,10 @@ import type {
   InviteEmailKind,
   SendInviteEmailParams,
 } from '../../domain/EmailSender.js';
+import {
+  INVITE_TTL_MINUTES,
+  formatInviteTtl,
+} from '../../domain/PatientInvite.js';
 import { CLINIC_LOGO_PNG_BASE64 } from './clinic-logo.js';
 
 interface ResendErrorBody {
@@ -106,6 +110,7 @@ export class ResendEmailSender implements EmailSender {
     const name = this.escapeHtml(params.displayName);
     const url = this.escapeHtml(params.inviteUrl);
     const copy = INVITE_EMAIL_COPY[params.kind];
+    const expiresIn = formatInviteTtl(INVITE_TTL_MINUTES[params.kind]);
 
     return `
 <!doctype html>
@@ -189,7 +194,7 @@ export class ResendEmailSender implements EmailSender {
                   <a href="${url}" style="color:#e89858;">${url}</a>
                 </p>
                 <p style="margin:0 0 32px; font-size:13px; line-height:1.5; color:#4d4640;">
-                  Por tu seguridad, este enlace vence en <strong>5 minutos</strong>.
+                  Por tu seguridad, este enlace vence en <strong>${expiresIn}</strong>.
                 </p>
               </td>
             </tr>
@@ -237,6 +242,7 @@ export class ResendEmailSender implements EmailSender {
 
   private buildText(params: SendInviteEmailParams): string {
     const copy = INVITE_EMAIL_COPY[params.kind];
+    const expiresIn = formatInviteTtl(INVITE_TTL_MINUTES[params.kind]);
     return `
 Hola ${params.displayName},
 
@@ -244,7 +250,7 @@ El equipo de Clínica Dental Guizada-Aliaga ${copy.intro}
 
 Completá tu registro acá: ${params.inviteUrl}
 
-Por tu seguridad, este enlace vence en 5 minutos.
+Por tu seguridad, este enlace vence en ${expiresIn}.
 
 —
 Clínica Dental Guizada-Aliaga

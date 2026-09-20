@@ -9,6 +9,7 @@ describe('AdminDoctorsController', () => {
     findById: jest.fn(),
     createDoctor: jest.fn(),
     updateDoctor: jest.fn(),
+    inviteDoctor: jest.fn(),
     deactivateDoctor: jest.fn(),
   };
 
@@ -49,6 +50,20 @@ describe('AdminDoctorsController', () => {
       });
     });
 
+    it('passes a doctor with only a phone (no email) as email=null', async () => {
+      mockService.createDoctor.mockResolvedValue({ doctor: {} });
+
+      await controller.create({
+        ...DTO,
+        email: undefined,
+        phone: '+59170011122',
+      });
+
+      expect(mockService.createDoctor).toHaveBeenCalledWith(
+        expect.objectContaining({ email: null, phone: '+59170011122' }),
+      );
+    });
+
     it('passes the maternal last name when present', async () => {
       mockService.createDoctor.mockResolvedValue({ doctor: {} });
 
@@ -57,6 +72,24 @@ describe('AdminDoctorsController', () => {
       expect(mockService.createDoctor).toHaveBeenCalledWith(
         expect.objectContaining({ lastNameMaternal: 'Calle' }),
       );
+    });
+  });
+
+  describe('createInvite (CLI-77)', () => {
+    it('delegates to inviteDoctor with the doctor id and the chosen channel', async () => {
+      mockService.inviteDoctor.mockResolvedValue({
+        whatsappUrl: 'https://wa.me/1',
+      });
+
+      const result = await controller.createInvite('doctor-1', {
+        channel: 'whatsapp',
+      });
+
+      expect(mockService.inviteDoctor).toHaveBeenCalledWith(
+        'doctor-1',
+        'whatsapp',
+      );
+      expect(result).toEqual({ whatsappUrl: 'https://wa.me/1' });
     });
   });
 

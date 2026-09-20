@@ -45,7 +45,8 @@ export interface CreateAdminDoctorData {
   firstName: string;
   lastNamePaternal: string;
   lastNameMaternal: string | null;
-  email: string;
+  /** Al menos uno de email/phone viene cargado (lo garantiza CreateDoctorDto). */
+  email: string | null;
   phone: string | null;
   specialty: string | null;
   bio: string | null;

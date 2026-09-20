@@ -215,7 +215,8 @@ describe('PrismaAdminDoctorRepository', () => {
           bio: null,
           photo_url: null,
           display_order: 0,
-          is_bookable: true,
+          // Nace no reservable hasta que canjea la invitación (CLI-77).
+          is_bookable: false,
         },
       });
       expect(prismaMock.doctor_schedule_blocks.createMany).toHaveBeenCalledWith(
@@ -233,6 +234,29 @@ describe('PrismaAdminDoctorRepository', () => {
       expect(result.scheduleBlocks).toEqual([
         { weekday: 1, start: '09:00', end: '12:00' },
       ]);
+    });
+
+    it('creates a doctor with only a phone (email null) — one contact is enough', async () => {
+      prismaMock.users.create.mockResolvedValue({
+        ...USER_RECORD,
+        email: null,
+      });
+      prismaMock.doctor_profiles.create.mockResolvedValue(PROFILE_RECORD);
+      prismaMock.doctor_schedule_blocks.findMany.mockResolvedValue([]);
+
+      const result = await repo.create({
+        ...CREATE_DATA,
+        email: null,
+        scheduleBlocks: [],
+      });
+
+      expect(prismaMock.users.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          email: null,
+          phone: '+59170011122',
+        }) as Record<string, unknown>,
+      });
+      expect(result.email).toBeNull();
     });
 
     it('skips createMany when scheduleBlocks is empty', async () => {
