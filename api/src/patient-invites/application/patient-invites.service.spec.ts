@@ -10,7 +10,7 @@ const mockInviteRepo = {
   invalidatePendingForUser: jest.fn(),
   redeemByTokenHash: jest.fn(),
   findPatientContactInfo: jest.fn(),
-  isTokenValid: jest.fn(),
+  findTokenStatus: jest.fn(),
 };
 
 const mockEmailSender = {
@@ -315,13 +315,39 @@ describe('PatientInvitesService', () => {
   });
 
   describe('checkStatus', () => {
-    it('delegates to isTokenValid without consuming the token', async () => {
-      mockInviteRepo.isTokenValid.mockResolvedValue(true);
+    it('hashes the raw token, reads its status and never consumes it', async () => {
+      mockInviteRepo.findTokenStatus.mockResolvedValue({
+        valid: true,
+        kind: 'doctor',
+      });
 
       const result = await service.checkStatus('some-token');
 
-      expect(result).toBe(true);
+      expect(result).toEqual({ valid: true, kind: 'doctor' });
+      const [[hashArg]] = mockInviteRepo.findTokenStatus.mock.calls as [
+        [string, Date],
+      ][];
+      expect(hashArg).toMatch(/^[0-9a-f]{64}$/); // sha256 hex, nunca el token crudo
+      expect(hashArg).not.toBe('some-token');
       expect(mockInviteRepo.redeemByTokenHash).not.toHaveBeenCalled();
+    });
+
+    it('keeps the kind of an expired or used token, so the landing can say who to ask for a new link', async () => {
+      mockInviteRepo.findTokenStatus.mockResolvedValue({
+        valid: false,
+        kind: 'doctor',
+      });
+
+      expect(await service.checkStatus('expired')).toEqual({
+        valid: false,
+        kind: 'doctor',
+      });
+    });
+
+    it('answers only { valid: false } for a token that does not exist, without revealing anything else', async () => {
+      mockInviteRepo.findTokenStatus.mockResolvedValue(null);
+
+      expect(await service.checkStatus('unknown')).toEqual({ valid: false });
     });
   });
 });

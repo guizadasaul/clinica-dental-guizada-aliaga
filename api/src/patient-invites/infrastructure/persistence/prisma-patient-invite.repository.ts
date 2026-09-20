@@ -3,6 +3,7 @@ import { PrismaService } from '../../../shared/prisma/prisma.service.js';
 import { PatientInvite } from '../../domain/PatientInvite.js';
 import {
   CreateInviteData,
+  InviteTokenStatus,
   IPatientInviteRepository,
   PatientContactInfo,
   RedeemedInvite,
@@ -100,10 +101,27 @@ export class PrismaPatientInviteRepository implements IPatientInviteRepository {
     };
   }
 
-  async isTokenValid(tokenHash: string, now: Date): Promise<boolean> {
-    const count = await this.prisma.patient_invites.count({
-      where: { token_hash: tokenHash, used_at: null, expires_at: { gt: now } },
+  async findTokenStatus(
+    tokenHash: string,
+    now: Date,
+  ): Promise<InviteTokenStatus | null> {
+    const record = await this.prisma.patient_invites.findUnique({
+      where: { token_hash: tokenHash },
+      select: {
+        used_at: true,
+        expires_at: true,
+        users: { select: { role: true } },
+      },
     });
-    return count > 0;
+    if (!record) {
+      return null;
+    }
+    return {
+      valid:
+        record.used_at === null && record.expires_at.getTime() > now.getTime(),
+      // Solo el paciente ve la landing de paciente; cualquier otro rol
+      // (odontólogo, y el admin que se invita con el mismo mecanismo) entra al equipo.
+      kind: record.users.role === 'patient' ? 'patient' : 'doctor',
+    };
   }
 }
