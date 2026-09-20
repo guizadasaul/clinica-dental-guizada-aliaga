@@ -44,7 +44,8 @@ export class AdminDoctorInvitePanelComponent {
     try {
       const result = await firstValueFrom(this.adminDoctorsService.createInvite(this.doctor().id, channel));
       if (channel === 'whatsapp' && result.whatsappUrl) {
-        window.open(result.whatsappUrl, '_blank');
+        // noopener/noreferrer: la pestaña de WhatsApp no necesita acceso a esta ventana.
+        window.open(result.whatsappUrl, '_blank', 'noopener,noreferrer');
       }
       this.sent.emit(channel);
     } catch (error) {

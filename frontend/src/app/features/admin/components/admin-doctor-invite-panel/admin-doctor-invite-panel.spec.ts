@@ -108,7 +108,7 @@ describe('AdminDoctorInvitePanelComponent', () => {
     await settle(fixture);
 
     expect(adminDoctorsService.createInvite).toHaveBeenCalledWith('doctor-1', 'whatsapp');
-    expect(open).toHaveBeenCalledWith('https://wa.me/59170011122?text=hola', '_blank');
+    expect(open).toHaveBeenCalledWith('https://wa.me/59170011122?text=hola', '_blank', 'noopener,noreferrer');
     expect(sent).toHaveBeenCalledWith('whatsapp');
     open.mockRestore();
   });
