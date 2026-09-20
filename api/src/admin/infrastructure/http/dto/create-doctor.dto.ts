@@ -9,15 +9,13 @@ import {
   IsUrl,
   MaxLength,
   Min,
-  MinLength,
   ValidateNested,
 } from 'class-validator';
 import {
   EmptyToUndefined,
-  NormalizeName,
   Trim,
 } from '../../../../shared/validators/transforms.js';
-import { IsPersonName } from '../../../../shared/validators/full-name.validator.js';
+import { PersonNamePart } from '../../../../shared/validators/person-name-part.validator.js';
 import { IsE164Phone } from '../../../../shared/validators/phone.validator.js';
 import { NoHtml } from '../../../../shared/validators/text-safety.validator.js';
 import { ScheduleBlockDto } from './schedule-block.dto.js';
@@ -33,27 +31,15 @@ export class CreateDoctorDto {
 
   // Nombre y apellidos reales (CLI-76) — mismas reglas que en pacientes
   // (CreatePatientDto): normalizados y con IsPersonName, que ya rechaza HTML.
-  @IsString()
-  @NormalizeName()
-  @IsPersonName()
-  @MinLength(3)
-  @MaxLength(100)
+  @PersonNamePart()
   firstName: string;
 
-  @IsString()
-  @NormalizeName()
-  @IsPersonName()
-  @MinLength(3)
-  @MaxLength(100)
+  @PersonNamePart()
   lastNamePaternal: string;
 
   @IsOptional()
   @EmptyToUndefined()
-  @IsString()
-  @NormalizeName()
-  @IsPersonName()
-  @MinLength(3)
-  @MaxLength(100)
+  @PersonNamePart()
   lastNameMaternal?: string;
 
   // Obligatorio (a diferencia del resto de campos opcionales): hace falta
