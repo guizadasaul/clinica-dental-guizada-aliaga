@@ -26,6 +26,9 @@ const USER_RECORD = {
 const PROFILE_RECORD = {
   id: 'profile-1',
   user_id: 'doctor-1',
+  first_name: 'Juan',
+  last_name_paternal: 'Perez',
+  last_name_maternal: null,
   specialty: 'Ortodoncia',
   bio: null,
   photo_url: null,
@@ -90,6 +93,10 @@ describe('PrismaAdminDoctorRepository', () => {
         {
           id: 'doctor-1',
           displayName: 'Juan Perez',
+          firstName: 'Juan',
+          lastNamePaternal: 'Perez',
+          lastNameMaternal: null,
+          registrationStatus: 'pending',
           email: 'juan@example.com',
           phone: '+59170011122',
           specialty: 'Ortodoncia',
@@ -99,6 +106,43 @@ describe('PrismaAdminDoctorRepository', () => {
           isActive: true,
         },
       ]);
+    });
+  });
+
+  describe('registrationStatus', () => {
+    it("is 'pending' while users.auth_user_id is null and 'active' once an identity is linked", async () => {
+      prismaMock.doctor_profiles.findMany.mockResolvedValue([
+        { ...PROFILE_RECORD, users: USER_RECORD },
+        {
+          ...PROFILE_RECORD,
+          users: { ...USER_RECORD, auth_user_id: 'auth-uid-1' },
+        },
+      ]);
+
+      const result = await repo.findAll();
+
+      expect(result.map((d) => d.registrationStatus)).toEqual([
+        'pending',
+        'active',
+      ]);
+    });
+
+    it('keeps listing legacy doctors that have no first/last name yet', async () => {
+      prismaMock.doctor_profiles.findMany.mockResolvedValue([
+        {
+          ...PROFILE_RECORD,
+          first_name: null,
+          last_name_paternal: null,
+          last_name_maternal: null,
+          users: USER_RECORD,
+        },
+      ]);
+
+      const [doctor] = await repo.findAll();
+
+      expect(doctor.firstName).toBeNull();
+      expect(doctor.lastNamePaternal).toBeNull();
+      expect(doctor.lastNameMaternal).toBeNull();
     });
   });
 
@@ -131,6 +175,9 @@ describe('PrismaAdminDoctorRepository', () => {
   describe('create', () => {
     const CREATE_DATA = {
       displayName: 'Juan Perez',
+      firstName: 'Juan',
+      lastNamePaternal: 'Perez',
+      lastNameMaternal: null,
       email: 'juan@example.com',
       phone: '+59170011122',
       specialty: 'Ortodoncia',
@@ -161,6 +208,9 @@ describe('PrismaAdminDoctorRepository', () => {
       expect(prismaMock.doctor_profiles.create).toHaveBeenCalledWith({
         data: {
           user_id: 'doctor-1',
+          first_name: 'Juan',
+          last_name_paternal: 'Perez',
+          last_name_maternal: null,
           specialty: 'Ortodoncia',
           bio: null,
           photo_url: null,
@@ -239,6 +289,33 @@ describe('PrismaAdminDoctorRepository', () => {
       expect(
         prismaMock.doctor_schedule_blocks.deleteMany,
       ).not.toHaveBeenCalled();
+    });
+
+    it('patches first/last name on doctor_profiles (not on users)', async () => {
+      prismaMock.doctor_profiles.findUnique.mockResolvedValue(PROFILE_RECORD);
+      prismaMock.users.update.mockResolvedValue(USER_RECORD);
+      prismaMock.doctor_profiles.update.mockResolvedValue(PROFILE_RECORD);
+      prismaMock.doctor_schedule_blocks.findMany.mockResolvedValue([]);
+
+      await repo.update('doctor-1', {
+        firstName: 'Marylu',
+        lastNamePaternal: 'Aliaga',
+        lastNameMaternal: 'Calle',
+      });
+
+      expect(prismaMock.users.update).toHaveBeenCalledWith({
+        where: { id: 'doctor-1' },
+        data: { updated_at: expect.any(Date) as Date },
+      });
+      expect(prismaMock.doctor_profiles.update).toHaveBeenCalledWith({
+        where: { user_id: 'doctor-1' },
+        data: {
+          first_name: 'Marylu',
+          last_name_paternal: 'Aliaga',
+          last_name_maternal: 'Calle',
+          updated_at: expect.any(Date) as Date,
+        },
+      });
     });
 
     it('replaces the full scheduleBlocks set when it is present in the payload', async () => {

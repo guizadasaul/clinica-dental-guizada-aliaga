@@ -15,17 +15,32 @@ import {
   EmptyToUndefined,
   Trim,
 } from '../../../../shared/validators/transforms.js';
+import { PersonNamePart } from '../../../../shared/validators/person-name-part.validator.js';
 import { IsE164Phone } from '../../../../shared/validators/phone.validator.js';
 import { NoHtml } from '../../../../shared/validators/text-safety.validator.js';
 import { ScheduleBlockDto } from './schedule-block.dto.js';
 
 export class CreateDoctorDto {
+  // Nombre público (con "Dr./Dra."): lo que ve el paciente al reservar.
   @Trim()
   @IsString()
   @IsNotEmpty()
   @MaxLength(200)
   @NoHtml()
   displayName: string;
+
+  // Nombre y apellidos reales (CLI-76) — mismas reglas que en pacientes
+  // (CreatePatientDto): normalizados y con IsPersonName, que ya rechaza HTML.
+  @PersonNamePart()
+  firstName: string;
+
+  @PersonNamePart()
+  lastNamePaternal: string;
+
+  @IsOptional()
+  @EmptyToUndefined()
+  @PersonNamePart()
+  lastNameMaternal?: string;
 
   // Obligatorio (a diferencia del resto de campos opcionales): hace falta
   // para poder mandarle la invitación por email al doctor nuevo.

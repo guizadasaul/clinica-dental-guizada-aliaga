@@ -16,6 +16,10 @@ import type { PatientWithUser } from '../../../patients/models/patient.model';
 const DOCTOR_SUMMARY: AdminDoctorSummary = {
   id: 'doctor-1',
   displayName: 'Juan Perez',
+  firstName: 'Juan',
+  lastNamePaternal: 'Perez',
+  lastNameMaternal: null,
+  registrationStatus: 'pending',
   email: 'juan@example.com',
   phone: '+59170011122',
   specialty: 'Ortodoncia',
@@ -132,6 +136,18 @@ async function settle(fixture: ReturnType<typeof setup>['fixture']): Promise<voi
   fixture.detectChanges();
 }
 
+function fillInput(fixture: ReturnType<typeof setup>['fixture'], selector: string, value: string): void {
+  const input = el<HTMLInputElement>(fixture, selector);
+  input.value = value;
+  input.dispatchEvent(new Event('input'));
+}
+
+function fillCreateNames(fixture: ReturnType<typeof setup>['fixture']): void {
+  fillInput(fixture, '#admin-doctor-first-name', 'maria');
+  fillInput(fixture, '#admin-doctor-last-name-paternal', 'LOPEZ');
+  fillInput(fixture, '#admin-doctor-last-name-maternal', 'gomez');
+}
+
 function submitForm(fixture: ReturnType<typeof setup>['fixture']): void {
   el<HTMLFormElement>(fixture, '.admin-doctors__form').dispatchEvent(new Event('submit'));
 }
@@ -194,6 +210,7 @@ describe('AdminDoctorsComponent', () => {
     const emailInput = el<HTMLInputElement>(fixture, '#admin-doctor-email');
     emailInput.value = 'maria@example.com';
     emailInput.dispatchEvent(new Event('input'));
+    fillCreateNames(fixture);
     await settle(fixture);
 
     submitForm(fixture);
@@ -201,7 +218,13 @@ describe('AdminDoctorsComponent', () => {
     await settle(fixture);
 
     expect(adminDoctorsService.create).toHaveBeenCalledWith(
-      expect.objectContaining({ displayName: 'Dra. Maria Lopez', email: 'maria@example.com' }),
+      expect.objectContaining({
+        displayName: 'Dra. Maria Lopez',
+        email: 'maria@example.com',
+        firstName: 'Maria',
+        lastNamePaternal: 'Lopez',
+        lastNameMaternal: 'Gomez',
+      }),
     );
     expect(adminDoctorsService.getAll).toHaveBeenCalledTimes(2);
     expect(el(fixture, '.admin-doctors__banner--success')?.textContent).toContain('invitación');
@@ -222,12 +245,75 @@ describe('AdminDoctorsComponent', () => {
     const emailInput = el<HTMLInputElement>(fixture, '#admin-doctor-email');
     emailInput.value = 'maria@example.com';
     emailInput.dispatchEvent(new Event('input'));
+    fillCreateNames(fixture);
     await settle(fixture);
 
     submitForm(fixture);
     await settle(fixture);
 
     expect(el(fixture, '.admin-doctors__banner--error')?.textContent).toContain('Ya existe un usuario con ese email');
+  });
+
+  // CLI-76: nombre y apellidos separados.
+  it('does not submit the create form when the first name or paternal last name are missing, even with public name and email filled', async () => {
+    const { fixture, adminDoctorsService } = setup();
+    await settle(fixture);
+
+    el<HTMLButtonElement>(fixture, '.admin-doctors__header .admin-doctors__btn--primary').click();
+    await settle(fixture);
+    fillInput(fixture, '#admin-doctor-name', 'Dra. Maria Lopez');
+    fillInput(fixture, '#admin-doctor-email', 'maria@example.com');
+    await settle(fixture);
+
+    submitForm(fixture);
+    await settle(fixture);
+
+    expect(adminDoctorsService.create).not.toHaveBeenCalled();
+    const errors = allEls(fixture, '.admin-doctors__field-error').map((e) => e.textContent);
+    expect(errors.some((t) => t?.includes('El nombre es obligatorio'))).toBe(true);
+    expect(errors.some((t) => t?.includes('El apellido paterno es obligatorio'))).toBe(true);
+  });
+
+  it('rejects digits in the name parts', async () => {
+    const { fixture, adminDoctorsService } = setup();
+    await settle(fixture);
+
+    el<HTMLButtonElement>(fixture, '.admin-doctors__header .admin-doctors__btn--primary').click();
+    await settle(fixture);
+    fillCreateNames(fixture);
+    fillInput(fixture, '#admin-doctor-first-name', 'Maria2');
+    fillInput(fixture, '#admin-doctor-name', 'Dra. Maria Lopez');
+    fillInput(fixture, '#admin-doctor-email', 'maria@example.com');
+    await settle(fixture);
+
+    submitForm(fixture);
+    await settle(fixture);
+
+    expect(adminDoctorsService.create).not.toHaveBeenCalled();
+    expect(el(fixture, '.admin-doctors__form')?.textContent).toContain('solo puede tener letras');
+  });
+
+  it('lets a doctor loaded before CLI-76 (no first/last name) be edited without filling them in', async () => {
+    const { fixture, adminDoctorsService } = setup();
+    adminDoctorsService.getById.mockReturnValue(
+      of({ ...DOCTOR_DETAIL, firstName: null, lastNamePaternal: null, lastNameMaternal: null }),
+    );
+    await settle(fixture);
+
+    el<HTMLButtonElement>(fixture, '.admin-doctors__cell--actions .admin-doctors__btn:not(.admin-doctors__btn--outline):not(.admin-doctors__btn--ghost)').click();
+    await settle(fixture);
+    await settle(fixture);
+
+    expect(el<HTMLInputElement>(fixture, '#admin-doctor-first-name').value).toBe('');
+
+    submitForm(fixture);
+    await settle(fixture);
+    await settle(fixture);
+
+    expect(adminDoctorsService.update).toHaveBeenCalledWith(
+      'doctor-1',
+      expect.objectContaining({ firstName: undefined, lastNamePaternal: undefined }),
+    );
   });
 
   it('deactivating a doctor requires a two-step confirmation before calling the service', async () => {

@@ -50,6 +50,9 @@ export class AdminDoctorsController {
   create(@Body() dto: CreateDoctorDto): Promise<CreateDoctorResult> {
     return this.adminDoctorsService.createDoctor({
       displayName: dto.displayName,
+      firstName: dto.firstName,
+      lastNamePaternal: dto.lastNamePaternal,
+      lastNameMaternal: dto.lastNameMaternal ?? null,
       email: dto.email,
       phone: dto.phone ?? null,
       specialty: dto.specialty ?? null,
@@ -71,6 +74,13 @@ export class AdminDoctorsController {
   ): Promise<AdminDoctorDetail> {
     return this.adminDoctorsService.updateDoctor(id, {
       ...(dto.displayName !== undefined && { displayName: dto.displayName }),
+      ...(dto.firstName !== undefined && { firstName: dto.firstName }),
+      ...(dto.lastNamePaternal !== undefined && {
+        lastNamePaternal: dto.lastNamePaternal,
+      }),
+      ...(dto.lastNameMaternal !== undefined && {
+        lastNameMaternal: dto.lastNameMaternal,
+      }),
       ...(dto.email !== undefined && { email: dto.email }),
       ...(dto.phone !== undefined && { phone: dto.phone }),
       ...(dto.specialty !== undefined && { specialty: dto.specialty }),

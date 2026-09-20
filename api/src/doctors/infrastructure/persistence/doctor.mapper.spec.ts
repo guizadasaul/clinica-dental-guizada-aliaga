@@ -8,6 +8,9 @@ function fakeRecord(
   return {
     id: 'profile-1',
     user_id: 'doctor-1',
+    first_name: null,
+    last_name_paternal: null,
+    last_name_maternal: null,
     specialty: 'Ortodoncia',
     bio: 'Bio',
     photo_url: 'https://example.com/photo.jpg',

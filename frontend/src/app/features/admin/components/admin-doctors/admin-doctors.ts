@@ -11,6 +11,11 @@ import { PhoneInputComponent } from '../../../../shared/ui/phone-input/phone-inp
 import { field, allValid, touchAll } from '../../../../shared/validation/field';
 import { requiredTextError, optionalTextError, normalizeText } from '../../../../shared/validation/text.validator';
 import { isValidEmail, normalizeEmail } from '../../../../shared/validation/email.validator';
+import {
+  normalizeFullName,
+  validatePersonName,
+  PERSON_NAME_MAX_LENGTH,
+} from '../../../../shared/validation/full-name.validator';
 import type { AdminDoctorSummary } from '../../models/admin-doctor.model';
 import type { CreateDoctorRequest, UpdateDoctorRequest } from '../../models/admin-doctor.request';
 import type { Doctor } from '../../../booking/models/booking.model';
@@ -33,6 +38,21 @@ interface ScheduleBlockDraft {
 /** "" (todavía no tipeó nada) o "+591" (nada más que el indicativo) = no cargó teléfono — mismo criterio que step-patient-data.ts. */
 function isBareCallingCode(e164: string): boolean {
   return e164 === '' || /^\+\d{1,3}$/.test(e164);
+}
+
+// Mismo mínimo que MinLength(3) del CreateDoctorDto (idéntico al de pacientes).
+const MIN_NAME_LENGTH = 3;
+
+/** Regla de nombre/apellido del doctor: `required` en el alta, opcional al editar (los doctores cargados antes de CLI-76 no los tienen). */
+function personNameError(value: string, label: string, required: boolean): string | null {
+  if (!value.trim()) return required ? `${label} es obligatorio.` : null;
+  const err = validatePersonName(value);
+  if (err === 'invalid-chars') return `${label} solo puede tener letras.`;
+  if (err === 'too-long') return `${label} no puede superar los ${PERSON_NAME_MAX_LENGTH} caracteres.`;
+  if (normalizeFullName(value).length < MIN_NAME_LENGTH) {
+    return `${label} tiene que tener al menos ${MIN_NAME_LENGTH} caracteres.`;
+  }
+  return null;
 }
 
 function emailFieldError(value: string): string | null {
@@ -63,6 +83,13 @@ export class AdminDoctorsComponent {
   protected readonly mode = signal<ViewMode>('list');
   protected readonly editingId = signal<string | null>(null);
 
+  protected readonly firstNameField = field<string>('', (v) =>
+    personNameError(v, 'El nombre', this.mode() === 'create'),
+  );
+  protected readonly lastNamePaternalField = field<string>('', (v) =>
+    personNameError(v, 'El apellido paterno', this.mode() === 'create'),
+  );
+  protected readonly lastNameMaternalField = field<string>('', (v) => personNameError(v, 'El apellido materno', false));
   protected readonly displayNameField = field<string>('', (v) => requiredTextError(v, DISPLAY_NAME_MAX_LENGTH));
   protected readonly emailField = field<string>('', emailFieldError);
   protected readonly specialtyField = field<string>('', (v) => optionalTextError(v, SPECIALTY_MAX_LENGTH));
@@ -90,7 +117,14 @@ export class AdminDoctorsComponent {
 
   protected readonly formValid = computed(
     () =>
-      allValid(this.displayNameField, this.specialtyField, this.bioField) &&
+      allValid(
+        this.firstNameField,
+        this.lastNamePaternalField,
+        this.lastNameMaternalField,
+        this.displayNameField,
+        this.specialtyField,
+        this.bioField,
+      ) &&
       this.emailField.error() === null &&
       this.phoneOk(),
   );
@@ -157,6 +191,9 @@ export class AdminDoctorsComponent {
     try {
       const detail = await firstValueFrom(this.adminDoctorsService.getById(doctorId));
       this.resetForm();
+      this.firstNameField.reset(detail.firstName ?? '');
+      this.lastNamePaternalField.reset(detail.lastNamePaternal ?? '');
+      this.lastNameMaternalField.reset(detail.lastNameMaternal ?? '');
       this.displayNameField.reset(detail.displayName ?? '');
       this.emailField.reset(detail.email ?? '');
       this.phoneE164.set(detail.phone ?? '');
@@ -179,6 +216,9 @@ export class AdminDoctorsComponent {
   }
 
   private resetForm(): void {
+    this.firstNameField.reset('');
+    this.lastNamePaternalField.reset('');
+    this.lastNameMaternalField.reset('');
     this.displayNameField.reset('');
     this.emailField.reset('');
     this.phoneE164.set('');
@@ -225,7 +265,15 @@ export class AdminDoctorsComponent {
   }
 
   protected async submit(): Promise<void> {
-    touchAll(this.displayNameField, this.emailField, this.specialtyField, this.bioField);
+    touchAll(
+      this.firstNameField,
+      this.lastNamePaternalField,
+      this.lastNameMaternalField,
+      this.displayNameField,
+      this.emailField,
+      this.specialtyField,
+      this.bioField,
+    );
     if (!this.formValid()) {
       return;
     }
@@ -244,8 +292,12 @@ export class AdminDoctorsComponent {
         scheduleBlocks: this.scheduleBlocks().map((b) => ({ weekday: b.weekday, start: b.start, end: b.end })),
       };
 
+      const firstName = normalizeFullName(this.firstNameField.value());
+      const lastNamePaternal = normalizeFullName(this.lastNamePaternalField.value());
+      const lastNameMaternal = normalizeFullName(this.lastNameMaternalField.value()) || undefined;
+
       if (this.mode() === 'create') {
-        const request: CreateDoctorRequest = shared;
+        const request: CreateDoctorRequest = { ...shared, firstName, lastNamePaternal, lastNameMaternal };
         const result = await firstValueFrom(this.adminDoctorsService.create(request));
         this.closeForm();
         await this.loadDoctors();
@@ -259,7 +311,13 @@ export class AdminDoctorsComponent {
         if (!id) {
           return;
         }
-        const request: UpdateDoctorRequest = shared;
+        // Un doctor cargado antes de CLI-76 puede seguir editándose sin nombre/apellidos: vacío = no tocar.
+        const request: UpdateDoctorRequest = {
+          ...shared,
+          firstName: firstName || undefined,
+          lastNamePaternal: lastNamePaternal || undefined,
+          lastNameMaternal,
+        };
         await firstValueFrom(this.adminDoctorsService.update(id, request));
         this.closeForm();
         await this.loadDoctors();
