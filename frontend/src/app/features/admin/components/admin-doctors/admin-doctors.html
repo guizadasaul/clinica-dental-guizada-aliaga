@@ -187,7 +187,52 @@
 
       <form class="admin-doctors__form" (ngSubmit)="submit()">
         <div class="admin-doctors__field">
-          <label for="admin-doctor-name">Nombre completo</label>
+          <label for="admin-doctor-first-name">Nombre</label>
+          <input
+            id="admin-doctor-first-name"
+            type="text"
+            [value]="firstNameField.value()"
+            (input)="firstNameField.set($any($event.target).value)"
+            (blur)="firstNameField.markTouched()"
+            [class.admin-doctors__input--error]="firstNameField.showError()"
+          />
+          @if (firstNameField.showError()) {
+            <p class="admin-doctors__field-error">{{ firstNameField.error() }}</p>
+          }
+        </div>
+
+        <div class="admin-doctors__field">
+          <label for="admin-doctor-last-name-paternal">Apellido paterno</label>
+          <input
+            id="admin-doctor-last-name-paternal"
+            type="text"
+            [value]="lastNamePaternalField.value()"
+            (input)="lastNamePaternalField.set($any($event.target).value)"
+            (blur)="lastNamePaternalField.markTouched()"
+            [class.admin-doctors__input--error]="lastNamePaternalField.showError()"
+          />
+          @if (lastNamePaternalField.showError()) {
+            <p class="admin-doctors__field-error">{{ lastNamePaternalField.error() }}</p>
+          }
+        </div>
+
+        <div class="admin-doctors__field">
+          <label for="admin-doctor-last-name-maternal">Apellido materno (opcional)</label>
+          <input
+            id="admin-doctor-last-name-maternal"
+            type="text"
+            [value]="lastNameMaternalField.value()"
+            (input)="lastNameMaternalField.set($any($event.target).value)"
+            (blur)="lastNameMaternalField.markTouched()"
+            [class.admin-doctors__input--error]="lastNameMaternalField.showError()"
+          />
+          @if (lastNameMaternalField.showError()) {
+            <p class="admin-doctors__field-error">{{ lastNameMaternalField.error() }}</p>
+          }
+        </div>
+
+        <div class="admin-doctors__field">
+          <label for="admin-doctor-name">Nombre público (ej. Dra. Marylu Aliaga)</label>
           <input
             id="admin-doctor-name"
             type="text"

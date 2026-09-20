@@ -16,6 +16,11 @@ export class AdminDoctorMapper {
     return {
       id: record.user_id,
       displayName: record.users.display_name,
+      firstName: record.first_name,
+      lastNamePaternal: record.last_name_paternal,
+      lastNameMaternal: record.last_name_maternal,
+      registrationStatus:
+        record.users.auth_user_id === null ? 'pending' : 'active',
       email: record.users.email,
       phone: record.users.phone,
       specialty: record.specialty,

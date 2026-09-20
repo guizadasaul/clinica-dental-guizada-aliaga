@@ -2,6 +2,9 @@ import type { AdminDoctorScheduleBlock } from './admin-doctor.model';
 
 export interface CreateDoctorRequest {
   displayName: string;
+  firstName: string;
+  lastNamePaternal: string;
+  lastNameMaternal?: string;
   email: string;
   phone?: string;
   specialty?: string;
@@ -14,6 +17,9 @@ export interface CreateDoctorRequest {
 /** Todos los campos son opcionales — solo los presentes se actualizan (mismo criterio que el backend). */
 export interface UpdateDoctorRequest {
   displayName?: string;
+  firstName?: string;
+  lastNamePaternal?: string;
+  lastNameMaternal?: string;
   email?: string;
   phone?: string;
   specialty?: string;

@@ -10,12 +10,15 @@ import {
   IsUrl,
   MaxLength,
   Min,
+  MinLength,
   ValidateNested,
 } from 'class-validator';
 import {
   EmptyToUndefined,
+  NormalizeName,
   Trim,
 } from '../../../../shared/validators/transforms.js';
+import { IsPersonName } from '../../../../shared/validators/full-name.validator.js';
 import { IsE164Phone } from '../../../../shared/validators/phone.validator.js';
 import { NoHtml } from '../../../../shared/validators/text-safety.validator.js';
 import { ScheduleBlockDto } from './schedule-block.dto.js';
@@ -28,6 +31,35 @@ export class UpdateDoctorDto {
   @MaxLength(200)
   @NoHtml()
   displayName?: string;
+
+  // Todos opcionales en el PATCH: un doctor cargado antes de CLI-76 no tiene
+  // nombre/apellidos y se tiene que poder seguir editando sin completarlos.
+  @IsOptional()
+  @EmptyToUndefined()
+  @IsString()
+  @NormalizeName()
+  @IsPersonName()
+  @MinLength(3)
+  @MaxLength(100)
+  firstName?: string;
+
+  @IsOptional()
+  @EmptyToUndefined()
+  @IsString()
+  @NormalizeName()
+  @IsPersonName()
+  @MinLength(3)
+  @MaxLength(100)
+  lastNamePaternal?: string;
+
+  @IsOptional()
+  @EmptyToUndefined()
+  @IsString()
+  @NormalizeName()
+  @IsPersonName()
+  @MinLength(3)
+  @MaxLength(100)
+  lastNameMaternal?: string;
 
   @IsOptional()
   @Trim()

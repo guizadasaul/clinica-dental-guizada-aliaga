@@ -7,11 +7,24 @@ export interface DoctorScheduleBlock {
   end: string;
 }
 
+/**
+ * 'pending' = el doctor todavía no canjeó su invitación (users.auth_user_id es
+ * null); 'active' = ya vinculó una identidad de login. Derivado, sin columna
+ * propia (CLI-76).
+ */
+export type DoctorRegistrationStatus = 'pending' | 'active';
+
 /** Fila resumida para el listado (`GET /admin/doctors`) — sin scheduleBlocks. */
 export interface AdminDoctorSummary {
   /** users.id */
   id: string;
+  /** Nombre público (users.display_name), el que ve el paciente al reservar. */
   displayName: string | null;
+  /** Nombre y apellidos reales (doctor_profiles). null en doctores cargados antes de CLI-76. */
+  firstName: string | null;
+  lastNamePaternal: string | null;
+  lastNameMaternal: string | null;
+  registrationStatus: DoctorRegistrationStatus;
   email: string | null;
   phone: string | null;
   specialty: string | null;
@@ -29,6 +42,9 @@ export interface AdminDoctorDetail extends AdminDoctorSummary {
 
 export interface CreateAdminDoctorData {
   displayName: string;
+  firstName: string;
+  lastNamePaternal: string;
+  lastNameMaternal: string | null;
   email: string;
   phone: string | null;
   specialty: string | null;
@@ -42,6 +58,9 @@ export interface CreateAdminDoctorData {
 /** Solo los campos presentes se actualizan — mismo criterio "undefined = no tocar" que UpdateContactInfoData (auth). */
 export interface UpdateAdminDoctorData {
   displayName?: string;
+  firstName?: string;
+  lastNamePaternal?: string;
+  lastNameMaternal?: string | null;
   email?: string;
   phone?: string | null;
   specialty?: string | null;

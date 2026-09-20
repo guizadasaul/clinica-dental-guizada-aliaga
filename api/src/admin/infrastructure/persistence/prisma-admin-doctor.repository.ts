@@ -58,6 +58,9 @@ export class PrismaAdminDoctorRepository implements IAdminDoctorRepository {
         const profile = await tx.doctor_profiles.create({
           data: {
             user_id: user.id,
+            first_name: data.firstName,
+            last_name_paternal: data.lastNamePaternal,
+            last_name_maternal: data.lastNameMaternal,
             specialty: data.specialty,
             bio: data.bio,
             photo_url: data.photoUrl,
@@ -117,6 +120,15 @@ export class PrismaAdminDoctorRepository implements IAdminDoctorRepository {
         const updatedProfile = await tx.doctor_profiles.update({
           where: { user_id: id },
           data: {
+            ...(data.firstName !== undefined && {
+              first_name: data.firstName,
+            }),
+            ...(data.lastNamePaternal !== undefined && {
+              last_name_paternal: data.lastNamePaternal,
+            }),
+            ...(data.lastNameMaternal !== undefined && {
+              last_name_maternal: data.lastNameMaternal,
+            }),
             ...(data.specialty !== undefined && {
               specialty: data.specialty,
             }),

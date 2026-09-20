@@ -20,6 +20,10 @@ const mockPatientInvitesService = {
 const DOCTOR: AdminDoctorDetail = {
   id: 'doctor-1',
   displayName: 'Juan Perez',
+  firstName: 'Juan',
+  lastNamePaternal: 'Perez',
+  lastNameMaternal: null,
+  registrationStatus: 'pending',
   email: 'juan@example.com',
   phone: '+59170011122',
   specialty: 'Ortodoncia',
@@ -75,6 +79,9 @@ describe('AdminDoctorsService', () => {
   describe('createDoctor', () => {
     const CREATE_DATA = {
       displayName: 'Juan Perez',
+      firstName: 'Juan',
+      lastNamePaternal: 'Perez',
+      lastNameMaternal: null,
       email: 'juan@example.com',
       phone: '+59170011122',
       specialty: 'Ortodoncia',

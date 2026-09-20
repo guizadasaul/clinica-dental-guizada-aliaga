@@ -590,16 +590,23 @@ model treatments {
 /// épica una pantalla de gestión): se carga a mano en la base/seed igual
 /// que hoy se cargan los tratamientos.
 model doctor_profiles {
-  id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  user_id       String   @unique @db.Uuid
-  specialty     String?  @db.VarChar(150)
-  bio           String?
-  photo_url     String?
-  display_order Int      @default(0)
-  is_bookable   Boolean  @default(true)
-  created_at    DateTime @default(now()) @db.Timestamptz(6)
-  updated_at    DateTime @default(now()) @db.Timestamptz(6)
-  users         users    @relation(fields: [user_id], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  id                 String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id            String   @unique @db.Uuid
+  /// Nombre y apellidos reales del doctor (CLI-76). Nullable a nivel de base
+  /// para no romper a los doctores cargados antes de esta issue; el DTO de alta
+  /// exige nombre y apellido paterno. `users.display_name` sigue siendo el
+  /// nombre público ("Dra. Marylu Aliaga") que ve el paciente al reservar.
+  first_name         String?  @db.VarChar(100)
+  last_name_paternal String?  @db.VarChar(100)
+  last_name_maternal String?  @db.VarChar(100)
+  specialty          String?  @db.VarChar(150)
+  bio                String?
+  photo_url          String?
+  display_order      Int      @default(0)
+  is_bookable        Boolean  @default(true)
+  created_at         DateTime @default(now()) @db.Timestamptz(6)
+  updated_at         DateTime @default(now()) @db.Timestamptz(6)
+  users              users    @relation(fields: [user_id], references: [id], onDelete: Restrict, onUpdate: NoAction)
 }
 
 /// Bloques de horario de atención por doctor (CLI-61) — reemplaza el
