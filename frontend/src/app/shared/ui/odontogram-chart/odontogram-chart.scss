@@ -75,6 +75,11 @@
       opacity: 0.5;
     }
 
+    // Treated (CLI-107) → stronger than a diagnosis, so a finished treatment stands out.
+    &--treated {
+      opacity: 0.85;
+    }
+
     // Selected + diagnosed → full-intensity color; the black lines stay visible (multiply).
     &--diagnosed#{&}--selected {
       opacity: 1;
@@ -117,12 +122,32 @@
 
   &__legend {
     display: flex;
-    flex-wrap: wrap;
-    gap: 0.375rem 0.875rem;
+    flex-direction: column;
+    gap: 0.625rem;
     padding: 0.75rem 1rem;
     background: #f9fafb;
     border: 1px solid #e5e7eb;
     border-radius: 0.5rem;
+  }
+
+  &__legend-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.375rem;
+  }
+
+  &__legend-title {
+    font-size: 0.6875rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: #6b7280;
+  }
+
+  &__legend-items {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.375rem 0.875rem;
   }
 
   &__legend-item {

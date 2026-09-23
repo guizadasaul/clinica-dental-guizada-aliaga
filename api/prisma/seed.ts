@@ -8,6 +8,8 @@ const prisma = new PrismaClient({ adapter });
 interface SeedTreatmentCategory {
   code: string;
   name: string;
+  /** Color con el que se pinta en el odontograma un diente tratado (CLI-107). */
+  color: string;
 }
 
 interface SeedTreatment {
@@ -27,14 +29,14 @@ interface SeedTreatment {
  * compara por code).
  */
 const TREATMENT_CATEGORIES: SeedTreatmentCategory[] = [
-  { code: 'basicos', name: 'Básicos' },
-  { code: 'operatoria_dental', name: 'Operatoria dental' },
-  { code: 'periodoncia', name: 'Periodoncia' },
-  { code: 'endodoncia', name: 'Endodoncia' },
-  { code: 'cirugia_oral', name: 'Cirugía oral' },
-  { code: 'protesis_removible', name: 'Prótesis removible' },
-  { code: 'protesis_fija', name: 'Prótesis fija' },
-  { code: 'ortodoncia', name: 'Ortodoncia' },
+  { code: 'basicos', name: 'Básicos', color: '#334155' },
+  { code: 'operatoria_dental', name: 'Operatoria dental', color: '#16a34a' },
+  { code: 'periodoncia', name: 'Periodoncia', color: '#0f766e' },
+  { code: 'endodoncia', name: 'Endodoncia', color: '#a21caf' },
+  { code: 'cirugia_oral', name: 'Cirugía oral', color: '#9f1239' },
+  { code: 'protesis_removible', name: 'Prótesis removible', color: '#4338ca' },
+  { code: 'protesis_fija', name: 'Prótesis fija', color: '#0369a1' },
+  { code: 'ortodoncia', name: 'Ortodoncia', color: '#854d0e' },
 ];
 
 const CATALOG: SeedTreatment[] = [
@@ -1056,7 +1058,9 @@ async function deactivateLegacyMedicalConditions() {
     data: { is_active: false },
   });
   if (count > 0) {
-    console.log(`✓ ${count} condiciones médicas fuera del catálogo desactivadas.`);
+    console.log(
+      `✓ ${count} condiciones médicas fuera del catálogo desactivadas.`,
+    );
   }
 }
 
@@ -1096,8 +1100,13 @@ async function upsertTreatmentCategories(): Promise<Map<string, string>> {
         code: category.code,
         name: category.name,
         display_order: index,
+        color: category.color,
       },
-      update: { name: category.name, display_order: index },
+      update: {
+        name: category.name,
+        display_order: index,
+        color: category.color,
+      },
     });
     categoryIdByCode.set(category.code, row.id);
   }

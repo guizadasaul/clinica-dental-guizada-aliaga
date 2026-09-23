@@ -12,6 +12,8 @@ export interface Treatment {
   categoryId: string;
   categoryCode: string;
   categoryName: string;
+  /** Color de la categoría — pinta el diente tratado en el odontograma (CLI-107). */
+  categoryColor: string;
   displayOrder: number;
   isActive: boolean;
   createdAt: Date;
@@ -23,4 +25,5 @@ export interface TreatmentCategory {
   code: string;
   name: string;
   displayOrder: number;
+  color: string;
 }

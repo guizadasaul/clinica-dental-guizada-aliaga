@@ -24,6 +24,7 @@
       <app-odontogram-chart
         [toothColor]="toothColorMap()"
         [selectedTeeth]="chartSelectedTeeth()"
+        [treatedTeeth]="treatedTeeth()"
         [legendItems]="legendItems()"
         (toothClick)="onToothClick($event)"
       />

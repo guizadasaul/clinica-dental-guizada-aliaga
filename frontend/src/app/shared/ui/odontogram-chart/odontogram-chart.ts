@@ -1,9 +1,16 @@
-import { Component, ChangeDetectionStrategy, input, output } from '@angular/core';
+import { Component, ChangeDetectionStrategy, computed, input, output } from '@angular/core';
 import { ODONTOGRAM_CELLS, type OdontogramCell } from '../../constants/odontogram-cells';
 
 export interface OdontogramLegendItem {
   readonly name: string;
   readonly color: string;
+  /** Título del grupo de la leyenda (ej. "Diagnósticos" / "Tratamientos") — sin grupo si se omite. */
+  readonly group?: string;
+}
+
+interface OdontogramLegendGroup {
+  readonly title: string | null;
+  readonly items: readonly OdontogramLegendItem[];
 }
 
 /**
@@ -27,14 +34,38 @@ export class OdontogramChartComponent {
   readonly toothColor = input<ReadonlyMap<number, string>>(new Map());
   /** Dientes resaltados como "seleccionados en este momento" (edición en curso). */
   readonly selectedTeeth = input<readonly number[]>([]);
+  /**
+   * Dientes cuyo color en `toothColor` viene de un tratamiento ya realizado
+   * (CLI-107) — se pintan a intensidad alta, más fuerte que un diagnóstico.
+   */
+  readonly treatedTeeth = input<readonly number[]>([]);
   readonly legendItems = input<readonly OdontogramLegendItem[]>([]);
   readonly toothClick = output<number>();
+
+  /** Ítems de la leyenda agrupados en el orden en que aparece cada grupo. */
+  protected readonly legendGroups = computed<OdontogramLegendGroup[]>(() => {
+    const groups: { title: string | null; items: OdontogramLegendItem[] }[] = [];
+    for (const item of this.legendItems()) {
+      const title = item.group ?? null;
+      let group = groups.find((g) => g.title === title);
+      if (!group) {
+        group = { title, items: [] };
+        groups.push(group);
+      }
+      group.items.push(item);
+    }
+    return groups;
+  });
 
   protected readonly cells = ODONTOGRAM_CELLS;
   protected readonly odontogramUrl = '/assets/svg/odontogram.svg';
 
   protected isDiagnosed(toothNumber: number): boolean {
     return this.toothColor().has(toothNumber);
+  }
+
+  protected isTreated(toothNumber: number): boolean {
+    return this.treatedTeeth().includes(toothNumber);
   }
 
   protected isSelected(toothNumber: number): boolean {

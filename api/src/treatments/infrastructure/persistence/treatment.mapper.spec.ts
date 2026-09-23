@@ -10,6 +10,7 @@ function fakeCategory(
     code: 'cirugia_oral',
     name: 'Cirugía oral',
     display_order: 4,
+    color: '#9f1239',
     ...overrides,
   };
 }
@@ -55,13 +56,17 @@ describe('TreatmentMapper', () => {
     expect(domain.currency).toBe('BOB');
   });
 
-  it('flattens the category code and name onto the treatment', () => {
+  it('flattens the category code, name and color onto the treatment', () => {
     const domain = TreatmentMapper.toDomain(
-      fakeRecord({}, { code: 'ortodoncia', name: 'Ortodoncia' }),
+      fakeRecord(
+        {},
+        { code: 'ortodoncia', name: 'Ortodoncia', color: '#854d0e' },
+      ),
     );
 
     expect(domain.categoryCode).toBe('ortodoncia');
     expect(domain.categoryName).toBe('Ortodoncia');
+    expect(domain.categoryColor).toBe('#854d0e');
   });
 
   it('preserves a null description', () => {
@@ -80,6 +85,7 @@ describe('TreatmentMapper.toDomainCategory', () => {
       code: 'cirugia_oral',
       name: 'Cirugía oral',
       displayOrder: 4,
+      color: '#9f1239',
     });
   });
 });

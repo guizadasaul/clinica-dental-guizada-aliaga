@@ -18,6 +18,7 @@ function fakeTreatment(overrides: Partial<Treatment> = {}): Treatment {
     categoryId: 'category-1',
     categoryCode: 'basicos',
     categoryName: 'Básicos',
+    categoryColor: '#334155',
     displayOrder: 0,
     isActive: true,
     createdAt: new Date(),

@@ -13,7 +13,10 @@ import type { Treatment, ToothProcedure, TreatmentApplicationType, ToothSurfaceC
 import type { ToothApplicationRequest } from '../../models/treatment.request';
 import type { DentalExam } from '../../../patients/models/dental-exam.model';
 import type { DiagnosisCategory } from '../../../diagnoses/models/diagnosis.model';
-import { OdontogramChartComponent } from '../../../../shared/ui/odontogram-chart/odontogram-chart';
+import {
+  OdontogramChartComponent,
+  type OdontogramLegendItem,
+} from '../../../../shared/ui/odontogram-chart/odontogram-chart';
 import {
   teethForApplicationType,
   applicationTypeImpliesTeeth,
@@ -54,6 +57,16 @@ const SURFACE_LABELS: Record<ToothSurfaceCode, string> = {
   incisal: 'Incisal',
 };
 
+/**
+ * Dientes que pinta un tratamiento: el suyo, o toda la arcada/boca para los
+ * de arcada (se guardan sin toothNumber). General, tejidos blandos, unidad,
+ * etc. no pintan nada.
+ */
+function procedureTeeth(procedure: ToothProcedure): number[] {
+  if (procedure.toothNumber !== null) { return [procedure.toothNumber]; }
+  return teethForApplicationType(procedure.applicationType);
+}
+
 /** Lo que emite un guardado exitoso — el padre lo agrega a su lista y muestra el mensaje. */
 export interface ProcedureRegisteredEvent {
   readonly procedures: ToothProcedure[];
@@ -90,16 +103,48 @@ export class RegisterTreatmentOdontogramComponent {
   readonly catalog = input<DiagnosisCategory[]>([]);
   /** Última versión del examen dental del paciente — de ahí parte el odontograma (CLI-41). */
   readonly currentExam = input<DentalExam | null>(null);
+  /** Tratamientos ya registrados del paciente — pintan sus dientes con el color de su categoría (CLI-107). */
+  readonly procedures = input<ToothProcedure[]>([]);
   readonly procedureRegistered = output<ProcedureRegisteredEvent>();
 
-  // Mismo criterio que StepOdontogramComponent.legendItems: una entrada por
-  // categoría del catálogo que tenga al menos un diagnóstico, coloreada con
-  // el color de su primer diagnóstico.
-  protected readonly legendItems = computed(() =>
-    this.catalog()
+  // Diagnósticos: mismo criterio que StepOdontogramComponent.legendItems (una
+  // entrada por categoría del catálogo con al menos un diagnóstico, con el
+  // color de su primer diagnóstico). Tratamientos: solo las categorías que
+  // realmente pintan algún diente de este paciente.
+  protected readonly legendItems = computed<OdontogramLegendItem[]>(() => {
+    const diagnoses = this.catalog()
       .filter((c) => c.diagnoses.length > 0)
-      .map((c) => ({ name: c.name, color: c.diagnoses[0].color })),
+      .map((c) => ({ name: c.name, color: c.diagnoses[0].color, group: 'Diagnósticos' }));
+    const treated = new Map<string, OdontogramLegendItem>();
+    for (const p of this.paintingProcedures()) {
+      if (!treated.has(p.categoryCode)) {
+        treated.set(p.categoryCode, { name: p.categoryName, color: p.categoryColor, group: 'Tratamientos' });
+      }
+    }
+    return [...diagnoses, ...treated.values()];
+  });
+
+  /** Tratamientos que pintan al menos un diente, del más viejo al más nuevo (el último pisa). */
+  private readonly paintingProcedures = computed(() =>
+    this.procedures()
+      .filter((p) => procedureTeeth(p).length > 0)
+      .sort((a, b) =>
+        a.procedureDate === b.procedureDate
+          ? a.createdAt.localeCompare(b.createdAt)
+          : a.procedureDate.localeCompare(b.procedureDate),
+      ),
   );
+
+  /** Color del tratamiento más reciente de cada diente tratado. */
+  private readonly treatmentColorMap = computed(() => {
+    const map = new Map<number, string>();
+    for (const p of this.paintingProcedures()) {
+      for (const n of procedureTeeth(p)) { map.set(n, p.categoryColor); }
+    }
+    return map;
+  });
+
+  protected readonly treatedTeeth = computed(() => [...this.treatmentColorMap().keys()]);
 
   // El backend ya devuelve GET /treatments ordenado por categoría y luego
   // por orden dentro de la categoría (ver PrismaTreatmentsRepository) — acá
@@ -124,6 +169,7 @@ export class RegisterTreatmentOdontogramComponent {
   // (findings de currentExam(), no el tooth_condition simplificado de
   // odontogram_entries). Cada finding ya trae su propio toothNumber (los de
   // varios dientes se guardan como una fila por diente, ver DentalExamFinding).
+  // Un tratamiento realizado pisa al diagnóstico del mismo diente (CLI-107).
   protected readonly toothColorMap = computed(() => {
     const map = new Map<number, string>();
     for (const f of this.currentExam()?.findings ?? []) {
@@ -131,6 +177,7 @@ export class RegisterTreatmentOdontogramComponent {
         map.set(f.toothNumber, f.diagnosisColor);
       }
     }
+    for (const [n, color] of this.treatmentColorMap()) { map.set(n, color); }
     return map;
   });
 

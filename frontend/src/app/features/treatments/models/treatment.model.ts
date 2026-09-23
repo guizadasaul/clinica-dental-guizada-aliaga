@@ -43,6 +43,8 @@ export interface Treatment {
   categoryId: string;
   categoryCode: string;
   categoryName: string;
+  /** Color de la categoría — pinta el diente tratado en el odontograma (CLI-107). */
+  categoryColor: string;
   displayOrder: number;
   isActive: boolean;
   createdAt: string;
@@ -55,6 +57,11 @@ export interface ToothProcedure {
   toothNumber: number | null;
   applicationGroupId: string | null;
   treatmentId: string;
+  /** Del tratamiento aplicado (CLI-107): los de arcada/boca completa no traen toothNumber y se expanden por tipo. */
+  applicationType: TreatmentApplicationType;
+  categoryCode: string;
+  categoryName: string;
+  categoryColor: string;
   priceCharged: number;
   /** Para aplicaciones por unidad/caja (elásticos, cera ortodóntica) — 1 para el resto. */
   quantity: number;
