@@ -334,8 +334,8 @@
 
   </div>
 
-  <!-- Change reason (only when there's a prior version to correct) -->
-  @if (hasPriorVersions()) {
+  <!-- Change reason (only when a prior version is actually being changed) -->
+  @if (hasPriorVersions() && hasChanges()) {
     <div class="odontogram-step__panel-field">
       <label class="odontogram-step__panel-label" for="changeReason">
         Motivo de la modificación <span class="step-form__req">*</span>
@@ -370,10 +370,20 @@
       <span class="material-symbols-outlined">arrow_back</span>
       Anterior
     </button>
+    @if (nothingToSave()) {
+      <p class="odontogram-step__no-changes" role="status">No hay cambios para guardar</p>
+      <button
+        type="button"
+        class="step-form__btn step-form__btn--secondary odontogram-step__close-btn"
+        (click)="onClose()"
+      >
+        Cerrar
+      </button>
+    }
     <button
       type="button"
       class="step-form__btn step-form__btn--primary"
-      [disabled]="loading()"
+      [disabled]="loading() || nothingToSave()"
       (click)="onSubmit()"
     >
       @if (loading()) {

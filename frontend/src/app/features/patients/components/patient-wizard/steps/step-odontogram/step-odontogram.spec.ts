@@ -2,6 +2,7 @@ import { TestBed } from '@angular/core/testing';
 import { StepOdontogramComponent } from './step-odontogram';
 import type { DiagnosisCategory } from '../../../../../diagnoses/models/diagnosis.model';
 import type { CreateDentalExamRequest } from '../../../../models/dental-exam.request';
+import type { DentalExam, DentalExamVersionSummary } from '../../../../models/dental-exam.model';
 
 function setup() {
   TestBed.configureTestingModule({ imports: [StepOdontogramComponent] });
@@ -86,6 +87,66 @@ const CATALOG: DiagnosisCategory[] = [
     ],
   },
 ];
+
+const VERSIONS: DentalExamVersionSummary[] = [
+  {
+    id: 'exam-1',
+    version: 1,
+    recordedBy: 'doctor-1',
+    recordedByName: 'Dr. Ariel',
+    recordedAt: '2026-09-01T12:00:00.000Z',
+    changeReason: null,
+    findingsCount: 1,
+  },
+];
+
+const CURRENT_EXAM: DentalExam = {
+  id: 'exam-1',
+  patientId: 'patient-1',
+  version: 1,
+  recordedBy: 'doctor-1',
+  recordedByName: 'Dr. Ariel',
+  recordedAt: '2026-09-01T12:00:00.000Z',
+  changeReason: null,
+  notes: null,
+  findings: [
+    {
+      id: 'finding-1',
+      diagnosisId: 'diag-caries-2',
+      diagnosisCode: 'caries_segundo_grado',
+      diagnosisName: 'Caries de segundo grado',
+      diagnosisScope: 'single_tooth',
+      diagnosisColor: '#dc2626',
+      categoryName: 'Caries dentales',
+      toothNumber: 16,
+      toothType: 'permanent',
+      applicationGroupId: null,
+      modifierValue: 'clase_ii',
+      description: null,
+      xrayRequested: false,
+      notes: null,
+    },
+  ],
+};
+
+/** Monta el paso como "Editar diagnóstico": con un examen actual y su versión en el historial. */
+async function setupWithExistingExam() {
+  const fixture = setup();
+  fixture.componentRef.setInput('catalog', CATALOG);
+  fixture.componentRef.setInput('versions', VERSIONS);
+  fixture.componentRef.setInput('currentExam', CURRENT_EXAM);
+  await settle(fixture);
+  return fixture;
+}
+
+function addGeneralFinding(fixture: ReturnType<typeof setup>): void {
+  openAddPanel(fixture);
+  fixture.detectChanges();
+  select(el(fixture, '#diagnosisCode'), 'lesion_lengua');
+  fixture.detectChanges();
+  saveButton(fixture).click();
+  fixture.detectChanges();
+}
 
 function openAddPanel(fixture: ReturnType<typeof setup>): void {
   el<HTMLButtonElement>(fixture, '.odontogram-step__toolbar .step-form__btn').click();
@@ -234,19 +295,9 @@ describe('StepOdontogramComponent', () => {
     });
   });
 
-  it('exige motivo del cambio cuando ya existen versiones previas', async () => {
-    const fixture = setup();
-    fixture.componentRef.setInput('catalog', CATALOG);
-    fixture.componentRef.setInput('versions', [
-      {
-        id: 'exam-1',
-        version: 1,
-        recordedByName: 'Dr. Ariel',
-        recordedAt: new Date().toISOString(),
-        changeReason: null,
-        findingsCount: 0,
-      },
-    ]);
+  it('exige motivo del cambio cuando se modifica un examen con versiones previas', async () => {
+    const fixture = await setupWithExistingExam();
+    addGeneralFinding(fixture);
     await settle(fixture);
 
     const emitted: CreateDentalExamRequest[] = [];
@@ -257,5 +308,101 @@ describe('StepOdontogramComponent', () => {
 
     expect(emitted).toHaveLength(0);
     expect(el(fixture, '#changeReason.step-form__input--invalid')).toBeTruthy();
+  });
+
+  it('con motivo completo, envía el examen modificado', async () => {
+    const fixture = await setupWithExistingExam();
+    addGeneralFinding(fixture);
+    await settle(fixture);
+
+    const reason = el<HTMLTextAreaElement>(fixture, '#changeReason');
+    reason.value = 'Se detectó una lesión nueva';
+    reason.dispatchEvent(new Event('input'));
+    await settle(fixture);
+
+    const emitted: CreateDentalExamRequest[] = [];
+    fixture.componentInstance.submitStep.subscribe((value) => emitted.push(value));
+    submitButton(fixture).click();
+    await settle(fixture);
+
+    expect(emitted).toHaveLength(1);
+    expect(emitted[0].findings).toHaveLength(2);
+    expect(emitted[0].changeReason).toBe('Se detectó una lesión nueva');
+  });
+
+  it('sin cambios sobre el examen actual: no pide motivo, no deja guardar y ofrece cerrar', async () => {
+    const fixture = await setupWithExistingExam();
+
+    const emitted: CreateDentalExamRequest[] = [];
+    fixture.componentInstance.submitStep.subscribe((value) => emitted.push(value));
+    let closed = 0;
+    fixture.componentInstance.close.subscribe(() => closed++);
+
+    expect(el(fixture, '#changeReason')).toBeFalsy();
+    expect(submitButton(fixture).disabled).toBe(true);
+    expect(el(fixture, '.odontogram-step__no-changes')?.textContent).toContain('No hay cambios');
+
+    submitButton(fixture).click();
+    await settle(fixture);
+    expect(emitted).toHaveLength(0);
+
+    el<HTMLButtonElement>(fixture, '.odontogram-step__close-btn').click();
+    expect(closed).toBe(1);
+  });
+
+  it('agregar y quitar el mismo hallazgo vuelve a "sin cambios"', async () => {
+    const fixture = await setupWithExistingExam();
+    addGeneralFinding(fixture);
+    await settle(fixture);
+    expect(submitButton(fixture).disabled).toBe(false);
+
+    const entries = fixture.nativeElement.querySelectorAll('.odontogram-step__entry');
+    const added = entries[entries.length - 1] as HTMLElement;
+    (added.querySelector('.odontogram-step__entry-remove') as HTMLButtonElement).click();
+    await settle(fixture);
+
+    expect(submitButton(fixture).disabled).toBe(true);
+    expect(el(fixture, '#changeReason')).toBeFalsy();
+  });
+
+  it('reabrir un hallazgo y guardarlo sin tocar nada no cuenta como cambio', async () => {
+    const fixture = await setupWithExistingExam();
+
+    (fixture.nativeElement.querySelector('.odontogram-step__entry-edit') as HTMLButtonElement).click();
+    await settle(fixture);
+    saveButton(fixture).click();
+    await settle(fixture);
+
+    expect(submitButton(fixture).disabled).toBe(true);
+  });
+
+  it('editar solo las notas de un hallazgo existente cuenta como cambio', async () => {
+    const fixture = await setupWithExistingExam();
+
+    (fixture.nativeElement.querySelector('.odontogram-step__entry-edit') as HTMLButtonElement).click();
+    await settle(fixture);
+    const notes = el<HTMLTextAreaElement>(fixture, '#findingNotes');
+    notes.value = 'Controlar en 6 meses';
+    notes.dispatchEvent(new Event('input'));
+    await settle(fixture);
+    saveButton(fixture).click();
+    await settle(fixture);
+
+    expect(submitButton(fixture).disabled).toBe(false);
+    expect(el(fixture, '#changeReason')).toBeTruthy();
+  });
+
+  it('primera carga (sin versiones previas): se puede guardar un examen sin hallazgos', async () => {
+    const fixture = setup();
+    fixture.componentRef.setInput('catalog', CATALOG);
+    await settle(fixture);
+
+    const emitted: CreateDentalExamRequest[] = [];
+    fixture.componentInstance.submitStep.subscribe((value) => emitted.push(value));
+    submitButton(fixture).click();
+    await settle(fixture);
+
+    expect(emitted).toHaveLength(1);
+    expect(emitted[0].findings).toHaveLength(0);
   });
 });
