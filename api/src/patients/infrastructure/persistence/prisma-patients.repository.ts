@@ -39,6 +39,7 @@ const DENTAL_EXAM_INCLUDE = {
 const TOOTH_PROCEDURE_INCLUDE = {
   tooth_procedure_surfaces: { include: { tooth_surfaces: true } },
   application_groups: true,
+  treatments: { include: { treatment_categories: true } },
 } as const;
 
 /**

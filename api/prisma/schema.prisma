@@ -547,12 +547,14 @@ model testimonials {
 /// diagnosis_categories (CLI-40): las 8 categorías reales de la clínica
 /// (Básicos, Operatoria dental, Periodoncia, Endodoncia, Cirugía oral,
 /// Prótesis removible, Prótesis fija, Ortodoncia). Cargadas por el seed
-/// (upsert por code).
+/// (upsert por code). `color` (CLI-107) pinta en el odontograma de
+/// tratamientos los dientes tratados con un tratamiento de la categoría.
 model treatment_categories {
   id            String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   code          String       @unique @db.VarChar(50)
   name          String       @db.VarChar(150)
   display_order Int
+  color         String       @db.VarChar(7)
   treatments    treatments[]
 }
 

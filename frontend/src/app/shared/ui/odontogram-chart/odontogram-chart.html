@@ -34,6 +34,7 @@
           <g
             class="odontogram-chart__cell-paint"
             [class.odontogram-chart__cell-paint--diagnosed]="isDiagnosed(tooth.number)"
+            [class.odontogram-chart__cell-paint--treated]="isTreated(tooth.number)"
             [class.odontogram-chart__cell-paint--selected]="isSelected(tooth.number)"
           >
             @for (outline of tooth.outlines; track $index) {
@@ -57,10 +58,19 @@
   <!-- Legend -->
   @if (legendItems().length > 0) {
     <div class="odontogram-chart__legend">
-      @for (item of legendItems(); track item.name) {
-        <div class="odontogram-chart__legend-item">
-          <span class="odontogram-chart__legend-dot" [style.background]="item.color"></span>
-          <span>{{ item.name }}</span>
+      @for (group of legendGroups(); track group.title) {
+        <div class="odontogram-chart__legend-group">
+          @if (group.title) {
+            <span class="odontogram-chart__legend-title">{{ group.title }}</span>
+          }
+          <div class="odontogram-chart__legend-items">
+            @for (item of group.items; track item.name) {
+              <div class="odontogram-chart__legend-item">
+                <span class="odontogram-chart__legend-dot" [style.background]="item.color"></span>
+                <span>{{ item.name }}</span>
+              </div>
+            }
+          </div>
         </div>
       }
     </div>

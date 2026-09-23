@@ -251,7 +251,9 @@ describe('PrismaPatientsRepository.findMedicalHistory', () => {
     const result = await repo.findMedicalHistory('patient-1');
 
     expect(result).toBeNull();
-    expect(mockPrisma.patient_medical_conditions.findMany).not.toHaveBeenCalled();
+    expect(
+      mockPrisma.patient_medical_conditions.findMany,
+    ).not.toHaveBeenCalled();
   });
 
   it('combines the three separate queries into one record', async () => {
@@ -298,6 +300,14 @@ describe('PrismaPatientsRepository.createToothProcedureGroup', () => {
       id: 'proc-1',
       application_groups: { id: 'group-1', unit_price: 1700 },
       tooth_procedure_surfaces: [],
+      treatments: {
+        application_type: 'multiple_teeth',
+        treatment_categories: {
+          code: 'periodoncia',
+          name: 'Periodoncia',
+          color: '#65a30d',
+        },
+      },
     });
     const mockPrisma = makeMockPrismaService(mockTx);
     const repo = new PrismaPatientsRepository(mockPrisma as never);

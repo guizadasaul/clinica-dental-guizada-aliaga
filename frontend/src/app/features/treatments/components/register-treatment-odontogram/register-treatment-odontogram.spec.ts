@@ -5,7 +5,7 @@ import {
   RegisterTreatmentOdontogramComponent,
   type ProcedureRegisteredEvent,
 } from './register-treatment-odontogram';
-import type { Treatment } from '../../models/treatment.model';
+import type { Treatment, ToothProcedure } from '../../models/treatment.model';
 import type { DentalExam } from '../../../patients/models/dental-exam.model';
 import type { DiagnosisCategory } from '../../../diagnoses/models/diagnosis.model';
 
@@ -65,12 +65,75 @@ function fakeTreatment(overrides: Partial<Treatment> = {}): Treatment {
     categoryId: 'cat-1',
     categoryCode: 'protesis_fija',
     categoryName: 'Prótesis fija',
+    categoryColor: '#0369a1',
     displayOrder: 0,
     isActive: true,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
     ...overrides,
   };
+}
+
+function fakeProcedure(overrides: Partial<ToothProcedure> = {}): ToothProcedure {
+  return {
+    id: 'proc-1',
+    patientId: 'patient-1',
+    toothNumber: 16,
+    applicationGroupId: null,
+    treatmentId: 'treatment-endo',
+    applicationType: 'single_tooth',
+    categoryCode: 'endodoncia',
+    categoryName: 'Endodoncia',
+    categoryColor: '#a21caf',
+    priceCharged: 350,
+    quantity: 1,
+    procedureDate: '2026-09-20',
+    surfaces: [],
+    notes: null,
+    performedBy: 'doctor-1',
+    createdAt: '2026-09-20T12:00:00.000Z',
+    ...overrides,
+  };
+}
+
+const EXAM_WITH_CARIES_16: DentalExam = {
+  id: 'exam-1',
+  patientId: 'patient-1',
+  version: 1,
+  recordedBy: 'user-1',
+  recordedByName: 'Dr. Ariel',
+  recordedAt: '2026-09-01T12:00:00.000Z',
+  changeReason: null,
+  notes: null,
+  findings: [
+    {
+      id: 'finding-1',
+      diagnosisId: 'diag-1',
+      diagnosisCode: 'caries_segundo_grado',
+      diagnosisName: 'Caries de segundo grado',
+      diagnosisScope: 'single_tooth',
+      diagnosisColor: '#dc2626',
+      categoryName: 'Caries dentales',
+      toothNumber: 16,
+      toothType: 'permanent',
+      applicationGroupId: null,
+      modifierValue: 'clase_ii',
+      description: null,
+      xrayRequested: false,
+      notes: null,
+    },
+  ],
+};
+
+function toothFill(fixture: ReturnType<typeof setup>['fixture'], toothNumber: number): string | null {
+  return el<HTMLElement>(fixture, `.odontogram-chart__cell[aria-label="Diente ${toothNumber}"]`)
+    .querySelector('.odontogram-chart__cell-shape')
+    ?.getAttribute('fill') ?? null;
+}
+
+function toothPaint(fixture: ReturnType<typeof setup>['fixture'], toothNumber: number): Element {
+  return el<HTMLElement>(fixture, `.odontogram-chart__cell[aria-label="Diente ${toothNumber}"]`)
+    .querySelector('.odontogram-chart__cell-paint') as Element;
 }
 
 describe('RegisterTreatmentOdontogramComponent', () => {
@@ -332,5 +395,122 @@ describe('RegisterTreatmentOdontogramComponent', () => {
     const legendItems = fixture.nativeElement.querySelectorAll('.odontogram-chart__legend-item');
     expect(legendItems).toHaveLength(1);
     expect(legendItems[0].textContent).toContain('Caries dentales');
+  });
+
+  describe('color de los tratamientos registrados (CLI-107)', () => {
+    it('un tratamiento pinta su diente con el color de la categoría y pisa al diagnóstico', async () => {
+      const { fixture } = setup();
+      fixture.componentRef.setInput('treatments', [fakeTreatment()]);
+      fixture.componentRef.setInput('currentExam', EXAM_WITH_CARIES_16);
+      fixture.componentRef.setInput('procedures', [fakeProcedure()]);
+      await settle(fixture);
+
+      expect(toothFill(fixture, 16)).toBe('#a21caf');
+      expect(toothPaint(fixture, 16).classList).toContain('odontogram-chart__cell-paint--treated');
+      expect(toothPaint(fixture, 36).classList).not.toContain('odontogram-chart__cell-paint--treated');
+    });
+
+    it('si un diente tiene varios tratamientos, gana el más reciente', async () => {
+      const { fixture } = setup();
+      fixture.componentRef.setInput('treatments', [fakeTreatment()]);
+      fixture.componentRef.setInput('procedures', [
+        fakeProcedure({ id: 'p-new', procedureDate: '2026-09-21', categoryColor: '#0369a1' }),
+        fakeProcedure({ id: 'p-old', procedureDate: '2026-09-10' }),
+      ]);
+      await settle(fixture);
+
+      expect(toothFill(fixture, 16)).toBe('#0369a1');
+    });
+
+    it('un tratamiento de arcada superior pinta toda la arcada', async () => {
+      const { fixture } = setup();
+      fixture.componentRef.setInput('treatments', [fakeTreatment()]);
+      fixture.componentRef.setInput('procedures', [
+        fakeProcedure({ toothNumber: null, applicationType: 'upper_arch', categoryColor: '#65a30d' }),
+      ]);
+      await settle(fixture);
+
+      for (const n of [18, 11, 21, 28]) {
+        expect(toothFill(fixture, n)).toBe('#65a30d');
+      }
+      expect(toothFill(fixture, 36)).toBe('transparent');
+    });
+
+    it('un tratamiento general no pinta ningún diente ni aparece en la leyenda', async () => {
+      const { fixture } = setup();
+      fixture.componentRef.setInput('treatments', [fakeTreatment()]);
+      fixture.componentRef.setInput('procedures', [
+        fakeProcedure({ toothNumber: null, applicationType: 'general', categoryName: 'Básicos' }),
+      ]);
+      await settle(fixture);
+
+      expect(fixture.nativeElement.querySelectorAll('.odontogram-chart__cell-paint--treated')).toHaveLength(0);
+      expect(fixture.nativeElement.querySelector('.odontogram-chart__legend')).toBeFalsy();
+    });
+
+    it('la leyenda agrupa diagnósticos y tratamientos, con solo las categorías presentes', async () => {
+      const { fixture } = setup();
+      fixture.componentRef.setInput('treatments', [fakeTreatment()]);
+      fixture.componentRef.setInput('catalog', [
+        {
+          id: 'cat-1',
+          code: 'caries',
+          name: 'Caries dentales',
+          displayOrder: 0,
+          diagnoses: [
+            {
+              id: 'diag-1',
+              categoryId: 'cat-1',
+              code: 'caries_segundo_grado',
+              name: 'Caries de segundo grado',
+              scope: 'single_tooth',
+              modifier: 'black_class',
+              color: '#dc2626',
+              displayOrder: 0,
+            },
+          ],
+        },
+      ] satisfies DiagnosisCategory[]);
+      fixture.componentRef.setInput('procedures', [
+        fakeProcedure({ id: 'p-1', toothNumber: 16 }),
+        fakeProcedure({ id: 'p-2', toothNumber: 26 }),
+      ]);
+      await settle(fixture);
+
+      const titles = [...fixture.nativeElement.querySelectorAll('.odontogram-chart__legend-title')]
+        .map((t) => (t as HTMLElement).textContent?.trim());
+      expect(titles).toEqual(['Diagnósticos', 'Tratamientos']);
+      const items = [...fixture.nativeElement.querySelectorAll('.odontogram-chart__legend-item')]
+        .map((t) => (t as HTMLElement).textContent?.trim());
+      expect(items).toEqual(['Caries dentales', 'Endodoncia']);
+    });
+
+    it('tras registrar un tratamiento, el diente queda con su color cuando el padre lo agrega', async () => {
+      const { fixture, httpMock } = setup();
+      fixture.componentRef.setInput('treatments', [fakeTreatment({ applicationType: 'single_tooth' })]);
+      fixture.componentRef.setInput('currentExam', EXAM_WITH_CARIES_16);
+      await settle(fixture);
+
+      const emitted: ProcedureRegisteredEvent[] = [];
+      fixture.componentInstance.procedureRegistered.subscribe((e) => emitted.push(e));
+
+      clickTooth(fixture, 16);
+      await settle(fixture);
+      select(el(fixture, '#rto-treatment'), 'treatment-1');
+      await settle(fixture);
+      saveButton(fixture).click();
+      await settle(fixture);
+
+      const created = fakeProcedure({ id: 'proc-new', treatmentId: 'treatment-1', categoryColor: '#0369a1' });
+      httpMock.expectOne('http://localhost:2999/patients/patient-1/tooth-procedures').flush([created]);
+      await settle(fixture);
+
+      // El padre (RegisterTreatmentComponent) agrega lo emitido a su lista y la reinyecta.
+      fixture.componentRef.setInput('procedures', emitted[0].procedures);
+      await settle(fixture);
+
+      expect(toothFill(fixture, 16)).toBe('#0369a1');
+      expect(toothPaint(fixture, 16).classList).toContain('odontogram-chart__cell-paint--treated');
+    });
   });
 });

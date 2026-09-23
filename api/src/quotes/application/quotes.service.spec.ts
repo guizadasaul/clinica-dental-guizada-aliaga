@@ -41,6 +41,7 @@ function fakeTreatment(overrides: Partial<Treatment> = {}): Treatment {
     categoryId: 'category-1',
     categoryCode: 'operatoria_dental',
     categoryName: 'Operatoria dental',
+    categoryColor: '#16a34a',
     displayOrder: 0,
     isActive: true,
     createdAt: new Date(),

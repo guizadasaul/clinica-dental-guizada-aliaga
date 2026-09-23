@@ -17,6 +17,7 @@ export class TreatmentMapper {
       categoryId: record.category_id,
       categoryCode: record.treatment_categories.code,
       categoryName: record.treatment_categories.name,
+      categoryColor: record.treatment_categories.color,
       displayOrder: record.display_order,
       isActive: record.is_active,
       createdAt: record.created_at,
@@ -30,6 +31,7 @@ export class TreatmentMapper {
       code: record.code,
       name: record.name,
       displayOrder: record.display_order,
+      color: record.color,
     };
   }
 }
