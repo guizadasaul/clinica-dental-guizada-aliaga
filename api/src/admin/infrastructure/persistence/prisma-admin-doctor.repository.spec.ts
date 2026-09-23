@@ -34,6 +34,7 @@ const PROFILE_RECORD = {
   photo_url: null,
   display_order: 0,
   is_bookable: true,
+  color: '#2563eb',
   created_at: new Date(),
   updated_at: new Date(),
 };
@@ -59,7 +60,7 @@ describe('PrismaAdminDoctorRepository', () => {
   beforeEach(() => {
     prismaMock = {
       doctor_profiles: {
-        findMany: jest.fn(),
+        findMany: jest.fn().mockResolvedValue([]),
         findUnique: jest.fn(),
         create: jest.fn(),
         update: jest.fn(),
@@ -104,6 +105,7 @@ describe('PrismaAdminDoctorRepository', () => {
           displayOrder: 0,
           isBookable: true,
           isActive: true,
+          color: '#2563eb',
         },
       ]);
     });
@@ -208,6 +210,8 @@ describe('PrismaAdminDoctorRepository', () => {
       expect(prismaMock.doctor_profiles.create).toHaveBeenCalledWith({
         data: {
           user_id: 'doctor-1',
+          // Primer color libre de la paleta (CLI-110) — no hay otros doctores en el mock.
+          color: '#2563eb',
           first_name: 'Juan',
           last_name_paternal: 'Perez',
           last_name_maternal: null,
@@ -234,6 +238,25 @@ describe('PrismaAdminDoctorRepository', () => {
       expect(result.scheduleBlocks).toEqual([
         { weekday: 1, start: '09:00', end: '12:00' },
       ]);
+    });
+
+    it('assigns the first palette color no other doctor is using (CLI-110)', async () => {
+      prismaMock.doctor_profiles.findMany.mockResolvedValue([
+        { color: '#2563eb' },
+        { color: '#db2777' },
+      ]);
+      prismaMock.users.create.mockResolvedValue(USER_RECORD);
+      prismaMock.doctor_profiles.create.mockResolvedValue(PROFILE_RECORD);
+      prismaMock.doctor_schedule_blocks.findMany.mockResolvedValue([]);
+
+      await repo.create({ ...CREATE_DATA, scheduleBlocks: [] });
+
+      expect(prismaMock.doctor_profiles.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({ color: '#16a34a' }) as Record<
+          string,
+          unknown
+        >,
+      });
     });
 
     it('creates a doctor with only a phone (email null) — one contact is enough', async () => {

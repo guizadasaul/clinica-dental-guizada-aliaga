@@ -10,6 +10,8 @@ export interface AgendaFilters {
   to?: string;
   /** CLI-64: solo tiene efecto si quien pide la agenda es admin — un odontólogo siempre ve la suya (lo aplica el backend). */
   doctorId?: string;
+  /** CLI-110: `all` = agenda común (todos los doctores); sin valor = la propia. */
+  scope?: 'mine' | 'all';
 }
 
 @Injectable({ providedIn: 'root' })
@@ -30,6 +32,9 @@ export class AppointmentsService {
     }
     if (filters.doctorId) {
       params['doctorId'] = filters.doctorId;
+    }
+    if (filters.scope) {
+      params['scope'] = filters.scope;
     }
     return this.http.get<AppointmentAgendaItem[]>(this.base, { params });
   }

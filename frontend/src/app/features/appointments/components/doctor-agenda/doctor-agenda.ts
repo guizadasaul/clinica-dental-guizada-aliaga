@@ -8,8 +8,11 @@ import {
   effect,
   untracked,
 } from '@angular/core';
+import { NgTemplateOutlet } from '@angular/common';
 import { firstValueFrom } from 'rxjs';
 import { AppointmentsService } from '../../services/appointments.service';
+import { AuthService } from '../../../../auth/application/auth.service';
+import { FALLBACK_DOCTOR_COLOR } from '../../../../shared/constants/doctor-colors';
 import { PatientWizardComponent } from '../../../patients/components/patient-wizard/patient-wizard';
 import type { AppointmentAgendaItem } from '../../models/appointment.model';
 
@@ -120,22 +123,81 @@ interface SlotLabel {
   readonly isHour: boolean;
 }
 
+export type AgendaScope = 'mine' | 'all';
+
+/** Carril de un turno dentro de su día: turnos que se pisan en el tiempo se reparten el ancho (CLI-110). */
+interface SlotLane {
+  readonly lane: number;
+  readonly lanes: number;
+}
+
+interface DoctorLegendItem {
+  readonly id: string;
+  readonly name: string;
+  readonly color: string;
+}
+
+/**
+ * Asigna carriles a los turnos de un mismo día: dos turnos que se solapan en
+ * el tiempo nunca comparten carril, y todos los de un mismo grupo de
+ * solapamiento usan el mismo ancho (el del grupo más ancho).
+ */
+function assignLanes(
+  starts: readonly { id: string; start: number }[],
+  durationMinutes: number,
+): Map<string, SlotLane> {
+  const sorted = [...starts].sort((a, b) => a.start - b.start || a.id.localeCompare(b.id));
+  const result = new Map<string, SlotLane>();
+  let group: { id: string; lane: number }[] = [];
+  let laneEnds: number[] = [];
+  let groupEnd = -Infinity;
+
+  const flush = () => {
+    for (const g of group) { result.set(g.id, { lane: g.lane, lanes: laneEnds.length }); }
+    group = [];
+    laneEnds = [];
+  };
+
+  for (const s of sorted) {
+    if (s.start >= groupEnd) { flush(); }
+    let lane = laneEnds.findIndex((end) => end <= s.start);
+    if (lane === -1) { lane = laneEnds.length; laneEnds.push(0); }
+    laneEnds[lane] = s.start + durationMinutes;
+    groupEnd = Math.max(groupEnd, s.start + durationMinutes);
+    group.push({ id: s.id, lane });
+  }
+  flush();
+  return result;
+}
+
 @Component({
   selector: 'app-doctor-agenda',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [PatientWizardComponent],
+  imports: [PatientWizardComponent, NgTemplateOutlet],
   templateUrl: './doctor-agenda.html',
   styleUrl: './doctor-agenda.scss',
 })
 export class DoctorAgendaComponent {
   private readonly appointmentsService = inject(AppointmentsService);
+  private readonly authService = inject(AuthService);
 
   // CLI-64: cuando viene seteado (panel de admin), la agenda mostrada es la
   // de ESE doctor en vez de la del usuario logueado; readOnly apaga cualquier
   // acción de edición (hoy, abrir la ficha del paciente desde un turno).
   readonly doctorId = input<string | null>(null);
   readonly readOnly = input(false);
+  /** CLI-110: fija la agenda común (panel de admin, "Todos los doctores") y oculta el selector. */
+  readonly allDoctors = input(false);
+
+  /** "Mi agenda" / "Agenda común" — solo lo elige el doctor en su propia agenda. */
+  protected readonly scope = signal<AgendaScope>('mine');
+  protected readonly effectiveScope = computed<AgendaScope>(() => (this.allDoctors() ? 'all' : this.scope()));
+  protected readonly showScopeToggle = computed(() => !this.readOnly() && !this.allDoctors());
+  protected readonly title = computed(() => {
+    if (this.effectiveScope() === 'all') { return 'Agenda común'; }
+    return this.readOnly() ? 'Agenda' : 'Mi agenda';
+  });
 
   // Grilla horaria: 09:00–21:00 en franjas de 30 min (igual duración que
   // reserva cada cita, ver SLOT_MINUTES en api/src/appointments/domain/ClinicSchedule.ts).
@@ -261,6 +323,34 @@ export class DoctorAgendaComponent {
     return map;
   });
 
+  /** Doctores con turnos en la semana visible — leyenda de la agenda común. */
+  protected readonly doctorLegend = computed<DoctorLegendItem[]>(() => {
+    const byId = new Map<string, DoctorLegendItem>();
+    for (const a of this.appointments()) {
+      if (!byId.has(a.doctorId)) {
+        byId.set(a.doctorId, {
+          id: a.doctorId,
+          name: a.doctorName ?? 'Doctor',
+          color: a.doctorColor ?? FALLBACK_DOCTOR_COLOR,
+        });
+      }
+    }
+    return [...byId.values()].sort((a, b) => a.name.localeCompare(b.name));
+  });
+
+  /** Carril de cada turno dentro de su día (solo hay solapamientos en la agenda común). */
+  protected readonly lanesById = computed(() => {
+    const lanes = new Map<string, SlotLane>();
+    for (const appts of this.appointmentsByDate().values()) {
+      const starts = appts.map((a) => {
+        const { hour, minute } = laPazHourMinute(a.appointmentDatetime);
+        return { id: a.id, start: hour * 60 + minute };
+      });
+      for (const [id, lane] of assignLanes(starts, this.SLOT_MINUTES)) { lanes.set(id, lane); }
+    }
+    return lanes;
+  });
+
   constructor() {
     // Reactivo a doctorId (no a selectedDate, que ya dispara su propio
     // reload explícito desde onPrevPage/onNextPage/onToday) — cambia cuando
@@ -268,6 +358,7 @@ export class DoctorAgendaComponent {
     effect(
       () => {
         this.doctorId();
+        this.effectiveScope();
         untracked(() => void this.load());
       },
       { allowSignalWrites: true },
@@ -294,6 +385,7 @@ export class DoctorAgendaComponent {
           from,
           to,
           doctorId: this.doctorId() ?? undefined,
+          scope: this.effectiveScope() === 'all' ? 'all' : undefined,
         }),
       );
       this.appointments.set(result);
@@ -312,6 +404,37 @@ export class DoctorAgendaComponent {
     const { hour, minute } = laPazHourMinute(appt.appointmentDatetime);
     const minutesFromStart = hour * 60 + minute - this.GRID_START_HOUR * 60;
     return (minutesFromStart / this.SLOT_MINUTES) * this.ROW_HEIGHT_PX;
+  }
+
+  protected setScope(scope: AgendaScope): void {
+    this.scope.set(scope);
+  }
+
+  protected slotColor(a: AppointmentAgendaItem): string {
+    return a.doctorColor ?? FALLBACK_DOCTOR_COLOR;
+  }
+
+  /** Posición horizontal del turno dentro de la columna del día, según su carril. */
+  protected slotLeft(a: AppointmentAgendaItem): string {
+    const { lane, lanes } = this.lanesById().get(a.id) ?? { lane: 0, lanes: 1 };
+    return `calc(4px + (100% - 8px) * ${lane} / ${lanes})`;
+  }
+
+  protected slotWidth(a: AppointmentAgendaItem): string {
+    const { lanes } = this.lanesById().get(a.id) ?? { lanes: 1 };
+    return `calc((100% - 8px) / ${lanes} - ${lanes > 1 ? 2 : 0}px)`;
+  }
+
+  /** Solo se abre la ficha de un turno propio — en la agenda común, los ajenos son de consulta. */
+  protected canOpen(a: AppointmentAgendaItem): boolean {
+    if (this.readOnly() || !a.patientId) { return false; }
+    return this.effectiveScope() !== 'all' || a.doctorId === this.authService.currentUser()?.id;
+  }
+
+  protected slotTitle(a: AppointmentAgendaItem): string {
+    const parts = [this.formatDatetime(a.appointmentDatetime), this.patientLabel(a), this.patientPhone(a)];
+    if (this.effectiveScope() === 'all') { parts.unshift(a.doctorName ?? 'Doctor'); }
+    return parts.join(' · ');
   }
 
   protected patientLabel(a: AppointmentAgendaItem): string {
@@ -348,7 +471,7 @@ export class DoctorAgendaComponent {
   }
 
   protected onOpenHistory(a: AppointmentAgendaItem): void {
-    if (this.readOnly() || !a.patientId) {
+    if (!this.canOpen(a) || !a.patientId) {
       return;
     }
     this.historyPatientId.set(a.patientId);

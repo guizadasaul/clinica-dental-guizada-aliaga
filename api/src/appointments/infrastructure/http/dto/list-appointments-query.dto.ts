@@ -15,6 +15,14 @@ export class ListAppointmentsQueryDto {
   @Matches(DATE_REGEX, { message: 'to debe tener el formato YYYY-MM-DD' })
   to?: string;
 
+  /**
+   * CLI-110: `all` = agenda común (turnos de todos los doctores), para
+   * cualquier odontólogo o admin; `mine` (default) = reglas de doctorId de abajo.
+   */
+  @IsOptional()
+  @IsIn(['mine', 'all'])
+  scope?: 'mine' | 'all';
+
   /** CLI-64: solo tiene efecto para un ADMIN — un odontólogo siempre ve su propia agenda (ver DoctorAppointmentsController). */
   @IsOptional()
   @IsUUID()

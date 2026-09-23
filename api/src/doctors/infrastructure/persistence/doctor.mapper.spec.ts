@@ -16,6 +16,7 @@ function fakeRecord(
     photo_url: 'https://example.com/photo.jpg',
     display_order: 0,
     is_bookable: true,
+    color: '#db2777',
     created_at: new Date(),
     updated_at: new Date(),
     ...overrides,
@@ -60,5 +61,9 @@ describe('DoctorMapper', () => {
     expect(doctor.bio).toBe('Otra bio');
     expect(doctor.displayOrder).toBe(2);
     expect(doctor.isBookable).toBe(false);
+  });
+
+  it('exposes the agenda color (CLI-110)', () => {
+    expect(DoctorMapper.toDomain(fakeRecord()).color).toBe('#db2777');
   });
 });

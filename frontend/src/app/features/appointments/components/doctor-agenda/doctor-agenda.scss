@@ -3,6 +3,66 @@
   flex-direction: column;
   gap: 1.25rem;
 
+  &__header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+  }
+
+  // Mismo selector segmentado que "Todos / Los míos" de la lista de pacientes;
+  // el activo usa texto oscuro para mantener el contraste sobre el naranja.
+  &__scope {
+    display: inline-flex;
+    gap: var(--space-1);
+    padding: var(--space-1);
+    border-radius: var(--radius-full);
+    background: var(--color-surface-var);
+  }
+
+  &__scope-btn {
+    padding: var(--space-2) var(--space-4);
+    border: none;
+    border-radius: var(--radius-full);
+    background: transparent;
+    font-family: var(--font-body);
+    font-size: var(--font-size-sm);
+    font-weight: 600;
+    color: var(--color-text-muted);
+    cursor: pointer;
+    transition: background var(--transition-fast), color var(--transition-fast);
+
+    &--active {
+      background: var(--color-primary);
+      color: var(--color-text);
+      box-shadow: var(--shadow-sm);
+    }
+  }
+
+  &__legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.375rem 1rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  &__legend-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    font-size: 0.8125rem;
+    color: var(--color-text);
+  }
+
+  &__legend-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+  }
+
   &__title {
     display: flex;
     align-items: center;
@@ -247,26 +307,32 @@
   }
 }
 
+// Color por doctor (CLI-110): --slot-color viene del turno; el ancho y la
+// posición horizontal los fija el carril (turnos que se pisan van lado a lado).
 .agenda-slot {
+  --slot-color: var(--color-tertiary);
+
   position: absolute;
-  left: 4px;
-  right: 4px;
   display: flex;
   flex-direction: column;
   justify-content: center;
   gap: 0.0625rem;
   padding: 0.1875rem 0.5rem;
   border: none;
-  border-left: 3px solid var(--color-tertiary);
+  border-left: 3px solid var(--slot-color);
   border-radius: var(--radius-md);
-  background: rgb(0 104 121 / 0.1);
+  background: color-mix(in srgb, var(--slot-color) 12%, #fff);
   text-align: left;
   cursor: pointer;
   overflow: hidden;
   transition: background var(--transition-fast);
 
   &:hover {
-    background: rgb(0 104 121 / 0.18);
+    background: color-mix(in srgb, var(--slot-color) 20%, #fff);
+  }
+
+  &--readonly {
+    cursor: default;
   }
 }
 
@@ -274,7 +340,7 @@
   font-family: var(--font-body);
   font-size: 0.6875rem;
   font-weight: 700;
-  color: var(--color-tertiary);
+  color: color-mix(in srgb, var(--slot-color) 75%, #000);
   white-space: nowrap;
 }
 
@@ -283,6 +349,15 @@
   font-size: 0.75rem;
   font-weight: 600;
   color: var(--color-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.agenda-slot__doctor {
+  font-family: var(--font-body);
+  font-size: 0.625rem;
+  color: var(--color-text-muted);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;

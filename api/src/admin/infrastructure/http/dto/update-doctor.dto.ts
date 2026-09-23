@@ -8,6 +8,7 @@ import {
   IsOptional,
   IsString,
   IsUrl,
+  Matches,
   MaxLength,
   Min,
   ValidateNested,
@@ -18,6 +19,7 @@ import {
 } from '../../../../shared/validators/transforms.js';
 import { PersonNamePart } from '../../../../shared/validators/person-name-part.validator.js';
 import { IsE164Phone } from '../../../../shared/validators/phone.validator.js';
+import { HEX_COLOR_REGEX } from '../../../../shared/doctor-color-palette.js';
 import { NoHtml } from '../../../../shared/validators/text-safety.validator.js';
 import { ScheduleBlockDto } from './schedule-block.dto.js';
 
@@ -90,6 +92,11 @@ export class UpdateDoctorDto {
   @IsOptional()
   @IsBoolean()
   isBookable?: boolean;
+
+  /** Color en la agenda común (CLI-110), "#rrggbb". */
+  @IsOptional()
+  @Matches(HEX_COLOR_REGEX, { message: 'color debe tener el formato #rrggbb' })
+  color?: string;
 
   @IsOptional()
   @IsArray()

@@ -8,4 +8,6 @@ export interface Doctor {
   photoUrl: string | null;
   displayOrder: number;
   isBookable: boolean;
+  /** Color del doctor en la agenda común (CLI-110). */
+  color: string;
 }

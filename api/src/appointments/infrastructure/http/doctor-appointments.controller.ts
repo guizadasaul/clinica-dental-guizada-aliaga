@@ -23,12 +23,17 @@ export class DoctorAppointmentsController {
     @CurrentAppUser() appUser: User,
     @Query() query: ListAppointmentsQueryDto,
   ): Promise<AppointmentWithPatient[]> {
-    // CLI-64: solo un ADMIN puede pedir la agenda de otro doctor vía
+    // CLI-110: la agenda común (scope=all) no filtra por doctor — coherente
+    // con que cualquier odontólogo ya ve a todos los pacientes (CLI-58).
+    // CLI-64: si no, solo un ADMIN puede pedir la agenda de otro doctor vía
     // doctorId; un odontólogo lo manda o no, siempre ve la propia.
-    const doctorId =
-      appUser.role === UserRole.ADMIN && query.doctorId
-        ? query.doctorId
-        : appUser.id;
+    let doctorId: string | undefined;
+    if (query.scope !== 'all') {
+      doctorId =
+        appUser.role === UserRole.ADMIN && query.doctorId
+          ? query.doctorId
+          : appUser.id;
+    }
 
     return this.appointmentsService.getAgenda({
       doctorId,

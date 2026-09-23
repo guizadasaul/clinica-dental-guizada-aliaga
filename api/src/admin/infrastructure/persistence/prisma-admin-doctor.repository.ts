@@ -11,6 +11,7 @@ import type {
 } from '../../domain/AdminDoctor.js';
 import type { IAdminDoctorRepository } from '../../domain/AdminDoctorRepository.js';
 import { AdminDoctorMapper } from './admin-doctor.mapper.js';
+import { nextDoctorColor } from '../../../shared/doctor-color-palette.js';
 
 const SCHEDULE_ORDER_BY = [
   { weekday: 'asc' as const },
@@ -55,9 +56,13 @@ export class PrismaAdminDoctorRepository implements IAdminDoctorRepository {
             role: UserRole.ODONTOLOGIST,
           }),
         });
+        const takenColors = await tx.doctor_profiles.findMany({
+          select: { color: true },
+        });
         const profile = await tx.doctor_profiles.create({
           data: {
             user_id: user.id,
+            color: nextDoctorColor(takenColors.map((p) => p.color)),
             first_name: data.firstName,
             last_name_paternal: data.lastNamePaternal,
             last_name_maternal: data.lastNameMaternal,
@@ -145,6 +150,7 @@ export class PrismaAdminDoctorRepository implements IAdminDoctorRepository {
             ...(data.isBookable !== undefined && {
               is_bookable: data.isBookable,
             }),
+            ...(data.color !== undefined && { color: data.color }),
             updated_at: new Date(),
           },
         });

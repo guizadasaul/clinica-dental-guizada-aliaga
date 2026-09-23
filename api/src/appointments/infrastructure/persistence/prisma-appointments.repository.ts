@@ -34,11 +34,15 @@ export class PrismaAppointmentsRepository implements IAppointmentRepository {
         : {};
     const records = await this.prisma.appointments.findMany({
       where: {
-        doctor_id: filters.doctorId,
+        ...(filters.doctorId && { doctor_id: filters.doctorId }),
         ...(filters.status && { status: filters.status }),
         ...dateFilter,
       },
-      include: { patients: { include: { users: true } } },
+      include: {
+        patients: { include: { users: true } },
+        // El doctor del turno (CLI-110): nombre y color para la agenda común.
+        users: { include: { doctor_profiles: true } },
+      },
       orderBy: { appointment_datetime: 'asc' },
     });
     return records.map((record) =>

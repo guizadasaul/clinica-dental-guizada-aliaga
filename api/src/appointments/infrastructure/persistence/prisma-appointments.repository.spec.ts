@@ -199,6 +199,43 @@ describe('PrismaAppointmentsRepository', () => {
         }),
       );
     });
+
+    // CLI-110: agenda común.
+    it('without doctorId does not filter by doctor', async () => {
+      prismaMock.appointments.findMany.mockResolvedValue([]);
+
+      await repo.findForAgenda({ status: 'confirmed' });
+
+      const args = (
+        prismaMock.appointments.findMany.mock.calls as unknown[][]
+      )[0][0] as {
+        where: Record<string, unknown>;
+      };
+      expect(args.where).not.toHaveProperty('doctor_id');
+      expect(args.where).toMatchObject({ status: 'confirmed' });
+    });
+
+    it('carries the doctor id, name and agenda color of each appointment', async () => {
+      prismaMock.appointments.findMany.mockResolvedValue([
+        fakeAppointmentRecord({
+          status: 'confirmed',
+          doctor_id: 'doctor-2',
+          patients: null,
+          users: {
+            display_name: 'Dra. Marylu',
+            doctor_profiles: { color: '#db2777' },
+          },
+        }),
+      ]);
+
+      const [item] = await repo.findForAgenda({});
+
+      expect(item).toMatchObject({
+        doctorId: 'doctor-2',
+        doctorName: 'Dra. Marylu',
+        doctorColor: '#db2777',
+      });
+    });
   });
 
   describe('findActiveBetween', () => {
