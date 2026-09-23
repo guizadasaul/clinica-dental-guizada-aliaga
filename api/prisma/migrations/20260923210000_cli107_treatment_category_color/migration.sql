@@ -9,7 +9,7 @@ ALTER TABLE "treatment_categories" ADD COLUMN "color" VARCHAR(7);
 UPDATE "treatment_categories" SET "color" = CASE "code"
   WHEN 'basicos' THEN '#334155'
   WHEN 'operatoria_dental' THEN '#16a34a'
-  WHEN 'periodoncia' THEN '#65a30d'
+  WHEN 'periodoncia' THEN '#0f766e'
   WHEN 'endodoncia' THEN '#a21caf'
   WHEN 'cirugia_oral' THEN '#9f1239'
   WHEN 'protesis_removible' THEN '#4338ca'

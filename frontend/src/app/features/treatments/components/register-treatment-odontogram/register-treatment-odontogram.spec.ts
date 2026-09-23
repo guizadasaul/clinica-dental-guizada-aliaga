@@ -426,12 +426,12 @@ describe('RegisterTreatmentOdontogramComponent', () => {
       const { fixture } = setup();
       fixture.componentRef.setInput('treatments', [fakeTreatment()]);
       fixture.componentRef.setInput('procedures', [
-        fakeProcedure({ toothNumber: null, applicationType: 'upper_arch', categoryColor: '#65a30d' }),
+        fakeProcedure({ toothNumber: null, applicationType: 'upper_arch', categoryColor: '#0f766e' }),
       ]);
       await settle(fixture);
 
       for (const n of [18, 11, 21, 28]) {
-        expect(toothFill(fixture, n)).toBe('#65a30d');
+        expect(toothFill(fixture, n)).toBe('#0f766e');
       }
       expect(toothFill(fixture, 36)).toBe('transparent');
     });

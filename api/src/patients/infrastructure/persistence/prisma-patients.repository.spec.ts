@@ -305,7 +305,7 @@ describe('PrismaPatientsRepository.createToothProcedureGroup', () => {
         treatment_categories: {
           code: 'periodoncia',
           name: 'Periodoncia',
-          color: '#65a30d',
+          color: '#0f766e',
         },
       },
     });
