@@ -45,9 +45,6 @@
     >
       <span class="agenda-slot__time">{{ formatDatetime(appt.appointmentDatetime) }}</span>
       <span class="agenda-slot__patient">{{ patientLabel(appt) }}</span>
-      @if (effectiveScope() === 'all') {
-        <span class="agenda-slot__doctor">{{ appt.doctorName }}</span>
-      }
     </button>
   </ng-template>
 
