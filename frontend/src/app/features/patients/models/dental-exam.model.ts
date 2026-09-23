@@ -1,5 +1,11 @@
 import type { DiagnosisScope } from '../../diagnoses/models/diagnosis.model';
 
+/**
+ * `diagnosis` = diagnóstico desde cero (el primero, o uno nuevo cuando el
+ * paciente vuelve tras un tiempo); `correction` = corrección del vigente (CLI-109).
+ */
+export type DentalExamKind = 'diagnosis' | 'correction';
+
 export interface DentalExamFinding {
   id: string;
   diagnosisId: string;
@@ -21,6 +27,7 @@ export interface DentalExam {
   id: string;
   patientId: string;
   version: number;
+  kind: DentalExamKind;
   recordedBy: string;
   recordedByName: string | null;
   recordedAt: string;
@@ -33,6 +40,7 @@ export interface DentalExam {
 export interface DentalExamVersionSummary {
   id: string;
   version: number;
+  kind: DentalExamKind;
   recordedBy: string;
   recordedByName: string | null;
   recordedAt: string;

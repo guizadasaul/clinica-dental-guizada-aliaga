@@ -441,3 +441,68 @@ describe('PrismaPatientsRepository.create', () => {
     );
   });
 });
+
+// CLI-109: un examen puede ser un diagnóstico nuevo o la corrección del vigente.
+describe('PrismaPatientsRepository.createDentalExam', () => {
+  function setupExamTx(lastVersion: number | null) {
+    const created: Record<string, unknown>[] = [];
+    const tx = {
+      dental_exams: {
+        findFirst: jest
+          .fn()
+          .mockResolvedValue(
+            lastVersion === null ? null : { version: lastVersion },
+          ),
+        create: jest.fn(({ data }: { data: Record<string, unknown> }) => {
+          created.push(data);
+          return Promise.resolve({
+            id: 'exam-new',
+            patient_id: 'patient-1',
+            version: data['version'],
+            kind: data['kind'],
+            recorded_by: 'doctor-1',
+            recorded_at: new Date('2026-09-23T12:00:00Z'),
+            change_reason: null,
+            notes: null,
+            users: { display_name: 'Dr. Saul' },
+            dental_exam_findings: [],
+          });
+        }),
+      },
+    };
+    const prisma = {
+      transaction: jest.fn((fn: (t: unknown) => unknown) => fn(tx)),
+    };
+    return { repo: new PrismaPatientsRepository(prisma as never), created };
+  }
+
+  it('sin kind, la primera versión del paciente es un diagnóstico', async () => {
+    const { repo, created } = setupExamTx(null);
+
+    const exam = await repo.createDentalExam('patient-1', 'doctor-1', {
+      findings: [],
+    });
+
+    expect(created[0]).toMatchObject({ version: 1, kind: 'diagnosis' });
+    expect(exam.kind).toBe('diagnosis');
+  });
+
+  it('sin kind, una versión posterior es una corrección', async () => {
+    const { repo, created } = setupExamTx(2);
+
+    await repo.createDentalExam('patient-1', 'doctor-1', { findings: [] });
+
+    expect(created[0]).toMatchObject({ version: 3, kind: 'correction' });
+  });
+
+  it('respeta un kind explícito (nuevo diagnóstico sobre versiones previas)', async () => {
+    const { repo, created } = setupExamTx(2);
+
+    await repo.createDentalExam('patient-1', 'doctor-1', {
+      findings: [],
+      kind: 'diagnosis',
+    });
+
+    expect(created[0]).toMatchObject({ version: 3, kind: 'diagnosis' });
+  });
+});

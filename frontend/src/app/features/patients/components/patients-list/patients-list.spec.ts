@@ -154,4 +154,19 @@ describe('PatientsListComponent', () => {
 
     expect(patientsService.getAll).toHaveBeenLastCalledWith(undefined);
   });
+
+  it('"Nuevo diagnóstico" emite el id del paciente y el menú ofrece corregir el vigente (CLI-109)', async () => {
+    const { fixture } = setup();
+    await settle(fixture);
+    const emitted: string[] = [];
+    fixture.componentInstance.newDiagnosis.subscribe((id) => emitted.push(id));
+
+    const buttons = [...(fixture.nativeElement as HTMLElement).querySelectorAll<HTMLButtonElement>('.patients-list__btn')];
+    buttons.find((b) => b.textContent?.includes('Nuevo diagnóstico'))!.click();
+    expect(emitted).toEqual(['patient-1']);
+
+    el<HTMLButtonElement>(fixture, '.patients-list__menu-trigger').click();
+    await settle(fixture);
+    expect(el(fixture, '.patients-list__menu')?.textContent).toContain('Corregir diagnóstico actual');
+  });
 });

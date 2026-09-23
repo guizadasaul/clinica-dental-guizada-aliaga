@@ -91,6 +91,7 @@
       @if (currentStep() === 4) {
         <app-step-odontogram
           [loading]="loading()"
+          [mode]="examMode()"
           [catalog]="diagnosisCatalog()"
           [currentExam]="currentDentalExam()"
           [versions]="dentalExamVersions()"

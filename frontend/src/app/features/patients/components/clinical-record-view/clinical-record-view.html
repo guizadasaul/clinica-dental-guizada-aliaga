@@ -189,6 +189,7 @@
                 (click)="onToggleExam(v.id)"
               >
                 <span class="record__exam-date">{{ v.recordedAt | date: 'dd/MM/yyyy' }}</span>
+                <span class="record__exam-kind">{{ v.kind === 'diagnosis' ? 'Nuevo diagnóstico' : 'Corrección' }}</span>
                 <span class="record__exam-meta">
                   Versión {{ v.version }}
                   @if (v.recordedByName) { · {{ v.recordedByName }} }

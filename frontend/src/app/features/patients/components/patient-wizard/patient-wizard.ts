@@ -16,7 +16,7 @@ import { StepPatientDataComponent } from './steps/step-patient-data/step-patient
 import { StepMedicalHistoryComponent } from './steps/step-medical-history/step-medical-history';
 import { StepOralHygieneComponent } from './steps/step-oral-hygiene/step-oral-hygiene';
 import type { OralHygieneSubmit } from './steps/step-oral-hygiene/step-oral-hygiene';
-import { StepOdontogramComponent } from './steps/step-odontogram/step-odontogram';
+import { StepOdontogramComponent, type DentalExamMode } from './steps/step-odontogram/step-odontogram';
 import type { Patient } from '../../models/patient.model';
 import type { DentalExam, DentalExamVersionSummary } from '../../models/dental-exam.model';
 import type { DiagnosisCategory } from '../../../diagnoses/models/diagnosis.model';
@@ -66,6 +66,8 @@ export class PatientWizardComponent {
   readonly existingPatient = input<Patient | null>(null);
   /** Paso donde arranca al editar un paciente existente — 4 (examen dental) por defecto. La agenda del doctor pasa 2 para abrir el historial clínico completo. */
   readonly startStep = input(4);
+  /** Paso del examen dental: `new` = diagnóstico nuevo en blanco, `correct` = corregir el vigente (CLI-109). */
+  readonly examMode = input<DentalExamMode>('correct');
   readonly wizardComplete = output<void>();
   readonly cancel = output<void>();
 
@@ -82,7 +84,7 @@ export class PatientWizardComponent {
       return 'Registro de nuevo paciente';
     }
     if (this.startStep() === 4) {
-      return 'Completar examen dental';
+      return this.examMode() === 'new' ? 'Nuevo diagnóstico' : 'Corregir diagnóstico';
     }
     if (this.startStep() === 1) {
       return 'Registrar diagnóstico';

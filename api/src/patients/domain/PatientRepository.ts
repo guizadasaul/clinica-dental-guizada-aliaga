@@ -5,7 +5,11 @@ import type { ClinicalExam } from './ClinicalExam';
 import type { PatientWithUser } from './PatientWithUser';
 import type { OdontogramEntry } from './OdontogramEntry';
 import type { ToothProcedure } from './ToothProcedure';
-import type { DentalExam, DentalExamVersionSummary } from './DentalExam';
+import type {
+  DentalExam,
+  DentalExamKind,
+  DentalExamVersionSummary,
+} from './DentalExam';
 
 export interface CreatePatientData {
   firstName: string;
@@ -121,6 +125,8 @@ export interface DentalExamFindingData {
 
 export interface CreateDentalExamData {
   findings: DentalExamFindingData[];
+  /** Sin valor: `diagnosis` si es la primera versión del paciente, `correction` si no (CLI-109). */
+  kind?: DentalExamKind;
   changeReason?: string;
   notes?: string;
 }

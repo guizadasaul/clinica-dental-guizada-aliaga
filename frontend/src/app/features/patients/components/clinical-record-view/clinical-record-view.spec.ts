@@ -58,6 +58,7 @@ function exam(id: string, version: number, findings: DentalExamFinding[]): Denta
     id,
     patientId: 'patient-1',
     version,
+    kind: version === 1 ? 'diagnosis' : 'correction',
     recordedBy: 'doctor-1',
     recordedByName: 'Dr. Saul',
     recordedAt: `2026-0${version}-10T12:00:00.000Z`,
@@ -71,8 +72,8 @@ const CURRENT = exam('exam-2', 2, [finding(16, '#dc2626')]);
 const OLD = exam('exam-1', 1, [finding(36, '#2563eb', { categoryName: 'Restauraciones / obturaciones' })]);
 
 const VERSIONS: DentalExamVersionSummary[] = [
-  { id: 'exam-2', version: 2, recordedBy: 'doctor-1', recordedByName: 'Dr. Saul', recordedAt: CURRENT.recordedAt, changeReason: 'Caries nueva', findingsCount: 1 },
-  { id: 'exam-1', version: 1, recordedBy: 'doctor-1', recordedByName: 'Dr. Saul', recordedAt: OLD.recordedAt, changeReason: null, findingsCount: 1 },
+  { id: 'exam-2', version: 2, kind: 'correction', recordedBy: 'doctor-1', recordedByName: 'Dr. Saul', recordedAt: CURRENT.recordedAt, changeReason: 'Caries nueva', findingsCount: 1 },
+  { id: 'exam-1', version: 1, kind: 'diagnosis', recordedBy: 'doctor-1', recordedByName: 'Dr. Saul', recordedAt: OLD.recordedAt, changeReason: null, findingsCount: 1 },
 ];
 
 function setup(versions: DentalExamVersionSummary[] = VERSIONS, current: DentalExam | null = CURRENT) {
@@ -123,6 +124,8 @@ describe('ClinicalRecordViewComponent — exámenes dentales', () => {
     expect(root.querySelectorAll('app-odontogram-chart')).toHaveLength(1);
     expect(fillOf(root, 16)).toBe('#dc2626');
     expect(root.querySelector('.record__exam-reason')?.textContent).toContain('Caries nueva');
+    const kinds = [...root.querySelectorAll('.record__exam-kind')].map((k) => k.textContent?.trim());
+    expect(kinds).toEqual(['Corrección', 'Nuevo diagnóstico']);
   });
 
   it('el odontograma es de solo lectura: sin role=button ni tabindex', async () => {

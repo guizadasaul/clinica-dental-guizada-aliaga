@@ -37,6 +37,8 @@ export class PatientsListComponent {
 
   readonly startWizard = output<string>();
   readonly openOdontogram = output<string>();
+  /** Diagnóstico nuevo desde cero para un paciente que ya tiene uno (CLI-109). */
+  readonly newDiagnosis = output<string>();
   // Emite el Patient completo (no solo el id): step-patient-data lo usa para
   // precargar el paso 1 en vez de abrirlo en blanco sobre una ficha existente
   // ("Registrar diagnóstico" no crea un paciente, edita uno que ya tiene datos).
@@ -155,6 +157,11 @@ export class PatientsListComponent {
   protected onOpenOdontogram(patientId: string): void {
     this.openMenuFor.set(null);
     this.openOdontogram.emit(patientId);
+  }
+
+  protected onNewDiagnosis(patientId: string): void {
+    this.openMenuFor.set(null);
+    this.newDiagnosis.emit(patientId);
   }
 
   protected onRegisterDiagnosis(patient: Patient): void {

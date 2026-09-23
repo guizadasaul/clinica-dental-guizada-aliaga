@@ -270,6 +270,7 @@ export class PatientsController {
         xrayRequested: f.xrayRequested,
         notes: f.notes,
       })),
+      kind: dto.kind,
       changeReason: dto.changeReason,
       notes: dto.notes,
     });

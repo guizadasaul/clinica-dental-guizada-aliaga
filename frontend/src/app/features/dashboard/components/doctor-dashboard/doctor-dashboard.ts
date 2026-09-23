@@ -11,6 +11,7 @@ import { firstValueFrom } from 'rxjs';
 import { AuthService } from '../../../../auth/application/auth.service';
 import { PatientsListComponent } from '../../../patients/components/patients-list/patients-list';
 import { PatientWizardComponent } from '../../../patients/components/patient-wizard/patient-wizard';
+import type { DentalExamMode } from '../../../patients/components/patient-wizard/steps/step-odontogram/step-odontogram';
 import { PatientInvitePanelComponent } from '../../../patients/components/patient-invite-panel/patient-invite-panel';
 import { RegisterTreatmentComponent } from '../../../treatments/components/register-treatment/register-treatment';
 import { TreatmentHistoryComponent } from '../../../treatments/components/treatment-history/treatment-history';
@@ -86,6 +87,8 @@ export class DoctorDashboardComponent {
   protected readonly selectedPatientForDiagnosis = signal<Patient | null>(null);
   /** Paso donde arranca el wizard al editar — 4 (examen dental) por defecto. */
   protected readonly wizardStartStep = signal(4);
+  /** En el paso del examen dental: diagnóstico nuevo en blanco o corrección del vigente (CLI-109). */
+  protected readonly wizardExamMode = signal<DentalExamMode>('correct');
   protected readonly selectedPatientForTreatment = signal<string | null>(null);
   protected readonly selectedPatientForHistory = signal<string | null>(null);
   protected readonly selectedPatientForQuote = signal<string | null>(null);
@@ -197,6 +200,12 @@ export class DoctorDashboardComponent {
     this.selectedPatientForDiagnosis.set(null);
     this.selectedPatientForClinicalRecord.set(null);
     this.wizardStartStep.set(4);
+    this.wizardExamMode.set('correct');
+  }
+
+  protected onNewDiagnosis(patientId: string): void {
+    this.onOpenOdontogram(patientId);
+    this.wizardExamMode.set('new');
   }
 
   protected onRegisterDiagnosis(patient: Patient): void {
@@ -206,6 +215,7 @@ export class DoctorDashboardComponent {
     this.selectedPatientForDiagnosis.set(patient);
     this.selectedPatientForClinicalRecord.set(null);
     this.wizardStartStep.set(1);
+    this.wizardExamMode.set('correct');
   }
 
   /** Resumen de solo lectura — no abre el wizard editable (CLI-40). */
