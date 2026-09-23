@@ -49,7 +49,7 @@ jobs:
   e2e:
     runs-on: self-hosted
     env:
-      DATABASE_URL: postgresql://postgres:postgres@localhost:5434/cga_e2e_ci?schema=public
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5444/cga_e2e_ci?schema=public
       # Placeholder, no un proyecto real de Supabase — SupabaseJwtVerifier
       # tira error en el constructor si falta (AppModule completo se
       # bootstrapea en los e2e), pero ninguno de los e2e-spec actuales
@@ -64,15 +64,16 @@ jobs:
       # Los runners self-hosted en macOS no soportan "services:" (containers
       # de servicio de GitHub Actions) — es una limitación documentada, solo
       # funciona en runners Linux. Por eso la Postgres efímera se levanta a
-      # mano con docker run, en un puerto (5434) y nombre de contenedor
+      # mano con docker run, en un puerto (5444) y nombre de contenedor
       # (con el run_id) que no chocan con el stack de dev persistente
-      # (cga-db en 5433).
+      # (cga-db en 5433) ni con otras Postgres locales de la máquina del
+      # runner (5434 y 5435 ya están tomados por otros proyectos).
       - name: Levantar Postgres efímera para e2e
         run: |
           docker rm -f cga-e2e-db-${{ github.run_id }} 2>/dev/null || true
           docker run -d --name cga-e2e-db-${{ github.run_id }} \
             -e POSTGRES_USER=postgres -e POSTGRES_PASSWORD=postgres -e POSTGRES_DB=cga_e2e_ci \
-            -p 5434:5432 postgres:16-alpine
+            -p 5444:5432 postgres:16-alpine
           until docker exec cga-e2e-db-${{ github.run_id }} pg_isready -U postgres -d cga_e2e_ci; do sleep 1; done
       - working-directory: api
         run: npm ci
