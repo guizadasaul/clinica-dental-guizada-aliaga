@@ -1,4 +1,4 @@
-<div class="odontogram-chart">
+<div class="odontogram-chart" [class.odontogram-chart--readonly]="!interactive()">
 
   <!-- Chart: static drawing + interactive overlay (618x554 grid) -->
   <div class="odontogram-chart__canvas">
@@ -19,8 +19,8 @@
           [class.odontogram-chart__cell--selected]="isSelected(tooth.number)"
           (click)="onCellClick(tooth)"
           (keyup.enter)="onCellClick(tooth)"
-          role="button"
-          tabindex="0"
+          [attr.role]="interactive() ? 'button' : null"
+          [attr.tabindex]="interactive() ? 0 : null"
           [attr.aria-label]="'Diente ' + tooth.number"
         >
           <!-- Invisible, generous click target -->

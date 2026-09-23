@@ -17,6 +17,7 @@ import {
   OdontogramChartComponent,
   type OdontogramLegendItem,
 } from '../../../../shared/ui/odontogram-chart/odontogram-chart';
+import { examToothColorMap } from '../../../../shared/utils/odontogram-paint.util';
 import {
   teethForApplicationType,
   applicationTypeImpliesTeeth,
@@ -171,12 +172,7 @@ export class RegisterTreatmentOdontogramComponent {
   // varios dientes se guardan como una fila por diente, ver DentalExamFinding).
   // Un tratamiento realizado pisa al diagnóstico del mismo diente (CLI-107).
   protected readonly toothColorMap = computed(() => {
-    const map = new Map<number, string>();
-    for (const f of this.currentExam()?.findings ?? []) {
-      if (f.toothNumber !== null && !map.has(f.toothNumber)) {
-        map.set(f.toothNumber, f.diagnosisColor);
-      }
-    }
+    const map = examToothColorMap(this.currentExam()?.findings ?? []);
     for (const [n, color] of this.treatmentColorMap()) { map.set(n, color); }
     return map;
   });

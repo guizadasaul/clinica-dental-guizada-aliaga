@@ -12,10 +12,12 @@ import { DatePipe } from '@angular/common';
 import { firstValueFrom } from 'rxjs';
 import { PatientsService } from '../../services/patients.service';
 import type { Patient, MedicalHistory, HygieneHabits, ClinicalExam } from '../../models/patient.model';
-import type { DentalExam, DentalExamFinding } from '../../models/dental-exam.model';
+import type { DentalExam, DentalExamFinding, DentalExamVersionSummary } from '../../models/dental-exam.model';
 import { modifierLabel } from '../../models/dental-exam-display.util';
 import { BRUSHING_FREQUENCY_LABELS } from '../patient-wizard/steps/step-oral-hygiene/step-oral-hygiene';
 import type { BrushingFrequency } from '../../../../shared/validation/clinical-options';
+import { OdontogramChartComponent } from '../../../../shared/ui/odontogram-chart/odontogram-chart';
+import { examLegendItems, examToothColorMap } from '../../../../shared/utils/odontogram-paint.util';
 
 interface GroupedFinding {
   readonly key: string;
@@ -88,7 +90,7 @@ function groupFindings(findings: DentalExamFinding[]): GroupedFinding[] {
   selector: 'app-clinical-record-view',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [DatePipe],
+  imports: [DatePipe, OdontogramChartComponent],
   templateUrl: './clinical-record-view.html',
   styleUrl: './clinical-record-view.scss',
 })
@@ -104,15 +106,31 @@ export class ClinicalRecordViewComponent {
   protected readonly medicalHistory = signal<MedicalHistory | null>(null);
   protected readonly hygieneHabits = signal<HygieneHabits | null>(null);
   protected readonly clinicalExam = signal<ClinicalExam | null>(null);
-  protected readonly dentalExam = signal<DentalExam | null>(null);
   protected readonly loading = signal(true);
   protected readonly loadError = signal(false);
 
+  // ── Exámenes dentales (CLI-108) ──────────────────────────────────────────
+  /** Todas las versiones del examen dental, la más nueva primero. */
+  protected readonly examVersions = signal<DentalExamVersionSummary[]>([]);
+  /** Examen desplegado (acordeón, uno a la vez) — arranca en el actual. */
+  protected readonly expandedExamId = signal<string | null>(null);
+  /** Exámenes ya traídos del backend, para no volver a pedirlos al re-desplegar. */
+  private readonly examsById = signal<ReadonlyMap<string, DentalExam>>(new Map());
+  protected readonly examLoadingId = signal<string | null>(null);
+  protected readonly examErrorId = signal<string | null>(null);
+
+  protected readonly expandedExam = computed(() => {
+    const id = this.expandedExamId();
+    return id ? (this.examsById().get(id) ?? null) : null;
+  });
+  protected readonly expandedToothColor = computed(() => examToothColorMap(this.expandedExam()?.findings ?? []));
+  protected readonly expandedLegend = computed(() => examLegendItems(this.expandedExam()?.findings ?? []));
+
   protected readonly toothFindings = computed(() =>
-    groupFindings(this.dentalExam()?.findings ?? []).filter((f) => f.toothNumbers.length > 0),
+    groupFindings(this.expandedExam()?.findings ?? []).filter((f) => f.toothNumbers.length > 0),
   );
   protected readonly generalFindings = computed(() =>
-    groupFindings(this.dentalExam()?.findings ?? []).filter((f) => f.toothNumbers.length === 0),
+    groupFindings(this.expandedExam()?.findings ?? []).filter((f) => f.toothNumbers.length === 0),
   );
 
   private loadedForId: string | null = null;
@@ -130,20 +148,45 @@ export class ClinicalRecordViewComponent {
     this.loading.set(true);
     this.loadError.set(false);
     try {
-      const [medicalHistory, hygieneHabits, clinicalExam, dentalExam] = await Promise.all([
+      const [medicalHistory, hygieneHabits, clinicalExam, currentExam, versions] = await Promise.all([
         firstValueFrom(this.patientsService.getMedicalHistory(patientId)),
         firstValueFrom(this.patientsService.getHygieneHabits(patientId)),
         firstValueFrom(this.patientsService.getLatestClinicalExam(patientId)),
         firstValueFrom(this.patientsService.getCurrentDentalExam(patientId)),
+        firstValueFrom(this.patientsService.getDentalExamVersions(patientId)),
       ]);
       this.medicalHistory.set(medicalHistory);
       this.hygieneHabits.set(hygieneHabits);
       this.clinicalExam.set(clinicalExam);
-      this.dentalExam.set(dentalExam);
+      this.examVersions.set(versions);
+      if (currentExam) {
+        this.examsById.set(new Map([[currentExam.id, currentExam]]));
+        this.expandedExamId.set(currentExam.id);
+      }
     } catch {
       this.loadError.set(true);
     } finally {
       this.loading.set(false);
+    }
+  }
+
+  protected async onToggleExam(examId: string): Promise<void> {
+    if (this.expandedExamId() === examId) {
+      this.expandedExamId.set(null);
+      return;
+    }
+    this.expandedExamId.set(examId);
+    this.examErrorId.set(null);
+    if (this.examsById().has(examId)) { return; }
+
+    this.examLoadingId.set(examId);
+    try {
+      const exam = await firstValueFrom(this.patientsService.getDentalExam(this.patient().id, examId));
+      this.examsById.update((prev) => new Map(prev).set(exam.id, exam));
+    } catch {
+      this.examErrorId.set(examId);
+    } finally {
+      this.examLoadingId.set(null);
     }
   }
 

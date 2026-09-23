@@ -201,7 +201,89 @@
   &__exam-meta {
     margin: 0;
     font-size: 0.8125rem;
-    color: #6b7280;
+    color: #4b5563;
+  }
+
+  // ── Exámenes dentales (acordeón, CLI-108) ────────────────────────────────
+
+  &__exams {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  &__exam {
+    border: 1px solid #e5e7eb;
+    border-radius: 0.625rem;
+    background: #fff;
+    overflow: hidden;
+
+    &--open {
+      border-color: #d1d5db;
+    }
+  }
+
+  &__exam-toggle {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    width: 100%;
+    padding: 0.75rem 1rem;
+    border: none;
+    background: transparent;
+    text-align: left;
+    font: inherit;
+    cursor: pointer;
+
+    &:hover {
+      background: #f9fafb;
+    }
+
+    &:focus-visible {
+      outline: 2px solid #1a2b5e;
+      outline-offset: -2px;
+    }
+  }
+
+  &__exam-date {
+    font-weight: 700;
+    color: #111827;
+  }
+
+  &__exam-badge {
+    padding: 0.125rem 0.5rem;
+    border-radius: 999px;
+    background: #dcfce7;
+    color: #166534;
+    font-size: 0.75rem;
+    font-weight: 600;
+  }
+
+  &__exam-chevron {
+    margin-left: auto;
+    color: #4b5563;
+    transition: transform 0.15s ease;
+
+    .record__exam--open & {
+      transform: rotate(180deg);
+    }
+  }
+
+  &__exam-body {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    padding: 0.25rem 1rem 1rem;
+    border-top: 1px solid #f3f4f6;
+  }
+
+  &__exam-reason {
+    margin: 0.5rem 0 0;
+    font-size: 0.8125rem;
+    color: #4b5563;
   }
 
   &__entries-list {

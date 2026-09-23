@@ -40,6 +40,8 @@ export class OdontogramChartComponent {
    */
   readonly treatedTeeth = input<readonly number[]>([]);
   readonly legendItems = input<readonly OdontogramLegendItem[]>([]);
+  /** En false el odontograma es solo de consulta: sin clics, foco ni hover (CLI-108). */
+  readonly interactive = input(true);
   readonly toothClick = output<number>();
 
   /** Ítems de la leyenda agrupados en el orden en que aparece cada grupo. */
@@ -80,6 +82,7 @@ export class OdontogramChartComponent {
   }
 
   protected onCellClick(cell: OdontogramCell): void {
+    if (!this.interactive()) { return; }
     this.toothClick.emit(cell.number);
   }
 }

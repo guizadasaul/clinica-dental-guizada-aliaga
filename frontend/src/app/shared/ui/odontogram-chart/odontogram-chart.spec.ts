@@ -74,4 +74,20 @@ describe('OdontogramChartComponent', () => {
     expect((fixture.nativeElement as HTMLElement).querySelector('.odontogram-chart__legend')?.textContent)
       .toContain('Caries dentales');
   });
+
+  it('con interactive=false no es clickeable ni enfocable', () => {
+    const fixture = setup();
+    fixture.componentRef.setInput('interactive', false);
+    fixture.detectChanges();
+    const clicked: number[] = [];
+    fixture.componentInstance.toothClick.subscribe((n) => clicked.push(n));
+
+    const c = cell(fixture, 16);
+    c.dispatchEvent(new Event('click'));
+
+    expect(clicked).toEqual([]);
+    expect(c.getAttribute('role')).toBeNull();
+    expect(c.getAttribute('tabindex')).toBeNull();
+    expect((fixture.nativeElement as HTMLElement).querySelector('.odontogram-chart--readonly')).toBeTruthy();
+  });
 });
