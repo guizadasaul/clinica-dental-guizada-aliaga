@@ -141,4 +141,14 @@ describe('CreateDentalExamDto', () => {
     const errors = await validateExam();
     expect(errors).toHaveLength(0);
   });
+
+  it('acepta kind diagnosis / correction (CLI-109)', async () => {
+    expect(await validateExam({ kind: 'diagnosis' })).toHaveLength(0);
+    expect(await validateExam({ kind: 'correction' })).toHaveLength(0);
+  });
+
+  it('rechaza un kind desconocido', async () => {
+    const errors = await validateExam({ kind: 'nuevo' });
+    expect(flatten(errors)).toContainEqual({ property: 'kind', parent: '' });
+  });
 });

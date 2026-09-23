@@ -50,6 +50,7 @@ export class DentalExamMapper {
       id: record.id,
       patientId: record.patient_id,
       version: record.version,
+      kind: record.kind,
       recordedBy: record.recorded_by,
       recordedByName: record.users.display_name ?? null,
       recordedAt: record.recorded_at,
@@ -65,6 +66,7 @@ export class DentalExamMapper {
     return {
       id: record.id,
       version: record.version,
+      kind: record.kind,
       recordedBy: record.recorded_by,
       recordedByName: record.users.display_name ?? null,
       recordedAt: record.recorded_at,

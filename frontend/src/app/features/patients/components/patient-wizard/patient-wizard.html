@@ -50,11 +50,18 @@
         <div class="wizard__success-icon">
           <span class="material-symbols-outlined">check_circle</span>
         </div>
-        <h3 class="wizard__success-title">¡Ficha registrada correctamente!</h3>
-        <p class="wizard__success-text">
-          La ficha clínica del paciente fue creada con todos sus datos, antecedentes personales,
-          higiene bucal y examen dental.
-        </p>
+        @if (onlyDentalExam()) {
+          <h3 class="wizard__success-title">¡Diagnóstico guardado!</h3>
+          <p class="wizard__success-text">
+            Se guardó una nueva versión del examen dental; podés verla en la historia clínica del paciente.
+          </p>
+        } @else {
+          <h3 class="wizard__success-title">¡Ficha registrada correctamente!</h3>
+          <p class="wizard__success-text">
+            La ficha clínica del paciente fue creada con todos sus datos, antecedentes personales,
+            higiene bucal y examen dental.
+          </p>
+        }
         <button class="wizard__success-btn" type="button" (click)="onFinish()">
           <span class="material-symbols-outlined">group</span>
           Volver a la lista de pacientes
@@ -91,6 +98,7 @@
       @if (currentStep() === 4) {
         <app-step-odontogram
           [loading]="loading()"
+          [mode]="examMode()"
           [catalog]="diagnosisCatalog()"
           [currentExam]="currentDentalExam()"
           [versions]="dentalExamVersions()"

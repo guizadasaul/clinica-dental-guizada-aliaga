@@ -268,6 +268,14 @@ model diagnoses {
   @@index([category_id], map: "idx_diagnoses_category")
 }
 
+/// Tipo de versión del examen dental (CLI-109): `diagnosis` = diagnóstico
+/// hecho desde cero (el primero, o uno nuevo cuando el paciente vuelve tras
+/// un tiempo); `correction` = corrección del diagnóstico vigente.
+enum DentalExamKind {
+  diagnosis
+  correction
+}
+
 /// Snapshot inmutable del examen dental de un paciente (CLI-40). Cada
 /// guardado del paso 5 crea una versión nueva — nunca se actualiza ni se
 /// borra una fila existente (append-only, ver createDentalExam en el repo).
@@ -275,6 +283,7 @@ model dental_exams {
   id                   String                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   patient_id           String                 @db.Uuid
   version              Int
+  kind                 DentalExamKind         @default(correction)
   recorded_by          String                 @db.Uuid
   recorded_at          DateTime               @default(now()) @db.Timestamptz(6)
   change_reason        String?

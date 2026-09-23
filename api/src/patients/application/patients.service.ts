@@ -57,6 +57,7 @@ import type { OdontogramEntry } from '../domain/OdontogramEntry';
 import type { ToothProcedure } from '../domain/ToothProcedure';
 import type {
   DentalExam,
+  DentalExamKind,
   DentalExamVersionSummary,
 } from '../domain/DentalExam';
 
@@ -88,6 +89,7 @@ interface CreateDentalExamFindingInput {
 
 interface CreateDentalExamInput {
   findings: CreateDentalExamFindingInput[];
+  kind?: DentalExamKind;
   changeReason?: string;
   notes?: string;
 }
@@ -471,6 +473,7 @@ export class PatientsService {
 
     return this.patientRepo.createDentalExam(patientId, user.id, {
       findings,
+      kind: data.kind,
       changeReason: data.changeReason,
       notes: data.notes,
     });

@@ -139,6 +139,7 @@
       [existingPatientId]="selectedPatientId()"
       [existingPatient]="selectedPatientForDiagnosis()"
       [startStep]="wizardStartStep()"
+      [examMode]="wizardExamMode()"
       (wizardComplete)="onWizardComplete()"
       (cancel)="onWizardCancel()"
     />
@@ -146,6 +147,7 @@
     <app-patients-list
       (startWizard)="onStartWizard($event)"
       (openOdontogram)="onOpenOdontogram($event)"
+      (newDiagnosis)="onNewDiagnosis($event)"
       (registerDiagnosis)="onRegisterDiagnosis($event)"
       (viewClinicalRecord)="onViewClinicalRecord($event)"
       (registerTreatment)="onRegisterTreatment($event)"

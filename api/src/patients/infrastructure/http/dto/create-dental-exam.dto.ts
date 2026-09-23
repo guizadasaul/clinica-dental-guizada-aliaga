@@ -28,6 +28,11 @@ import {
 // Alcance máximo teórico de un hallazgo multiple_teeth: la boca completa
 // (32 piezas permanentes). single_tooth/general se validan contra el
 // catálogo en el service (ahí sí se conoce el scope del diagnóstico).
+import {
+  DENTAL_EXAM_KINDS,
+  type DentalExamKind,
+} from '../../../domain/DentalExam.js';
+
 const MAX_TEETH_PER_FINDING = 32;
 
 // Un examen puede tener varios hallazgos por diente y varios generales —
@@ -92,6 +97,12 @@ export class CreateDentalExamDto {
   @ValidateNested({ each: true })
   @Type(() => CreateDentalExamFindingDto)
   findings: CreateDentalExamFindingDto[];
+
+  // CLI-109: un diagnóstico nuevo (paciente que vuelve) vs. la corrección del
+  // vigente. Opcional — sin valor, el repo decide según haya versiones previas.
+  @IsOptional()
+  @IsIn(DENTAL_EXAM_KINDS)
+  kind?: DentalExamKind;
 
   // Requerido por la UI (no acá) cuando ya existe una versión previa del
   // examen — el primer guardado de un paciente no tiene nada que explicar.

@@ -133,6 +133,14 @@
                   <button
                     class="patients-list__btn"
                     type="button"
+                    (click)="onNewDiagnosis(p.patient!.id)"
+                  >
+                    <span class="material-symbols-outlined">dentistry</span>
+                    Nuevo diagnóstico
+                  </button>
+                  <button
+                    class="patients-list__btn"
+                    type="button"
                     (click)="onRegisterTreatment(p.patient!.id)"
                   >
                     <span class="material-symbols-outlined">healing</span>
@@ -180,7 +188,7 @@
                           (click)="onOpenOdontogram(p.patient!.id)"
                         >
                           <span class="material-symbols-outlined">edit</span>
-                          Editar diagnóstico
+                          Corregir diagnóstico actual
                         </li>
                         <li
                           class="patients-list__menu-item"

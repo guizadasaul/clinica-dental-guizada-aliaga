@@ -24,6 +24,14 @@ import { field, allValid, touchAll } from '../../../../../../shared/validation/f
 import { normalizeText, optionalTextError, requiredTextError } from '../../../../../../shared/validation/text.validator';
 import { BLACK_CLASSES, MOBILITY_GRADES } from '../../../../../../shared/validation/clinical-options';
 import { modifierLabel } from '../../../../models/dental-exam-display.util';
+import { examLegendItems, examToothColorMap } from '../../../../../../shared/utils/odontogram-paint.util';
+
+/**
+ * Cómo arranca el paso (CLI-109): `new` = diagnóstico nuevo desde cero (el
+ * paciente vuelve tras un tiempo), con el vigente solo de consulta;
+ * `correct` = corregir el diagnóstico vigente, precargado.
+ */
+export type DentalExamMode = 'new' | 'correct';
 
 /** Un hallazgo tal como lo arma el doctor en el panel, antes de mandarlo al backend. */
 interface FindingDraft {
@@ -115,6 +123,7 @@ function findingsSignature(drafts: readonly FindingDraft[]): string {
 })
 export class StepOdontogramComponent {
   readonly loading = input(false);
+  readonly mode = input<DentalExamMode>('correct');
   readonly catalog = input<DiagnosisCategory[]>([]);
   readonly currentExam = input<DentalExam | null>(null);
   readonly versions = input<DentalExamVersionSummary[]>([]);
@@ -159,11 +168,26 @@ export class StepOdontogramComponent {
   protected readonly hasChanges = computed(
     () => findingsSignature(this.findings()) !== this.initialSignature(),
   );
+  protected readonly isNewDiagnosis = computed(() => this.mode() === 'new');
   /**
-   * Solo se bloquea el guardado "sin cambios" al editar un examen existente —
-   * en la primera carga un examen sin hallazgos (boca sana) es válido.
+   * Solo se bloquea el guardado "sin cambios" al corregir un examen existente —
+   * en la primera carga o en un diagnóstico nuevo, un examen sin hallazgos
+   * (boca sana) es válido.
    */
-  protected readonly nothingToSave = computed(() => this.hasPriorVersions() && !this.hasChanges());
+  protected readonly nothingToSave = computed(
+    () => !this.isNewDiagnosis() && this.hasPriorVersions() && !this.hasChanges(),
+  );
+  /** Pide motivo solo al corregir el diagnóstico vigente y si algo cambió. */
+  protected readonly requiresChangeReason = computed(
+    () => !this.isNewDiagnosis() && this.hasPriorVersions() && this.hasChanges(),
+  );
+
+  // ── Diagnóstico anterior, solo de consulta (modo `new`, CLI-109) ─────────
+  protected readonly showPreviousExam = signal(false);
+  protected readonly previousToothColor = computed(() => examToothColorMap(this.currentExam()?.findings ?? []));
+  protected readonly previousLegend = computed(() => examLegendItems(this.currentExam()?.findings ?? []));
+  /** Aviso inline antes de sumar los hallazgos anteriores a los que ya se cargaron. */
+  protected readonly confirmCopy = signal(false);
   protected readonly showHistory = signal(false);
 
   // ── Panel de nuevo/edición de hallazgo ──────────────────────────────────
@@ -189,13 +213,14 @@ export class StepOdontogramComponent {
   });
 
   protected readonly changeReason = field<string>('', (v: string) =>
-    this.hasPriorVersions() && this.hasChanges() ? requiredTextError(v, 500, { minLength: 3 }) : optionalTextError(v, 500, 3),
+    this.requiresChangeReason() ? requiredTextError(v, 500, { minLength: 3 }) : optionalTextError(v, 500, 3),
   );
 
   constructor() {
     effect(() => {
       const exam = this.currentExam();
-      if (!exam || this.findingsInitialized) { return; }
+      // Un diagnóstico nuevo arranca en blanco: el vigente queda solo de consulta.
+      if (!exam || this.findingsInitialized || this.isNewDiagnosis()) { return; }
       this.findingsInitialized = true;
       const drafts = buildDraftsFromExam(exam);
       this.findings.set(drafts);
@@ -363,6 +388,27 @@ export class StepOdontogramComponent {
     this.back.emit();
   }
 
+  protected onTogglePreviousExam(): void {
+    this.showPreviousExam.update((v) => !v);
+  }
+
+  protected onCopyPreviousFindings(): void {
+    if (this.findings().length > 0 && !this.confirmCopy()) {
+      this.confirmCopy.set(true);
+      return;
+    }
+    const exam = this.currentExam();
+    if (!exam) { return; }
+    // Claves nuevas: copiar dos veces no debe repetir claves de la lista.
+    const copies = buildDraftsFromExam(exam).map((d) => ({ ...d, key: localKey() }));
+    this.findings.update((prev) => [...prev, ...copies]);
+    this.confirmCopy.set(false);
+  }
+
+  protected onCancelCopy(): void {
+    this.confirmCopy.set(false);
+  }
+
   protected onClose(): void {
     this.closeWithoutChanges.emit();
   }
@@ -392,7 +438,8 @@ export class StepOdontogramComponent {
 
     this.submitStep.emit({
       findings,
-      changeReason: this.hasPriorVersions() ? normalizeText(this.changeReason.value()) : undefined,
+      kind: this.isNewDiagnosis() ? 'diagnosis' : undefined,
+      changeReason: this.requiresChangeReason() ? normalizeText(this.changeReason.value()) : undefined,
     });
   }
 }

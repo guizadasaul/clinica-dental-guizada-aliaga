@@ -92,6 +92,7 @@ const VERSIONS: DentalExamVersionSummary[] = [
   {
     id: 'exam-1',
     version: 1,
+    kind: 'diagnosis',
     recordedBy: 'doctor-1',
     recordedByName: 'Dr. Ariel',
     recordedAt: '2026-09-01T12:00:00.000Z',
@@ -104,6 +105,7 @@ const CURRENT_EXAM: DentalExam = {
   id: 'exam-1',
   patientId: 'patient-1',
   version: 1,
+  kind: 'diagnosis',
   recordedBy: 'doctor-1',
   recordedByName: 'Dr. Ariel',
   recordedAt: '2026-09-01T12:00:00.000Z',
@@ -129,9 +131,10 @@ const CURRENT_EXAM: DentalExam = {
   ],
 };
 
-/** Monta el paso como "Editar diagnóstico": con un examen actual y su versión en el historial. */
-async function setupWithExistingExam() {
+/** Monta el paso sobre un paciente con examen: "Corregir diagnóstico" o, con mode=new, "Nuevo diagnóstico". */
+async function setupWithExistingExam(mode: 'new' | 'correct' = 'correct') {
   const fixture = setup();
+  fixture.componentRef.setInput('mode', mode);
   fixture.componentRef.setInput('catalog', CATALOG);
   fixture.componentRef.setInput('versions', VERSIONS);
   fixture.componentRef.setInput('currentExam', CURRENT_EXAM);
@@ -404,5 +407,88 @@ describe('StepOdontogramComponent', () => {
 
     expect(emitted).toHaveLength(1);
     expect(emitted[0].findings).toHaveLength(0);
+  });
+
+  describe('nuevo diagnóstico (CLI-109)', () => {
+    it('arranca en blanco aunque el paciente tenga un examen vigente', async () => {
+      const fixture = await setupWithExistingExam('new');
+
+      expect(fixture.nativeElement.querySelectorAll('.odontogram-step__entry')).toHaveLength(0);
+      expect(el(fixture, '.odontogram-step__previous')).toBeTruthy();
+    });
+
+    it('muestra el diagnóstico anterior en solo lectura al desplegarlo', async () => {
+      const fixture = await setupWithExistingExam('new');
+
+      el<HTMLButtonElement>(fixture, '.odontogram-step__previous .odontogram-step__history-toggle').click();
+      await settle(fixture);
+
+      const charts = fixture.nativeElement.querySelectorAll('app-odontogram-chart');
+      expect(charts).toHaveLength(2);
+      const previousCell = el<HTMLElement>(fixture, '.odontogram-step__previous .odontogram-chart__cell[aria-label="Diente 16"]');
+      expect(previousCell.getAttribute('role')).toBeNull();
+      expect(el(fixture, '.odontogram-step__previous').textContent).toContain('Caries de segundo grado');
+    });
+
+    it('"Copiar hallazgos del anterior" los suma al diagnóstico nuevo', async () => {
+      const fixture = await setupWithExistingExam('new');
+
+      el<HTMLButtonElement>(fixture, '.odontogram-step__copy-btn').click();
+      await settle(fixture);
+
+      const entries = fixture.nativeElement.querySelectorAll('.odontogram-step__chart > .odontogram-step__entries .odontogram-step__entry');
+      expect(entries).toHaveLength(1);
+      expect(entries[0].textContent).toContain('Diente #16');
+    });
+
+    it('si ya hay hallazgos cargados, pide confirmación antes de sumar los anteriores', async () => {
+      const fixture = await setupWithExistingExam('new');
+      addGeneralFinding(fixture);
+      await settle(fixture);
+
+      el<HTMLButtonElement>(fixture, '.odontogram-step__copy-btn').click();
+      await settle(fixture);
+      const ownEntries = () =>
+        fixture.nativeElement.querySelectorAll('.odontogram-step__chart > .odontogram-step__entries .odontogram-step__entry');
+      expect(el(fixture, '.odontogram-step__copy-confirm')).toBeTruthy();
+      expect(ownEntries()).toHaveLength(1);
+
+      el<HTMLButtonElement>(fixture, '.odontogram-step__copy-confirm .step-form__btn--primary').click();
+      await settle(fixture);
+      expect(el(fixture, '.odontogram-step__copy-confirm')).toBeFalsy();
+      expect(ownEntries()).toHaveLength(2);
+    });
+
+    it('se guarda sin motivo y como kind=diagnosis, incluso sin hallazgos (boca sana)', async () => {
+      const fixture = await setupWithExistingExam('new');
+
+      expect(el(fixture, '#changeReason')).toBeFalsy();
+      expect(submitButton(fixture).disabled).toBe(false);
+
+      const emitted: CreateDentalExamRequest[] = [];
+      fixture.componentInstance.submitStep.subscribe((value) => emitted.push(value));
+      submitButton(fixture).click();
+      await settle(fixture);
+
+      expect(emitted).toHaveLength(1);
+      expect(emitted[0]).toMatchObject({ kind: 'diagnosis', findings: [], changeReason: undefined });
+    });
+  });
+
+  it('corregir el vigente no manda kind (lo decide el backend)', async () => {
+    const fixture = await setupWithExistingExam();
+    addGeneralFinding(fixture);
+    await settle(fixture);
+    const reason = el<HTMLTextAreaElement>(fixture, '#changeReason');
+    reason.value = 'Lesión nueva';
+    reason.dispatchEvent(new Event('input'));
+    await settle(fixture);
+
+    const emitted: CreateDentalExamRequest[] = [];
+    fixture.componentInstance.submitStep.subscribe((value) => emitted.push(value));
+    submitButton(fixture).click();
+    await settle(fixture);
+
+    expect(emitted[0].kind).toBeUndefined();
   });
 });

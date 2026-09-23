@@ -109,6 +109,75 @@
         </div>
       }
 
+      <!-- Previous diagnosis, read-only (new diagnosis mode, CLI-109) -->
+      @if (isNewDiagnosis() && currentExam(); as previous) {
+        <section class="odontogram-step__previous" aria-label="Diagnóstico anterior">
+          <div class="odontogram-step__previous-header">
+            <button
+              type="button"
+              class="odontogram-step__history-toggle"
+              [attr.aria-expanded]="showPreviousExam()"
+              (click)="onTogglePreviousExam()"
+            >
+              <span class="material-symbols-outlined">history_edu</span>
+              Diagnóstico anterior · {{ previous.recordedAt | date: 'dd/MM/yyyy' }}
+              <span class="odontogram-step__history-count">{{ previous.findings.length }}</span>
+              <span class="material-symbols-outlined odontogram-step__history-chevron">
+                {{ showPreviousExam() ? 'expand_less' : 'expand_more' }}
+              </span>
+            </button>
+            @if (previous.findings.length > 0) {
+              <button
+                type="button"
+                class="step-form__btn step-form__btn--secondary odontogram-step__copy-btn"
+                [disabled]="loading()"
+                (click)="onCopyPreviousFindings()"
+              >
+                <span class="material-symbols-outlined">content_copy</span>
+                Copiar hallazgos del anterior
+              </button>
+            }
+          </div>
+
+          @if (confirmCopy()) {
+            <div class="odontogram-step__copy-confirm">
+              <span>Ya cargaste hallazgos. ¿Sumar también los {{ previous.findings.length }} del diagnóstico anterior?</span>
+              <button type="button" class="step-form__btn step-form__btn--secondary" (click)="onCancelCopy()">Cancelar</button>
+              <button type="button" class="step-form__btn step-form__btn--primary" (click)="onCopyPreviousFindings()">Sumar</button>
+            </div>
+          }
+
+          @if (showPreviousExam()) {
+            <div class="odontogram-step__previous-body">
+              <app-odontogram-chart
+                [interactive]="false"
+                [toothColor]="previousToothColor()"
+                [legendItems]="previousLegend()"
+              />
+              @if (previous.findings.length === 0) {
+                <p class="odontogram-step__history-empty">Sin hallazgos — boca sana en ese diagnóstico.</p>
+              } @else {
+                <ul class="odontogram-step__entries-list">
+                  @for (f of previous.findings; track f.id) {
+                    <li class="odontogram-step__entry">
+                      <span class="odontogram-step__entry-dot" [style.background]="f.diagnosisColor"></span>
+                      @if (f.toothNumber) {
+                        <span class="odontogram-step__entry-tooth">Diente #{{ f.toothNumber }}</span>
+                        <span class="odontogram-step__entry-sep">—</span>
+                      }
+                      <span class="odontogram-step__entry-diag">{{ f.diagnosisName }}</span>
+                      @if (f.modifierValue) {
+                        <span class="odontogram-step__entry-type">{{ modifierLabel(f.modifierValue) }}</span>
+                      }
+                    </li>
+                  }
+                </ul>
+              }
+            </div>
+          }
+        </section>
+      }
+
       <!-- History -->
       <div class="odontogram-step__history">
         <button type="button" class="odontogram-step__history-toggle" (click)="onToggleHistory()">
@@ -334,8 +403,8 @@
 
   </div>
 
-  <!-- Change reason (only when a prior version is actually being changed) -->
-  @if (hasPriorVersions() && hasChanges()) {
+  <!-- Change reason (only when the current diagnosis is being corrected) -->
+  @if (requiresChangeReason()) {
     <div class="odontogram-step__panel-field">
       <label class="odontogram-step__panel-label" for="changeReason">
         Motivo de la modificación <span class="step-form__req">*</span>

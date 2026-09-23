@@ -547,6 +547,7 @@ export class PrismaPatientsRepository implements IPatientRepository {
         data: {
           patient_id: patientId,
           version: (last?.version ?? 0) + 1,
+          kind: data.kind ?? (last ? 'correction' : 'diagnosis'),
           recorded_by: recordedBy,
           change_reason: data.changeReason ?? null,
           notes: data.notes ?? null,
