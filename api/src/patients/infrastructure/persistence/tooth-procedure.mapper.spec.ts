@@ -69,4 +69,27 @@ describe('ToothProcedureMapper', () => {
 
     expect(domain.priceCharged).toBe(500);
   });
+
+  it('devuelve las superficies ordenadas por display_order del catálogo', () => {
+    const surface = (code: string, displayOrder: number) => ({
+      tooth_procedure_id: 'proc-1',
+      tooth_surface_id: `surface-${code}`,
+      tooth_surfaces: {
+        id: `surface-${code}`,
+        code,
+        name: code,
+        display_order: displayOrder,
+      },
+    });
+    const domain = ToothProcedureMapper.toDomain(
+      fakeRecord({
+        tooth_procedure_surfaces: [
+          surface('occlusal', 5),
+          surface('mesial', 3),
+        ],
+      } as Partial<Record>),
+    );
+
+    expect(domain.surfaces).toEqual(['mesial', 'occlusal']);
+  });
 });
