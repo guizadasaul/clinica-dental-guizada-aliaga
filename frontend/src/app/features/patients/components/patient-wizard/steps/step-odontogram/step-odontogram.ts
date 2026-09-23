@@ -84,6 +84,27 @@ function buildDraftsFromExam(exam: DentalExam): FindingDraft[] {
   return drafts;
 }
 
+/**
+ * Firma por valor de un conjunto de hallazgos — ignora `key` y el orden, así
+ * "agregar y quitar el mismo hallazgo" o reabrir y guardar uno sin tocarlo
+ * cuentan como sin cambios.
+ */
+function findingsSignature(drafts: readonly FindingDraft[]): string {
+  return drafts
+    .map((f) =>
+      JSON.stringify([
+        f.diagnosisCode,
+        [...f.toothNumbers].sort((a, b) => a - b),
+        f.modifierValue ?? null,
+        f.description,
+        f.xrayRequested,
+        f.notes ?? null,
+      ]),
+    )
+    .sort()
+    .join('|');
+}
+
 @Component({
   selector: 'app-step-odontogram',
   standalone: true,
@@ -102,6 +123,8 @@ export class StepOdontogramComponent {
   readonly viewVersionRequest = output<string>();
   readonly closeViewedVersion = output<void>();
   readonly back = output<void>();
+  /** Salir sin guardar cuando no hubo cambios sobre el examen actual. */
+  readonly close = output<void>();
 
   protected readonly allDiagnoses = computed<(Diagnosis & { categoryName: string })[]>(() =>
     this.catalog().flatMap((c) => c.diagnoses.map((d) => ({ ...d, categoryName: c.name }))),
@@ -130,6 +153,17 @@ export class StepOdontogramComponent {
   });
 
   protected readonly hasPriorVersions = computed(() => this.versions().length > 0);
+
+  /** Firma de los hallazgos tal como vinieron del examen actual (vacía si no hay examen). */
+  private readonly initialSignature = signal(findingsSignature([]));
+  protected readonly hasChanges = computed(
+    () => findingsSignature(this.findings()) !== this.initialSignature(),
+  );
+  /**
+   * Solo se bloquea el guardado "sin cambios" al editar un examen existente —
+   * en la primera carga un examen sin hallazgos (boca sana) es válido.
+   */
+  protected readonly nothingToSave = computed(() => this.hasPriorVersions() && !this.hasChanges());
   protected readonly showHistory = signal(false);
 
   // ── Panel de nuevo/edición de hallazgo ──────────────────────────────────
@@ -155,7 +189,7 @@ export class StepOdontogramComponent {
   });
 
   protected readonly changeReason = field<string>('', (v: string) =>
-    this.hasPriorVersions() ? requiredTextError(v, 500, { minLength: 3 }) : optionalTextError(v, 500, 3),
+    this.hasPriorVersions() && this.hasChanges() ? requiredTextError(v, 500, { minLength: 3 }) : optionalTextError(v, 500, 3),
   );
 
   constructor() {
@@ -163,7 +197,9 @@ export class StepOdontogramComponent {
       const exam = this.currentExam();
       if (!exam || this.findingsInitialized) { return; }
       this.findingsInitialized = true;
-      this.findings.set(buildDraftsFromExam(exam));
+      const drafts = buildDraftsFromExam(exam);
+      this.findings.set(drafts);
+      this.initialSignature.set(findingsSignature(drafts));
     }, { allowSignalWrites: true });
   }
 
@@ -327,7 +363,16 @@ export class StepOdontogramComponent {
     this.back.emit();
   }
 
+  protected onClose(): void {
+    this.close.emit();
+  }
+
   protected onSubmit(): void {
+    if (this.nothingToSave()) { return; }
+    // Un panel abierto sin diagnóstico elegido no tiene nada que perder — se cierra solo.
+    if (this.panelOpen() && !this.panelDiagnosisCode()) {
+      this.onPanelCancel();
+    }
     if (this.panelOpen()) {
       this.formError.set('Guardá o cancelá el hallazgo que estás editando antes de continuar.');
       return;
