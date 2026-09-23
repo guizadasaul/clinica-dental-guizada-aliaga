@@ -79,6 +79,8 @@ export class PatientWizardComponent {
   protected readonly done = signal(false);
 
   protected readonly isEditMode = computed(() => !!this.existingPatientId());
+  /** Se entró directo al examen dental (nuevo diagnóstico o corrección): no se tocó el resto de la ficha. */
+  protected readonly onlyDentalExam = computed(() => this.isEditMode() && this.startStep() === 4);
   protected readonly wizardTitle = computed(() => {
     if (!this.isEditMode()) {
       return 'Registro de nuevo paciente';

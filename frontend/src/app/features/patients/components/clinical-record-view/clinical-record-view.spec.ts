@@ -125,7 +125,7 @@ describe('ClinicalRecordViewComponent — exámenes dentales', () => {
     expect(fillOf(root, 16)).toBe('#dc2626');
     expect(root.querySelector('.record__exam-reason')?.textContent).toContain('Caries nueva');
     const kinds = [...root.querySelectorAll('.record__exam-kind')].map((k) => k.textContent?.trim());
-    expect(kinds).toEqual(['Corrección', 'Nuevo diagnóstico']);
+    expect(kinds).toEqual(['Corrección', 'Diagnóstico']);
   });
 
   it('el odontograma es de solo lectura: sin role=button ni tabindex', async () => {
