@@ -43,6 +43,10 @@
     font-weight: 700;
   }
 
+  &--readonly &__cell {
+    cursor: default;
+  }
+
   &__cell {
     cursor: pointer;
     -webkit-tap-highlight-color: transparent;
@@ -99,7 +103,7 @@
 
   // Hover tints the tooth silhouette (grouped, so overlaps stay even) — only when it
   // is neither diagnosed nor selected.
-  &__cell:hover &__cell-paint:not(&__cell-paint--diagnosed):not(&__cell-paint--selected) {
+  &:not(&--readonly) &__cell:hover &__cell-paint:not(&__cell-paint--diagnosed):not(&__cell-paint--selected) {
     opacity: 0.16;
 
     .odontogram-chart__cell-shape {
