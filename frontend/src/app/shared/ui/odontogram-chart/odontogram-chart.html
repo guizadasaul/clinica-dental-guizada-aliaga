@@ -29,7 +29,8 @@
             [attr.x]="tooth.x" [attr.y]="tooth.y" [attr.width]="tooth.w" [attr.height]="tooth.h"
           />
           <!-- Outline paths are grouped and the opacity is applied to the group, so overlapping
-               objects flatten into a single surface (overlap paints the same, no doubling). -->
+               objects flatten into a single surface (overlap paints the same, no doubling).
+               The overlay multiplies with the drawing, so the paint never hides its lines. -->
           <g
             class="odontogram-chart__cell-paint"
             [class.odontogram-chart__cell-paint--diagnosed]="isDiagnosed(tooth.number)"

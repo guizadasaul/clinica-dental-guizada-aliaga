@@ -21,12 +21,19 @@
     pointer-events: none;
   }
 
+  // The overlay multiplies with the drawing underneath instead of covering it: on the
+  // tooth's white body the paint shows its own color, while the drawing's black lines
+  // (outline, roots, neck, grooves) stay black. That's what lets a selected tooth be
+  // painted at full intensity without hiding any of its details (CLI-106). The canvas
+  // must not become an isolated stacking context (no transform/opacity/isolation) or
+  // the blend would stop reaching the <img>.
   &__canvas-overlay {
     position: absolute;
     inset: 0;
     width: 100%;
     height: 100%;
     overflow: visible;
+    mix-blend-mode: multiply;
   }
 
   &__arch-title-svg {
@@ -59,7 +66,8 @@
   // overlapping objects into one surface first, so the overlap region paints exactly
   // like the rest of the tooth (no double-painting or seams). Selection is expressed
   // through this same group (never per-path strokes) so composite teeth stay solid and
-  // never reveal the underlying overlapping element.
+  // never reveal the underlying overlapping element. Intensity only changes the color —
+  // the drawing's lines always show through thanks to the overlay's multiply blend.
   &__cell-paint {
     transition: opacity 0.12s ease;
 
@@ -67,7 +75,7 @@
       opacity: 0.5;
     }
 
-    // Selected + diagnosed → fully solid/opaque, still one flat surface.
+    // Selected + diagnosed → full-intensity color; the black lines stay visible (multiply).
     &--diagnosed#{&}--selected {
       opacity: 1;
     }
