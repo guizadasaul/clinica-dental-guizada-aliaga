@@ -18,12 +18,13 @@ import {
   RegisterTreatmentOdontogramComponent,
   type ProcedureRegisteredEvent,
 } from '../register-treatment-odontogram/register-treatment-odontogram';
+import { PageHeaderComponent } from '../../../../shared/ui/page-header/page-header';
 
 @Component({
   selector: 'app-register-treatment',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [RegisterTreatmentOdontogramComponent],
+  imports: [PageHeaderComponent, RegisterTreatmentOdontogramComponent],
   templateUrl: './register-treatment.html',
   styleUrl: './register-treatment.scss',
 })

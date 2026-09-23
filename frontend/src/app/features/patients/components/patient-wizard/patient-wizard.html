@@ -1,13 +1,7 @@
 <div class="wizard">
   <!-- Header -->
   <div class="wizard__header">
-    <div class="wizard__header-top">
-      <button class="wizard__back-btn" type="button" (click)="onCancel()">
-        <span class="material-symbols-outlined">arrow_back</span>
-        Volver a la lista
-      </button>
-      <h2 class="wizard__title">{{ wizardTitle() }}</h2>
-    </div>
+    <app-page-header [title]="wizardTitle()" backLabel="Volver a la lista" (back)="onCancel()" />
 
     <!-- Progress bar -->
     <div class="wizard__progress" role="list">

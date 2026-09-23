@@ -15,6 +15,7 @@ import { AuthService } from '../../../../auth/application/auth.service';
 import { FALLBACK_DOCTOR_COLOR } from '../../../../shared/constants/doctor-colors';
 import { PatientWizardComponent } from '../../../patients/components/patient-wizard/patient-wizard';
 import type { AppointmentAgendaItem } from '../../models/appointment.model';
+import { PageHeaderComponent } from '../../../../shared/ui/page-header/page-header';
 
 const TIME_FORMATTER = new Intl.DateTimeFormat('es-BO', {
   timeZone: 'America/La_Paz',
@@ -174,7 +175,7 @@ function assignLanes(
   selector: 'app-doctor-agenda',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [PatientWizardComponent, NgTemplateOutlet],
+  imports: [PageHeaderComponent, PatientWizardComponent, NgTemplateOutlet],
   templateUrl: './doctor-agenda.html',
   styleUrl: './doctor-agenda.scss',
 })

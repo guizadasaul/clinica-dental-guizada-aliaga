@@ -7,12 +7,11 @@
   }
 
   @if (mode() === 'list') {
-    <div class="admin-doctors__header">
-      <div class="admin-doctors__title-row">
-        <h2 class="admin-doctors__title">Doctores</h2>
-        <span class="admin-doctors__count">{{ doctors().length }} doctores</span>
-      </div>
-      <div class="admin-doctors__header-actions">
+    <app-page-header
+      title="Doctores"
+      [subtitle]="doctors().length + (doctors().length === 1 ? ' doctor' : ' doctores')"
+    >
+      <div actions class="admin-doctors__header-actions">
         <button
           type="button"
           class="admin-doctors__btn admin-doctors__btn--outline"
@@ -26,7 +25,7 @@
           Nuevo doctor
         </button>
       </div>
-    </div>
+    </app-page-header>
 
     @if (loadError()) {
       <div class="admin-doctors__banner admin-doctors__banner--error">
@@ -142,13 +141,7 @@
     }
   } @else if (mode() === 'detail') {
     <div class="admin-doctors__detail">
-      <div class="admin-doctors__form-header">
-        <h2 class="admin-doctors__title">Agenda y pacientes por doctor</h2>
-        <button type="button" class="admin-doctors__btn admin-doctors__btn--ghost" (click)="closeDetail()">
-          <span class="material-symbols-outlined">close</span>
-          Volver
-        </button>
-      </div>
+      <app-page-header title="Agenda y pacientes" backLabel="Volver a doctores" (back)="closeDetail()" />
 
       <div class="admin-doctors__tabs" role="tablist" aria-label="Ver un doctor o todos">
         <button
@@ -225,13 +218,11 @@
     }
   } @else {
     <div class="admin-doctors__form-panel">
-      <div class="admin-doctors__form-header">
-        <h2 class="admin-doctors__title">{{ mode() === 'create' ? 'Nuevo doctor' : 'Editar doctor' }}</h2>
-        <button type="button" class="admin-doctors__btn admin-doctors__btn--ghost" (click)="closeForm()">
-          <span class="material-symbols-outlined">close</span>
-          Cancelar
-        </button>
-      </div>
+      <app-page-header
+        [title]="mode() === 'create' ? 'Nuevo doctor' : 'Editar doctor'"
+        backLabel="Volver a doctores"
+        (back)="closeForm()"
+      />
 
       @if (formError()) {
         <div class="admin-doctors__banner admin-doctors__banner--error">

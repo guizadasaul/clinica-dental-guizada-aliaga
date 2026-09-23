@@ -1,8 +1,5 @@
 <div class="testimonial-review">
-  <h2 class="testimonial-review__title">
-    <span class="material-symbols-outlined" aria-hidden="true">rate_review</span>
-    Comentarios pendientes
-  </h2>
+  <app-page-header title="Comentarios" subtitle="Testimonios de pacientes pendientes de revisión" />
 
   @if (error()) {
     <p class="testimonial-review__error" role="alert">{{ error() }}</p>

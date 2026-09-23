@@ -5,11 +5,13 @@ import {
   PatientInvitesService,
   type InviteChannel,
 } from '../../../patient-invites/services/patient-invites.service';
+import { PageHeaderComponent } from '../../../../shared/ui/page-header/page-header';
 
 @Component({
   selector: 'app-patient-invite-panel',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
+  imports: [PageHeaderComponent],
   templateUrl: './patient-invite-panel.html',
   styleUrl: './patient-invite-panel.scss',
 })

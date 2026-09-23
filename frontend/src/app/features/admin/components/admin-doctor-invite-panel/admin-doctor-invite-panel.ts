@@ -4,6 +4,7 @@ import { firstValueFrom } from 'rxjs';
 import { AdminDoctorsService } from '../../services/admin-doctors.service';
 import type { InviteChannel } from '../../../patient-invites/services/patient-invites.service';
 import type { AdminDoctorSummary } from '../../models/admin-doctor.model';
+import { PageHeaderComponent } from '../../../../shared/ui/page-header/page-header';
 
 const CHANNEL_ERROR: Record<InviteChannel, string> = {
   email: 'No pudimos enviar el email. Intentá de nuevo.',
@@ -21,6 +22,7 @@ const CHANNEL_ERROR: Record<InviteChannel, string> = {
   selector: 'app-admin-doctor-invite-panel',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
+  imports: [PageHeaderComponent],
   templateUrl: './admin-doctor-invite-panel.html',
   styleUrl: './admin-doctor-invite-panel.scss',
 })

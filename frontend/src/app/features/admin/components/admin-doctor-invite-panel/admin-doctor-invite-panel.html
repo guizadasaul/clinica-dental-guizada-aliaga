@@ -1,11 +1,5 @@
 <div class="invite-panel">
-  <div class="invite-panel__header">
-    <h2 class="invite-panel__title">Enviar invitación</h2>
-    <button type="button" class="invite-panel__btn invite-panel__btn--ghost" (click)="onClose()">
-      <span class="material-symbols-outlined">close</span>
-      Cerrar
-    </button>
-  </div>
+  <app-page-header title="Enviar invitación" backLabel="Volver a doctores" (back)="onClose()" />
 
   <p class="invite-panel__intro">
     <strong>{{ doctor().displayName ?? 'El doctor' }}</strong> va a crear su acceso desde un link personal. Elegí por

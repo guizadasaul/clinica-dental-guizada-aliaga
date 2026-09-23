@@ -8,21 +8,6 @@
   padding: var(--space-6);
   max-width: 640px;
 
-  &__header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: var(--space-4);
-    flex-wrap: wrap;
-  }
-
-  &__title {
-    font-family: var(--font-headline);
-    font-size: var(--font-size-2xl);
-    color: var(--color-text);
-    margin: 0;
-  }
-
   &__intro {
     margin: 0;
     font-family: var(--font-body);

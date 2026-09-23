@@ -39,10 +39,7 @@
     <!-- Today's schedule -->
     <section class="doctor__section">
       <div class="doctor__section-header">
-        <h2 class="doctor__section-title">
-          <span class="material-symbols-outlined" aria-hidden="true">calendar_today</span>
-          Mi agenda de hoy
-        </h2>
+        <h2 class="section-title">Mi agenda de hoy</h2>
       </div>
 
       @if (appointments().length === 0) {
@@ -71,10 +68,7 @@
 
     <!-- Quick actions -->
     <section class="doctor__section">
-      <h2 class="doctor__section-title">
-        <span class="material-symbols-outlined" aria-hidden="true">apps</span>
-        Acciones rápidas
-      </h2>
+      <h2 class="section-title">Acciones rápidas</h2>
       <div class="doctor__actions">
         <button type="button" class="doctor-action doctor-action--primary" (click)="onGoToPatients()">
           <span class="material-symbols-outlined doctor-action__icon" aria-hidden="true">add_box</span>
@@ -94,66 +88,68 @@
 }
 
 @if (activeNav() === 'schedule') {
-  <app-doctor-agenda />
+  <div class="page"><app-doctor-agenda /></div>
 }
 
 @if (activeNav() === 'testimonials') {
-  <app-testimonial-review />
+  <div class="page"><app-testimonial-review /></div>
 }
 
 @if (activeNav() === 'patients') {
-  @if (showInviteFlow()) {
-    <app-patient-invite-panel
-      [patientId]="selectedPatientForInvite()!.patientId"
-      [initialFirstName]="selectedPatientForInvite()!.firstName"
-      [initialLastNamePaternal]="selectedPatientForInvite()!.lastNamePaternal"
-      [initialPhone]="selectedPatientForInvite()!.phone"
-      [initialEmail]="selectedPatientForInvite()!.email"
-      (sent)="onInviteSent($event)"
-      (cancel)="onInviteCancel()"
-    />
-  } @else if (showTreatmentFlow()) {
-    <app-register-treatment
-      [patientId]="selectedPatientForTreatment()!"
-      (done)="onTreatmentDone()"
-      (cancel)="onTreatmentCancel()"
-    />
-  } @else if (showHistoryFlow()) {
-    <app-treatment-history
-      [patientId]="selectedPatientForHistory()!"
-      (close)="onHistoryClose()"
-    />
-  } @else if (showClinicalRecordFlow()) {
-    <app-clinical-record-view
-      [patient]="selectedPatientForClinicalRecord()!"
-      (close)="onClinicalRecordClose()"
-    />
-  } @else if (showQuoteFlow()) {
-    <app-quote-builder
-      [patientId]="selectedPatientForQuote()!"
-      (close)="onQuoteClose()"
-    />
-  } @else if (showWizard()) {
-    <app-patient-wizard
-      [userId]="selectedUserId() ?? ''"
-      [existingPatientId]="selectedPatientId()"
-      [existingPatient]="selectedPatientForDiagnosis()"
-      [startStep]="wizardStartStep()"
-      [examMode]="wizardExamMode()"
-      (wizardComplete)="onWizardComplete()"
-      (cancel)="onWizardCancel()"
-    />
-  } @else {
-    <app-patients-list
-      (startWizard)="onStartWizard($event)"
-      (openOdontogram)="onOpenOdontogram($event)"
-      (newDiagnosis)="onNewDiagnosis($event)"
-      (registerDiagnosis)="onRegisterDiagnosis($event)"
-      (viewClinicalRecord)="onViewClinicalRecord($event)"
-      (registerTreatment)="onRegisterTreatment($event)"
-      (viewHistory)="onViewHistory($event)"
-      (buildQuote)="onBuildQuote($event)"
-      (sendInvite)="onSendInvite($event)"
-    />
-  }
+  <div class="page">
+    @if (showInviteFlow()) {
+      <app-patient-invite-panel
+        [patientId]="selectedPatientForInvite()!.patientId"
+        [initialFirstName]="selectedPatientForInvite()!.firstName"
+        [initialLastNamePaternal]="selectedPatientForInvite()!.lastNamePaternal"
+        [initialPhone]="selectedPatientForInvite()!.phone"
+        [initialEmail]="selectedPatientForInvite()!.email"
+        (sent)="onInviteSent($event)"
+        (cancel)="onInviteCancel()"
+      />
+    } @else if (showTreatmentFlow()) {
+      <app-register-treatment
+        [patientId]="selectedPatientForTreatment()!"
+        (done)="onTreatmentDone()"
+        (cancel)="onTreatmentCancel()"
+      />
+    } @else if (showHistoryFlow()) {
+      <app-treatment-history
+        [patientId]="selectedPatientForHistory()!"
+        (close)="onHistoryClose()"
+      />
+    } @else if (showClinicalRecordFlow()) {
+      <app-clinical-record-view
+        [patient]="selectedPatientForClinicalRecord()!"
+        (close)="onClinicalRecordClose()"
+      />
+    } @else if (showQuoteFlow()) {
+      <app-quote-builder
+        [patientId]="selectedPatientForQuote()!"
+        (close)="onQuoteClose()"
+      />
+    } @else if (showWizard()) {
+      <app-patient-wizard
+        [userId]="selectedUserId() ?? ''"
+        [existingPatientId]="selectedPatientId()"
+        [existingPatient]="selectedPatientForDiagnosis()"
+        [startStep]="wizardStartStep()"
+        [examMode]="wizardExamMode()"
+        (wizardComplete)="onWizardComplete()"
+        (cancel)="onWizardCancel()"
+      />
+    } @else {
+      <app-patients-list
+        (startWizard)="onStartWizard($event)"
+        (openOdontogram)="onOpenOdontogram($event)"
+        (newDiagnosis)="onNewDiagnosis($event)"
+        (registerDiagnosis)="onRegisterDiagnosis($event)"
+        (viewClinicalRecord)="onViewClinicalRecord($event)"
+        (registerTreatment)="onRegisterTreatment($event)"
+        (viewHistory)="onViewHistory($event)"
+        (buildQuote)="onBuildQuote($event)"
+        (sendInvite)="onSendInvite($event)"
+      />
+    }
+  </div>
 }

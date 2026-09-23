@@ -1,15 +1,6 @@
 <div class="th">
 
-  <div class="th__header">
-    <div class="th__header-title">
-      <span class="material-symbols-outlined">history</span>
-      <h2>Historial de tratamientos</h2>
-    </div>
-    <button type="button" class="th__back-btn" (click)="onClose()">
-      <span class="material-symbols-outlined">arrow_back</span>
-      Volver
-    </button>
-  </div>
+  <app-page-header title="Historial de tratamientos" backLabel="Volver a la lista" (back)="onClose()" />
 
   @if (loading()) {
     <div class="th__state">

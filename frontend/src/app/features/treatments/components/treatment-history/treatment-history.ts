@@ -12,6 +12,7 @@ import { DecimalPipe } from '@angular/common';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { TreatmentsService } from '../../services/treatments.service';
 import type { Treatment, ToothProcedure, ToothSurfaceCode } from '../../models/treatment.model';
+import { PageHeaderComponent } from '../../../../shared/ui/page-header/page-header';
 
 const SURFACE_ABBREVIATIONS: Record<ToothSurfaceCode, string> = {
   vestibular: 'Vest.',
@@ -37,7 +38,7 @@ interface GroupedProcedure {
   selector: 'app-treatment-history',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [DecimalPipe],
+  imports: [PageHeaderComponent, DecimalPipe],
   templateUrl: './treatment-history.html',
   styleUrl: './treatment-history.scss',
 })

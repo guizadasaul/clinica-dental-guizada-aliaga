@@ -10,6 +10,7 @@ import type {
   FinancialReport,
   OperationalReport,
 } from '../../models/report.model';
+import { PageHeaderComponent } from '../../../../shared/ui/page-header/page-header';
 
 type ReportTab = 'operational' | 'financial';
 
@@ -27,7 +28,7 @@ function daysAgoString(days: number): string {
   selector: 'app-reports-page',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [DoctorPickerComponent, DecimalPipe],
+  imports: [PageHeaderComponent, DoctorPickerComponent, DecimalPipe],
   templateUrl: './reports-page.html',
   styleUrl: './reports-page.scss',
 })

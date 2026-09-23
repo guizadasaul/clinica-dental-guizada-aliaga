@@ -2,6 +2,7 @@ import { Component, ChangeDetectionStrategy, inject, signal } from '@angular/cor
 import { firstValueFrom } from 'rxjs';
 import { TestimonialsService } from '../../services/testimonials.service';
 import type { TestimonialResponse } from '../../models/testimonial.model';
+import { PageHeaderComponent } from '../../../../shared/ui/page-header/page-header';
 
 const DATE_FORMATTER = new Intl.DateTimeFormat('es-BO', {
   timeZone: 'America/La_Paz',
@@ -14,6 +15,7 @@ const DATE_FORMATTER = new Intl.DateTimeFormat('es-BO', {
   selector: 'app-testimonial-review',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
+  imports: [PageHeaderComponent],
   templateUrl: './testimonial-review.html',
   styleUrl: './testimonial-review.scss',
 })

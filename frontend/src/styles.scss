@@ -26,6 +26,28 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
+// === PANEL: margen de página y sub-títulos (CLI-111) ===
+// Cada sección del panel (agenda, pacientes, reportes, doctores...) va dentro
+// de un `.page`: mismo margen en todas, nada pegado al sidebar. El título de
+// la sección lo pone <app-page-header>; los sub-títulos internos usan
+// `.section-title` (serif, sin ícono).
+.page {
+  display: block;
+  padding: var(--space-8);
+
+  @media (max-width: 767px) {
+    padding: var(--space-6) var(--space-4) var(--space-10);
+  }
+}
+
+.section-title {
+  margin: 0;
+  font-family: var(--font-headline);
+  font-size: var(--font-size-lg);
+  font-weight: 400;
+  color: var(--color-text);
+}
+
 // === ANIMACIONES GLOBALES ===
 // Los scroll-reveals de la landing viven en el componente (GSAP +
 // ScrollTrigger sobre [data-reveal] / [data-reveal-group]).

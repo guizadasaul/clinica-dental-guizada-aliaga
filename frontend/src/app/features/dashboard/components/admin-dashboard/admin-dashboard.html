@@ -12,10 +12,7 @@
 
     <!-- Quick access -->
     <section class="admin__section">
-      <h2 class="admin__section-title">
-        <span class="material-symbols-outlined" aria-hidden="true">apps</span>
-        Accesos rápidos
-      </h2>
+      <h2 class="section-title">Accesos rápidos</h2>
       <div class="actions-grid">
         <button type="button" class="action-card action-card--primary" (click)="onGoTo('doctors')">
           <span class="material-symbols-outlined action-card__icon" aria-hidden="true">group</span>
@@ -35,9 +32,9 @@
 }
 
 @if (activeNav() === 'doctors') {
-  <app-admin-doctors />
+  <div class="page"><app-admin-doctors /></div>
 }
 
 @if (activeNav() === 'reports') {
-  <app-reports-page />
+  <div class="page"><app-reports-page /></div>
 }

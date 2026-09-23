@@ -1,9 +1,9 @@
 <div class="patients-list">
   <div class="patients-list__header">
-    <div class="patients-list__title-row">
-      <h2 class="patients-list__title">Pacientes</h2>
-      <span class="patients-list__count">{{ filtered().length }} pacientes</span>
-    </div>
+    <app-page-header
+      title="Pacientes"
+      [subtitle]="filtered().length + (filtered().length === 1 ? ' paciente' : ' pacientes')"
+    />
     <div class="patients-list__search-row">
       <div class="patients-list__search-wrap">
         <span class="material-symbols-outlined patients-list__search-icon">search</span>

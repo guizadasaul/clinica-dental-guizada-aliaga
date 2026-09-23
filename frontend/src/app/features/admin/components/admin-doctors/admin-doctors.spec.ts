@@ -189,7 +189,7 @@ describe('AdminDoctorsComponent', () => {
     const { fixture, adminDoctorsService } = setup();
     await settle(fixture);
 
-    el<HTMLButtonElement>(fixture, '.admin-doctors__header .admin-doctors__btn--primary').click();
+    el<HTMLButtonElement>(fixture, '.admin-doctors__header-actions .admin-doctors__btn--primary').click();
     await settle(fixture);
 
     expect(el(fixture, '.admin-doctors__form')).toBeTruthy();
@@ -205,7 +205,7 @@ describe('AdminDoctorsComponent', () => {
     const { fixture, adminDoctorsService } = setup();
     await settle(fixture);
 
-    el<HTMLButtonElement>(fixture, '.admin-doctors__header .admin-doctors__btn--primary').click();
+    el<HTMLButtonElement>(fixture, '.admin-doctors__header-actions .admin-doctors__btn--primary').click();
     await settle(fixture);
 
     const nameInput = el<HTMLInputElement>(fixture, '#admin-doctor-name');
@@ -244,7 +244,7 @@ describe('AdminDoctorsComponent', () => {
     );
     await settle(fixture);
 
-    el<HTMLButtonElement>(fixture, '.admin-doctors__header .admin-doctors__btn--primary').click();
+    el<HTMLButtonElement>(fixture, '.admin-doctors__header-actions .admin-doctors__btn--primary').click();
     await settle(fixture);
     const nameInput = el<HTMLInputElement>(fixture, '#admin-doctor-name');
     nameInput.value = 'Dra. Maria Lopez';
@@ -266,7 +266,7 @@ describe('AdminDoctorsComponent', () => {
     const { fixture, adminDoctorsService } = setup();
     await settle(fixture);
 
-    el<HTMLButtonElement>(fixture, '.admin-doctors__header .admin-doctors__btn--primary').click();
+    el<HTMLButtonElement>(fixture, '.admin-doctors__header-actions .admin-doctors__btn--primary').click();
     await settle(fixture);
     fillInput(fixture, '#admin-doctor-name', 'Dra. Maria Lopez');
     fillInput(fixture, '#admin-doctor-email', 'maria@example.com');
@@ -285,7 +285,7 @@ describe('AdminDoctorsComponent', () => {
     const { fixture, adminDoctorsService } = setup();
     await settle(fixture);
 
-    el<HTMLButtonElement>(fixture, '.admin-doctors__header .admin-doctors__btn--primary').click();
+    el<HTMLButtonElement>(fixture, '.admin-doctors__header-actions .admin-doctors__btn--primary').click();
     await settle(fixture);
     fillCreateNames(fixture);
     fillInput(fixture, '#admin-doctor-first-name', 'Maria2');
@@ -328,7 +328,7 @@ describe('AdminDoctorsComponent', () => {
     const { fixture, adminDoctorsService } = setup();
     await settle(fixture);
 
-    el<HTMLButtonElement>(fixture, '.admin-doctors__header .admin-doctors__btn--primary').click();
+    el<HTMLButtonElement>(fixture, '.admin-doctors__header-actions .admin-doctors__btn--primary').click();
     await settle(fixture);
     fillCreateNames(fixture);
     fillInput(fixture, '#admin-doctor-name', 'Dra. Maria Lopez');
@@ -345,7 +345,7 @@ describe('AdminDoctorsComponent', () => {
     const { fixture, adminDoctorsService } = setup();
     await settle(fixture);
 
-    el<HTMLButtonElement>(fixture, '.admin-doctors__header .admin-doctors__btn--primary').click();
+    el<HTMLButtonElement>(fixture, '.admin-doctors__header-actions .admin-doctors__btn--primary').click();
     await settle(fixture);
     fillCreateNames(fixture);
     fillInput(fixture, '#admin-doctor-name', 'Dra. Maria Lopez');
@@ -367,7 +367,7 @@ describe('AdminDoctorsComponent', () => {
     const { fixture, adminDoctorsService } = setup();
     await settle(fixture);
 
-    el<HTMLButtonElement>(fixture, '.admin-doctors__header .admin-doctors__btn--primary').click();
+    el<HTMLButtonElement>(fixture, '.admin-doctors__header-actions .admin-doctors__btn--primary').click();
     await settle(fixture);
     fillCreateNames(fixture);
     fillInput(fixture, '#admin-doctor-name', 'Dra. Maria Lopez');
@@ -389,7 +389,7 @@ describe('AdminDoctorsComponent', () => {
       const { fixture } = setup();
       await settle(fixture);
 
-      el<HTMLButtonElement>(fixture, '.admin-doctors__header .admin-doctors__btn--primary').click();
+      el<HTMLButtonElement>(fixture, '.admin-doctors__header-actions .admin-doctors__btn--primary').click();
       await settle(fixture);
       fillInput(fixture, '#admin-doctor-first-name', 'marylu');
       fillInput(fixture, '#admin-doctor-last-name-paternal', 'ALIAGA');
@@ -402,7 +402,7 @@ describe('AdminDoctorsComponent', () => {
       const { fixture } = setup();
       await settle(fixture);
 
-      el<HTMLButtonElement>(fixture, '.admin-doctors__header .admin-doctors__btn--primary').click();
+      el<HTMLButtonElement>(fixture, '.admin-doctors__header-actions .admin-doctors__btn--primary').click();
       await settle(fixture);
       fillInput(fixture, '#admin-doctor-first-name', 'Marylu');
       fillInput(fixture, '#admin-doctor-name', 'Dra. Marylu');
@@ -479,7 +479,7 @@ describe('AdminDoctorsComponent', () => {
 
       el<HTMLButtonElement>(fixture, '.admin-doctors__btn--invite').click();
       await settle(fixture);
-      el<HTMLButtonElement>(fixture, '.invite-panel__header .invite-panel__btn').click();
+      el<HTMLButtonElement>(fixture, '.page-header__back').click();
       await settle(fixture);
 
       expect(adminDoctorsService.createInvite).not.toHaveBeenCalled();
@@ -607,7 +607,7 @@ describe('AdminDoctorsComponent', () => {
       await settle(fixture);
       expect(el(fixture, '.admin-doctors__detail')).toBeTruthy();
 
-      el<HTMLButtonElement>(fixture, '.admin-doctors__detail .admin-doctors__btn--ghost').click();
+      el<HTMLButtonElement>(fixture, '.admin-doctors__detail .page-header__back').click();
       await settle(fixture);
 
       expect(el(fixture, '.admin-doctors__table')).toBeTruthy();

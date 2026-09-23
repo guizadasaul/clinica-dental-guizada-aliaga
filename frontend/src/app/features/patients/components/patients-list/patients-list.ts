@@ -16,11 +16,13 @@ import { BookingService } from '../../../booking/services/booking.service';
 import { AuthService } from '../../../../auth/application/auth.service';
 import type { Patient, PatientWithUser, PatientInviteContact } from '../../models/patient.model';
 import type { Doctor } from '../../../booking/models/booking.model';
+import { PageHeaderComponent } from '../../../../shared/ui/page-header/page-header';
 
 @Component({
   selector: 'app-patients-list',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
+  imports: [PageHeaderComponent],
   templateUrl: './patients-list.html',
   styleUrl: './patients-list.scss',
 })

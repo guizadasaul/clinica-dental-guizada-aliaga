@@ -26,6 +26,7 @@ import type {
   CreateMedicalHistoryRequest,
 } from '../../models/patient.request';
 import type { CreateDentalExamRequest } from '../../models/dental-exam.request';
+import { PageHeaderComponent } from '../../../../shared/ui/page-header/page-header';
 
 interface WizardStep {
   readonly number: number;
@@ -45,7 +46,7 @@ const STEPS: WizardStep[] = [
   selector: 'app-patient-wizard',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [
+  imports: [PageHeaderComponent, 
     StepPatientDataComponent,
     StepMedicalHistoryComponent,
     StepOralHygieneComponent,

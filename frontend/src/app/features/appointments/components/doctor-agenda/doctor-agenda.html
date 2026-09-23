@@ -1,11 +1,7 @@
 <div class="agenda">
-  <div class="agenda__header">
-    <h2 class="agenda__title">
-      <span class="material-symbols-outlined" aria-hidden="true">calendar_month</span>
-      {{ title() }}
-    </h2>
+  <app-page-header [title]="title()" [subtitle]="rangeLabel()">
     @if (showScopeToggle()) {
-      <div class="agenda__scope" role="tablist" aria-label="Qué agenda ver">
+      <div actions class="agenda__scope" role="tablist" aria-label="Qué agenda ver">
         <button
           type="button"
           role="tab"
@@ -28,7 +24,7 @@
         </button>
       </div>
     }
-  </div>
+  </app-page-header>
 
   <ng-template #slotTpl let-appt>
     <button

@@ -18,6 +18,7 @@ import { BRUSHING_FREQUENCY_LABELS } from '../patient-wizard/steps/step-oral-hyg
 import type { BrushingFrequency } from '../../../../shared/validation/clinical-options';
 import { OdontogramChartComponent } from '../../../../shared/ui/odontogram-chart/odontogram-chart';
 import { examLegendItems, examToothColorMap } from '../../../../shared/utils/odontogram-paint.util';
+import { PageHeaderComponent } from '../../../../shared/ui/page-header/page-header';
 
 interface GroupedFinding {
   readonly key: string;
@@ -90,7 +91,7 @@ function groupFindings(findings: DentalExamFinding[]): GroupedFinding[] {
   selector: 'app-clinical-record-view',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [DatePipe, OdontogramChartComponent],
+  imports: [PageHeaderComponent, DatePipe, OdontogramChartComponent],
   templateUrl: './clinical-record-view.html',
   styleUrl: './clinical-record-view.scss',
 })

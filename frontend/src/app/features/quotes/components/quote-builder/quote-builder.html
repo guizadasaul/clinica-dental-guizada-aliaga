@@ -1,14 +1,6 @@
 <div class="qb">
 
-  <div class="qb__header">
-    <div class="qb__header-title">
-      <span class="material-symbols-outlined">receipt_long</span>
-      <h2>Armar presupuesto</h2>
-    </div>
-    <button type="button" class="qb__close-btn" (click)="onClose()" aria-label="Cerrar">
-      <span class="material-symbols-outlined">close</span>
-    </button>
-  </div>
+  <app-page-header title="Armar presupuesto" backLabel="Volver a la lista" (back)="onClose()" />
 
   @if (loading()) {
     <div class="qb__state">

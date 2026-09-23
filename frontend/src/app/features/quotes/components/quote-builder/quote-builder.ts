@@ -21,6 +21,7 @@ import {
   TreatmentScopePickerComponent,
   type TreatmentScopeSelection,
 } from '../../../treatments/components/treatment-scope-picker/treatment-scope-picker';
+import { PageHeaderComponent } from '../../../../shared/ui/page-header/page-header';
 
 interface GroupedItem {
   readonly key: string;
@@ -37,7 +38,7 @@ interface GroupedItem {
   selector: 'app-quote-builder',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [DecimalPipe, DatePipe, FormsModule, TreatmentScopePickerComponent],
+  imports: [PageHeaderComponent, DecimalPipe, DatePipe, FormsModule, TreatmentScopePickerComponent],
   templateUrl: './quote-builder.html',
   styleUrl: './quote-builder.scss',
 })
