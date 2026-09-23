@@ -100,6 +100,30 @@ export class PrismaAdminDoctorRepository implements IAdminDoctorRepository {
     }
   }
 
+  /** Solo los campos presentes del PATCH, en columnas de doctor_profiles. */
+  private static toProfileUpdate(
+    data: UpdateAdminDoctorData,
+  ): Prisma.doctor_profilesUpdateInput {
+    return {
+      ...(data.firstName !== undefined && { first_name: data.firstName }),
+      ...(data.lastNamePaternal !== undefined && {
+        last_name_paternal: data.lastNamePaternal,
+      }),
+      ...(data.lastNameMaternal !== undefined && {
+        last_name_maternal: data.lastNameMaternal,
+      }),
+      ...(data.specialty !== undefined && { specialty: data.specialty }),
+      ...(data.bio !== undefined && { bio: data.bio }),
+      ...(data.photoUrl !== undefined && { photo_url: data.photoUrl }),
+      ...(data.displayOrder !== undefined && {
+        display_order: data.displayOrder,
+      }),
+      ...(data.isBookable !== undefined && { is_bookable: data.isBookable }),
+      ...(data.color !== undefined && { color: data.color }),
+      updated_at: new Date(),
+    };
+  }
+
   async update(
     id: string,
     data: UpdateAdminDoctorData,
@@ -127,32 +151,7 @@ export class PrismaAdminDoctorRepository implements IAdminDoctorRepository {
 
         const updatedProfile = await tx.doctor_profiles.update({
           where: { user_id: id },
-          data: {
-            ...(data.firstName !== undefined && {
-              first_name: data.firstName,
-            }),
-            ...(data.lastNamePaternal !== undefined && {
-              last_name_paternal: data.lastNamePaternal,
-            }),
-            ...(data.lastNameMaternal !== undefined && {
-              last_name_maternal: data.lastNameMaternal,
-            }),
-            ...(data.specialty !== undefined && {
-              specialty: data.specialty,
-            }),
-            ...(data.bio !== undefined && { bio: data.bio }),
-            ...(data.photoUrl !== undefined && {
-              photo_url: data.photoUrl,
-            }),
-            ...(data.displayOrder !== undefined && {
-              display_order: data.displayOrder,
-            }),
-            ...(data.isBookable !== undefined && {
-              is_bookable: data.isBookable,
-            }),
-            ...(data.color !== undefined && { color: data.color }),
-            updated_at: new Date(),
-          },
+          data: PrismaAdminDoctorRepository.toProfileUpdate(data),
         });
 
         // Reemplazo total del set (mismo patrón que upsertMedicalHistory en
