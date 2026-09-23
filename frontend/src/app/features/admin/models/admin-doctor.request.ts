@@ -28,5 +28,7 @@ export interface UpdateDoctorRequest {
   photoUrl?: string;
   displayOrder?: number;
   isBookable?: boolean;
+  /** "#rrggbb" — color en la agenda común (CLI-110). */
+  color?: string;
   scheduleBlocks?: AdminDoctorScheduleBlock[];
 }

@@ -32,6 +32,8 @@ export interface AdminDoctorSummary {
   displayOrder: number;
   isBookable: boolean;
   isActive: boolean;
+  /** Color del doctor en la agenda común (CLI-110). */
+  color: string;
 }
 
 /** Detalle completo (`GET /admin/doctors/:id`, y la respuesta de create/update/deactivate) — incluye scheduleBlocks. */
@@ -69,6 +71,7 @@ export interface UpdateAdminDoctorData {
   photoUrl?: string | null;
   displayOrder?: number;
   isBookable?: boolean;
+  color?: string;
   /** Si viene, reemplaza el conjunto completo de bloques (deleteMany + createMany). */
   scheduleBlocks?: DoctorScheduleBlock[];
 }

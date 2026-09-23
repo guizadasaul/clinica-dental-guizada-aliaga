@@ -9,6 +9,7 @@ import { DoctorAgendaComponent } from '../../../appointments/components/doctor-a
 import { PatientsListComponent } from '../../../patients/components/patients-list/patients-list';
 import { AdminDoctorInvitePanelComponent } from '../admin-doctor-invite-panel/admin-doctor-invite-panel';
 import { PhoneInputComponent } from '../../../../shared/ui/phone-input/phone-input';
+import { DOCTOR_COLOR_PALETTE } from '../../../../shared/constants/doctor-colors';
 import { field, allValid, touchAll } from '../../../../shared/validation/field';
 import { requiredTextError, optionalTextError, normalizeText } from '../../../../shared/validation/text.validator';
 import { isValidEmail, normalizeEmail } from '../../../../shared/validation/email.validator';
@@ -30,6 +31,8 @@ const BIO_MAX_LENGTH = 2000;
 
 type ViewMode = 'list' | 'create' | 'edit' | 'detail' | 'invite';
 type DetailTab = 'agenda' | 'patients';
+/** CLI-110: ver un doctor a la vez, o la agenda común de todos. */
+type DetailView = 'doctor' | 'all';
 
 interface ScheduleBlockDraft {
   weekday: number;
@@ -112,6 +115,9 @@ export class AdminDoctorsComponent {
   protected readonly bioField = field<string>('', (v) => optionalTextError(v, BIO_MAX_LENGTH));
   protected readonly photoUrl = signal('');
   protected readonly displayOrder = signal<number | null>(null);
+  /** Color en la agenda común — solo se edita (el alta asigna uno libre automáticamente, CLI-110). */
+  protected readonly doctorColor = signal<string | null>(null);
+  protected readonly colorPalette = DOCTOR_COLOR_PALETTE;
   protected readonly phoneE164 = signal('');
   protected readonly phoneOk = signal(true);
   protected readonly scheduleBlocks = signal<ScheduleBlockDraft[]>([]);
@@ -137,6 +143,7 @@ export class AdminDoctorsComponent {
   protected readonly pickerLoading = signal(false);
   protected readonly selectedDoctorId = signal<string | null>(null);
   protected readonly detailTab = signal<DetailTab>('agenda');
+  protected readonly detailView = signal<DetailView>('doctor');
 
   /** Alcanza con un contacto: la invitación sale por email o por WhatsApp. */
   protected readonly contactMissing = computed(
@@ -192,6 +199,7 @@ export class AdminDoctorsComponent {
     this.confirmingDeactivateFor.set(null);
     this.selectedDoctorId.set(doctorId ?? null);
     this.detailTab.set('agenda');
+    this.detailView.set('doctor');
     this.mode.set('detail');
   }
 
@@ -206,6 +214,14 @@ export class AdminDoctorsComponent {
 
   protected setDetailTab(tab: DetailTab): void {
     this.detailTab.set(tab);
+  }
+
+  protected setDetailView(view: DetailView): void {
+    this.detailView.set(view);
+  }
+
+  protected onColorPick(color: string): void {
+    this.doctorColor.set(color.toLowerCase());
   }
 
   protected openCreate(): void {
@@ -231,6 +247,7 @@ export class AdminDoctorsComponent {
       this.bioField.reset(detail.bio ?? '');
       this.photoUrl.set(detail.photoUrl ?? '');
       this.displayOrder.set(detail.displayOrder);
+      this.doctorColor.set(detail.color);
       this.scheduleBlocks.set(detail.scheduleBlocks.map((b) => ({ ...b })));
       this.editingId.set(doctorId);
       this.publicNameEdited.set(true);
@@ -258,6 +275,7 @@ export class AdminDoctorsComponent {
     this.bioField.reset('');
     this.photoUrl.set('');
     this.displayOrder.set(null);
+    this.doctorColor.set(null);
     this.scheduleBlocks.set([]);
     this.formError.set(null);
     this.contactAttempted.set(false);
@@ -357,6 +375,7 @@ export class AdminDoctorsComponent {
         // Un doctor cargado antes de CLI-76 puede seguir editándose sin nombre/apellidos: vacío = no tocar.
         const request: UpdateDoctorRequest = {
           ...shared,
+          color: this.doctorColor() ?? undefined,
           firstName: firstName || undefined,
           lastNamePaternal: lastNamePaternal || undefined,
           lastNameMaternal,

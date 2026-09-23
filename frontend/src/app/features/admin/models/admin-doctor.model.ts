@@ -26,6 +26,8 @@ export interface AdminDoctorSummary {
   displayOrder: number;
   isBookable: boolean;
   isActive: boolean;
+  /** Color del doctor en la agenda común (CLI-110). */
+  color: string;
 }
 
 /** GET /admin/doctors/:id y la respuesta de create/update/deactivate. */

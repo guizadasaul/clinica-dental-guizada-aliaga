@@ -28,6 +28,7 @@ export class AdminDoctorMapper {
       displayOrder: record.display_order,
       isBookable: record.is_bookable,
       isActive: record.users.is_active,
+      color: record.color,
     };
   }
 

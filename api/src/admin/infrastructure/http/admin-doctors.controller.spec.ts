@@ -94,6 +94,16 @@ describe('AdminDoctorsController', () => {
   });
 
   describe('update', () => {
+    it('forwards the agenda color in lowercase (CLI-110)', async () => {
+      mockService.updateDoctor.mockResolvedValue({});
+
+      await controller.update('doctor-1', { color: '#DB2777' });
+
+      expect(mockService.updateDoctor).toHaveBeenCalledWith('doctor-1', {
+        color: '#db2777',
+      });
+    });
+
     it('only forwards the fields present in the body (partial PATCH)', async () => {
       mockService.updateDoctor.mockResolvedValue({});
 

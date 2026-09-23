@@ -12,4 +12,8 @@ export interface AppointmentAgendaItem {
   guestFirstName: string | null;
   guestLastNamePaternal: string | null;
   guestPhone: string | null;
+  /** Doctor del turno (CLI-110) — la agenda común lo muestra con su color. */
+  doctorId: string;
+  doctorName: string | null;
+  doctorColor: string | null;
 }

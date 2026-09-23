@@ -64,8 +64,8 @@ export interface AttachQrData {
 }
 
 export interface AgendaFilters {
-  /** CLI-57: siempre el doctor autenticado (request.appUser.id) — un doctor no debe poder pedir la agenda de otro. CLI-64: excepción, un ADMIN puede pasar el doctorId de cualquier doctor vía query param; esa resolución vive en DoctorAppointmentsController, no acá. */
-  doctorId: string;
+  /** Sin valor = agenda común, todos los doctores (CLI-110). CLI-57: siempre el doctor autenticado (request.appUser.id) — un doctor no debe poder pedir la agenda de otro. CLI-64: excepción, un ADMIN puede pasar el doctorId de cualquier doctor vía query param; esa resolución vive en DoctorAppointmentsController, no acá. */
+  doctorId?: string;
   status?: string;
   from?: Date;
   to?: Date;

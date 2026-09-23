@@ -11,6 +11,7 @@ export class DoctorMapper {
       photoUrl: record.photo_url,
       displayOrder: record.display_order,
       isBookable: record.is_bookable,
+      color: record.color,
     };
   }
 }

@@ -104,6 +104,7 @@ export class AdminDoctorsController {
         displayOrder: dto.displayOrder,
       }),
       ...(dto.isBookable !== undefined && { isBookable: dto.isBookable }),
+      ...(dto.color !== undefined && { color: dto.color.toLowerCase() }),
       ...(dto.scheduleBlocks !== undefined && {
         scheduleBlocks: dto.scheduleBlocks.map((block) => ({
           weekday: block.weekday,

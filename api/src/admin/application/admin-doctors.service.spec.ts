@@ -32,6 +32,7 @@ const DOCTOR: AdminDoctorDetail = {
   displayOrder: 0,
   isBookable: true,
   isActive: true,
+  color: '#2563eb',
   scheduleBlocks: [],
 };
 

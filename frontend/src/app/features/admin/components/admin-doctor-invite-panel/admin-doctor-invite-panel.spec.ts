@@ -19,6 +19,7 @@ const DOCTOR: AdminDoctorSummary = {
   displayOrder: 0,
   isBookable: false,
   isActive: true,
+  color: '#2563eb',
 };
 
 function setup(doctor: AdminDoctorSummary = DOCTOR) {

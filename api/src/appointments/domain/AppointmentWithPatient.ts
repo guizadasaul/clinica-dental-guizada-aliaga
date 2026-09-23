@@ -14,5 +14,9 @@ export class AppointmentWithPatient {
     readonly guestFirstName: string | null,
     readonly guestLastNamePaternal: string | null,
     readonly guestPhone: string | null,
+    /** Doctor del turno (CLI-110) — la agenda común lo muestra con su color. */
+    readonly doctorId: string,
+    readonly doctorName: string | null,
+    readonly doctorColor: string | null,
   ) {}
 }

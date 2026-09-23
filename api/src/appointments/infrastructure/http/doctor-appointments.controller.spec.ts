@@ -109,4 +109,34 @@ describe('DoctorAppointmentsController', () => {
       expect.objectContaining({ doctorId: 'admin-1' }),
     );
   });
+
+  // CLI-110: agenda común — scope=all no filtra por doctor, para odontólogos y admin.
+  it('scope=all returns every doctor agenda for an odontologist', async () => {
+    await controller.findForAgenda(fakeDoctor('doctor-a'), {
+      scope: 'all',
+      doctorId: 'doctor-b',
+    });
+
+    const filters = (mockService.getAgenda.mock.calls as unknown[][])[0][0] as {
+      doctorId?: string;
+    };
+    expect(filters.doctorId).toBeUndefined();
+  });
+
+  it('scope=all also applies to an admin', async () => {
+    await controller.findForAgenda(fakeAdmin('admin-1'), { scope: 'all' });
+
+    const filters = (mockService.getAgenda.mock.calls as unknown[][])[0][0] as {
+      doctorId?: string;
+    };
+    expect(filters.doctorId).toBeUndefined();
+  });
+
+  it('scope=mine keeps the own-agenda rule', async () => {
+    await controller.findForAgenda(fakeDoctor('doctor-a'), { scope: 'mine' });
+
+    expect(mockService.getAgenda).toHaveBeenCalledWith(
+      expect.objectContaining({ doctorId: 'doctor-a' }),
+    );
+  });
 });

@@ -29,6 +29,7 @@ const DOCTOR_SUMMARY: AdminDoctorSummary = {
   displayOrder: 0,
   isBookable: true,
   isActive: true,
+  color: '#2563eb',
 };
 
 const DOCTOR_DETAIL: AdminDoctorDetail = {
@@ -552,13 +553,30 @@ describe('AdminDoctorsComponent', () => {
 
       el<HTMLButtonElement>(fixture, '.admin-doctors__cell--actions .admin-doctors__btn--outline').click();
       await settle(fixture);
-      allEls<HTMLButtonElement>(fixture, '.admin-doctors__tab')[1].click();
+      allEls<HTMLButtonElement>(fixture, '.admin-doctors__tab')
+        .find((t) => t.textContent?.includes('Pacientes'))!
+        .click();
       await settle(fixture);
 
       expect(patientsService.getAll).toHaveBeenCalledWith('doctor-1');
       expect(el(fixture, 'app-patients-list')).toBeTruthy();
       expect(el(fixture, '.patients-list__owner-toggle')).toBeFalsy();
       expect(el(fixture, '.patients-list__cell--actions')).toBeFalsy();
+    });
+
+    it('"Todos los doctores" shows the common agenda of every doctor (CLI-110)', async () => {
+      const { fixture, appointmentsService } = setup([DOCTOR_SUMMARY], [PICKER_DOCTOR]);
+      await settle(fixture);
+
+      el<HTMLButtonElement>(fixture, '.admin-doctors__header-actions .admin-doctors__btn--outline').click();
+      await settle(fixture);
+      allEls<HTMLButtonElement>(fixture, '.admin-doctors__tab')
+        .find((t) => t.textContent?.includes('Todos los doctores'))!
+        .click();
+      await settle(fixture);
+
+      expect(appointmentsService.getAgenda).toHaveBeenCalledWith(expect.objectContaining({ scope: 'all' }));
+      expect(el(fixture, 'app-doctor-picker')).toBeFalsy();
     });
 
     it('picking a different doctor from the picker switches the selected doctor', async () => {

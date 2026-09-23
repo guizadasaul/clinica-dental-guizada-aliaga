@@ -150,6 +150,32 @@
         </button>
       </div>
 
+      <div class="admin-doctors__tabs" role="tablist" aria-label="Ver un doctor o todos">
+        <button
+          type="button"
+          role="tab"
+          class="admin-doctors__tab"
+          [class.admin-doctors__tab--active]="detailView() === 'doctor'"
+          [attr.aria-selected]="detailView() === 'doctor'"
+          (click)="setDetailView('doctor')"
+        >
+          Por doctor
+        </button>
+        <button
+          type="button"
+          role="tab"
+          class="admin-doctors__tab"
+          [class.admin-doctors__tab--active]="detailView() === 'all'"
+          [attr.aria-selected]="detailView() === 'all'"
+          (click)="setDetailView('all')"
+        >
+          Todos los doctores
+        </button>
+      </div>
+
+      @if (detailView() === 'all') {
+        <app-doctor-agenda [readOnly]="true" [allDoctors]="true" />
+      } @else {
       <app-doctor-picker
         [doctors]="pickerDoctors()"
         [loading]="pickerLoading()"
@@ -185,6 +211,7 @@
         } @else {
           <app-patients-list [forcedDoctorId]="doctorId" [readOnly]="true" />
         }
+      }
       }
     </div>
   } @else if (mode() === 'invite') {
@@ -352,6 +379,32 @@
             (input)="onDisplayOrderInput($event)"
           />
         </div>
+
+        @if (mode() === 'edit' && doctorColor()) {
+          <div class="admin-doctors__field">
+            <label for="admin-doctor-color">Color en la agenda común</label>
+            <div class="admin-doctors__colors">
+              @for (c of colorPalette; track c) {
+                <button
+                  type="button"
+                  class="admin-doctors__color-swatch"
+                  [class.admin-doctors__color-swatch--active]="doctorColor() === c"
+                  [style.background]="c"
+                  [attr.aria-label]="'Usar el color ' + c"
+                  [attr.aria-pressed]="doctorColor() === c"
+                  (click)="onColorPick(c)"
+                ></button>
+              }
+              <input
+                id="admin-doctor-color"
+                class="admin-doctors__color-input"
+                type="color"
+                [value]="doctorColor()"
+                (input)="onColorPick($any($event.target).value)"
+              />
+            </div>
+          </div>
+        }
 
         <div class="admin-doctors__field admin-doctors__field--schedule">
           <div class="admin-doctors__schedule-header">
