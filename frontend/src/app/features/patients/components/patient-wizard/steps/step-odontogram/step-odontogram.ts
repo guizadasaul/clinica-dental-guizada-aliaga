@@ -101,7 +101,7 @@ function findingsSignature(drafts: readonly FindingDraft[]): string {
         f.notes ?? null,
       ]),
     )
-    .sort()
+    .sort((a, b) => a.localeCompare(b))
     .join('|');
 }
 
@@ -124,7 +124,7 @@ export class StepOdontogramComponent {
   readonly closeViewedVersion = output<void>();
   readonly back = output<void>();
   /** Salir sin guardar cuando no hubo cambios sobre el examen actual. */
-  readonly close = output<void>();
+  readonly closeWithoutChanges = output<void>();
 
   protected readonly allDiagnoses = computed<(Diagnosis & { categoryName: string })[]>(() =>
     this.catalog().flatMap((c) => c.diagnoses.map((d) => ({ ...d, categoryName: c.name }))),
@@ -364,7 +364,7 @@ export class StepOdontogramComponent {
   }
 
   protected onClose(): void {
-    this.close.emit();
+    this.closeWithoutChanges.emit();
   }
 
   protected onSubmit(): void {

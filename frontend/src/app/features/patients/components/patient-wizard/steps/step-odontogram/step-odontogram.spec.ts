@@ -336,7 +336,7 @@ describe('StepOdontogramComponent', () => {
     const emitted: CreateDentalExamRequest[] = [];
     fixture.componentInstance.submitStep.subscribe((value) => emitted.push(value));
     let closed = 0;
-    fixture.componentInstance.close.subscribe(() => closed++);
+    fixture.componentInstance.closeWithoutChanges.subscribe(() => closed++);
 
     expect(el(fixture, '#changeReason')).toBeFalsy();
     expect(submitButton(fixture).disabled).toBe(true);
