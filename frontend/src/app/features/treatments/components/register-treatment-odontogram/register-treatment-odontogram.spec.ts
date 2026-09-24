@@ -24,9 +24,13 @@ function el<T extends Element>(fixture: ReturnType<typeof setup>['fixture'], sel
   return (fixture.nativeElement as HTMLElement).querySelector(selector) as T;
 }
 
-function select(sel: HTMLSelectElement, value: string): void {
-  sel.value = value;
-  sel.dispatchEvent(new Event('change'));
+/** Elige un tratamiento en el CatalogPicker del panel (CLI-116). */
+function pickTreatment(fixture: ReturnType<typeof setup>['fixture'], id: string): void {
+  const option = (fixture.nativeElement as HTMLElement).querySelector<HTMLButtonElement>(
+    `.catalog-picker__option[data-id="${id}"]`,
+  );
+  if (!option) { throw new Error(`No hay opción ${id} en el picker`); }
+  option.click();
 }
 
 async function settle(fixture: ReturnType<typeof setup>['fixture']): Promise<void> {
@@ -161,7 +165,8 @@ describe('RegisterTreatmentOdontogramComponent', () => {
 
     expect(el(fixture, '.rto__panel')).toBeTruthy();
     expect(el(fixture, '.rto__panel-tooth-badge')?.textContent).toContain('Diente #16');
-    expect(el<HTMLSelectElement>(fixture, '#rto-treatment').value).toBe('');
+    expect(el(fixture, '.catalog-picker__search-input')).toBeTruthy();
+    expect(el(fixture, '.catalog-picker__option--selected')).toBeNull();
   });
 
   it('single_tooth: clic en dos dientes distintos reemplaza la selección, no la acumula', async () => {
@@ -171,7 +176,7 @@ describe('RegisterTreatmentOdontogramComponent', () => {
 
     clickTooth(fixture, 16);
     await settle(fixture);
-    select(el(fixture, '#rto-treatment'), 'treatment-1');
+    pickTreatment(fixture, 'treatment-1');
     await settle(fixture);
 
     clickTooth(fixture, 17);
@@ -190,7 +195,7 @@ describe('RegisterTreatmentOdontogramComponent', () => {
 
     clickTooth(fixture, 16);
     await settle(fixture);
-    select(el(fixture, '#rto-treatment'), 't-multi');
+    pickTreatment(fixture, 't-multi');
     await settle(fixture);
 
     clickTooth(fixture, 17);
@@ -212,7 +217,7 @@ describe('RegisterTreatmentOdontogramComponent', () => {
 
     el<HTMLButtonElement>(fixture, '.rto__toolbar .rto__btn--secondary').click();
     await settle(fixture);
-    select(el(fixture, '#rto-treatment'), 't-upper');
+    pickTreatment(fixture, 't-upper');
     await settle(fixture);
 
     const cell = el<HTMLElement>(fixture, '.odontogram-chart__cell[aria-label="Diente 16"]');
@@ -235,7 +240,7 @@ describe('RegisterTreatmentOdontogramComponent', () => {
     await settle(fixture);
     expect(el(fixture, '.rto__panel-tooth-badge')?.textContent).toContain('Nuevo tratamiento');
 
-    select(el(fixture, '#rto-treatment'), 't-general');
+    pickTreatment(fixture, 't-general');
     await settle(fixture);
 
     expect(fixture.nativeElement.querySelectorAll('.rto__surfaces').length).toBe(0);
@@ -250,7 +255,7 @@ describe('RegisterTreatmentOdontogramComponent', () => {
 
     addTreatmentButton(fixture).click();
     await settle(fixture);
-    select(el(fixture, '#rto-treatment'), 't-unit');
+    pickTreatment(fixture, 't-unit');
     await settle(fixture);
 
     expect(el(fixture, '#priceCharged')).toBeFalsy();
@@ -274,7 +279,7 @@ describe('RegisterTreatmentOdontogramComponent', () => {
 
     clickTooth(fixture, 16);
     await settle(fixture);
-    select(el(fixture, '#rto-treatment'), 'treatment-1');
+    pickTreatment(fixture, 'treatment-1');
     await settle(fixture);
 
     const occlusal = fixture.nativeElement.querySelector('.rto__check input[data-surface="occlusal"]') as HTMLInputElement;
@@ -300,24 +305,27 @@ describe('RegisterTreatmentOdontogramComponent', () => {
     expect(el(fixture, '.rto__panel')).toBeFalsy();
   });
 
-  it('agrupa el <select> por categoría', async () => {
+  it('el selector agrupa los tratamientos en chips de categoría y filtra al elegir una', async () => {
     const { fixture } = setup();
     fixture.componentRef.setInput('treatments', [
-      fakeTreatment({ id: 't-1', categoryCode: 'protesis_fija', categoryName: 'Prótesis fija' }),
-      fakeTreatment({ id: 't-2', categoryCode: 'endodoncia', categoryName: 'Endodoncia' }),
+      fakeTreatment({ id: 't-1', name: 'Corona metálica', categoryCode: 'protesis_fija', categoryName: 'Prótesis fija' }),
+      fakeTreatment({ id: 't-2', name: 'Tratamiento de conducto', categoryCode: 'endodoncia', categoryName: 'Endodoncia' }),
     ]);
     await settle(fixture);
 
     addTreatmentButton(fixture).click();
     await settle(fixture);
 
-    const groups = fixture.nativeElement.querySelectorAll('optgroup');
-    expect(groups).toHaveLength(2);
-    expect(groups[0].getAttribute('label')).toBe('Prótesis fija');
-    expect(groups[1].getAttribute('label')).toBe('Endodoncia');
+    const chips = [...fixture.nativeElement.querySelectorAll('.catalog-picker__chip')].map((c) => (c as HTMLElement).textContent?.trim());
+    expect(chips).toEqual(['Todos', 'Prótesis fija', 'Endodoncia']);
+
+    (fixture.nativeElement.querySelectorAll('.catalog-picker__chip')[2] as HTMLButtonElement).click();
+    await settle(fixture);
+    const options = [...fixture.nativeElement.querySelectorAll('.catalog-picker__option')] as HTMLElement[];
+    expect(options.map((o) => o.dataset['id'])).toEqual(['t-2']);
   });
 
-  it('el <option> del tratamiento no muestra el precio', async () => {
+  it('la opción del tratamiento no muestra el precio', async () => {
     const { fixture } = setup();
     fixture.componentRef.setInput('treatments', [fakeTreatment({ basePrice: 350 })]);
     await settle(fixture);
@@ -325,8 +333,8 @@ describe('RegisterTreatmentOdontogramComponent', () => {
     addTreatmentButton(fixture).click();
     await settle(fixture);
 
-    const option = fixture.nativeElement.querySelector('#rto-treatment option[value="treatment-1"]');
-    expect(option.textContent.trim()).toBe('Corona metálica');
+    const option = el<HTMLElement>(fixture, '.catalog-picker__option[data-id="treatment-1"]');
+    expect(option.textContent?.trim()).toBe('Corona metálica');
   });
 
   it('pinta el odontograma con el diagnóstico vigente del paciente, no con odontogram_entries', async () => {
@@ -498,7 +506,7 @@ describe('RegisterTreatmentOdontogramComponent', () => {
 
       clickTooth(fixture, 16);
       await settle(fixture);
-      select(el(fixture, '#rto-treatment'), 'treatment-1');
+      pickTreatment(fixture, 'treatment-1');
       await settle(fixture);
       saveButton(fixture).click();
       await settle(fixture);

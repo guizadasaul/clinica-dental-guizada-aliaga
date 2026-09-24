@@ -48,24 +48,15 @@
 
         <!-- Treatment -->
         <div class="rto__panel-field">
-          <label class="rto__panel-label" for="rto-treatment">
+          <span class="rto__panel-label">
             Tratamiento <span class="rto__req">*</span>
-          </label>
-          <select
-            id="rto-treatment"
-            class="rto__select"
-            [value]="panelTreatmentId()"
-            (change)="onPanelTreatmentChange($any($event.target).value)"
-          >
-            <option value="" disabled>Elegí un tratamiento...</option>
-            @for (group of treatmentGroups(); track group.categoryCode) {
-              <optgroup [label]="group.categoryName">
-                @for (t of group.treatments; track t.id) {
-                  <option [value]="t.id">{{ t.name }}</option>
-                }
-              </optgroup>
-            }
-          </select>
+          </span>
+          <app-catalog-picker
+            noun="tratamiento"
+            [items]="treatmentOptions()"
+            [selectedId]="panelTreatmentId() || null"
+            (selectedChange)="onPanelTreatmentChange($event)"
+          />
           @if (panelTreatment()?.currency === 'USD' && panelTreatment()?.basePriceBob !== null) {
             <small class="rto__fx-hint">aprox. Bs {{ panelTreatment()!.basePriceBob | number:'1.2-2' }} al tipo de cambio del día</small>
           }
