@@ -18,6 +18,7 @@ import { DiagnosesModule } from './diagnoses/diagnoses.module';
 import { MedicalConditionsModule } from './medical-conditions/medical-conditions.module';
 import { AdminModule } from './admin/admin.module';
 import { ReportsModule } from './reports/reports.module';
+import { ChatbotModule } from './chatbot/chatbot.module';
 
 @Module({
   imports: [
@@ -43,6 +44,7 @@ import { ReportsModule } from './reports/reports.module';
     TestimonialsModule,
     AdminModule,
     ReportsModule,
+    ChatbotModule,
   ],
   controllers: [AppController],
   providers: [AppService, { provide: APP_GUARD, useClass: ThrottlerGuard }],
