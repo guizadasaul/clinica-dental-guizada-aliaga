@@ -174,19 +174,19 @@
                         [style.top.px]="menuPosition()!.top"
                         [style.right.px]="menuPosition()!.right"
                       >
-                        <li role="none">
+                        <li role="presentation">
                           <button type="button" class="patients-list__menu-item" role="menuitem" (click)="onNewDiagnosis(p.patient!.id)">
                             <span class="material-symbols-outlined">dentistry</span>
                             Nuevo diagnóstico
                           </button>
                         </li>
-                        <li role="none">
+                        <li role="presentation">
                           <button type="button" class="patients-list__menu-item" role="menuitem" (click)="onOpenOdontogram(p.patient!.id)">
                             <span class="material-symbols-outlined">edit</span>
                             Corregir diagnóstico actual
                           </button>
                         </li>
-                        <li role="none">
+                        <li role="presentation">
                           <button type="button" class="patients-list__menu-item" role="menuitem" (click)="onViewClinicalRecord(p.patient!)">
                             <span class="material-symbols-outlined">medical_information</span>
                             Ver historia clínica
