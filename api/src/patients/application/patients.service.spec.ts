@@ -329,6 +329,59 @@ describe('PatientsService', () => {
       );
     });
 
+    it('an odontologist without a target userId creates the record for themself', async () => {
+      mockUserRepo.findByAuthUserId.mockResolvedValue(
+        makeAppUser(UserRole.ODONTOLOGIST, 'doctor-id'),
+      );
+      mockPatientRepo.create.mockResolvedValue(fakePatient());
+
+      await service.createPatient(DOCTOR_AUTH_ID, undefined, {
+        firstName: 'A',
+        lastNamePaternal: 'B',
+        birthDate: new Date(),
+      });
+
+      expect(mockPatientRepo.create).toHaveBeenCalledWith(
+        'doctor-id',
+        expect.anything(),
+      );
+    });
+
+    it.each([
+      ['a lowercase unique violation', new Error('violates unique index')],
+    ])('also translates %s into ConflictException', async (_, error) => {
+      mockUserRepo.findByAuthUserId.mockResolvedValue(
+        makeAppUser(UserRole.ODONTOLOGIST, 'doctor-id'),
+      );
+      mockPatientRepo.create.mockRejectedValue(error);
+
+      await expect(
+        service.createPatient(DOCTOR_AUTH_ID, 'some-user-id', {
+          firstName: 'A',
+          lastNamePaternal: 'B',
+          birthDate: new Date(),
+        }),
+      ).rejects.toThrow(ConflictException);
+    });
+
+    it.each([
+      ['any other error', new Error('connection lost')],
+      ['a non-Error rejection', 'boom'],
+    ])('propagates %s as is', async (_, error) => {
+      mockUserRepo.findByAuthUserId.mockResolvedValue(
+        makeAppUser(UserRole.ODONTOLOGIST, 'doctor-id'),
+      );
+      mockPatientRepo.create.mockRejectedValue(error);
+
+      await expect(
+        service.createPatient(DOCTOR_AUTH_ID, 'some-user-id', {
+          firstName: 'A',
+          lastNamePaternal: 'B',
+          birthDate: new Date(),
+        }),
+      ).rejects.toBe(error);
+    });
+
     it('translates a unique-constraint violation into ConflictException', async () => {
       mockUserRepo.findByAuthUserId.mockResolvedValue(
         makeAppUser(UserRole.ODONTOLOGIST, 'doctor-id'),
@@ -652,6 +705,46 @@ describe('PatientsService', () => {
           teeth: [{ number: 16 }],
         }),
       ).rejects.toThrow(NotFoundException);
+    });
+
+    it('rejects a caller that has no row in users with 404', async () => {
+      mockUserRepo.findByAuthUserId.mockResolvedValue(null);
+
+      await expect(
+        service.createToothProcedure('patient-1', 'doctor-auth-1', {
+          ...baseInput,
+          teeth: [{ number: 16 }],
+        }),
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    // Las entries vienen de la más nueva a la más vieja: la condición que se
+    // conserva por diente es la vigente, no una anterior.
+    it('keeps the latest known condition of each tooth in the generated entries', async () => {
+      mockTreatmentRepo.findById.mockResolvedValue(
+        fakeTreatment({ applicationType: 'full_mouth' }),
+      );
+      mockPatientRepo.findOdontogramEntries.mockResolvedValue([
+        { toothNumber: 11, toothCondition: 'obturado' },
+        { toothNumber: 11, toothCondition: 'caries' },
+      ]);
+
+      await service.createToothProcedure('patient-1', 'doctor-auth-1', {
+        ...baseInput,
+        teeth: [],
+      });
+
+      const [, entries] = mockPatientRepo.appendOdontogramEntries.mock
+        .calls[0] as [
+        string,
+        { toothNumber: number; toothCondition: string }[],
+      ];
+      expect(entries.find((e) => e.toothNumber === 11)?.toothCondition).toBe(
+        'obturado',
+      );
+      expect(entries.find((e) => e.toothNumber === 12)?.toothCondition).toBe(
+        'sano',
+      );
     });
 
     describe('applicationType: single_tooth', () => {
@@ -1166,6 +1259,23 @@ describe('PatientsService', () => {
         ).rejects.toThrow(BadRequestException);
       });
 
+      it('rejects a mobility_grade diagnosis without a grade', async () => {
+        mockDiagnosisRepo.findByCodes.mockResolvedValue([
+          fakeDiagnosis({
+            code: 'movilidad_dental',
+            modifier: 'mobility_grade',
+          }),
+        ]);
+
+        await expect(
+          service.createDentalExam('patient-1', DOCTOR_AUTH_ID, {
+            findings: [
+              { diagnosisCode: 'movilidad_dental', toothNumbers: [21] },
+            ],
+          }),
+        ).rejects.toThrow('requiere un grado de movilidad');
+      });
+
       it('accepts a matching mobility_grade modifier', async () => {
         mockDiagnosisRepo.findByCodes.mockResolvedValue([
           fakeDiagnosis({
@@ -1186,6 +1296,154 @@ describe('PatientsService', () => {
           }),
         ).resolves.toBeDefined();
       });
+    });
+  });
+
+  // Lecturas y escrituras simples: primero validan que el paciente exista
+  // (404 si no) y después delegan en el repositorio.
+  describe('operaciones que solo exigen que el paciente exista', () => {
+    const cases = [
+      ['findMedicalHistory', 'findMedicalHistory', []],
+      [
+        'upsertHygieneHabits',
+        'upsertHygieneHabits',
+        [{ usesToothbrush: true }],
+      ],
+      ['findHygieneHabits', 'findHygieneHabits', []],
+      ['createClinicalExam', 'createClinicalExam', [{ tartar: 'leve' }]],
+      ['findLatestClinicalExam', 'findLatestClinicalExam', []],
+      [
+        'createOdontogramEntries',
+        'createOdontogramEntries',
+        [[{ toothNumber: 11, toothCondition: 'sano' }]],
+      ],
+      ['findOdontogramEntries', 'findOdontogramEntries', []],
+      ['findToothProcedures', 'findToothProcedures', []],
+      ['findDentalExamVersions', 'findDentalExamVersions', []],
+      ['findCurrentDentalExam', 'findCurrentDentalExam', []],
+    ] as const;
+
+    it.each(cases)(
+      '%s delega en el repositorio',
+      async (method, repoMethod, args) => {
+        mockPatientRepo.findPatientById.mockResolvedValue(fakePatient());
+        mockPatientRepo[repoMethod].mockResolvedValue('resultado');
+
+        const call = service[method] as (...a: unknown[]) => Promise<unknown>;
+        await expect(call.call(service, 'patient-1', ...args)).resolves.toBe(
+          'resultado',
+        );
+        expect(mockPatientRepo[repoMethod]).toHaveBeenCalledWith(
+          'patient-1',
+          ...args,
+        );
+      },
+    );
+
+    it.each(cases)(
+      '%s responde 404 si el paciente no existe',
+      async (method, repoMethod, args) => {
+        mockPatientRepo.findPatientById.mockResolvedValue(null);
+
+        const call = service[method] as (...a: unknown[]) => Promise<unknown>;
+        await expect(call.call(service, 'missing', ...args)).rejects.toThrow(
+          NotFoundException,
+        );
+        expect(mockPatientRepo[repoMethod]).not.toHaveBeenCalled();
+      },
+    );
+  });
+
+  describe('findDentalExam', () => {
+    beforeEach(() => {
+      mockPatientRepo.findPatientById.mockResolvedValue(fakePatient());
+    });
+
+    it('devuelve el examen del paciente', async () => {
+      mockPatientRepo.findDentalExam.mockResolvedValue({ id: 'exam-1' });
+
+      await expect(
+        service.findDentalExam('patient-1', 'exam-1'),
+      ).resolves.toEqual({ id: 'exam-1' });
+      expect(mockPatientRepo.findDentalExam).toHaveBeenCalledWith(
+        'patient-1',
+        'exam-1',
+      );
+    });
+
+    it('responde 404 si el examen no existe o es de otro paciente', async () => {
+      mockPatientRepo.findDentalExam.mockResolvedValue(null);
+
+      await expect(
+        service.findDentalExam('patient-1', 'exam-ajeno'),
+      ).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  describe('findMyPatient', () => {
+    it('devuelve la ficha del usuario autenticado', async () => {
+      mockUserRepo.findByAuthUserId.mockResolvedValue(
+        makeAppUser(UserRole.PATIENT, 'user-1'),
+      );
+      mockPatientRepo.findByUserId.mockResolvedValue(fakePatient());
+
+      await expect(service.findMyPatient(PATIENT_AUTH_ID)).resolves.toEqual(
+        fakePatient(),
+      );
+      expect(mockPatientRepo.findByUserId).toHaveBeenCalledWith('user-1');
+    });
+
+    it('responde 404 si el usuario no existe en la base', async () => {
+      mockUserRepo.findByAuthUserId.mockResolvedValue(null);
+
+      await expect(service.findMyPatient(PATIENT_AUTH_ID)).rejects.toThrow(
+        'Usuario autenticado no encontrado',
+      );
+    });
+
+    it('responde 404 si el usuario todavía no tiene ficha', async () => {
+      mockUserRepo.findByAuthUserId.mockResolvedValue(
+        makeAppUser(UserRole.PATIENT, 'user-1'),
+      );
+      mockPatientRepo.findByUserId.mockResolvedValue(null);
+
+      await expect(service.findMyPatient(PATIENT_AUTH_ID)).rejects.toThrow(
+        'No tenés un perfil de paciente registrado',
+      );
+    });
+  });
+
+  describe('findMyPatientStatus', () => {
+    it('sin usuario en la base: no existe', async () => {
+      mockUserRepo.findByAuthUserId.mockResolvedValue(null);
+
+      await expect(
+        service.findMyPatientStatus(PATIENT_AUTH_ID),
+      ).resolves.toEqual({ exists: false, patient: null });
+      expect(mockPatientRepo.findByUserId).not.toHaveBeenCalled();
+    });
+
+    it('con usuario pero sin ficha: no existe', async () => {
+      mockUserRepo.findByAuthUserId.mockResolvedValue(
+        makeAppUser(UserRole.PATIENT, 'user-1'),
+      );
+      mockPatientRepo.findByUserId.mockResolvedValue(null);
+
+      await expect(
+        service.findMyPatientStatus(PATIENT_AUTH_ID),
+      ).resolves.toEqual({ exists: false, patient: null });
+    });
+
+    it('con ficha: existe y la devuelve', async () => {
+      const patient = fakePatient();
+      mockUserRepo.findByAuthUserId.mockResolvedValue(
+        makeAppUser(UserRole.PATIENT, 'user-1'),
+      );
+      mockPatientRepo.findByUserId.mockResolvedValue(patient);
+
+      await expect(
+        service.findMyPatientStatus(PATIENT_AUTH_ID),
+      ).resolves.toEqual({ exists: true, patient });
     });
   });
 });
