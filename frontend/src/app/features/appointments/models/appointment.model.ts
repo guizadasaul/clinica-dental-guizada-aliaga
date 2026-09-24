@@ -7,8 +7,6 @@ export interface AppointmentAgendaItem {
   patientLastNamePaternal: string | null;
   patientPhone: string | null;
   patientEmail: string | null;
-  /** @deprecated Ver guestFirstName/guestLastNamePaternal (CLI-43). */
-  guestFullName: string | null;
   guestFirstName: string | null;
   guestLastNamePaternal: string | null;
   guestPhone: string | null;

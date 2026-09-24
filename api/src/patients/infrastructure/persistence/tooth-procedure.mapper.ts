@@ -37,7 +37,7 @@ export class ToothProcedureMapper {
       quantity: record.quantity,
       procedureDate: record.procedure_date,
       surfaces: record.tooth_procedure_surfaces
-        .sort(
+        .toSorted(
           (a, b) =>
             a.tooth_surfaces.display_order - b.tooth_surfaces.display_order,
         )

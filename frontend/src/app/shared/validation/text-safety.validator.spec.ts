@@ -6,6 +6,14 @@ describe('hasHtml', () => {
     expect(HTML_RE.test('<b>hola</b>')).toBe(true);
   });
 
+  it('detecta un tag aunque venga precedido de "<" sueltos', () => {
+    expect(hasHtml('<<<a>')).toBe(true);
+  });
+
+  it('no marca como HTML una cadena larga de "<" sin cerrar', () => {
+    expect(hasHtml('<'.repeat(50_000))).toBe(false);
+  });
+
   it('no detecta HTML en texto plano', () => {
     expect(hasHtml('Excelente atención, muy recomendable.')).toBe(false);
   });

@@ -71,7 +71,7 @@ export class HoldExpiryScheduler implements OnApplicationBootstrap {
     // Relectura obligatoria: si ya se confirmó el pago entre que se programó
     // el timer y que disparó, no hay nada que anular.
     const appointment = await this.appointmentRepo.findById(appointmentId);
-    if (!appointment || appointment.status !== AppointmentStatus.HELD) {
+    if (appointment?.status !== AppointmentStatus.HELD) {
       return;
     }
     if (appointment.banecoQrId) {

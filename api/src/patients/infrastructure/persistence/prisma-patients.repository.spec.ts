@@ -1,3 +1,4 @@
+import { Prisma } from '@prisma/client';
 import { PrismaPatientsRepository } from './prisma-patients.repository';
 import type { OdontogramEntryData } from '../../domain/PatientRepository';
 
@@ -504,5 +505,163 @@ describe('PrismaPatientsRepository.createDentalExam', () => {
     });
 
     expect(created[0]).toMatchObject({ version: 3, kind: 'diagnosis' });
+  });
+});
+
+// El data del UPDATE solo lleva las columnas con valor definido: undefined =
+// "no tocar", así un PATCH parcial no pisa con null lo que no vino.
+describe('PrismaPatientsRepository.updatePatient', () => {
+  function makeRepo(update: jest.Mock) {
+    const mockPrisma = { patients: { update } };
+    return new PrismaPatientsRepository(mockPrisma as never);
+  }
+
+  function updateData(update: jest.Mock): Record<string, unknown> {
+    const [[args]] = update.mock.calls as [[{ data: Record<string, unknown> }]];
+    return args.data;
+  }
+
+  it('maps every defined field to its patients column', async () => {
+    const update = jest
+      .fn()
+      .mockResolvedValue({ id: 'patient-1', users: { phone: null } });
+    const birthDate = new Date('1990-05-01');
+    const lastDentistVisit = new Date('2025-01-10');
+
+    await makeRepo(update).updatePatient('patient-1', {
+      firstName: 'Ana',
+      lastNamePaternal: 'Pérez',
+      lastNameMaternal: 'Rojas',
+      birthDate,
+      birthPlace: 'La Paz',
+      sex: 'F',
+      occupation: 'Ingeniera',
+      address: 'Av. Siempre Viva 742',
+      zona: 'Sopocachi',
+      ciudad: 'La Paz',
+      emergencyContactName: 'Luis Pérez',
+      emergencyContactPhone: '+59170000000',
+      emergencyContactRelationship: 'Hermano',
+      consultationReason: 'Control',
+      lastDentistVisit,
+      lastVisitTreatment: 'Limpieza',
+      familyHistory: 'Diabetes',
+      documentType: 'ci',
+      dni: '1234567',
+    });
+
+    expect(update).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id: 'patient-1' } }),
+    );
+    expect(updateData(update)).toEqual({
+      first_name: 'Ana',
+      last_name_paternal: 'Pérez',
+      last_name_maternal: 'Rojas',
+      birth_date: birthDate,
+      birth_place: 'La Paz',
+      sex: 'F',
+      occupation: 'Ingeniera',
+      address: 'Av. Siempre Viva 742',
+      zona: 'Sopocachi',
+      ciudad: 'La Paz',
+      emergency_contact_name: 'Luis Pérez',
+      emergency_contact_phone: '+59170000000',
+      emergency_contact_relationship: 'Hermano',
+      consultation_reason: 'Control',
+      last_dentist_visit: lastDentistVisit,
+      last_visit_treatment: 'Limpieza',
+      family_history: 'Diabetes',
+      document_type: 'ci',
+      dni: '1234567',
+      updated_at: expect.any(Date) as Date,
+    });
+  });
+
+  it('leaves out undefined fields and never writes the phone (it lives in users)', async () => {
+    const update = jest
+      .fn()
+      .mockResolvedValue({ id: 'patient-1', users: { phone: null } });
+
+    await makeRepo(update).updatePatient('patient-1', {
+      firstName: 'Ana',
+      phone: '+59171111111',
+    });
+
+    expect(updateData(update)).toEqual({
+      first_name: 'Ana',
+      updated_at: expect.any(Date) as Date,
+    });
+  });
+
+  it('returns the mapped patient', async () => {
+    const update = jest
+      .fn()
+      .mockResolvedValue({ id: 'patient-1', users: { phone: null } });
+
+    const patient = await makeRepo(update).updatePatient('patient-1', {});
+
+    expect(patient).toMatchObject({ id: 'patient-1' });
+  });
+
+  it('returns null when the patient does not exist (P2025)', async () => {
+    const update = jest.fn().mockRejectedValue(
+      new Prisma.PrismaClientKnownRequestError('Record not found', {
+        code: 'P2025',
+        clientVersion: 'test',
+      }),
+    );
+
+    await expect(
+      makeRepo(update).updatePatient('missing', { firstName: 'Ana' }),
+    ).resolves.toBeNull();
+  });
+
+  it('rethrows any other error', async () => {
+    const boom = new Error('connection lost');
+    const update = jest.fn().mockRejectedValue(boom);
+
+    await expect(
+      makeRepo(update).updatePatient('patient-1', { firstName: 'Ana' }),
+    ).rejects.toBe(boom);
+  });
+});
+
+// customPrice null/undefined se guarda como null; un 0 explícito se respeta.
+describe('PrismaPatientsRepository custom_price', () => {
+  it('createOdontogramEntries keeps a 0 price and turns a missing one into null', async () => {
+    const mockTx = makeMockTx();
+    const repo = new PrismaPatientsRepository(
+      makeMockPrismaService(mockTx) as never,
+    );
+
+    await repo.createOdontogramEntries('patient-1', [
+      { ...entry, customPrice: 0 },
+      { ...entry, toothNumber: 12 },
+    ]);
+
+    const [[args]] = mockTx.odontogram_entries.createMany.mock.calls as [
+      [{ data: { custom_price: number | null }[] }],
+    ];
+    expect(args.data.map((row) => row.custom_price)).toEqual([0, null]);
+  });
+
+  it('appendOdontogramEntries keeps a given price and turns a missing one into null', async () => {
+    const create = jest.fn().mockResolvedValue({ id: 'entry-1' });
+    const mockPrisma = {
+      transaction: jest.fn((fn: (tx: unknown) => unknown) =>
+        fn({ odontogram_entries: { create } }),
+      ),
+    };
+    const repo = new PrismaPatientsRepository(mockPrisma as never);
+
+    await repo.appendOdontogramEntries('patient-1', [
+      { ...entry, customPrice: 150 },
+      { ...entry, toothNumber: 12 },
+    ]);
+
+    const prices = (
+      create.mock.calls as [{ data: { custom_price: number | null } }][]
+    ).map(([args]) => args.data.custom_price);
+    expect(prices).toEqual([150, null]);
   });
 });

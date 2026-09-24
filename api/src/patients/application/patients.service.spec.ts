@@ -19,6 +19,7 @@ import type { Diagnosis } from '../../diagnoses/domain/Diagnosis';
 import { MedicalConditionRepository } from '../../medical-conditions/domain/MedicalConditionRepository';
 import type { MedicalCondition } from '../../medical-conditions/domain/MedicalCondition';
 import { SupabaseAdminService } from '../../auth/infrastructure/SupabaseAdminService';
+import * as toothSurfaceValidator from '../../shared/validators/tooth-surface.validator';
 
 const DOCTOR_AUTH_ID = 'doctor-auth-1';
 const PATIENT_AUTH_ID = 'patient-auth-1';
@@ -710,6 +711,23 @@ describe('PatientsService', () => {
           }),
         ).rejects.toThrow(BadRequestException);
         expect(mockPatientRepo.createToothProcedures).not.toHaveBeenCalled();
+      });
+
+      it('rethrows an unexpected validation error as is, not as a 400', async () => {
+        const boom = new Error('bug inesperado');
+        const spy = jest
+          .spyOn(toothSurfaceValidator, 'assertValidSurfacesForTooth')
+          .mockImplementation(() => {
+            throw boom;
+          });
+
+        await expect(
+          service.createToothProcedure('patient-1', 'doctor-auth-1', {
+            ...baseInput,
+            teeth: [{ number: 16, surfaces: ['occlusal'] }],
+          }),
+        ).rejects.toBe(boom);
+        spy.mockRestore();
       });
 
       // CLI-49: 16 es un molar (posterior) — no tiene borde incisal.

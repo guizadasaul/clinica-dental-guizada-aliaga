@@ -59,7 +59,7 @@ const REQUIRED_ENV_VARS = [
  * La configuración se lee de forma perezosa (recién al usarse el cliente,
  * no en el constructor) para que la app arranque igual cuando todavía no
  * hay credenciales de BANECO cargadas — solo fallan los endpoints de pago,
- * no todo el proceso (Nest instancia providers al bootstrap, no on-demand).
+ * no el proceso entero (Nest instancia providers al bootstrap, no on-demand).
  */
 @Injectable()
 export class BanecoClient {

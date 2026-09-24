@@ -2,7 +2,7 @@
 // dos juntos. Funciones puras, sin Angular.
 
 /** Cualquier tag HTML: `<algo>`, `</algo>`, `<algo attr="x">`. */
-export const HTML_RE = /<[^>]*>/;
+export const HTML_RE = /<[^<>]*>/;
 
 // Lista blanca de TLDs a propósito, no `\.[a-z]{2,}`: un texto legítimo como
 // "excelente.Muy recomendable" (punto pegado a la siguiente palabra, sin

@@ -6,6 +6,11 @@ import { createCipheriv, createDecipheriv, randomBytes } from 'node:crypto';
  * empíricamente desencriptando el vector de ejemplo de su documentación
  * (API Market v1.3.0 §5.1): "1234" + su aesKey de ejemplo -> el mismo
  * base64 que muestra el doc. La doc no especifica el modo/IV explícitamente.
+ *
+ * CBC no es elección nuestra: es lo que acepta BANECO, y cambiarlo rompe los
+ * pagos. Por eso la regla S5542 de Sonar ("modo de cifrado inseguro") está
+ * aceptada en el servidor de Sonar con esta justificación (CLI-120). Lo que sí
+ * depende de nosotros está bien: IV aleatorio nuevo por cada mensaje.
  */
 const ALGORITHM = 'aes-256-cbc';
 const IV_LENGTH = 16;

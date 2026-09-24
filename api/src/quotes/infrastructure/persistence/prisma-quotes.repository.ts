@@ -103,7 +103,7 @@ export class PrismaQuotesRepository implements IQuoteRepository {
   ): Promise<Quote | null> {
     return this.prisma.transaction(async (tx) => {
       const item = await tx.quote_items.findUnique({ where: { id: itemId } });
-      if (!item || item.quote_id !== quoteId) {
+      if (item?.quote_id !== quoteId) {
         return null;
       }
       if (item.application_group_id) {
@@ -137,7 +137,8 @@ export class PrismaQuotesRepository implements IQuoteRepository {
       }),
     ]);
     const totalAmount =
-      Number(itemsAgg._sum.subtotal ?? 0) + Number(groupsAgg._sum.subtotal ?? 0);
+      Number(itemsAgg._sum.subtotal ?? 0) +
+      Number(groupsAgg._sum.subtotal ?? 0);
     const record = await tx.quotes.update({
       where: { id: quoteId },
       data: {

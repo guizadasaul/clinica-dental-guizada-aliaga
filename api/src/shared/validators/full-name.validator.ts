@@ -14,10 +14,16 @@ import {
 const WORD = String.raw`\p{L}[\p{L}\p{M}'’-]+`;
 
 /** Nombre y apellido — ≥2 palabras. Reserva de cita (GuestContactDto.fullName). */
-export const FULL_NAME_RE = new RegExp(`^${WORD}(?:\\s+${WORD})+$`, 'u');
+export const FULL_NAME_RE = new RegExp(
+  String.raw`^${WORD}(?:\s+${WORD})+$`,
+  'u',
+);
 
 /** Una palabra alcanza — formulario de comentarios (CreateTestimonialDto.name). */
-export const PERSON_NAME_RE = new RegExp(`^${WORD}(?:\\s+${WORD})*$`, 'u');
+export const PERSON_NAME_RE = new RegExp(
+  String.raw`^${WORD}(?:\s+${WORD})*$`,
+  'u',
+);
 
 const SINGLE_WORD_RE = new RegExp(`^${WORD}$`, 'u');
 

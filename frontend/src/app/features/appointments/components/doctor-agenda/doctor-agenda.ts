@@ -15,6 +15,7 @@ import { AuthService } from '../../../../auth/application/auth.service';
 import { FALLBACK_DOCTOR_COLOR } from '../../../../shared/constants/doctor-colors';
 import { PatientWizardComponent } from '../../../patients/components/patient-wizard/patient-wizard';
 import type { AppointmentAgendaItem } from '../../models/appointment.model';
+import { appointmentPatientLabel } from '../../models/appointment-patient-label';
 import { PageHeaderComponent } from '../../../../shared/ui/page-header/page-header';
 
 const TIME_FORMATTER = new Intl.DateTimeFormat('es-BO', {
@@ -154,15 +155,22 @@ function assignLanes(
   let groupEnd = -Infinity;
 
   const flush = () => {
-    for (const g of group) { result.set(g.id, { lane: g.lane, lanes: laneEnds.length }); }
+    for (const g of group) {
+      result.set(g.id, { lane: g.lane, lanes: laneEnds.length });
+    }
     group = [];
     laneEnds = [];
   };
 
   for (const s of sorted) {
-    if (s.start >= groupEnd) { flush(); }
+    if (s.start >= groupEnd) {
+      flush();
+    }
     let lane = laneEnds.findIndex((end) => end <= s.start);
-    if (lane === -1) { lane = laneEnds.length; laneEnds.push(0); }
+    if (lane === -1) {
+      lane = laneEnds.length;
+      laneEnds.push(0);
+    }
     laneEnds[lane] = s.start + durationMinutes;
     groupEnd = Math.max(groupEnd, s.start + durationMinutes);
     group.push({ id: s.id, lane });
@@ -193,10 +201,14 @@ export class DoctorAgendaComponent {
 
   /** "Mi agenda" / "Agenda común" — solo lo elige el doctor en su propia agenda. */
   protected readonly scope = signal<AgendaScope>('mine');
-  protected readonly effectiveScope = computed<AgendaScope>(() => (this.allDoctors() ? 'all' : this.scope()));
+  protected readonly effectiveScope = computed<AgendaScope>(() =>
+    this.allDoctors() ? 'all' : this.scope(),
+  );
   protected readonly showScopeToggle = computed(() => !this.readOnly() && !this.allDoctors());
   protected readonly title = computed(() => {
-    if (this.effectiveScope() === 'all') { return 'Agenda común'; }
+    if (this.effectiveScope() === 'all') {
+      return 'Agenda común';
+    }
     return this.readOnly() ? 'Agenda' : 'Mi agenda';
   });
 
@@ -218,10 +230,10 @@ export class DoctorAgendaComponent {
     }),
   );
 
-  protected readonly gridLines: GridLine[] = Array.from(
-    { length: this.totalSlots },
-    (_, i) => ({ offset: i * this.ROW_HEIGHT_PX, isHour: i % 2 === 0 }),
-  );
+  protected readonly gridLines: GridLine[] = Array.from({ length: this.totalSlots }, (_, i) => ({
+    offset: i * this.ROW_HEIGHT_PX,
+    isHour: i % 2 === 0,
+  }));
 
   // Sábado y domingo comparten una sexta columna (mismo ancho que el resto),
   // dividida horizontalmente por la mitad — cada mitad es un panel con la
@@ -262,9 +274,7 @@ export class DoctorAgendaComponent {
   protected readonly gridTemplateColumns = '56px repeat(6, minmax(140px, 1fr))';
 
   protected readonly visibleDates = computed(() =>
-    Array.from({ length: this.VIEW_DAYS }, (_, i) =>
-      addDaysToDateString(this.selectedDate(), i),
-    ),
+    Array.from({ length: this.VIEW_DAYS }, (_, i) => addDaysToDateString(this.selectedDate(), i)),
   );
 
   protected readonly dayHeaders = computed<DayHeader[]>(() => {
@@ -347,7 +357,9 @@ export class DoctorAgendaComponent {
         const { hour, minute } = laPazHourMinute(a.appointmentDatetime);
         return { id: a.id, start: hour * 60 + minute };
       });
-      for (const [id, lane] of assignLanes(starts, this.SLOT_MINUTES)) { lanes.set(id, lane); }
+      for (const [id, lane] of assignLanes(starts, this.SLOT_MINUTES)) {
+        lanes.set(id, lane);
+      }
     }
     return lanes;
   });
@@ -428,24 +440,26 @@ export class DoctorAgendaComponent {
 
   /** Solo se abre la ficha de un turno propio — en la agenda común, los ajenos son de consulta. */
   protected canOpen(a: AppointmentAgendaItem): boolean {
-    if (this.readOnly() || !a.patientId) { return false; }
+    if (this.readOnly() || !a.patientId) {
+      return false;
+    }
     return this.effectiveScope() !== 'all' || a.doctorId === this.authService.currentUser()?.id;
   }
 
   protected slotTitle(a: AppointmentAgendaItem): string {
-    const parts = [this.formatDatetime(a.appointmentDatetime), this.patientLabel(a), this.patientPhone(a)];
-    if (this.effectiveScope() === 'all') { parts.unshift(a.doctorName ?? 'Doctor'); }
+    const parts = [
+      this.formatDatetime(a.appointmentDatetime),
+      this.patientLabel(a),
+      this.patientPhone(a),
+    ];
+    if (this.effectiveScope() === 'all') {
+      parts.unshift(a.doctorName ?? 'Doctor');
+    }
     return parts.join(' · ');
   }
 
   protected patientLabel(a: AppointmentAgendaItem): string {
-    if (a.patientFirstName) {
-      return `${a.patientFirstName} ${a.patientLastNamePaternal ?? ''}`.trim();
-    }
-    if (a.guestFirstName) {
-      return `${a.guestFirstName} ${a.guestLastNamePaternal ?? ''}`.trim();
-    }
-    return a.guestFullName ?? 'Paciente sin datos';
+    return appointmentPatientLabel(a);
   }
 
   protected patientPhone(a: AppointmentAgendaItem): string {

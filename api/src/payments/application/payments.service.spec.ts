@@ -85,7 +85,6 @@ function fakeAppointment(options: FakeAppointmentOptions = {}): Appointment {
     30,
     options.status ?? AppointmentStatus.HELD,
     'public_web',
-    null,
     options.guestFirstName ?? 'Juana',
     options.guestLastNamePaternal ?? 'Perez',
     null,
