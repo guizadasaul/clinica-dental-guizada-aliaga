@@ -6,6 +6,9 @@ import { PatientsService } from './patients/services/patients.service';
 import { ReportsService } from './reports/services/reports.service';
 import { QuotesService } from './quotes/services/quotes.service';
 import { PatientInvitesService } from './patient-invites/services/patient-invites.service';
+import { AppointmentsService } from './appointments/services/appointments.service';
+import { BookingService } from './booking/services/booking.service';
+import { AdminDoctorsService } from './admin/services/admin-doctors.service';
 
 const API = 'http://localhost:2999';
 
@@ -24,6 +27,9 @@ function services() {
     reports: TestBed.inject(ReportsService),
     quotes: TestBed.inject(QuotesService),
     invites: TestBed.inject(PatientInvitesService),
+    appointments: TestBed.inject(AppointmentsService),
+    booking: TestBed.inject(BookingService),
+    admin: TestBed.inject(AdminDoctorsService),
   };
 }
 
@@ -84,6 +90,52 @@ function cases(s: ReturnType<typeof services>): Case[] {
       body: { channel: 'whatsapp' },
     },
     { name: 'invitaciones: validar el link', call: () => s.invites.checkStatus('tok'), method: 'GET', url: `${API}/invites/tok/status` },
+    { name: 'agenda: sin filtros', call: () => s.appointments.getAgenda(), method: 'GET', url: `${API}/appointments`, params: {} },
+    {
+      name: 'agenda: con todos los filtros',
+      call: () =>
+        s.appointments.getAgenda({ status: 'confirmed', from: '2026-09-24', to: '2026-09-25', doctorId: 'doctor-1', scope: 'all' }),
+      method: 'GET',
+      url: `${API}/appointments`,
+      params: { status: 'confirmed', from: '2026-09-24', to: '2026-09-25', doctorId: 'doctor-1', scope: 'all' },
+    },
+    { name: 'reserva: doctores', call: () => s.booking.getDoctors(), method: 'GET', url: `${API}/public/doctors` },
+    {
+      name: 'reserva: disponibilidad de un día',
+      call: () => s.booking.getAvailability('2026-09-24', 'doctor-1'),
+      method: 'GET',
+      url: `${API}/public/availability`,
+      params: { date: '2026-09-24', doctorId: 'doctor-1' },
+    },
+    {
+      name: 'reserva: disponibilidad de dos semanas',
+      call: () => s.booking.getAvailabilityRange('2026-09-24', 'doctor-1'),
+      method: 'GET',
+      url: `${API}/public/availability-range`,
+      params: { from: '2026-09-24', doctorId: 'doctor-1', days: '14' },
+    },
+    {
+      name: 'reserva: tomar horario',
+      call: () => s.booking.holdSlot('2026-09-24T13:00:00Z', 'doctor-1'),
+      method: 'POST',
+      url: `${API}/public/appointments/hold`,
+      body: { slot: '2026-09-24T13:00:00Z', doctorId: 'doctor-1' },
+    },
+    { name: 'reserva: datos del invitado', call: () => s.booking.saveGuestContact('a1', body), method: 'PATCH', url: `${API}/public/appointments/a1/contact`, body },
+    { name: 'reserva: generar QR de pago', call: () => s.booking.checkout('a1'), method: 'POST', url: `${API}/public/appointments/a1/checkout`, body: {} },
+    { name: 'reserva: estado del pago', call: () => s.booking.getStatus('a1'), method: 'GET', url: `${API}/public/appointments/a1/status` },
+    { name: 'admin: listar doctores', call: () => s.admin.getAll(), method: 'GET', url: `${API}/admin/doctors` },
+    { name: 'admin: un doctor', call: () => s.admin.getById('d1'), method: 'GET', url: `${API}/admin/doctors/d1` },
+    { name: 'admin: crear doctor', call: () => s.admin.create(body), method: 'POST', url: `${API}/admin/doctors`, body },
+    { name: 'admin: editar doctor', call: () => s.admin.update('d1', body), method: 'PATCH', url: `${API}/admin/doctors/d1`, body },
+    {
+      name: 'admin: invitar doctor',
+      call: () => s.admin.createInvite('d1', 'email'),
+      method: 'POST',
+      url: `${API}/admin/doctors/d1/invites`,
+      body: { channel: 'email' },
+    },
+    { name: 'admin: dar de baja', call: () => s.admin.deactivate('d1'), method: 'PATCH', url: `${API}/admin/doctors/d1/deactivate`, body: {} },
   ];
 }
 
