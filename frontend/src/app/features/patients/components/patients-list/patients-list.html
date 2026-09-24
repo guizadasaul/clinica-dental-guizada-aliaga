@@ -133,14 +133,6 @@
                   <button
                     class="patients-list__btn"
                     type="button"
-                    (click)="onNewDiagnosis(p.patient!.id)"
-                  >
-                    <span class="material-symbols-outlined">dentistry</span>
-                    Nuevo diagnóstico
-                  </button>
-                  <button
-                    class="patients-list__btn"
-                    type="button"
                     (click)="onRegisterTreatment(p.patient!.id)"
                   >
                     <span class="material-symbols-outlined">healing</span>
@@ -182,6 +174,14 @@
                         [style.top.px]="menuPosition()!.top"
                         [style.right.px]="menuPosition()!.right"
                       >
+                        <li
+                          class="patients-list__menu-item"
+                          role="menuitem"
+                          (click)="onNewDiagnosis(p.patient!.id)"
+                        >
+                          <span class="material-symbols-outlined">dentistry</span>
+                          Nuevo diagnóstico
+                        </li>
                         <li
                           class="patients-list__menu-item"
                           role="menuitem"
