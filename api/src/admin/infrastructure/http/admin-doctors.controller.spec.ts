@@ -132,4 +132,57 @@ describe('AdminDoctorsController', () => {
       });
     });
   });
+
+  it('findAll y findOne delegan en el service', async () => {
+    mockService.findAll.mockResolvedValue(['doctor']);
+    mockService.findById.mockResolvedValue({ id: 'doctor-1' });
+
+    await expect(controller.findAll()).resolves.toEqual(['doctor']);
+    await expect(controller.findOne('doctor-1')).resolves.toEqual({
+      id: 'doctor-1',
+    });
+    expect(mockService.findById).toHaveBeenCalledWith('doctor-1');
+  });
+
+  it('deactivate da de baja al doctor', async () => {
+    await controller.deactivate('doctor-1');
+
+    expect(mockService.deactivateDoctor).toHaveBeenCalledWith('doctor-1');
+  });
+
+  it('update pasa todos los campos que vinieron, con el color en minúsculas', async () => {
+    mockService.updateDoctor.mockResolvedValue({});
+
+    await controller.update('doctor-1', {
+      displayName: 'Dra. Ana Pérez',
+      firstName: 'Ana',
+      lastNamePaternal: 'Pérez',
+      lastNameMaternal: 'Rojas',
+      email: 'ana@example.com',
+      phone: '+59170000000',
+      specialty: 'Ortodoncia',
+      bio: 'Bio',
+      photoUrl: 'https://foto/ana.png',
+      displayOrder: 2,
+      isBookable: false,
+      color: '#1D4ED8',
+      scheduleBlocks: [{ weekday: 2, start: '09:00', end: '13:00' }],
+    });
+
+    expect(mockService.updateDoctor).toHaveBeenCalledWith('doctor-1', {
+      displayName: 'Dra. Ana Pérez',
+      firstName: 'Ana',
+      lastNamePaternal: 'Pérez',
+      lastNameMaternal: 'Rojas',
+      email: 'ana@example.com',
+      phone: '+59170000000',
+      specialty: 'Ortodoncia',
+      bio: 'Bio',
+      photoUrl: 'https://foto/ana.png',
+      displayOrder: 2,
+      isBookable: false,
+      color: '#1d4ed8',
+      scheduleBlocks: [{ weekday: 2, start: '09:00', end: '13:00' }],
+    });
+  });
 });

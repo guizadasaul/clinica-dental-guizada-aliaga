@@ -118,6 +118,55 @@ describe('TreatmentsService', () => {
 
       expect(result).toEqual({ ...updated, basePriceBob: null });
     });
+
+    it('translates a duplicate name into ConflictException', async () => {
+      mockTreatmentRepo.update.mockRejectedValue(
+        new Error('duplicate key value violates unique constraint'),
+      );
+
+      await expect(
+        service.update('treatment-1', { name: 'Consulta' }),
+      ).rejects.toThrow(ConflictException);
+    });
+
+    it.each([
+      ['any other error', new Error('connection lost')],
+      ['a non-Error rejection', 'boom'],
+    ])('propagates %s as is', async (_, error) => {
+      mockTreatmentRepo.update.mockRejectedValue(error);
+
+      await expect(
+        service.update('treatment-1', { name: 'Consulta' }),
+      ).rejects.toBe(error);
+    });
+  });
+
+  describe('create — errores', () => {
+    const DATA = {
+      code: 'consulta',
+      name: 'Consulta',
+      basePrice: 50,
+      applicationType: 'general' as const,
+      currency: 'BOB',
+      categoryCode: 'basicos',
+    };
+
+    it('also translates a lowercase unique violation into ConflictException', async () => {
+      mockTreatmentRepo.create.mockRejectedValue(
+        new Error('violates unique index'),
+      );
+
+      await expect(service.create(DATA)).rejects.toThrow(ConflictException);
+    });
+
+    it.each([
+      ['any other error', new Error('connection lost')],
+      ['a non-Error rejection', 'boom'],
+    ])('propagates %s as is', async (_, error) => {
+      mockTreatmentRepo.create.mockRejectedValue(error);
+
+      await expect(service.create(DATA)).rejects.toBe(error);
+    });
   });
 
   describe('findActive — conversión de moneda (CLI-19)', () => {

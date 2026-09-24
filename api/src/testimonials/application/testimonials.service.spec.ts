@@ -1,3 +1,4 @@
+import { NotFoundException } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { TestimonialsService } from './testimonials.service';
 import { TestimonialRepository } from '../domain/TestimonialRepository';
@@ -111,6 +112,37 @@ describe('TestimonialsService', () => {
 
       expect(mockRepo.create).toHaveBeenCalledWith(validRequest);
       expect(result).toBe(persisted);
+    });
+  });
+
+  it('findApproved y findPending delegan en el repositorio', async () => {
+    mockRepo.findApproved.mockResolvedValue(['aprobado']);
+    mockRepo.findPending.mockResolvedValue(['pendiente']);
+
+    await expect(service.findApproved()).resolves.toEqual(['aprobado']);
+    await expect(service.findPending()).resolves.toEqual(['pendiente']);
+  });
+
+  describe('updateStatus', () => {
+    it('devuelve el comentario moderado', async () => {
+      mockRepo.updateStatus.mockResolvedValue({
+        id: 't-1',
+        status: 'approved',
+      });
+
+      await expect(service.updateStatus('t-1', 'approved')).resolves.toEqual({
+        id: 't-1',
+        status: 'approved',
+      });
+      expect(mockRepo.updateStatus).toHaveBeenCalledWith('t-1', 'approved');
+    });
+
+    it('responde 404 si no existe', async () => {
+      mockRepo.updateStatus.mockResolvedValue(null);
+
+      await expect(service.updateStatus('missing', 'rejected')).rejects.toThrow(
+        NotFoundException,
+      );
     });
   });
 });

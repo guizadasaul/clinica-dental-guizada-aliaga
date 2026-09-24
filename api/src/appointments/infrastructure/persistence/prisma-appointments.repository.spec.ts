@@ -473,4 +473,74 @@ describe('PrismaAppointmentsRepository', () => {
       });
     });
   });
+
+  it('findActiveBetween mapea las citas encontradas', async () => {
+    prismaMock.appointments.findMany.mockResolvedValue([
+      fakeAppointmentRecord(),
+    ]);
+
+    const result = await repo.findActiveBetween(NOW, NOW, NOW, 'doctor-1');
+
+    expect(result).toHaveLength(1);
+    expect(result[0]).toMatchObject({ id: fakeAppointmentRecord().id });
+  });
+
+  it('findById mapea la cita o devuelve null', async () => {
+    prismaMock.appointments.findUnique
+      .mockResolvedValueOnce(fakeAppointmentRecord())
+      .mockResolvedValueOnce(null);
+
+    await expect(repo.findById('appt-1')).resolves.toMatchObject({
+      id: fakeAppointmentRecord().id,
+    });
+    await expect(repo.findById('missing')).resolves.toBeNull();
+  });
+
+  it('createHold propaga un error que no es de horario ocupado', async () => {
+    const boom = new Error('connection lost');
+    prismaMock.appointments.updateMany.mockResolvedValue({ count: 0 });
+    prismaMock.appointments.create.mockRejectedValue(boom);
+
+    await expect(
+      repo.createHold({
+        doctorId: 'doctor-1',
+        slot: SLOT,
+        holdExpiresAt: NOW,
+        treatmentId: null,
+        durationMinutes: 30,
+        source: 'public_web',
+      }),
+    ).rejects.toBe(boom);
+  });
+
+  it('updateGuestContact propaga un error que no es de teléfono duplicado', async () => {
+    const boom = new Error('connection lost');
+    prismaMock.appointments.updateMany.mockRejectedValue(boom);
+
+    await expect(
+      repo.updateGuestContact(
+        'appt-1',
+        {
+          firstName: 'X',
+          lastNamePaternal: 'Y',
+          lastNameMaternal: null,
+          phone: '7',
+          email: null,
+        },
+        NOW,
+      ),
+    ).rejects.toBe(boom);
+  });
+
+  it('appendNote guarda la nota en la cita', async () => {
+    const update = jest.fn().mockResolvedValue({});
+    Object.assign(prismaMock.appointments, { update });
+
+    await repo.appendNote('appt-1', 'Pago confirmado');
+
+    expect(update).toHaveBeenCalledWith({
+      where: { id: 'appt-1' },
+      data: { notes: 'Pago confirmado' },
+    });
+  });
 });

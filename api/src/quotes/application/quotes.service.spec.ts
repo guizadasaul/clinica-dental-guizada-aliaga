@@ -413,4 +413,60 @@ describe('QuotesService', () => {
       );
     });
   });
+
+  describe('presupuestos del paciente', () => {
+    it('createForPatient guarda las notas o null si no vinieron', async () => {
+      mockQuoteRepo.createForPatient.mockResolvedValue(fakeQuote());
+
+      await service.createForPatient('patient-1', 'plan');
+      await service.createForPatient('patient-1');
+
+      expect(mockQuoteRepo.createForPatient.mock.calls).toEqual([
+        ['patient-1', 'plan'],
+        ['patient-1', null],
+      ]);
+    });
+
+    it('findByPatient lista los presupuestos del paciente', async () => {
+      mockQuoteRepo.findByPatient.mockResolvedValue([fakeQuote()]);
+
+      await expect(service.findByPatient('patient-1')).resolves.toHaveLength(1);
+    });
+
+    it.each([
+      ['createForPatient', () => service.createForPatient('missing')],
+      ['findByPatient', () => service.findByPatient('missing')],
+    ])('%s responde 404 si el paciente no existe', async (_, call) => {
+      mockPatientRepo.findPatientById.mockResolvedValue(null);
+
+      await expect(call()).rejects.toThrow(NotFoundException);
+      expect(mockQuoteRepo.createForPatient).not.toHaveBeenCalled();
+      expect(mockQuoteRepo.findByPatient).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('findById', () => {
+    it('devuelve el presupuesto', async () => {
+      const quote = fakeQuote();
+      mockQuoteRepo.findById.mockResolvedValue(quote);
+
+      await expect(service.findById('quote-1')).resolves.toBe(quote);
+    });
+
+    it('responde 404 si no existe', async () => {
+      mockQuoteRepo.findById.mockResolvedValue(null);
+
+      await expect(service.findById('missing')).rejects.toThrow(
+        NotFoundException,
+      );
+    });
+  });
+
+  it('addItem responde 404 si el tratamiento no existe', async () => {
+    mockTreatmentRepo.findById.mockResolvedValue(null);
+
+    await expect(
+      service.addItem('quote-1', { treatmentId: 'missing' }),
+    ).rejects.toThrow('Tratamiento con id missing no encontrado');
+  });
 });
