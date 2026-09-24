@@ -95,7 +95,7 @@ export class CatalogPickerComponent {
     return [...extras, { id: ALL, label: 'Todos' }, ...groups];
   });
 
-  /** Lo que se muestra: con búsqueda, en todo el catálogo agrupado por categoría; si no, según el chip. */
+  /** Lo que se muestra: con búsqueda, en el catálogo completo agrupado por categoría; si no, según el chip. */
   protected readonly sections = computed<Section[]>(() => {
     const q = normalize(this.query());
     const items = this.items();
