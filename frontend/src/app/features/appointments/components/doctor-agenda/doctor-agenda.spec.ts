@@ -26,7 +26,6 @@ function fakeAppointment(overrides: Partial<AppointmentAgendaItem> = {}): Appoin
     patientLastNamePaternal: 'Perez',
     patientPhone: '70011122',
     patientEmail: null,
-    guestFullName: null,
     guestFirstName: null,
     guestLastNamePaternal: null,
     guestPhone: null,
@@ -120,14 +119,24 @@ describe('DoctorAgendaComponent', () => {
     fixture.componentRef.setInput('readOnly', true);
     await settle(fixture);
 
-    expect(fixture.nativeElement.querySelector('.page-header__title')?.textContent).toContain('Agenda');
-    expect(fixture.nativeElement.querySelector('.page-header__title')?.textContent).not.toContain('Mi agenda');
+    expect(fixture.nativeElement.querySelector('.page-header__title')?.textContent).toContain(
+      'Agenda',
+    );
+    expect(fixture.nativeElement.querySelector('.page-header__title')?.textContent).not.toContain(
+      'Mi agenda',
+    );
   });
 
   describe('agenda común (CLI-110)', () => {
-    function scopeButton(fixture: ComponentFixture<DoctorAgendaComponent>, label: string): HTMLButtonElement {
-      return [...(fixture.nativeElement as HTMLElement).querySelectorAll<HTMLButtonElement>('.agenda__scope-btn')]
-        .find((b) => b.textContent?.includes(label))!;
+    function scopeButton(
+      fixture: ComponentFixture<DoctorAgendaComponent>,
+      label: string,
+    ): HTMLButtonElement {
+      return [
+        ...(fixture.nativeElement as HTMLElement).querySelectorAll<HTMLButtonElement>(
+          '.agenda__scope-btn',
+        ),
+      ].find((b) => b.textContent?.includes(label))!;
     }
 
     it('el toggle "Agenda común" pide la agenda con scope=all', async () => {
@@ -138,23 +147,38 @@ describe('DoctorAgendaComponent', () => {
       scopeButton(fixture, 'Agenda común').click();
       await settle(fixture);
 
-      expect(appointmentsService.getAgenda).toHaveBeenCalledWith(expect.objectContaining({ scope: 'all' }));
-      expect(fixture.nativeElement.querySelector('.page-header__title')?.textContent).toContain('Agenda común');
+      expect(appointmentsService.getAgenda).toHaveBeenCalledWith(
+        expect.objectContaining({ scope: 'all' }),
+      );
+      expect(fixture.nativeElement.querySelector('.page-header__title')?.textContent).toContain(
+        'Agenda común',
+      );
     });
 
     it('pinta cada turno con el color de su doctor y muestra la leyenda', async () => {
       const { fixture } = setup([
         fakeAppointment({ id: 'a-1' }),
-        fakeAppointment({ id: 'a-2', doctorId: 'doctor-b', doctorName: 'Dra. Marylu', doctorColor: '#db2777' }),
+        fakeAppointment({
+          id: 'a-2',
+          doctorId: 'doctor-b',
+          doctorName: 'Dra. Marylu',
+          doctorColor: '#db2777',
+        }),
       ]);
       await settle(fixture);
       scopeButton(fixture, 'Agenda común').click();
       await settle(fixture);
 
-      const slots = [...(fixture.nativeElement as HTMLElement).querySelectorAll<HTMLElement>('.agenda-slot')];
-      expect(slots.map((s) => s.style.getPropertyValue('--slot-color'))).toEqual(['#2563eb', '#db2777']);
-      const legend = [...(fixture.nativeElement as HTMLElement).querySelectorAll('.agenda__legend-item')]
-        .map((i) => i.textContent?.trim());
+      const slots = [
+        ...(fixture.nativeElement as HTMLElement).querySelectorAll<HTMLElement>('.agenda-slot'),
+      ];
+      expect(slots.map((s) => s.style.getPropertyValue('--slot-color'))).toEqual([
+        '#2563eb',
+        '#db2777',
+      ]);
+      const legend = [
+        ...(fixture.nativeElement as HTMLElement).querySelectorAll('.agenda__legend-item'),
+      ].map((i) => i.textContent?.trim());
       expect(legend).toEqual(['Dr. Saul', 'Dra. Marylu']);
     });
 
@@ -165,7 +189,9 @@ describe('DoctorAgendaComponent', () => {
       ]);
       await settle(fixture);
 
-      const [first, second] = [...(fixture.nativeElement as HTMLElement).querySelectorAll<HTMLElement>('.agenda-slot')];
+      const [first, second] = [
+        ...(fixture.nativeElement as HTMLElement).querySelectorAll<HTMLElement>('.agenda-slot'),
+      ];
       expect(first.style.left).not.toBe(second.style.left);
       expect(first.style.width).toContain('0.5');
     });
@@ -188,7 +214,9 @@ describe('DoctorAgendaComponent', () => {
       fixture.componentRef.setInput('allDoctors', true);
       await settle(fixture);
 
-      expect(appointmentsService.getAgenda).toHaveBeenCalledWith(expect.objectContaining({ scope: 'all' }));
+      expect(appointmentsService.getAgenda).toHaveBeenCalledWith(
+        expect.objectContaining({ scope: 'all' }),
+      );
       expect(fixture.nativeElement.querySelector('.agenda__scope')).toBeFalsy();
     });
   });

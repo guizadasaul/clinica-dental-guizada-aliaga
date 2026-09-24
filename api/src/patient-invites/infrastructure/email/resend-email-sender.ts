@@ -52,7 +52,7 @@ const INVITE_EMAIL_COPY: Record<InviteEmailKind, InviteEmailCopy> = {
  * Mismo patrón que BanecoClient (api/src/payments/infrastructure/baneco/baneco.client.ts):
  * las env vars se leen de forma perezosa (recién al mandar un email, no en el
  * constructor) para que la app arranque igual sin RESEND_API_KEY configurada
- * — solo falla el envío de invitaciones por email, no todo el proceso.
+ * — solo falla el envío de invitaciones por email, no el proceso entero.
  * fetch directo a la API de Resend, sin agregar su SDK como dependencia nueva.
  */
 @Injectable()
@@ -261,10 +261,10 @@ Edificio Guizada, 1er piso — Carmela Serruto entre Suárez Miranda y Waldo Bal
 
   private escapeHtml(value: string): string {
     return value
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;')
-      .replace(/'/g, '&#39;');
+      .replaceAll('&', '&amp;')
+      .replaceAll('<', '&lt;')
+      .replaceAll('>', '&gt;')
+      .replaceAll('"', '&quot;')
+      .replaceAll("'", '&#39;');
   }
 }

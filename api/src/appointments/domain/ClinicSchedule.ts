@@ -28,10 +28,8 @@ export function groupBlocksByWeekday(
 ): WeeklySchedule {
   const grouped: Record<number, ScheduleBlock[]> = {};
   for (const block of blocks) {
-    (grouped[block.weekday] ??= []).push({
-      start: block.start,
-      end: block.end,
-    });
+    grouped[block.weekday] ??= [];
+    grouped[block.weekday].push({ start: block.start, end: block.end });
   }
   return grouped;
 }

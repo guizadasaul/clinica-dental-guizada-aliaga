@@ -8,7 +8,7 @@ import {
 // cambiar los dos juntos (regex carácter por carácter iguales).
 
 /** Cualquier tag HTML: `<algo>`, `</algo>`, `<algo attr="x">`. */
-const HTML_RE = /<[^>]*>/;
+const HTML_RE = /<[^<>]*>/;
 
 // Lista blanca de TLDs a propósito, no `\.[a-z]{2,}`: un texto legítimo como
 // "excelente.Muy recomendable" (punto pegado a la siguiente palabra, sin

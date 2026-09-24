@@ -109,7 +109,6 @@ function fakeAppointment(options: FakeAppointmentOptions = {}): Appointment {
     null,
     null,
     null,
-    null,
     new Date(Date.now() + 15 * 60 * 1000),
     null,
     new Date(),

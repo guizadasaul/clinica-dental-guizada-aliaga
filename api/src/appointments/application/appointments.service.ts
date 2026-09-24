@@ -88,8 +88,8 @@ export class AppointmentsService {
   ) {}
 
   // CLI-56: valida antes de tocar disponibilidad/agenda — un doctorId que no
-  // existe o no es reservable no debe devolver "todo libre" (bloques vacíos
-  // harían que isValidSlot rechace todo, pero con un 400 genérico en vez de
+  // existe o no es reservable no debe devolver "agenda libre" (bloques vacíos
+  // harían que isValidSlot rechace cualquier turno, pero con un 400 genérico en vez de
   // un 404 claro) ni dejar reservar contra un doctor dado de baja.
   private async requireBookableDoctor(doctorId: string): Promise<void> {
     const bookable = await this.doctorRepo.isBookable(doctorId);
@@ -117,9 +117,7 @@ export class AppointmentsService {
     }
     const now = new Date();
     const dayStart = allSlots[0];
-    const dayEnd = new Date(
-      allSlots[allSlots.length - 1].getTime() + 24 * 60 * 60 * 1000,
-    );
+    const dayEnd = new Date(allSlots.at(-1)!.getTime() + 24 * 60 * 60 * 1000);
     const active = await this.appointmentRepo.findActiveBetween(
       dayStart,
       dayEnd,
@@ -162,9 +160,7 @@ export class AppointmentsService {
       if (!rangeStart || slots[0] < rangeStart) {
         rangeStart = slots[0];
       }
-      const dayEnd = new Date(
-        slots[slots.length - 1].getTime() + 24 * 60 * 60 * 1000,
-      );
+      const dayEnd = new Date(slots.at(-1)!.getTime() + 24 * 60 * 60 * 1000);
       if (!rangeEnd || dayEnd > rangeEnd) {
         rangeEnd = dayEnd;
       }

@@ -20,6 +20,7 @@ import { QuoteBuilderComponent } from '../../../quotes/components/quote-builder/
 import { DoctorAgendaComponent } from '../../../appointments/components/doctor-agenda/doctor-agenda';
 import { AppointmentsService } from '../../../appointments/services/appointments.service';
 import type { AppointmentAgendaItem } from '../../../appointments/models/appointment.model';
+import { appointmentPatientLabel } from '../../../appointments/models/appointment-patient-label';
 import { TestimonialReviewComponent } from '../../../testimonials/components/testimonial-review/testimonial-review';
 import type { Patient, PatientInviteContact } from '../../../patients/models/patient.model';
 import type { InviteChannel } from '../../../patient-invites/services/patient-invites.service';
@@ -108,21 +109,15 @@ export class DoctorDashboardComponent {
       this.selectedPatientForClinicalRecord() === null,
   );
 
-  protected readonly showInviteFlow = computed(
-    () => this.selectedPatientForInvite() !== null,
-  );
+  protected readonly showInviteFlow = computed(() => this.selectedPatientForInvite() !== null);
 
   protected readonly showTreatmentFlow = computed(
     () => this.selectedPatientForTreatment() !== null,
   );
 
-  protected readonly showHistoryFlow = computed(
-    () => this.selectedPatientForHistory() !== null,
-  );
+  protected readonly showHistoryFlow = computed(() => this.selectedPatientForHistory() !== null);
 
-  protected readonly showQuoteFlow = computed(
-    () => this.selectedPatientForQuote() !== null,
-  );
+  protected readonly showQuoteFlow = computed(() => this.selectedPatientForQuote() !== null);
 
   protected readonly showClinicalRecordFlow = computed(
     () => this.selectedPatientForClinicalRecord() !== null,
@@ -135,8 +130,12 @@ export class DoctorDashboardComponent {
 
   protected readonly greeting = computed(() => {
     const hour = new Date().getHours();
-    if (hour < 12) { return 'Buenos días'; }
-    if (hour < 19) { return 'Buenas tardes'; }
+    if (hour < 12) {
+      return 'Buenos días';
+    }
+    if (hour < 19) {
+      return 'Buenas tardes';
+    }
     return 'Buenas noches';
   });
 
@@ -169,11 +168,7 @@ export class DoctorDashboardComponent {
   }
 
   private toAppointmentSlot(a: AppointmentAgendaItem): AppointmentSlot {
-    const patientName = a.patientFirstName
-      ? `${a.patientFirstName} ${a.patientLastNamePaternal ?? ''}`.trim()
-      : a.guestFirstName
-        ? `${a.guestFirstName} ${a.guestLastNamePaternal ?? ''}`.trim()
-        : (a.guestFullName ?? 'Paciente sin datos');
+    const patientName = appointmentPatientLabel(a);
     return {
       time: TIME_FORMATTER.format(new Date(a.appointmentDatetime)),
       patientName,

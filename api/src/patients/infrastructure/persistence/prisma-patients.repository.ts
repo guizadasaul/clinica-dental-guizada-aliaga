@@ -51,6 +51,50 @@ function todayDateOnly(): Date {
   return new Date(new Date().toISOString().slice(0, 10));
 }
 
+/**
+ * Campo de dominio → columna de `patients`. El teléfono queda afuera a
+ * propósito: vive en `users` y lo sincroniza PatientsService (CLI-51).
+ * El `satisfies` obliga a mapear cualquier campo nuevo de UpdatePatientData.
+ */
+const PATIENT_COLUMN_BY_FIELD = {
+  firstName: 'first_name',
+  lastNamePaternal: 'last_name_paternal',
+  lastNameMaternal: 'last_name_maternal',
+  birthDate: 'birth_date',
+  birthPlace: 'birth_place',
+  sex: 'sex',
+  occupation: 'occupation',
+  address: 'address',
+  zona: 'zona',
+  ciudad: 'ciudad',
+  emergencyContactName: 'emergency_contact_name',
+  emergencyContactPhone: 'emergency_contact_phone',
+  emergencyContactRelationship: 'emergency_contact_relationship',
+  consultationReason: 'consultation_reason',
+  lastDentistVisit: 'last_dentist_visit',
+  lastVisitTreatment: 'last_visit_treatment',
+  familyHistory: 'family_history',
+  documentType: 'document_type',
+  dni: 'dni',
+} as const satisfies Record<
+  Exclude<keyof UpdatePatientData, 'phone'>,
+  keyof Prisma.patientsUpdateInput
+>;
+
+/** Solo las columnas con valor definido: undefined = "no tocar". */
+function toPatientUpdateData(
+  data: UpdatePatientData,
+): Prisma.patientsUpdateInput {
+  const update: Record<string, unknown> = {};
+  for (const [field, column] of Object.entries(PATIENT_COLUMN_BY_FIELD)) {
+    const value = data[field as keyof typeof PATIENT_COLUMN_BY_FIELD];
+    if (value !== undefined) {
+      update[column] = value;
+    }
+  }
+  return update;
+}
+
 @Injectable()
 export class PrismaPatientsRepository implements IPatientRepository {
   constructor(private readonly prisma: PrismaService) {}
@@ -132,47 +176,7 @@ export class PrismaPatientsRepository implements IPatientRepository {
       const record = await this.prisma.patients.update({
         where: { id },
         data: {
-          ...(data.firstName !== undefined && { first_name: data.firstName }),
-          ...(data.lastNamePaternal !== undefined && {
-            last_name_paternal: data.lastNamePaternal,
-          }),
-          ...(data.lastNameMaternal !== undefined && {
-            last_name_maternal: data.lastNameMaternal,
-          }),
-          ...(data.birthDate !== undefined && { birth_date: data.birthDate }),
-          ...(data.birthPlace !== undefined && {
-            birth_place: data.birthPlace,
-          }),
-          ...(data.sex !== undefined && { sex: data.sex }),
-          ...(data.occupation !== undefined && { occupation: data.occupation }),
-          ...(data.address !== undefined && { address: data.address }),
-          ...(data.zona !== undefined && { zona: data.zona }),
-          ...(data.ciudad !== undefined && { ciudad: data.ciudad }),
-          ...(data.emergencyContactName !== undefined && {
-            emergency_contact_name: data.emergencyContactName,
-          }),
-          ...(data.emergencyContactPhone !== undefined && {
-            emergency_contact_phone: data.emergencyContactPhone,
-          }),
-          ...(data.emergencyContactRelationship !== undefined && {
-            emergency_contact_relationship: data.emergencyContactRelationship,
-          }),
-          ...(data.consultationReason !== undefined && {
-            consultation_reason: data.consultationReason,
-          }),
-          ...(data.lastDentistVisit !== undefined && {
-            last_dentist_visit: data.lastDentistVisit,
-          }),
-          ...(data.lastVisitTreatment !== undefined && {
-            last_visit_treatment: data.lastVisitTreatment,
-          }),
-          ...(data.familyHistory !== undefined && {
-            family_history: data.familyHistory,
-          }),
-          ...(data.documentType !== undefined && {
-            document_type: data.documentType,
-          }),
-          ...(data.dni !== undefined && { dni: data.dni }),
+          ...toPatientUpdateData(data),
           updated_at: new Date(),
         },
         include: { users: true },
@@ -395,7 +399,7 @@ export class PrismaPatientsRepository implements IPatientRepository {
             tooth_condition: e.toothCondition ?? 'sano',
             diagnosis_description: e.diagnosisDescription ?? null,
             treatment_id: e.treatmentId ?? null,
-            custom_price: e.customPrice != null ? e.customPrice : null,
+            custom_price: e.customPrice ?? null,
             notes: e.notes ?? null,
           })),
         });
@@ -516,7 +520,7 @@ export class PrismaPatientsRepository implements IPatientRepository {
               tooth_condition: e.toothCondition ?? 'sano',
               diagnosis_description: e.diagnosisDescription ?? null,
               treatment_id: e.treatmentId ?? null,
-              custom_price: e.customPrice != null ? e.customPrice : null,
+              custom_price: e.customPrice ?? null,
               notes: e.notes ?? null,
             },
           }),

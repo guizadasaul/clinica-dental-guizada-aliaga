@@ -21,7 +21,7 @@ export interface DentalExam {
   findings: DentalExamFinding[];
 }
 
-/** Metadata de una versión sin sus findings — para listar el historial sin traer todo. */
+/** Metadata de una versión sin sus findings — para listar el historial sin traer el detalle completo. */
 export interface DentalExamVersionSummary {
   id: string;
   version: number;

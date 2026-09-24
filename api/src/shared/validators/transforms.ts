@@ -31,7 +31,7 @@ export function NormalizeDni(): PropertyDecorator {
 }
 
 /**
- * "" → undefined. Necesario en todo campo de texto opcional: con
+ * "" → undefined. Necesario en cada campo de texto opcional: con
  * `@IsOptional()` un string vacío pasa `@IsString()` igual y terminaría
  * guardado como "" en vez de quedar sin definir — y el adaptador Prisma solo
  * pisa la columna cuando el valor `!== undefined` (ver

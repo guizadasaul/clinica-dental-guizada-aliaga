@@ -17,7 +17,6 @@ import type {
   ClinicalExamData,
   OdontogramEntryData,
   CreateToothProcedureData,
-  CreateToothProcedureGroupData,
   DentalExamFindingData,
 } from '../domain/PatientRepository';
 import { UserRepository } from '../../auth/domain/UserRepository';
@@ -330,25 +329,7 @@ export class PatientsService {
       );
     }
 
-    try {
-      assertTeethMatchApplicationType(
-        treatment.applicationType,
-        data.teeth.map((t) => t.number),
-      );
-      for (const tooth of data.teeth) {
-        if (tooth.surfaces?.length) {
-          assertValidSurfacesForTooth(tooth.number, tooth.surfaces);
-        }
-      }
-    } catch (error: unknown) {
-      if (
-        error instanceof InvalidApplicationTypeError ||
-        error instanceof InvalidToothSurfaceError
-      ) {
-        throw new BadRequestException(error.message);
-      }
-      throw error;
-    }
+    this.assertValidTeethSelection(treatment.applicationType, data.teeth);
 
     let created: ToothProcedure[];
     if (treatment.applicationType === 'multiple_teeth') {
@@ -396,6 +377,32 @@ export class PatientsService {
     }
 
     return created;
+  }
+
+  /** Dientes y superficies coherentes con el tipo de aplicación, o 400. */
+  private assertValidTeethSelection(
+    applicationType: TreatmentApplicationType,
+    teeth: CreateToothProcedureInput['teeth'],
+  ): void {
+    try {
+      assertTeethMatchApplicationType(
+        applicationType,
+        teeth.map((t) => t.number),
+      );
+      for (const tooth of teeth) {
+        if (tooth.surfaces?.length) {
+          assertValidSurfacesForTooth(tooth.number, tooth.surfaces);
+        }
+      }
+    } catch (error: unknown) {
+      if (
+        error instanceof InvalidApplicationTypeError ||
+        error instanceof InvalidToothSurfaceError
+      ) {
+        throw new BadRequestException(error.message);
+      }
+      throw error;
+    }
   }
 
   /**

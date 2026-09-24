@@ -1,6 +1,9 @@
 import { SchedulerRegistry } from '@nestjs/schedule';
 import { HoldExpiryScheduler } from './hold-expiry-scheduler.service';
-import { Appointment, AppointmentStatus } from '../../appointments/domain/Appointment';
+import {
+  Appointment,
+  AppointmentStatus,
+} from '../../appointments/domain/Appointment';
 
 function fakeAppointment(
   id: string,
@@ -16,7 +19,6 @@ function fakeAppointment(
     30,
     status,
     'public_web',
-    'Guest Name',
     'Guest',
     'Name',
     null,
