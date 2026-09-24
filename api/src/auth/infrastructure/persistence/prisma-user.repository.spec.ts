@@ -367,7 +367,7 @@ describe('PrismaUserRepository', () => {
       ).rejects.toThrow(ConflictException);
     });
 
-    it('does not overwrite the invited patient\'s existing email when linking a phone-only login (null email)', async () => {
+    it("does not overwrite the invited patient's existing email when linking a phone-only login (null email)", async () => {
       prismaMock.users.updateMany.mockResolvedValue({ count: 1 });
       prismaMock.users.findUnique.mockResolvedValue(
         fakeUserRecord({
@@ -390,6 +390,112 @@ describe('PrismaUserRepository', () => {
       };
       expect(updateManyArgs.data).not.toHaveProperty('email');
       expect(updateManyArgs.data['phone']).toBe('59171234567');
+    });
+  });
+
+  it('linkAuthIdentity propaga un error que no es de email duplicado', async () => {
+    const boom = new Error('connection lost');
+    prismaMock.transaction.mockRejectedValue(boom);
+
+    await expect(
+      repo.linkAuthIdentity(USER_ID, {
+        authUserId: AUTH_USER_ID,
+        email: 'a@b.com',
+        displayName: 'Real Name',
+        photoUrl: null,
+      }),
+    ).rejects.toBe(boom);
+  });
+
+  describe('findByAuthUserId', () => {
+    it('busca por el uid de Supabase y mapea el usuario', async () => {
+      prismaMock.users.findUnique.mockResolvedValue(
+        fakeUserRecord({ auth_user_id: AUTH_USER_ID }),
+      );
+
+      const user = await repo.findByAuthUserId(AUTH_USER_ID);
+
+      expect(user).toMatchObject({ id: USER_ID, authUserId: AUTH_USER_ID });
+      expect(prismaMock.users.findUnique).toHaveBeenCalledWith({
+        where: { auth_user_id: AUTH_USER_ID },
+      });
+    });
+
+    it('devuelve null si nadie tiene ese uid', async () => {
+      prismaMock.users.findUnique.mockResolvedValue(null);
+
+      await expect(repo.findByAuthUserId(AUTH_USER_ID)).resolves.toBeNull();
+    });
+  });
+
+  describe('updateContactInfo', () => {
+    function knownError(code: string) {
+      return new Prisma.PrismaClientKnownRequestError('x', {
+        code,
+        clientVersion: 'test',
+      });
+    }
+
+    it('actualiza solo los datos que vinieron', async () => {
+      prismaMock.users.update.mockResolvedValue(fakeUserRecord());
+
+      await repo.updateContactInfo(USER_ID, { phone: '59170000000' });
+
+      const args = firstCallArg<{
+        where: unknown;
+        data: Record<string, unknown>;
+      }>(prismaMock.users.update);
+      expect(args.where).toEqual({ id: USER_ID });
+      expect(args.data).toEqual({
+        phone: '59170000000',
+        updated_at: expect.any(Date) as Date,
+      });
+    });
+
+    it('mapea email, teléfono y nombre cuando vienen', async () => {
+      prismaMock.users.update.mockResolvedValue(fakeUserRecord());
+
+      await repo.updateContactInfo(USER_ID, {
+        email: 'ana@example.com',
+        phone: '59170000000',
+        displayName: 'Ana Pérez',
+      });
+
+      expect(
+        firstCallArg<{ data: Record<string, unknown> }>(prismaMock.users.update)
+          .data,
+      ).toMatchObject({
+        email: 'ana@example.com',
+        phone: '59170000000',
+        display_name: 'Ana Pérez',
+      });
+    });
+
+    it('devuelve null si el usuario no existe (P2025)', async () => {
+      prismaMock.users.update.mockRejectedValue(knownError('P2025'));
+
+      await expect(
+        repo.updateContactInfo(USER_ID, { phone: '1' }),
+      ).resolves.toBeNull();
+    });
+
+    it('email de otra cuenta → 409 (P2002)', async () => {
+      prismaMock.users.update.mockRejectedValue(knownError('P2002'));
+
+      await expect(
+        repo.updateContactInfo(USER_ID, { email: 'otro@example.com' }),
+      ).rejects.toThrow(ConflictException);
+    });
+
+    it.each([
+      ['otro error conocido de Prisma', knownError('P2003')],
+      ['un error cualquiera', new Error('connection lost')],
+    ])('propaga %s', async (_, error) => {
+      prismaMock.users.update.mockRejectedValue(error);
+
+      await expect(
+        repo.updateContactInfo(USER_ID, { phone: '1' }),
+      ).rejects.toBe(error);
     });
   });
 });
