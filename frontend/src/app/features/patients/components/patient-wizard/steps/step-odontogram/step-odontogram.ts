@@ -24,7 +24,7 @@ import { field, allValid, touchAll } from '../../../../../../shared/validation/f
 import { normalizeText, optionalTextError, requiredTextError } from '../../../../../../shared/validation/text.validator';
 import { BLACK_CLASSES, MOBILITY_GRADES } from '../../../../../../shared/validation/clinical-options';
 import { modifierLabel } from '../../../../models/dental-exam-display.util';
-import { examLegendItems, examToothColorMap } from '../../../../../../shared/utils/odontogram-paint.util';
+import { DentalExamHistoryComponent } from '../../../dental-exam-history/dental-exam-history';
 
 /**
  * Cómo arranca el paso (CLI-109): `new` = diagnóstico nuevo desde cero (el
@@ -117,7 +117,7 @@ function findingsSignature(drafts: readonly FindingDraft[]): string {
   selector: 'app-step-odontogram',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [FormsModule, DatePipe, OdontogramChartComponent],
+  imports: [FormsModule, DatePipe, OdontogramChartComponent, DentalExamHistoryComponent],
   templateUrl: './step-odontogram.html',
   styleUrl: './step-odontogram.scss',
 })
@@ -127,10 +127,9 @@ export class StepOdontogramComponent {
   readonly catalog = input<DiagnosisCategory[]>([]);
   readonly currentExam = input<DentalExam | null>(null);
   readonly versions = input<DentalExamVersionSummary[]>([]);
-  readonly viewedVersion = input<DentalExam | null>(null);
+  /** Para traer las versiones viejas del examen al desplegarlas (CLI-114). */
+  readonly patientId = input<string | null>(null);
   readonly submitStep = output<CreateDentalExamRequest>();
-  readonly viewVersionRequest = output<string>();
-  readonly closeViewedVersion = output<void>();
   readonly back = output<void>();
   /** Salir sin guardar cuando no hubo cambios sobre el examen actual. */
   readonly closeWithoutChanges = output<void>();
@@ -182,12 +181,9 @@ export class StepOdontogramComponent {
     () => !this.isNewDiagnosis() && this.hasPriorVersions() && this.hasChanges(),
   );
 
-  // ── Diagnóstico anterior, solo de consulta (modo `new`, CLI-109) ─────────
-  protected readonly showPreviousExam = signal(false);
-  protected readonly previousToothColor = computed(() => examToothColorMap(this.currentExam()?.findings ?? []));
-  protected readonly previousLegend = computed(() => examLegendItems(this.currentExam()?.findings ?? []));
-  /** Aviso inline antes de sumar los hallazgos anteriores a los que ya se cargaron. */
-  protected readonly confirmCopy = signal(false);
+  // ── Diagnósticos anteriores (CLI-109/114) ─────────────────────────────────
+  /** Examen elegido para copiar mientras se confirma sumarlo a los hallazgos ya cargados. */
+  protected readonly pendingCopy = signal<DentalExam | null>(null);
   protected readonly showHistory = signal(false);
 
   // ── Panel de nuevo/edición de hallazgo ──────────────────────────────────
@@ -374,39 +370,35 @@ export class StepOdontogramComponent {
     this.showHistory.update((v) => !v);
   }
 
-  protected onViewVersion(examId: string): void {
-    this.viewVersionRequest.emit(examId);
-  }
-
-  protected onCloseViewedVersion(): void {
-    this.closeViewedVersion.emit();
-  }
-
   // ── Footer ───────────────────────────────────────────────────────────────
 
   protected onBack(): void {
     this.back.emit();
   }
 
-  protected onTogglePreviousExam(): void {
-    this.showPreviousExam.update((v) => !v);
-  }
-
-  protected onCopyPreviousFindings(): void {
-    if (this.findings().length > 0 && !this.confirmCopy()) {
-      this.confirmCopy.set(true);
+  /** Copiar hallazgos de cualquier diagnóstico anterior; si ya hay hallazgos cargados, primero se confirma. */
+  protected onCopyFrom(exam: DentalExam): void {
+    if (this.findings().length > 0) {
+      this.pendingCopy.set(exam);
       return;
     }
-    const exam = this.currentExam();
-    if (!exam) { return; }
-    // Claves nuevas: copiar dos veces no debe repetir claves de la lista.
-    const copies = buildDraftsFromExam(exam).map((d) => ({ ...d, key: localKey() }));
-    this.findings.update((prev) => [...prev, ...copies]);
-    this.confirmCopy.set(false);
+    this.appendCopies(exam);
+  }
+
+  protected onConfirmCopy(): void {
+    const exam = this.pendingCopy();
+    if (exam) { this.appendCopies(exam); }
   }
 
   protected onCancelCopy(): void {
-    this.confirmCopy.set(false);
+    this.pendingCopy.set(null);
+  }
+
+  private appendCopies(exam: DentalExam): void {
+    // Claves nuevas: copiar dos veces no debe repetir claves de la lista.
+    const copies = buildDraftsFromExam(exam).map((d) => ({ ...d, key: localKey() }));
+    this.findings.update((prev) => [...prev, ...copies]);
+    this.pendingCopy.set(null);
   }
 
   protected onClose(): void {

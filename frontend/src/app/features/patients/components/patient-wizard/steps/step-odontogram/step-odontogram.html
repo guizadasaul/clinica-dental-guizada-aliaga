@@ -105,146 +105,43 @@
         </div>
       }
 
-      <!-- Previous diagnosis, read-only (new diagnosis mode, CLI-109) -->
-      @if (isNewDiagnosis() && currentExam(); as previous) {
-        <section class="odontogram-step__previous" aria-label="Diagnóstico anterior">
-          <div class="odontogram-step__previous-header">
-            <button
-              type="button"
-              class="odontogram-step__history-toggle"
-              [attr.aria-expanded]="showPreviousExam()"
-              (click)="onTogglePreviousExam()"
-            >
-              <span class="material-symbols-outlined">history_edu</span>
-              Diagnóstico anterior · {{ previous.recordedAt | date: 'dd/MM/yyyy' }}
-              <span class="odontogram-step__history-count">{{ previous.findings.length }}</span>
-              <span class="material-symbols-outlined odontogram-step__history-chevron">
-                {{ showPreviousExam() ? 'expand_less' : 'expand_more' }}
-              </span>
-            </button>
-            @if (previous.findings.length > 0) {
-              <button
-                type="button"
-                class="step-form__btn step-form__btn--secondary odontogram-step__copy-btn"
-                [disabled]="loading()"
-                (click)="onCopyPreviousFindings()"
-              >
-                <span class="material-symbols-outlined">content_copy</span>
-                Copiar hallazgos del anterior
-              </button>
-            }
-          </div>
+      <!-- Diagnósticos anteriores / historial, cada uno con su odontograma (CLI-114) -->
+      @if (versions().length > 0) {
+        <section class="odontogram-step__history" [attr.aria-label]="isNewDiagnosis() ? 'Diagnósticos anteriores' : 'Historial del examen'">
+          <button
+            type="button"
+            class="odontogram-step__history-toggle"
+            [attr.aria-expanded]="showHistory()"
+            (click)="onToggleHistory()"
+          >
+            <span class="material-symbols-outlined">history</span>
+            {{ isNewDiagnosis() ? 'Diagnósticos anteriores' : 'Historial del examen' }}
+            <span class="odontogram-step__history-count">{{ versions().length }}</span>
+            <span class="material-symbols-outlined odontogram-step__history-chevron">
+              {{ showHistory() ? 'expand_less' : 'expand_more' }}
+            </span>
+          </button>
 
-          @if (confirmCopy()) {
+          @if (pendingCopy(); as pending) {
             <div class="odontogram-step__copy-confirm">
-              <span>Ya cargaste hallazgos. ¿Sumar también los {{ previous.findings.length }} del diagnóstico anterior?</span>
+              <span>Ya cargaste hallazgos. ¿Sumar también los {{ pending.findings.length }} del diagnóstico del {{ pending.recordedAt | date: 'dd/MM/yyyy' }}?</span>
               <button type="button" class="step-form__btn step-form__btn--secondary" (click)="onCancelCopy()">Cancelar</button>
-              <button type="button" class="step-form__btn step-form__btn--primary" (click)="onCopyPreviousFindings()">Sumar</button>
+              <button type="button" class="step-form__btn step-form__btn--primary" (click)="onConfirmCopy()">Sumar</button>
             </div>
           }
 
-          @if (showPreviousExam()) {
-            <div class="odontogram-step__previous-body">
-              <app-odontogram-chart
-                [interactive]="false"
-                [toothColor]="previousToothColor()"
-                [legendItems]="previousLegend()"
-              />
-              @if (previous.findings.length === 0) {
-                <p class="odontogram-step__history-empty">Sin hallazgos — boca sana en ese diagnóstico.</p>
-              } @else {
-                <ul class="odontogram-step__entries-list">
-                  @for (f of previous.findings; track f.id) {
-                    <li class="odontogram-step__entry">
-                      <span class="odontogram-step__entry-dot" [style.background]="f.diagnosisColor"></span>
-                      @if (f.toothNumber) {
-                        <span class="odontogram-step__entry-tooth">Diente #{{ f.toothNumber }}</span>
-                        <span class="odontogram-step__entry-sep">—</span>
-                      }
-                      <span class="odontogram-step__entry-diag">{{ f.diagnosisName }}</span>
-                      @if (f.modifierValue) {
-                        <span class="odontogram-step__entry-type">{{ modifierLabel(f.modifierValue) }}</span>
-                      }
-                    </li>
-                  }
-                </ul>
-              }
-            </div>
+          @if (showHistory() && patientId()) {
+            <app-dental-exam-history
+              [patientId]="patientId()!"
+              [versions]="versions()"
+              [initialExam]="currentExam()"
+              [expandInitial]="isNewDiagnosis()"
+              [canCopy]="isNewDiagnosis()"
+              (copyFindings)="onCopyFrom($event)"
+            />
           }
         </section>
       }
-
-      <!-- History -->
-      <div class="odontogram-step__history">
-        <button type="button" class="odontogram-step__history-toggle" (click)="onToggleHistory()">
-          <span class="material-symbols-outlined">history</span>
-          Historial del examen
-          @if (versions().length > 0) {
-            <span class="odontogram-step__history-count">{{ versions().length }}</span>
-          }
-          <span class="material-symbols-outlined odontogram-step__history-chevron">
-            {{ showHistory() ? 'expand_less' : 'expand_more' }}
-          </span>
-        </button>
-
-        @if (showHistory()) {
-          @if (versions().length === 0) {
-            <p class="odontogram-step__history-empty">Todavía no hay versiones guardadas de este examen.</p>
-          } @else {
-            <ul class="odontogram-step__history-list">
-              @for (v of versions(); track v.id) {
-                <li class="odontogram-step__history-item">
-                  <span class="odontogram-step__history-version">Versión {{ v.version }}</span>
-                  <span class="odontogram-step__history-meta">
-                    {{ v.recordedAt | date: 'dd/MM/yyyy HH:mm' }}
-                    @if (v.recordedByName) { · {{ v.recordedByName }} }
-                    · {{ v.findingsCount }} hallazgo{{ v.findingsCount === 1 ? '' : 's' }}
-                  </span>
-                  @if (v.changeReason) {
-                    <span class="odontogram-step__history-reason">Motivo: {{ v.changeReason }}</span>
-                  }
-                  <button type="button" class="odontogram-step__history-view" (click)="onViewVersion(v.id)">
-                    Ver
-                  </button>
-                </li>
-              }
-            </ul>
-          }
-        }
-
-        @if (viewedVersion()) {
-          <div class="odontogram-step__history-detail" role="region" aria-label="Versión anterior del examen">
-            <div class="odontogram-step__history-detail-header">
-              <strong>Versión {{ viewedVersion()!.version }}</strong> (solo lectura)
-              <button type="button" class="odontogram-step__panel-close" (click)="onCloseViewedVersion()" aria-label="Cerrar">
-                <span class="material-symbols-outlined">close</span>
-              </button>
-            </div>
-            @if (viewedVersion()!.findings.length === 0) {
-              <p class="odontogram-step__history-empty">Sin hallazgos — boca sana en esta versión.</p>
-            } @else {
-              <ul class="odontogram-step__entries-list">
-                @for (f of viewedVersion()!.findings; track f.id) {
-                  <li class="odontogram-step__entry">
-                    <span class="odontogram-step__entry-dot" [style.background]="f.diagnosisColor"></span>
-                    @if (f.toothNumber) {
-                      <span class="odontogram-step__entry-tooth">Diente #{{ f.toothNumber }}</span>
-                      <span class="odontogram-step__entry-sep">—</span>
-                    }
-                    <span class="odontogram-step__entry-diag">{{ f.diagnosisName }}</span>
-                    @if (f.modifierValue) {
-                      <span class="odontogram-step__entry-type">{{ modifierLabel(f.modifierValue) }}</span>
-                    }
-                    @if (f.description) {
-                      <span class="odontogram-step__entry-desc">{{ f.description }}</span>
-                    }
-                  </li>
-                }
-              </ul>
-            }
-          </div>
-        }
-      </div>
 
     </div>
 

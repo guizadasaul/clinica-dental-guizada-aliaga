@@ -1,11 +1,19 @@
 import { TestBed } from '@angular/core/testing';
+import { of } from 'rxjs';
 import { StepOdontogramComponent } from './step-odontogram';
+import { PatientsService } from '../../../../services/patients.service';
 import type { DiagnosisCategory } from '../../../../../diagnoses/models/diagnosis.model';
 import type { CreateDentalExamRequest } from '../../../../models/dental-exam.request';
 import type { DentalExam, DentalExamVersionSummary } from '../../../../models/dental-exam.model';
 
+/** Examen viejo (versión 1) que trae el historial al desplegarlo (CLI-114). */
+let olderExam: DentalExam | null = null;
+
 function setup() {
-  TestBed.configureTestingModule({ imports: [StepOdontogramComponent] });
+  TestBed.configureTestingModule({
+    imports: [StepOdontogramComponent],
+    providers: [{ provide: PatientsService, useValue: { getDentalExam: () => of(olderExam) } }],
+  });
   return TestBed.createComponent(StepOdontogramComponent);
 }
 
@@ -409,54 +417,87 @@ describe('StepOdontogramComponent', () => {
     expect(emitted[0].findings).toHaveLength(0);
   });
 
-  describe('nuevo diagnóstico (CLI-109)', () => {
+  describe('nuevo diagnóstico (CLI-109/114)', () => {
+    const OLDER: DentalExam = {
+      ...CURRENT_EXAM,
+      id: 'exam-0',
+      version: 1,
+      recordedAt: '2021-03-01T12:00:00.000Z',
+      findings: [{ ...CURRENT_EXAM.findings[0], id: 'finding-old', toothNumber: 36 }],
+    };
+    const TWO_VERSIONS: DentalExamVersionSummary[] = [
+      { ...VERSIONS[0], version: 2 },
+      { ...VERSIONS[0], id: 'exam-0', version: 1, recordedAt: OLDER.recordedAt },
+    ];
+
+    async function setupNew() {
+      olderExam = OLDER;
+      const fixture = await setupWithExistingExam('new');
+      fixture.componentRef.setInput('patientId', 'patient-1');
+      fixture.componentRef.setInput('versions', TWO_VERSIONS);
+      await settle(fixture);
+      return fixture;
+    }
+
+    function openHistory(fixture: ReturnType<typeof setup>): Promise<void> {
+      el<HTMLButtonElement>(fixture, '.odontogram-step__history-toggle').click();
+      return settle(fixture);
+    }
+
+    function historyToggles(fixture: ReturnType<typeof setup>): HTMLButtonElement[] {
+      return [...(fixture.nativeElement as HTMLElement).querySelectorAll<HTMLButtonElement>('.exam-history__toggle')];
+    }
+
+    const ownEntries = (fixture: ReturnType<typeof setup>) =>
+      (fixture.nativeElement as HTMLElement).querySelectorAll('.odontogram-step__chart > .odontogram-step__entries .odontogram-step__entry');
+
     it('arranca en blanco aunque el paciente tenga un examen vigente', async () => {
-      const fixture = await setupWithExistingExam('new');
+      const fixture = await setupNew();
 
-      expect(fixture.nativeElement.querySelectorAll('.odontogram-step__entry')).toHaveLength(0);
-      expect(el(fixture, '.odontogram-step__previous')).toBeTruthy();
+      expect(ownEntries(fixture)).toHaveLength(0);
+      expect(el(fixture, '.odontogram-step__history-toggle')?.textContent).toContain('Diagnósticos anteriores');
     });
 
-    it('muestra el diagnóstico anterior en solo lectura al desplegarlo', async () => {
-      const fixture = await setupWithExistingExam('new');
+    it('lista todos los diagnósticos anteriores, con el vigente desplegado en solo lectura', async () => {
+      const fixture = await setupNew();
+      await openHistory(fixture);
 
-      el<HTMLButtonElement>(fixture, '.odontogram-step__previous .odontogram-step__history-toggle').click();
-      await settle(fixture);
-
-      const charts = fixture.nativeElement.querySelectorAll('app-odontogram-chart');
-      expect(charts).toHaveLength(2);
-      const previousCell = el<HTMLElement>(fixture, '.odontogram-step__previous .odontogram-chart__cell[aria-label="Diente 16"]');
-      expect(previousCell.getAttribute('role')).toBeNull();
-      expect(el(fixture, '.odontogram-step__previous').textContent).toContain('Caries de segundo grado');
+      expect(historyToggles(fixture)).toHaveLength(2);
+      const cell = el<HTMLElement>(fixture, 'app-dental-exam-history .odontogram-chart__cell[aria-label="Diente 16"]');
+      expect(cell.getAttribute('role')).toBeNull();
     });
 
-    it('"Copiar hallazgos del anterior" los suma al diagnóstico nuevo', async () => {
-      const fixture = await setupWithExistingExam('new');
+    it('copia los hallazgos de un diagnóstico anterior que no es el vigente', async () => {
+      const fixture = await setupNew();
+      await openHistory(fixture);
+      historyToggles(fixture)[1].click();
+      await settle(fixture);
+      // El historial trae el examen con async/await: dejar correr esa continuación.
+      await new Promise((resolve) => setTimeout(resolve));
+      fixture.detectChanges();
 
-      el<HTMLButtonElement>(fixture, '.odontogram-step__copy-btn').click();
+      el<HTMLButtonElement>(fixture, '.exam-history__copy').click();
       await settle(fixture);
 
-      const entries = fixture.nativeElement.querySelectorAll('.odontogram-step__chart > .odontogram-step__entries .odontogram-step__entry');
-      expect(entries).toHaveLength(1);
-      expect(entries[0].textContent).toContain('Diente #16');
+      expect(ownEntries(fixture)).toHaveLength(1);
+      expect(ownEntries(fixture)[0].textContent).toContain('Diente #36');
     });
 
     it('si ya hay hallazgos cargados, pide confirmación antes de sumar los anteriores', async () => {
-      const fixture = await setupWithExistingExam('new');
+      const fixture = await setupNew();
       addGeneralFinding(fixture);
       await settle(fixture);
+      await openHistory(fixture);
 
-      el<HTMLButtonElement>(fixture, '.odontogram-step__copy-btn').click();
+      el<HTMLButtonElement>(fixture, '.exam-history__copy').click();
       await settle(fixture);
-      const ownEntries = () =>
-        fixture.nativeElement.querySelectorAll('.odontogram-step__chart > .odontogram-step__entries .odontogram-step__entry');
       expect(el(fixture, '.odontogram-step__copy-confirm')).toBeTruthy();
-      expect(ownEntries()).toHaveLength(1);
+      expect(ownEntries(fixture)).toHaveLength(1);
 
       el<HTMLButtonElement>(fixture, '.odontogram-step__copy-confirm .step-form__btn--primary').click();
       await settle(fixture);
       expect(el(fixture, '.odontogram-step__copy-confirm')).toBeFalsy();
-      expect(ownEntries()).toHaveLength(2);
+      expect(ownEntries(fixture)).toHaveLength(2);
     });
 
     it('se guarda sin motivo y como kind=diagnosis, incluso sin hallazgos (boca sana)', async () => {
@@ -498,5 +539,21 @@ describe('StepOdontogramComponent', () => {
     await settle(fixture);
 
     expect((fixture.nativeElement as HTMLElement).querySelector('h3')).toBeNull();
+  });
+
+  it('corregir diagnóstico: el historial muestra odontogramas pero no ofrece copiar (CLI-114)', async () => {
+    const fixture = await setupWithExistingExam();
+    fixture.componentRef.setInput('patientId', 'patient-1');
+    await settle(fixture);
+
+    const toggle = el<HTMLButtonElement>(fixture, '.odontogram-step__history-toggle');
+    expect(toggle.textContent).toContain('Historial del examen');
+    toggle.click();
+    await settle(fixture);
+    (fixture.nativeElement.querySelector('.exam-history__toggle') as HTMLButtonElement).click();
+    await settle(fixture);
+
+    expect(el(fixture, 'app-dental-exam-history app-odontogram-chart')).toBeTruthy();
+    expect(el(fixture, '.exam-history__copy')).toBeNull();
   });
 });
