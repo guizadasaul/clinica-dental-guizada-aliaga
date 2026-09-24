@@ -17,6 +17,10 @@ jobs:
       SONAR_TOKEN: ${{ secrets.SONAR_TOKEN_API }}
     steps:
       - uses: actions/checkout@v4
+        # Historial completo: sin blame de git, Sonar no distingue qué líneas son
+        # "código nuevo" y el gate de cobertura mide archivos enteros.
+        with:
+          fetch-depth: 0
       - uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -36,6 +40,10 @@ jobs:
       SONAR_TOKEN: ${{ secrets.SONAR_TOKEN_FRONTEND }}
     steps:
       - uses: actions/checkout@v4
+        # Historial completo: sin blame de git, Sonar no distingue qué líneas son
+        # "código nuevo" y el gate de cobertura mide archivos enteros.
+        with:
+          fetch-depth: 0
       - uses: actions/setup-node@v4
         with:
           node-version: 22
