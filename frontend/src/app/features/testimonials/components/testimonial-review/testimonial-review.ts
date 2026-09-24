@@ -1,4 +1,4 @@
-import { Component, ChangeDetectionStrategy, inject, signal } from '@angular/core';
+import { Component, ChangeDetectionStrategy, inject, signal, OnInit } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 import { TestimonialsService } from '../../services/testimonials.service';
 import type { TestimonialResponse } from '../../models/testimonial.model';
@@ -19,7 +19,7 @@ const DATE_FORMATTER = new Intl.DateTimeFormat('es-BO', {
   templateUrl: './testimonial-review.html',
   styleUrl: './testimonial-review.scss',
 })
-export class TestimonialReviewComponent {
+export class TestimonialReviewComponent implements OnInit {
   private readonly testimonialsService = inject(TestimonialsService);
 
   protected readonly pending = signal<TestimonialResponse[]>([]);
@@ -28,7 +28,7 @@ export class TestimonialReviewComponent {
   /** ids con una acción (aprobar/rechazar) en curso, para deshabilitar sus botones. */
   protected readonly actingOn = signal<Set<string>>(new Set());
 
-  constructor() {
+  ngOnInit(): void {
     void this.load();
   }
 

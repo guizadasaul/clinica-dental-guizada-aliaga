@@ -25,7 +25,7 @@ interface CountryOption {
 /** Bandera a partir del código ISO-3166 alpha-2: cada letra se mapea a su "regional
  * indicator symbol" (U+1F1E6 = 🇦 arranca en 'A' = 65, offset 127397). */
 function countryFlag(code: string): string {
-  return String.fromCodePoint(...[...code.toUpperCase()].map((char) => 127397 + char.charCodeAt(0)));
+  return String.fromCodePoint(...[...code.toUpperCase()].map((char) => 127397 + char.codePointAt(0)!));
 }
 
 const ALL_COUNTRY_CODES = getCountries();
@@ -64,7 +64,7 @@ export class PhoneInputComponent {
   protected readonly country = signal<CountryCode>(DEFAULT_COUNTRY);
   protected readonly national = signal('');
   protected readonly touched = signal(false);
-  protected readonly lang = signal(this.translate.currentLang || this.translate.getDefaultLang() || 'es');
+  protected readonly lang = signal(this.translate.getCurrentLang() || this.translate.getFallbackLang() || 'es');
 
   protected readonly callingCode = computed(() => callingCodeFor(this.country()));
   protected readonly maxNationalLength = computed(() => Math.max(1, 15 - this.callingCode().length));

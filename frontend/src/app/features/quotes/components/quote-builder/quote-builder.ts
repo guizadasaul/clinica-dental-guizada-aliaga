@@ -47,7 +47,7 @@ export class QuoteBuilderComponent {
   private readonly treatmentsService = inject(TreatmentsService);
 
   readonly patientId = input.required<string>();
-  readonly close = output<void>();
+  readonly closed = output<void>();
 
   private readonly scopePicker = viewChild(TreatmentScopePickerComponent);
 
@@ -243,7 +243,7 @@ export class QuoteBuilderComponent {
   }
 
   protected onClose(): void {
-    this.close.emit();
+    this.closed.emit();
   }
 
   protected allowsQuantity(treatment: Treatment): boolean {

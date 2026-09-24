@@ -49,7 +49,7 @@
       [existingPatientId]="patientId"
       [startStep]="2"
       (wizardComplete)="onHistoryDone()"
-      (cancel)="onHistoryDone()"
+      (cancelled)="onHistoryDone()"
     />
   } @else {
     <div class="agenda__nav">

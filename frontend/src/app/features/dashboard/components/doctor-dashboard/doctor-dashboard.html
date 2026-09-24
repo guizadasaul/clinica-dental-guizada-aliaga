@@ -105,28 +105,28 @@
         [initialPhone]="selectedPatientForInvite()!.phone"
         [initialEmail]="selectedPatientForInvite()!.email"
         (sent)="onInviteSent($event)"
-        (cancel)="onInviteCancel()"
+        (cancelled)="onInviteCancel()"
       />
     } @else if (showTreatmentFlow()) {
       <app-register-treatment
         [patientId]="selectedPatientForTreatment()!"
         (done)="onTreatmentDone()"
-        (cancel)="onTreatmentCancel()"
+        (cancelled)="onTreatmentCancel()"
       />
     } @else if (showHistoryFlow()) {
       <app-treatment-history
         [patientId]="selectedPatientForHistory()!"
-        (close)="onHistoryClose()"
+        (closed)="onHistoryClose()"
       />
     } @else if (showClinicalRecordFlow()) {
       <app-clinical-record-view
         [patient]="selectedPatientForClinicalRecord()!"
-        (close)="onClinicalRecordClose()"
+        (closed)="onClinicalRecordClose()"
       />
     } @else if (showQuoteFlow()) {
       <app-quote-builder
         [patientId]="selectedPatientForQuote()!"
-        (close)="onQuoteClose()"
+        (closed)="onQuoteClose()"
       />
     } @else if (showWizard()) {
       <app-patient-wizard
@@ -136,7 +136,7 @@
         [startStep]="wizardStartStep()"
         [examMode]="wizardExamMode()"
         (wizardComplete)="onWizardComplete()"
-        (cancel)="onWizardCancel()"
+        (cancelled)="onWizardCancel()"
       />
     } @else {
       <app-patients-list

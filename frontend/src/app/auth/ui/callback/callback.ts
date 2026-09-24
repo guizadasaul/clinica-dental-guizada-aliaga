@@ -17,7 +17,12 @@ export class CallbackComponent implements OnInit {
 
   protected readonly errorMessage = signal<string | null>(null);
 
-  async ngOnInit(): Promise<void> {
+  ngOnInit(): void {
+    void this.completeLogin();
+  }
+
+  /** Espera a que Supabase procese la sesión del redirect y lleva al dashboard o de vuelta al login. */
+  private async completeLogin(): Promise<void> {
     const params = this.route.snapshot.queryParamMap;
     if (params.get('error') || params.get('error_description')) {
       this.errorMessage.set('No se pudo iniciar sesión con Google. Intentá nuevamente.');

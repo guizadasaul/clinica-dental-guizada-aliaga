@@ -53,7 +53,7 @@ export class WeekSlotPickerComponent {
   protected readonly activeWeekIndex = signal<0 | 1>(0);
   protected readonly activeDate = signal<string | null>(null);
 
-  private readonly sortedDates = computed(() => Object.keys(this.slotsByDate()).sort());
+  private readonly sortedDates = computed(() => Object.keys(this.slotsByDate()).sort((a, b) => a.localeCompare(b)));
 
   private readonly weeks = computed<[string[], string[]]>(() => {
     const dates = this.sortedDates();

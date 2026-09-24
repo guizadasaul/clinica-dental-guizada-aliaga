@@ -25,7 +25,7 @@ export class PatientInvitePanelComponent {
   readonly initialPhone = input<string | null>(null);
   readonly initialEmail = input<string | null>(null);
   readonly sent = output<InviteChannel>();
-  readonly cancel = output<void>();
+  readonly cancelled = output<void>();
 
   protected readonly firstName = signal('');
   protected readonly lastNamePaternal = signal('');
@@ -121,6 +121,6 @@ export class PatientInvitePanelComponent {
   }
 
   protected onCancel(): void {
-    this.cancel.emit();
+    this.cancelled.emit();
   }
 }

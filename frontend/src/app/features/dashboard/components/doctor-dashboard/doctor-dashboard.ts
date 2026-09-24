@@ -6,6 +6,7 @@ import {
   output,
   signal,
   computed,
+  OnInit,
 } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 import { AuthService } from '../../../../auth/application/auth.service';
@@ -73,7 +74,7 @@ interface AppointmentSlot {
   templateUrl: './doctor-dashboard.html',
   styleUrl: './doctor-dashboard.scss',
 })
-export class DoctorDashboardComponent {
+export class DoctorDashboardComponent implements OnInit {
   private readonly authService = inject(AuthService);
   private readonly appointmentsService = inject(AppointmentsService);
 
@@ -150,7 +151,7 @@ export class DoctorDashboardComponent {
 
   protected readonly appointments = signal<AppointmentSlot[]>([]);
 
-  constructor() {
+  ngOnInit(): void {
     void this.loadTodayAgenda();
   }
 
@@ -229,13 +230,16 @@ export class DoctorDashboardComponent {
     this.selectedPatientForClinicalRecord.set(null);
   }
 
+  // Terminar o cancelar el wizard cierran lo mismo: el paciente elegido y el diagnóstico en curso.
   protected onWizardComplete(): void {
-    this.selectedUserId.set(null);
-    this.selectedPatientId.set(null);
-    this.selectedPatientForDiagnosis.set(null);
+    this.closeWizard();
   }
 
   protected onWizardCancel(): void {
+    this.closeWizard();
+  }
+
+  private closeWizard(): void {
     this.selectedUserId.set(null);
     this.selectedPatientId.set(null);
     this.selectedPatientForDiagnosis.set(null);

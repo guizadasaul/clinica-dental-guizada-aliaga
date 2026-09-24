@@ -239,7 +239,7 @@ export class DoctorAgendaComponent {
   // dividida horizontalmente por la mitad — cada mitad es un panel con la
   // misma escala 9:00–24:00 que el resto de la semana (para poder registrar
   // una emergencia a cualquier hora), con scroll vertical propio e
-  // independiente entre sí. El viewport de cada panel ocupa todo el alto
+  // independiente entre sí. El viewport de cada panel ocupa el alto completo
   // disponible de la columna (sin dejar espacio vacío abajo) — igual debe
   // scrollearse para ver más allá de las primeras horas visibles.
   protected readonly DIVIDER_HEIGHT_PX = 54;
@@ -309,10 +309,9 @@ export class DoctorAgendaComponent {
   protected readonly rangeLabel = computed(() => {
     const dates = this.visibleDates();
     const first = this.dayHeaderParts(dates[0]);
-    const last = this.dayHeaderParts(dates[dates.length - 1]);
-    const month = capitalize(
-      MONTH_FORMATTER.format(new Date(`${dates[dates.length - 1]}T12:00:00-04:00`)),
-    );
+    const lastDate = dates.at(-1)!;
+    const last = this.dayHeaderParts(lastDate);
+    const month = capitalize(MONTH_FORMATTER.format(new Date(`${lastDate}T12:00:00-04:00`)));
     return `${first.weekday} ${first.dayNum} – ${last.weekday} ${last.dayNum} de ${month}`;
   });
 

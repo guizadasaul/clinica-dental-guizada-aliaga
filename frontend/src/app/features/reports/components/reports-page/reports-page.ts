@@ -1,4 +1,4 @@
-import { Component, ChangeDetectionStrategy, inject, signal } from '@angular/core';
+import { Component, ChangeDetectionStrategy, inject, signal, OnInit } from '@angular/core';
 import { DecimalPipe } from '@angular/common';
 import { firstValueFrom } from 'rxjs';
 import { ReportsService } from '../../services/reports.service';
@@ -32,7 +32,7 @@ function daysAgoString(days: number): string {
   templateUrl: './reports-page.html',
   styleUrl: './reports-page.scss',
 })
-export class ReportsPageComponent {
+export class ReportsPageComponent implements OnInit {
   private readonly reportsService = inject(ReportsService);
   private readonly bookingService = inject(BookingService);
 
@@ -53,7 +53,7 @@ export class ReportsPageComponent {
   protected readonly loading = signal(false);
   protected readonly error = signal<string | null>(null);
 
-  constructor() {
+  ngOnInit(): void {
     void this.loadDoctors();
     void this.loadReports();
   }

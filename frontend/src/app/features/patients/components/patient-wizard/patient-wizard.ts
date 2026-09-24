@@ -7,6 +7,7 @@ import {
   signal,
   computed,
   effect,
+  OnInit,
 } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { catchError, firstValueFrom, of } from 'rxjs';
@@ -43,6 +44,29 @@ const STEPS: WizardStep[] = [
   { number: 4, label: 'Examen dental' },
 ];
 
+/** `message` del cuerpo de un HttpErrorResponse (string o string[] de class-validator), si trae algo usable. */
+function backendMessage(err: unknown): string | null {
+  if (!err || typeof err !== 'object' || !('error' in err)) {
+    return null;
+  }
+  const body = (err as { error?: unknown }).error;
+  if (!body || typeof body !== 'object' || !('message' in body)) {
+    return null;
+  }
+  return messageText((body as { message?: unknown }).message);
+}
+
+function messageText(message: unknown): string | null {
+  if (typeof message === 'string') {
+    return message.trim() ? message : null;
+  }
+  if (Array.isArray(message)) {
+    const lines = message.filter((m): m is string => typeof m === 'string' && m.trim() !== '');
+    return lines.length > 0 ? lines.join(' ') : null;
+  }
+  return null;
+}
+
 @Component({
   selector: 'app-patient-wizard',
   standalone: true,
@@ -56,7 +80,7 @@ const STEPS: WizardStep[] = [
   templateUrl: './patient-wizard.html',
   styleUrl: './patient-wizard.scss',
 })
-export class PatientWizardComponent {
+export class PatientWizardComponent implements OnInit {
   private readonly patientsService = inject(PatientsService);
   private readonly diagnosesService = inject(DiagnosesService);
   private readonly medicalConditionsService = inject(MedicalConditionsService);
@@ -71,7 +95,7 @@ export class PatientWizardComponent {
   /** Paso del examen dental: `new` = diagnóstico nuevo en blanco, `correct` = corregir el vigente (CLI-109). */
   readonly examMode = input<DentalExamMode>('correct');
   readonly wizardComplete = output<void>();
-  readonly cancel = output<void>();
+  readonly cancelled = output<void>();
 
   protected readonly steps = STEPS;
   protected readonly currentStep = signal(1);
@@ -107,8 +131,6 @@ export class PatientWizardComponent {
   protected readonly dentalExamVersions = signal<DentalExamVersionSummary[]>([]);
 
   constructor() {
-    void this.loadDiagnosisCatalog();
-    void this.loadMedicalConditionsCatalog();
     effect(() => {
       const existingId = this.existingPatientId();
       if (existingId) {
@@ -117,6 +139,11 @@ export class PatientWizardComponent {
         void this.loadDentalExam(existingId);
       }
     }, { allowSignalWrites: true });
+  }
+
+  ngOnInit(): void {
+    void this.loadDiagnosisCatalog();
+    void this.loadMedicalConditionsCatalog();
   }
 
   private async loadDiagnosisCatalog(): Promise<void> {
@@ -158,26 +185,11 @@ export class PatientWizardComponent {
    * el backend, y solo se cae al genérico si la respuesta no trae nada usable.
    */
   private extractErrorMessage(err: unknown, fallback: string): string {
-    if (err && typeof err === 'object' && 'error' in err) {
-      const body = (err as { error?: unknown }).error;
-      if (body && typeof body === 'object' && 'message' in body) {
-        const message = (body as { message?: unknown }).message;
-        if (typeof message === 'string' && message.trim()) {
-          return message;
-        }
-        if (Array.isArray(message)) {
-          const lines = message.filter((m): m is string => typeof m === 'string' && m.trim() !== '');
-          if (lines.length > 0) {
-            return lines.join(' ');
-          }
-        }
-      }
-    }
-    return fallback;
+    return backendMessage(err) ?? fallback;
   }
 
   protected onCancel(): void {
-    this.cancel.emit();
+    this.cancelled.emit();
   }
 
   protected async onStep1Submit(data: Omit<CreatePatientRequest, 'userId'>): Promise<void> {

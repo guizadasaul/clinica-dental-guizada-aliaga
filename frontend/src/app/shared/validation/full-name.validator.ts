@@ -8,9 +8,9 @@
 const WORD = String.raw`\p{L}[\p{L}\p{M}'’-]+`;
 
 /** Nombre y apellido — reserva de cita. Exige ≥2 palabras. */
-export const FULL_NAME_RE = new RegExp(`^${WORD}(?:\\s+${WORD})+$`, 'u');
+export const FULL_NAME_RE = new RegExp(String.raw`^${WORD}(?:\s+${WORD})+$`, 'u');
 /** Con una sola palabra alcanza — formulario de comentarios (ver decisión en CLI-36 §4.2). */
-export const PERSON_NAME_RE = new RegExp(`^${WORD}(?:\\s+${WORD})*$`, 'u');
+export const PERSON_NAME_RE = new RegExp(String.raw`^${WORD}(?:\s+${WORD})*$`, 'u');
 
 // El mínimo de largo (5 para FULL_NAME_RE, 2 para PERSON_NAME_RE) ya lo impone
 // la regex — cada palabra mide ≥2 y FULL_NAME_RE exige dos separadas por espacio.

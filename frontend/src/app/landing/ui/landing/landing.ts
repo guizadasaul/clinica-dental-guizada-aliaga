@@ -10,6 +10,7 @@ import {
   effect,
   inject,
   PLATFORM_ID,
+  OnInit,
 } from '@angular/core';
 import { isPlatformBrowser } from '@angular/common';
 import { RouterLink, ActivatedRoute, Router } from '@angular/router';
@@ -36,6 +37,7 @@ import {
   StaggerTestimonialsComponent,
 } from '../../../shared/ui/stagger-testimonials/stagger-testimonials';
 import { TestimonialCtaComponent } from '../../../shared/ui/testimonial-cta/testimonial-cta';
+import { randomUnit } from '../../../shared/utils/random.util';
 
 interface Instrument {
   readonly id: number;
@@ -62,7 +64,7 @@ interface Instrument {
   templateUrl: './landing.html',
   styleUrl: './landing.scss',
 })
-export class LandingComponent implements AfterViewInit, OnDestroy {
+export class LandingComponent implements OnInit, AfterViewInit, OnDestroy {
   private readonly platformId = inject(PLATFORM_ID);
   private readonly host = inject(ElementRef<HTMLElement>);
   private readonly route = inject(ActivatedRoute);
@@ -71,7 +73,9 @@ export class LandingComponent implements AfterViewInit, OnDestroy {
   private readonly testimonialsService = inject(TestimonialsService);
   private readonly scrollLock = inject(ScrollLockService);
 
-  @ViewChild('spores') private sporeCanvas?: ElementRef<HTMLCanvasElement>;
+  /** Fuente de aleatoriedad de las esporas (efecto visual); los tests la reemplazan por una fija. */
+  protected random: () => number = randomUnit;
+  @ViewChild('spores') private readonly sporeCanvas?: ElementRef<HTMLCanvasElement>;
 
   protected readonly navScrolled = signal(false);
   // Alguien sin ficha de paciente asociada llega acá redirigido desde el
@@ -269,9 +273,6 @@ export class LandingComponent implements AfterViewInit, OnDestroy {
   protected readonly testimonials = signal<StaggerTestimonial[]>([]);
 
   constructor() {
-    void this.loadBookingDoctors();
-    void this.loadApprovedTestimonials();
-
     effect((onCleanup) => {
       if (!this.bookingModalOpen()) {
         return;
@@ -287,6 +288,11 @@ export class LandingComponent implements AfterViewInit, OnDestroy {
       this.scrollLock.lock();
       onCleanup(() => this.scrollLock.unlock());
     });
+  }
+
+  ngOnInit(): void {
+    void this.loadBookingDoctors();
+    void this.loadApprovedTestimonials();
   }
 
   @HostListener('window:scroll')
@@ -394,11 +400,16 @@ export class LandingComponent implements AfterViewInit, OnDestroy {
       this.testimonials.set(mapped);
     } catch {
       // Si falla, la sección de testimonios queda vacía — no hay contenido
-      // hardcodeado de respaldo a propósito (todo vive en la base).
+      // hardcodeado de respaldo a propósito (los datos viven en la base).
     }
   }
 
-  async ngAfterViewInit(): Promise<void> {
+  ngAfterViewInit(): void {
+    void this.startVisualEffects();
+  }
+
+  /** Esporas y animaciones de GSAP, solo en el navegador y sin reduced-motion. */
+  private async startVisualEffects(): Promise<void> {
     if (!isPlatformBrowser(this.platformId)) {
       return;
     }
@@ -511,7 +522,7 @@ export class LandingComponent implements AfterViewInit, OnDestroy {
   // gaussiana centrada donde converge el abanico. En reposo flota con
   // una deriva sinusoidal mínima; un resorte suave la devuelve siempre
   // a su casa. Cuando el cursor se acerca, un empuje radial la hace
-  // "escapar" y luego el resorte la reasienta. Todo en canvas 2D para
+  // "escapar" y luego el resorte la reasienta. El dibujo es en canvas 2D para
   // que decenas de partículas no cuesten layout ni repaint del DOM.
   // ------------------------------------------------------------
   private initSpores(): void {
@@ -558,7 +569,7 @@ export class LandingComponent implements AfterViewInit, OnDestroy {
 
     // Ruido ~normal (media 0, rango ~[-1, 1]) por suma de uniformes.
     const gauss = (): number =>
-      (Math.random() + Math.random() + Math.random() + Math.random() - 2) / 2;
+      (this.random() + this.random() + this.random() + this.random() - 2) / 2;
     const clamp01 = (n: number): number => Math.min(0.98, Math.max(0.02, n));
 
     let width = 0;
@@ -574,16 +585,16 @@ export class LandingComponent implements AfterViewInit, OnDestroy {
       const count = width < 640 ? 1600 : 3060;
       for (let i = 0; i < count; i++) {
         // ~30% forman el núcleo denso alrededor del centro-abajo; el 70%
-        // restante se esparce por todo el hero para que las zonas alejadas
+        // restante se esparce por el hero entero para que las zonas alejadas
         // queden bien pobladas, manteniendo la masa mayor abajo al centro.
         let fx: number;
         let fy: number;
-        if (Math.random() < 0.2) {
+        if (this.random() < 0.2) {
           fx = clamp01(CORE_X + gauss() * 0.26);
           fy = clamp01(CORE_Y + gauss() * 0.2);
         } else {
-          fx = clamp01(Math.random());
-          fy = clamp01(Math.random());
+          fx = clamp01(this.random());
+          fy = clamp01(this.random());
         }
         // Cuanto más cerca del núcleo, un pelín más grande y visible.
         const distToCore = Math.hypot(fx - CORE_X, fy - CORE_Y);
@@ -597,11 +608,11 @@ export class LandingComponent implements AfterViewInit, OnDestroy {
           y: fy * height,
           vx: 0,
           vy: 0,
-          r: 0.8 + Math.random() * 1.6 + centerBoost * 1.1,
-          a: 0.1 + Math.random() * 0.22 + centerBoost * 0.16,
-          tone: TONES[Math.floor(Math.random() * TONES.length)],
-          phase: Math.random() * Math.PI * 2,
-          drift: 0.6 + Math.random() * 0.8,
+          r: 0.8 + this.random() * 1.6 + centerBoost * 1.1,
+          a: 0.1 + this.random() * 0.22 + centerBoost * 0.16,
+          tone: TONES[Math.floor(this.random() * TONES.length)],
+          phase: this.random() * Math.PI * 2,
+          drift: 0.6 + this.random() * 0.8,
         });
       }
     };

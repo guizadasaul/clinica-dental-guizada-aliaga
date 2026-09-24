@@ -69,7 +69,7 @@
             @if (panelToothNumbers().length === 0) {
               <p class="rto__panel-hint">Hacé clic en {{ treatment.applicationType === 'single_tooth' ? 'un diente' : 'una o más piezas' }} del odontograma.</p>
             } @else {
-              <!-- Surfaces — una por cada diente seleccionado (CLI-41), no un juego copiado a todos -->
+              <!-- Surfaces — una por cada diente seleccionado (CLI-41), no un juego copiado a cada uno -->
               @for (n of panelToothNumbers(); track n) {
                 <div class="rto__panel-field">
                   <label class="rto__panel-label">Superficies afectadas — diente #{{ n }}</label>

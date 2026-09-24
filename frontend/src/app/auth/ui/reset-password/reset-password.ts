@@ -25,7 +25,12 @@ export class ResetPasswordComponent implements OnInit {
   protected readonly loading = signal(false);
   protected readonly errorMessage = signal<string | null>(null);
 
-  async ngOnInit(): Promise<void> {
+  ngOnInit(): void {
+    void this.checkRecoverySession();
+  }
+
+  /** Habilita el formulario solo si el enlace de recuperación dejó una sesión válida. */
+  private async checkRecoverySession(): Promise<void> {
     // Resuelto por el branch PASSWORD_RECOVERY en AuthService una vez que
     // Supabase procesó el token del enlace de recuperación en la URL.
     await this.authService.authReady;

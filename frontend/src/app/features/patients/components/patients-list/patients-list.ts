@@ -9,6 +9,7 @@ import {
   computed,
   effect,
   untracked,
+  OnInit,
 } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 import { PatientsService } from '../../services/patients.service';
@@ -26,7 +27,7 @@ import { PageHeaderComponent } from '../../../../shared/ui/page-header/page-head
   templateUrl: './patients-list.html',
   styleUrl: './patients-list.scss',
 })
-export class PatientsListComponent {
+export class PatientsListComponent implements OnInit {
   private readonly patientsService = inject(PatientsService);
   private readonly bookingService = inject(BookingService);
   private readonly authService = inject(AuthService);
@@ -97,6 +98,9 @@ export class PatientsListComponent {
       },
       { allowSignalWrites: true },
     );
+  }
+
+  ngOnInit(): void {
     void this.loadDoctors();
   }
 

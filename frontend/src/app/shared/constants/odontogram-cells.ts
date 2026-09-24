@@ -16,7 +16,7 @@ export interface OdontogramCell {
 
 // Los 10 dientes deciduos superiores (55-51, 61-65) tenían su número tallado
 // como parte del propio odontogram.svg — se sacó de ahí porque quedaba más
-// fino/claro que el <text> de acá abajo (que usa font-weight:600 en todo el
+// fino/claro que el <text> de acá abajo (que usa font-weight:600 en el
 // resto del odontograma). Ahora todos, sin excepción, usan el mismo <text>
 // — mismo color, grosor y tamaño. labelY:131 (en vez del 123 del resto de
 // deciduos) los separa de la línea punteada de esta fila (y=120): con el

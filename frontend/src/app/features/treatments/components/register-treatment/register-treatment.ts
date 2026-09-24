@@ -36,7 +36,7 @@ export class RegisterTreatmentComponent {
 
   readonly patientId = input.required<string>();
   readonly done = output<void>();
-  readonly cancel = output<void>();
+  readonly cancelled = output<void>();
 
   protected readonly treatments = toSignal(
     this.treatmentsService.getAll(),
@@ -89,7 +89,7 @@ export class RegisterTreatmentComponent {
   }
 
   protected onClose(): void {
-    this.cancel.emit();
+    this.cancelled.emit();
   }
 
   protected onFinish(): void {

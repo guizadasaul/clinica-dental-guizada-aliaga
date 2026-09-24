@@ -1,4 +1,4 @@
-import { Component, ChangeDetectionStrategy, inject, signal, computed } from '@angular/core';
+import { Component, ChangeDetectionStrategy, inject, signal, computed, OnInit } from '@angular/core';
 import { HttpErrorResponse } from '@angular/common/http';
 import { FormsModule } from '@angular/forms';
 import { firstValueFrom } from 'rxjs';
@@ -90,7 +90,7 @@ function suggestPublicName(firstName: string, lastNamePaternal: string): string 
   templateUrl: './admin-doctors.html',
   styleUrl: './admin-doctors.scss',
 })
-export class AdminDoctorsComponent {
+export class AdminDoctorsComponent implements OnInit {
   private readonly adminDoctorsService = inject(AdminDoctorsService);
   private readonly bookingService = inject(BookingService);
 
@@ -166,7 +166,7 @@ export class AdminDoctorsComponent {
       !this.contactMissing(),
   );
 
-  constructor() {
+  ngOnInit(): void {
     void this.loadDoctors();
     void this.loadPickerDoctors();
   }
