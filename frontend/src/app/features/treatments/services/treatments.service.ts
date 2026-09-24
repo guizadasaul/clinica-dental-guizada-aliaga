@@ -15,6 +15,11 @@ export class TreatmentsService {
     return this.http.get<Treatment[]>(this.treatmentsBase);
   }
 
+  /** Ids de los tratamientos que más usa el doctor logueado, el más usado primero (CLI-118). */
+  getFrequentIds(): Observable<string[]> {
+    return this.http.get<string[]>(`${this.treatmentsBase}/frequent`);
+  }
+
   createToothProcedure(patientId: string, data: CreateToothProcedureRequest): Observable<ToothProcedure[]> {
     return this.http.post<ToothProcedure[]>(`${this.patientsBase}/${patientId}/tooth-procedures`, data);
   }

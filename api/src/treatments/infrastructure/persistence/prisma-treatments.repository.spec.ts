@@ -153,3 +153,39 @@ describe('PrismaTreatmentsRepository', () => {
     });
   });
 });
+
+describe('PrismaTreatmentsRepository.findUsageByDoctor (CLI-118)', () => {
+  it('filtra por doctor, fecha y tratamientos activos; un grupo multi-pieza es un solo occurrence', async () => {
+    const findMany = jest.fn().mockResolvedValue([
+      {
+        id: 'p-1',
+        treatment_id: 't-1',
+        application_group_id: null,
+        procedure_date: new Date('2026-09-01'),
+      },
+      {
+        id: 'p-2',
+        treatment_id: 't-2',
+        application_group_id: 'g-1',
+        procedure_date: new Date('2026-09-02'),
+      },
+    ]);
+    const repo = new PrismaTreatmentsRepository({
+      tooth_procedures: { findMany },
+    } as never);
+    const since = new Date('2025-09-24');
+
+    const usage = await repo.findUsageByDoctor('doctor-1', since);
+
+    expect(findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          performed_by: 'doctor-1',
+          procedure_date: { gte: since },
+          treatments: { is_active: true },
+        },
+      }),
+    );
+    expect(usage.map((u) => u.occurrence)).toEqual(['p-1', 'g-1']);
+  });
+});

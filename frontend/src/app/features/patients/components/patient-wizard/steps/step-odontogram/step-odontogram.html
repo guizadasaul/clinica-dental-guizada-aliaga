@@ -166,6 +166,7 @@
           <app-catalog-picker
             noun="diagnóstico"
             [items]="diagnosisOptions()"
+            [extraGroups]="diagnosisShortcuts()"
             [selectedId]="panelDiagnosisCode() || null"
             (selectedChange)="onPanelDiagnosisChange($event)"
           />

@@ -531,4 +531,33 @@ describe('RegisterTreatmentOdontogramComponent', () => {
 
     expect((fixture.nativeElement as HTMLElement).querySelector('h3')).toBeNull();
   });
+  it('con frecuentes del doctor, el selector abre en "Frecuentes" con esos tratamientos (CLI-118)', async () => {
+    const { fixture } = setup();
+    fixture.componentRef.setInput('treatments', [
+      fakeTreatment({ id: 't-1', name: 'Corona metálica' }),
+      fakeTreatment({ id: 't-2', name: 'Tratamiento de conducto', categoryCode: 'endodoncia', categoryName: 'Endodoncia' }),
+    ]);
+    fixture.componentRef.setInput('frequentTreatmentIds', ['t-2']);
+    await settle(fixture);
+
+    addTreatmentButton(fixture).click();
+    await settle(fixture);
+
+    const active = fixture.nativeElement.querySelector('.catalog-picker__chip--active') as HTMLElement;
+    expect(active.textContent?.trim()).toBe('Frecuentes');
+    const options = [...fixture.nativeElement.querySelectorAll('.catalog-picker__option')] as HTMLElement[];
+    expect(options.map((o) => o.dataset['id'])).toEqual(['t-2']);
+  });
+
+  it('sin frecuentes no aparece el chip "Frecuentes"', async () => {
+    const { fixture } = setup();
+    fixture.componentRef.setInput('treatments', [fakeTreatment()]);
+    await settle(fixture);
+
+    addTreatmentButton(fixture).click();
+    await settle(fixture);
+
+    const chips = [...fixture.nativeElement.querySelectorAll('.catalog-picker__chip')].map((c) => (c as HTMLElement).textContent?.trim());
+    expect(chips).not.toContain('Frecuentes');
+  });
 });

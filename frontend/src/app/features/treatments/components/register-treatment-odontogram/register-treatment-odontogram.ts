@@ -20,6 +20,7 @@ import {
 import { examToothColorMap } from '../../../../shared/utils/odontogram-paint.util';
 import {
   CatalogPickerComponent,
+  type CatalogPickerExtraGroup,
   type CatalogPickerItem,
 } from '../../../../shared/ui/catalog-picker/catalog-picker';
 import {
@@ -104,6 +105,8 @@ export class RegisterTreatmentOdontogramComponent {
   readonly currentExam = input<DentalExam | null>(null);
   /** Tratamientos ya registrados del paciente — pintan sus dientes con el color de su categoría (CLI-107). */
   readonly procedures = input<ToothProcedure[]>([]);
+  /** Ids de los tratamientos que más usa el doctor (CLI-118) — chip "Frecuentes" del selector. */
+  readonly frequentTreatmentIds = input<readonly string[]>([]);
   readonly procedureRegistered = output<ProcedureRegisteredEvent>();
 
   // Diagnósticos: mismo criterio que StepOdontogramComponent.legendItems (una
@@ -148,6 +151,12 @@ export class RegisterTreatmentOdontogramComponent {
   // Opciones del selector (CLI-116): el backend ya devuelve GET /treatments
   // ordenado por categoría y orden interno (ver PrismaTreatmentsRepository),
   // así que las categorías del picker salen en ese mismo orden.
+  protected readonly treatmentShortcuts = computed<CatalogPickerExtraGroup[]>(() =>
+    this.frequentTreatmentIds().length > 0
+      ? [{ id: 'frequent', label: 'Frecuentes', itemIds: this.frequentTreatmentIds() }]
+      : [],
+  );
+
   protected readonly treatmentOptions = computed<CatalogPickerItem[]>(() =>
     this.treatments().map((t) => ({
       id: t.id,

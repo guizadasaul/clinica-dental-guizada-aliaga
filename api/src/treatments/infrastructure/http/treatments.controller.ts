@@ -1,13 +1,16 @@
 import {
   Body,
   Controller,
+  DefaultValuePipe,
   Get,
   HttpCode,
   HttpStatus,
   Param,
+  ParseIntPipe,
   ParseUUIDPipe,
   Patch,
   Post,
+  Query,
   UseGuards,
 } from '@nestjs/common';
 import { TreatmentsService } from '../../application/treatments.service.js';
@@ -15,6 +18,11 @@ import { SupabaseAuthGuard } from '../../../auth/infrastructure/SupabaseAuthGuar
 import { RolesGuard } from '../../../auth/infrastructure/RolesGuard.js';
 import { Roles } from '../../../auth/infrastructure/roles.decorator.js';
 import { UserRole } from '../../../auth/domain/value-objects/UserRole.js';
+import { CurrentAppUser } from '../../../auth/infrastructure/CurrentAppUserDecorator.js';
+import type { User } from '../../../auth/domain/User.js';
+
+const FREQUENT_LIMIT = 8;
+const MAX_FREQUENT_LIMIT = 20;
 import { CreateTreatmentDto } from './dto/create-treatment.dto.js';
 import { UpdateTreatmentDto } from './dto/update-treatment.dto.js';
 
@@ -26,6 +34,20 @@ export class TreatmentsController {
   @Get()
   findAll() {
     return this.treatmentsService.findActive();
+  }
+
+  /** Ids de los tratamientos que más usa el doctor logueado (CLI-118). */
+  @Get('frequent')
+  @Roles(UserRole.ODONTOLOGIST)
+  findFrequent(
+    @CurrentAppUser() appUser: User,
+    @Query('limit', new DefaultValuePipe(FREQUENT_LIMIT), ParseIntPipe)
+    limit: number,
+  ): Promise<string[]> {
+    return this.treatmentsService.findFrequentIds(
+      appUser.id,
+      Math.min(Math.max(limit, 1), MAX_FREQUENT_LIMIT),
+    );
   }
 
   @Post()

@@ -96,12 +96,15 @@ export class PatientWizardComponent {
   });
 
   protected readonly diagnosisCatalog = signal<DiagnosisCategory[]>([]);
+  /** Los que más usa el doctor — atajo "Frecuentes" del selector de diagnóstico (CLI-118). */
+  protected readonly frequentDiagnosisCodes = signal<string[]>([]);
   protected readonly medicalConditionsCatalog = signal<MedicalCondition[]>([]);
   protected readonly currentDentalExam = signal<DentalExam | null>(null);
   protected readonly dentalExamVersions = signal<DentalExamVersionSummary[]>([]);
 
   constructor() {
     void this.loadDiagnosisCatalog();
+    void this.loadFrequentDiagnoses();
     void this.loadMedicalConditionsCatalog();
     effect(() => {
       const existingId = this.existingPatientId();
@@ -111,6 +114,14 @@ export class PatientWizardComponent {
         void this.loadDentalExam(existingId);
       }
     }, { allowSignalWrites: true });
+  }
+
+  private async loadFrequentDiagnoses(): Promise<void> {
+    try {
+      this.frequentDiagnosisCodes.set(await firstValueFrom(this.diagnosesService.getFrequentCodes()));
+    } catch {
+      // no-op: sin "Frecuentes" el selector funciona igual
+    }
   }
 
   private async loadDiagnosisCatalog(): Promise<void> {

@@ -8,12 +8,37 @@ import type {
 } from '../../domain/TreatmentRepository.js';
 import type { Treatment } from '../../domain/Treatment.js';
 import { TreatmentMapper } from './treatment.mapper.js';
+import type { UsageEntry } from '../../../shared/usage-ranking.js';
 
 const WITH_CATEGORY = { treatment_categories: true } as const;
 
 @Injectable()
 export class PrismaTreatmentsRepository implements ITreatmentRepository {
   constructor(private readonly prisma: PrismaService) {}
+
+  async findUsageByDoctor(
+    doctorId: string,
+    since: Date,
+  ): Promise<UsageEntry[]> {
+    const rows = await this.prisma.tooth_procedures.findMany({
+      where: {
+        performed_by: doctorId,
+        procedure_date: { gte: since },
+        treatments: { is_active: true },
+      },
+      select: {
+        id: true,
+        treatment_id: true,
+        application_group_id: true,
+        procedure_date: true,
+      },
+    });
+    return rows.map((r) => ({
+      key: r.treatment_id,
+      occurrence: r.application_group_id ?? r.id,
+      at: r.procedure_date,
+    }));
+  }
 
   async findActive(): Promise<Treatment[]> {
     const records = await this.prisma.treatments.findMany({
