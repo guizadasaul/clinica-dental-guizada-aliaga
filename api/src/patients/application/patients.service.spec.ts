@@ -86,6 +86,7 @@ function fakeDiagnosis(overrides: Partial<Diagnosis> = {}): Diagnosis {
     modifier: 'black_class',
     color: '#dc2626',
     displayOrder: 0,
+    suggestedTreatmentIds: [],
     ...overrides,
   };
 }

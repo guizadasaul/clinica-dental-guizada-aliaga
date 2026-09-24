@@ -253,17 +253,18 @@ model diagnosis_categories {
 /// única — el frontend ya no hardcodea labels/colores. `is_active` es
 /// soft-delete, igual que `treatments.is_active` en el seed.
 model diagnoses {
-  id                   String                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  category_id          String                 @db.Uuid
-  code                 String                 @unique @db.VarChar(50)
-  name                 String                 @db.VarChar(150)
-  scope                DiagnosisScope
-  modifier             DiagnosisModifier      @default(none)
-  color                String                 @db.VarChar(7)
-  display_order        Int
-  is_active            Boolean                @default(true)
-  diagnosis_categories diagnosis_categories   @relation(fields: [category_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  dental_exam_findings dental_exam_findings[]
+  id                              String                            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  category_id                     String                            @db.Uuid
+  code                            String                            @unique @db.VarChar(50)
+  name                            String                            @db.VarChar(150)
+  scope                           DiagnosisScope
+  modifier                        DiagnosisModifier                 @default(none)
+  color                           String                            @db.VarChar(7)
+  display_order                   Int
+  is_active                       Boolean                           @default(true)
+  diagnosis_categories            diagnosis_categories              @relation(fields: [category_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  dental_exam_findings            dental_exam_findings[]
+  diagnosis_treatment_suggestions diagnosis_treatment_suggestions[]
 
   @@index([category_id], map: "idx_diagnoses_category")
 }
@@ -568,30 +569,45 @@ model treatment_categories {
 }
 
 model treatments {
-  id                      String                   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  id                              String                            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   /// Clave estable del catálogo (CLI-41) — el seed hace upsert por code, no
   /// por name, así que renombrar un tratamiento no duplica la fila ni la
   /// desactiva por accidente.
-  code                    String                   @unique @db.VarChar(50)
-  name                    String                   @unique @db.VarChar(200)
-  description             String?
-  base_price              Decimal                  @db.Decimal(10, 2)
-  estimated_minutes       Int                      @default(30)
-  application_type        TreatmentApplicationType @default(single_tooth)
-  currency                String                   @default("BOB") @db.VarChar(3)
-  category_id             String                   @db.Uuid
-  display_order           Int                      @default(0)
-  is_active               Boolean                  @default(true)
-  is_default_consultation Boolean                  @unique(map: "idx_one_default_consultation", where: raw("(is_default_consultation = true)")) @default(false)
-  created_at              DateTime                 @default(now()) @db.Timestamptz(6)
-  updated_at              DateTime                 @default(now()) @db.Timestamptz(6)
-  appointments            appointments[]
-  odontogram_entries      odontogram_entries[]
-  quote_items             quote_items[]
-  application_groups      application_groups[]
-  tooth_procedures        tooth_procedures[]
-  testimonials            testimonials[]
-  treatment_categories    treatment_categories     @relation(fields: [category_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  code                            String                            @unique @db.VarChar(50)
+  name                            String                            @unique @db.VarChar(200)
+  description                     String?
+  base_price                      Decimal                           @db.Decimal(10, 2)
+  estimated_minutes               Int                               @default(30)
+  application_type                TreatmentApplicationType          @default(single_tooth)
+  currency                        String                            @default("BOB") @db.VarChar(3)
+  category_id                     String                            @db.Uuid
+  display_order                   Int                               @default(0)
+  is_active                       Boolean                           @default(true)
+  is_default_consultation         Boolean                           @unique(map: "idx_one_default_consultation", where: raw("(is_default_consultation = true)")) @default(false)
+  created_at                      DateTime                          @default(now()) @db.Timestamptz(6)
+  updated_at                      DateTime                          @default(now()) @db.Timestamptz(6)
+  appointments                    appointments[]
+  odontogram_entries              odontogram_entries[]
+  quote_items                     quote_items[]
+  application_groups              application_groups[]
+  tooth_procedures                tooth_procedures[]
+  testimonials                    testimonials[]
+  treatment_categories            treatment_categories              @relation(fields: [category_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  diagnosis_treatment_suggestions diagnosis_treatment_suggestions[]
+}
+
+/// Tratamientos sugeridos para un diagnóstico (CLI-119): al registrar un
+/// tratamiento en un diente con ese diagnóstico, el selector los muestra
+/// primero ("Sugeridos"). `rank` ordena la sugerencia (1 = la más habitual).
+/// Se carga desde el seed por códigos; el mapeo clínico lo define el doctor.
+model diagnosis_treatment_suggestions {
+  diagnosis_id String     @db.Uuid
+  treatment_id String     @db.Uuid
+  rank         Int
+  diagnoses    diagnoses  @relation(fields: [diagnosis_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  treatments   treatments @relation(fields: [treatment_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@id([diagnosis_id, treatment_id])
 }
 
 /// Perfil profesional público de un doctor (CLI-61) — 1:1 con la fila de

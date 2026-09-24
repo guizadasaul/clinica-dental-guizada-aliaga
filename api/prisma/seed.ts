@@ -1193,6 +1193,178 @@ async function syncDefaultConsultation() {
   );
 }
 
+/**
+ * Tratamientos sugeridos por diagnóstico (CLI-119), por códigos y en orden
+ * de preferencia: al registrar un tratamiento en un diente con ese
+ * diagnóstico el selector los muestra primero ("Sugeridos").
+ *
+ * PROPUESTA INICIAL — el mapeo es un criterio clínico y lo tiene que validar
+ * el doctor. Diagnósticos que describen algo ya tratado (obturaciones y
+ * prótesis en buen estado) no sugieren nada a propósito.
+ */
+const DIAGNOSIS_TREATMENT_SUGGESTIONS: Record<string, string[]> = {
+  agenesia_dental: [
+    'implante_dental',
+    'placa_parcial_acrilico',
+    'placa_parcial_flexible',
+  ],
+  ausencia_dental: [
+    'implante_dental',
+    'placa_parcial_cromo_cobalto',
+    'placa_parcial_acrilico',
+    'placa_parcial_flexible',
+    'placa_parcial_cromoflex',
+  ],
+  diente_supernumerario: ['extraccion_simple', 'extraccion_quirurgica'],
+  geminacion_dental: [
+    'restauracion_caries_compuesta',
+    'corona_porcelana_libre_metal',
+  ],
+  caries_primer_grado: [
+    'sellante_diente_permanente',
+    'restauracion_caries_simple',
+    'restauracion_ionomero',
+  ],
+  caries_segundo_grado: [
+    'restauracion_caries_simple',
+    'restauracion_caries_compuesta',
+    'restauracion_ionomero',
+  ],
+  caries_tercer_grado: [
+    'restauracion_caries_compuesta',
+    'conducto_unirradicular',
+    'conducto_birradicular',
+    'conducto_multirradicular',
+  ],
+  caries_cuarto_grado: [
+    'conducto_unirradicular',
+    'conducto_birradicular',
+    'conducto_multirradicular',
+    'extraccion_simple',
+  ],
+  obturacion_resina_recidivante: [
+    'restauracion_caries_simple',
+    'restauracion_caries_compuesta',
+  ],
+  obturacion_amalgama_recidivante: [
+    'restauracion_caries_simple',
+    'restauracion_caries_compuesta',
+  ],
+  obturacion_provisional: [
+    'restauracion_caries_compuesta',
+    'resina_para_munon',
+  ],
+  resto_radicular: ['extraccion_simple', 'extraccion_quirurgica'],
+  fractura_incisal: [
+    'restauracion_caries_compuesta',
+    'corona_porcelana_libre_metal',
+  ],
+  fractura_media: [
+    'restauracion_caries_compuesta',
+    'conducto_unirradicular',
+    'corona_provisional',
+  ],
+  fractura_oclusal: [
+    'restauracion_caries_compuesta',
+    'corona_metalica',
+    'corona_porcelana_metal_plastico',
+  ],
+  munon_dental: [
+    'perno_y_munon',
+    'perno_fibra_vidrio',
+    'resina_para_munon',
+    'corona_provisional',
+  ],
+  movilidad_dental: [
+    'curetaje_periodontal',
+    'destartraje_limpieza_profilaxis_fluor',
+    'extraccion_simple',
+  ],
+  endodoncia: ['perno_fibra_vidrio', 'perno_y_munon', 'corona_provisional'],
+  endodoncia_pigmentacion: ['corona_porcelana_libre_metal', 'corona_ivocron'],
+  endodoncia_fractura: [
+    'retratamiento_conducto',
+    'apicectomia',
+    'extraccion_quirurgica',
+  ],
+  giroversion_dental: [
+    'ortodoncia_brackets_metalicos',
+    'ortodoncia_brackets_esteticos',
+  ],
+  erupcion_dental: ['sellante_diente_permanente'],
+  retencion_dental: ['extraccion_quirurgica', 'extraccion_tercer_molar'],
+  pericoronaritis: ['operculectomia', 'extraccion_tercer_molar'],
+  gingivitis: [
+    'destartraje_limpieza_profilaxis_fluor',
+    'limpieza_profilaxis_fluor',
+    'curetaje_periodontal',
+  ],
+  lesion_labio_superior: ['cirugia_lesiones_tejidos_blandos'],
+  lesion_labio_inferior: ['cirugia_lesiones_tejidos_blandos'],
+  lesion_mucosa_derecha: ['cirugia_lesiones_tejidos_blandos'],
+  lesion_mucosa_izquierda: ['cirugia_lesiones_tejidos_blandos'],
+  lesion_lengua: ['cirugia_lesiones_tejidos_blandos'],
+  frenillo_lingual_bajo: ['frenectomia'],
+  frenillo_labial_superior_bajo: ['frenectomia'],
+  protesis_fija_recidivante: [
+    'corona_provisional',
+    'corona_porcelana_metal_plastico',
+    'corona_porcelana_libre_metal',
+  ],
+  dolor_dental: ['emergencia_odontologica'],
+};
+
+/**
+ * Sincroniza las sugerencias con DIAGNOSIS_TREATMENT_SUGGESTIONS: por cada
+ * diagnóstico reemplaza el conjunto completo, así quitar o reordenar en el
+ * seed se refleja en la base. Códigos inexistentes fallan fuerte (typo).
+ */
+async function upsertDiagnosisTreatmentSuggestions() {
+  const diagnoses = await prisma.diagnoses.findMany({
+    select: { id: true, code: true },
+  });
+  const treatments = await prisma.treatments.findMany({
+    select: { id: true, code: true },
+  });
+  const diagnosisIdByCode = new Map(diagnoses.map((d) => [d.code, d.id]));
+  const treatmentIdByCode = new Map(treatments.map((t) => [t.code, t.id]));
+
+  let total = 0;
+  for (const [diagnosisCode, treatmentCodes] of Object.entries(
+    DIAGNOSIS_TREATMENT_SUGGESTIONS,
+  )) {
+    const diagnosisId = diagnosisIdByCode.get(diagnosisCode);
+    if (!diagnosisId) {
+      throw new Error(
+        `Sugerencias: diagnóstico desconocido "${diagnosisCode}"`,
+      );
+    }
+    const rows = treatmentCodes.map((code, index) => {
+      const treatmentId = treatmentIdByCode.get(code);
+      if (!treatmentId) {
+        throw new Error(
+          `Sugerencias de "${diagnosisCode}": tratamiento desconocido "${code}"`,
+        );
+      }
+      return {
+        diagnosis_id: diagnosisId,
+        treatment_id: treatmentId,
+        rank: index + 1,
+      };
+    });
+    await prisma.$transaction([
+      prisma.diagnosis_treatment_suggestions.deleteMany({
+        where: { diagnosis_id: diagnosisId },
+      }),
+      prisma.diagnosis_treatment_suggestions.createMany({ data: rows }),
+    ]);
+    total += rows.length;
+  }
+  console.log(
+    `✓ ${total} sugerencias diagnóstico → tratamiento sincronizadas.`,
+  );
+}
+
 async function main() {
   const categoryIdByCode = await upsertTreatmentCategories();
   await upsertCatalog(categoryIdByCode);
@@ -1200,6 +1372,7 @@ async function main() {
   await syncDefaultConsultation();
   await upsertDiagnosisCatalog();
   await deactivateLegacyDiagnoses();
+  await upsertDiagnosisTreatmentSuggestions();
   await upsertToothSurfacesCatalog();
   await upsertMedicalConditionsCatalog();
   await deactivateLegacyMedicalConditions();

@@ -560,4 +560,63 @@ describe('RegisterTreatmentOdontogramComponent', () => {
     const chips = [...fixture.nativeElement.querySelectorAll('.catalog-picker__chip')].map((c) => (c as HTMLElement).textContent?.trim());
     expect(chips).not.toContain('Frecuentes');
   });
+
+  describe('sugeridos por diagnóstico (CLI-119)', () => {
+    const CATALOG_WITH_SUGGESTIONS: DiagnosisCategory[] = [
+      {
+        id: 'cat-1',
+        code: 'caries',
+        name: 'Caries dentales',
+        displayOrder: 0,
+        diagnoses: [
+          {
+            id: 'diag-1',
+            categoryId: 'cat-1',
+            code: 'caries_segundo_grado',
+            name: 'Caries de segundo grado',
+            scope: 'single_tooth',
+            modifier: 'black_class',
+            color: '#dc2626',
+            displayOrder: 0,
+            suggestedTreatmentIds: ['t-resto', 't-conducto'],
+          },
+        ],
+      },
+    ];
+    const TREATMENTS = [
+      fakeTreatment({ id: 't-corona', name: 'Corona metálica' }),
+      fakeTreatment({ id: 't-resto', name: 'Restauración simple', categoryCode: 'operatoria', categoryName: 'Operatoria dental' }),
+      fakeTreatment({ id: 't-conducto', name: 'Conducto', categoryCode: 'endodoncia', categoryName: 'Endodoncia' }),
+    ];
+
+    async function openPanelOn(toothNumber: number) {
+      const { fixture } = setup();
+      fixture.componentRef.setInput('treatments', TREATMENTS);
+      fixture.componentRef.setInput('catalog', CATALOG_WITH_SUGGESTIONS);
+      fixture.componentRef.setInput('currentExam', EXAM_WITH_CARIES_16);
+      fixture.componentRef.setInput('frequentTreatmentIds', ['t-corona']);
+      await settle(fixture);
+      clickTooth(fixture, toothNumber);
+      await settle(fixture);
+      return fixture;
+    }
+
+    it('un diente con caries abre en "Sugeridos" con los tratamientos de ese diagnóstico, antes que "Frecuentes"', async () => {
+      const fixture = await openPanelOn(16);
+
+      const chips = [...fixture.nativeElement.querySelectorAll('.catalog-picker__chip')].map((c) => (c as HTMLElement).textContent?.trim());
+      expect(chips.slice(0, 2)).toEqual(['Sugeridos', 'Frecuentes']);
+      expect(el(fixture, '.catalog-picker__chip--active')?.textContent?.trim()).toBe('Sugeridos');
+      const options = [...fixture.nativeElement.querySelectorAll('.catalog-picker__option')] as HTMLElement[];
+      expect(options.map((o) => o.dataset['id'])).toEqual(['t-resto', 't-conducto']);
+    });
+
+    it('un diente sano no muestra "Sugeridos" y abre en "Frecuentes"', async () => {
+      const fixture = await openPanelOn(21);
+
+      const chips = [...fixture.nativeElement.querySelectorAll('.catalog-picker__chip')].map((c) => (c as HTMLElement).textContent?.trim());
+      expect(chips).not.toContain('Sugeridos');
+      expect(el(fixture, '.catalog-picker__chip--active')?.textContent?.trim()).toBe('Frecuentes');
+    });
+  });
 });

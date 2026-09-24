@@ -99,7 +99,7 @@ export class RegisterTreatmentOdontogramComponent {
 
   readonly patientId = input.required<string>();
   readonly treatments = input.required<Treatment[]>();
-  /** Catálogo real de diagnósticos (CLI-40) — solo para la leyenda, igual que StepOdontogramComponent. */
+  /** Catálogo real de diagnósticos (CLI-40) — la leyenda y los tratamientos sugeridos de cada diagnóstico (CLI-119). */
   readonly catalog = input<DiagnosisCategory[]>([]);
   /** Última versión del examen dental del paciente — de ahí parte el odontograma (CLI-41). */
   readonly currentExam = input<DentalExam | null>(null);
@@ -151,11 +151,35 @@ export class RegisterTreatmentOdontogramComponent {
   // Opciones del selector (CLI-116): el backend ya devuelve GET /treatments
   // ordenado por categoría y orden interno (ver PrismaTreatmentsRepository),
   // así que las categorías del picker salen en ese mismo orden.
-  protected readonly treatmentShortcuts = computed<CatalogPickerExtraGroup[]>(() =>
-    this.frequentTreatmentIds().length > 0
-      ? [{ id: 'frequent', label: 'Frecuentes', itemIds: this.frequentTreatmentIds() }]
-      : [],
-  );
+  /**
+   * Sugeridos por el diagnóstico vigente de los dientes del panel (CLI-119):
+   * la unión, en orden, de lo que sugiere cada diagnóstico de esas piezas.
+   */
+  protected readonly suggestedTreatmentIds = computed<string[]>(() => {
+    const teeth = new Set(this.panelToothNumbers());
+    if (teeth.size === 0) { return []; }
+    const byCode = new Map(this.catalog().flatMap((c) => c.diagnoses).map((d) => [d.code, d]));
+    const ids: string[] = [];
+    for (const f of this.currentExam()?.findings ?? []) {
+      if (f.toothNumber === null || !teeth.has(f.toothNumber)) { continue; }
+      for (const id of byCode.get(f.diagnosisCode)?.suggestedTreatmentIds ?? []) {
+        if (!ids.includes(id)) { ids.push(id); }
+      }
+    }
+    return ids;
+  });
+
+  /** Atajos del selector: primero los sugeridos por el diagnóstico, después los frecuentes del doctor. */
+  protected readonly treatmentShortcuts = computed<CatalogPickerExtraGroup[]>(() => {
+    const shortcuts: CatalogPickerExtraGroup[] = [];
+    if (this.suggestedTreatmentIds().length > 0) {
+      shortcuts.push({ id: 'suggested', label: 'Sugeridos', itemIds: this.suggestedTreatmentIds() });
+    }
+    if (this.frequentTreatmentIds().length > 0) {
+      shortcuts.push({ id: 'frequent', label: 'Frecuentes', itemIds: this.frequentTreatmentIds() });
+    }
+    return shortcuts;
+  });
 
   protected readonly treatmentOptions = computed<CatalogPickerItem[]>(() =>
     this.treatments().map((t) => ({

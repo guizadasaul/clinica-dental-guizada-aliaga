@@ -61,6 +61,7 @@ describe('catálogo de diagnósticos', () => {
               modifier: 'none',
               color: '#b91c1c',
               displayOrder: 0,
+              suggestedTreatmentIds: [],
             },
           ],
         },
@@ -71,6 +72,13 @@ describe('catálogo de diagnósticos', () => {
           diagnoses: {
             where: { is_active: true },
             orderBy: { display_order: 'asc' },
+            include: {
+              diagnosis_treatment_suggestions: {
+                where: { treatments: { is_active: true } },
+                orderBy: { rank: 'asc' },
+                select: { treatment_id: true },
+              },
+            },
           },
         },
       });
