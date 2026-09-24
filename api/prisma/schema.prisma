@@ -678,6 +678,7 @@ model users {
   tooth_procedures       tooth_procedures[]
   dental_exams           dental_exams[]
   patient_invites        patient_invites[]
+  chat_sessions          chat_sessions[]
 }
 
 /// Sin código todavía — CLI-53. Notas para cuando se implemente:
@@ -703,4 +704,48 @@ model xray_documents {
   uploaded_at          DateTime          @default(now()) @db.Timestamptz(6)
   patients             patients          @relation(fields: [patient_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
   tooth_procedures     tooth_procedures? @relation(fields: [tooth_procedure_id], references: [id], onUpdate: NoAction)
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// Conversación del chatbot (CLI-84). `user_id` NULL = visitante anónimo,
+/// identificado solo por el hash (sha256) de un token opaco que tiene el
+/// cliente — el token en claro nunca se guarda, mismo criterio que
+/// patient_invites.token_hash. CHECK: una sesión siempre tiene dueño (usuario
+/// o token). Se borra sola a los CHAT_RETENTION_DAYS de inactividad
+/// (ChatRetentionScheduler), o a pedido del usuario.
+model chat_sessions {
+  id               String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id          String?         @db.Uuid
+  channel          String          @db.VarChar(20)
+  anon_token_hash  String?         @unique @db.VarChar(64)
+  created_at       DateTime        @default(now()) @db.Timestamptz(6)
+  last_activity_at DateTime        @default(now()) @db.Timestamptz(6)
+  users            users?          @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  chat_messages    chat_messages[]
+
+  @@index([user_id, last_activity_at], map: "idx_chat_sessions_user_activity")
+  @@index([last_activity_at], map: "idx_chat_sessions_last_activity")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// Mensajes del chatbot (CLI-84): solo el texto user/assistant y metadata de
+/// uso. A propósito NO hay columnas para los argumentos ni los resultados de
+/// las tools (minimización: un saldo o una cita que devolvió una tool no
+/// queda guardado aparte de lo que el asistente haya escrito). `tool_names`
+/// guarda solo qué tools se usaron en el turno, para métricas.
+model chat_messages {
+  id                String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  session_id        String        @db.Uuid
+  role              String        @db.VarChar(10)
+  content           String
+  tool_names        String[]      @default([])
+  latency_ms        Int?
+  prompt_tokens     Int?
+  completion_tokens Int?
+  error_code        String?       @db.VarChar(50)
+  created_at        DateTime      @default(now()) @db.Timestamptz(6)
+  chat_sessions     chat_sessions @relation(fields: [session_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([session_id, created_at], map: "idx_chat_messages_session_created")
+  @@index([created_at], map: "idx_chat_messages_created")
 }
