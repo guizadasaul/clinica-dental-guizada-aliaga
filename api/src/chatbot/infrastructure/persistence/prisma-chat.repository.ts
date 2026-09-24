@@ -78,7 +78,7 @@ export class PrismaChatRepository implements ChatRepository {
       take: limit,
     });
     // Se piden los más nuevos (desc + take) y se devuelven cronológicos.
-    return records.reverse().map((record) => ChatMapper.toMessage(record));
+    return records.toReversed().map((record) => ChatMapper.toMessage(record));
   }
 
   countUserMessagesSince(userId: string, since: Date): Promise<number> {
