@@ -43,7 +43,13 @@ interface Mocks {
 function stubMatchMedia(reduced: boolean): void {
   vi.stubGlobal(
     'matchMedia',
-    vi.fn().mockReturnValue({ matches: reduced, addEventListener: vi.fn(), removeEventListener: vi.fn() }),
+    vi
+      .fn()
+      .mockReturnValue({
+        matches: reduced,
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+      }),
   );
 }
 
@@ -51,7 +57,9 @@ function setup(options: { query?: Record<string, string>; mocks?: Partial<Mocks>
   const mocks: Mocks = {
     booking: {
       getDoctors: vi.fn().mockReturnValue(of(DOCTORS)),
-      getAvailabilityRange: vi.fn().mockReturnValue(of({ from: '2026-09-24', days: 14, slotsByDate: {} })),
+      getAvailabilityRange: vi
+        .fn()
+        .mockReturnValue(of({ from: '2026-09-24', days: 14, slotsByDate: {} })),
     },
     testimonials: { getApproved: vi.fn().mockReturnValue(of(APPROVED)) },
     scrollLock: { lock: vi.fn(), unlock: vi.fn() },
@@ -125,7 +133,9 @@ describe('LandingComponent', () => {
 
   it('si los comentarios no cargan, la sección queda sin testimonios (sin romper la página)', async () => {
     const { fixture } = setup({
-      mocks: { testimonials: { getApproved: vi.fn().mockReturnValue(throwError(() => new Error('500'))) } },
+      mocks: {
+        testimonials: { getApproved: vi.fn().mockReturnValue(throwError(() => new Error('500'))) },
+      },
     });
 
     await render(fixture);
@@ -194,7 +204,9 @@ describe('LandingComponent', () => {
     it('Escape lo cierra (en el fondo o desde cualquier lado de la página)', async () => {
       const { fixture } = await openModal();
 
-      el(fixture, '.booking-modal')?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+      el(fixture, '.booking-modal')?.dispatchEvent(
+        new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }),
+      );
       fixture.detectChanges();
       expect(el(fixture, '.booking-modal')).toBeNull();
 
@@ -217,12 +229,15 @@ describe('LandingComponent', () => {
     it('elegir doctor carga su disponibilidad y muestra el selector de horarios', async () => {
       const { fixture, mocks } = await openModal();
 
-      (fixture.componentInstance as unknown as { onBookingDoctorSelected(id: string): void }).onBookingDoctorSelected(
-        'doctor-1',
-      );
+      (
+        fixture.componentInstance as unknown as { onBookingDoctorSelected(id: string): void }
+      ).onBookingDoctorSelected('doctor-1');
       await render(fixture);
 
-      expect(mocks.booking.getAvailabilityRange).toHaveBeenCalledWith(expect.any(String), 'doctor-1');
+      expect(mocks.booking.getAvailabilityRange).toHaveBeenCalledWith(
+        expect.any(String),
+        'doctor-1',
+      );
       expect(el(fixture, 'app-week-slot-picker')).not.toBeNull();
       expect(el(fixture, 'app-doctor-picker')).toBeNull();
     });
@@ -231,14 +246,14 @@ describe('LandingComponent', () => {
       const { fixture, mocks } = await openModal();
       mocks.booking.getAvailabilityRange.mockReturnValue(throwError(() => new Error('500')));
 
-      (fixture.componentInstance as unknown as { onBookingDoctorSelected(id: string): void }).onBookingDoctorSelected(
-        'doctor-1',
-      );
+      (
+        fixture.componentInstance as unknown as { onBookingDoctorSelected(id: string): void }
+      ).onBookingDoctorSelected('doctor-1');
       await render(fixture);
 
-      expect((fixture.componentInstance as unknown as { bookingError(): string | null }).bookingError()).toContain(
-        'horarios',
-      );
+      expect(
+        (fixture.componentInstance as unknown as { bookingError(): string | null }).bookingError(),
+      ).toContain('horarios');
     });
 
     it('elegir horario lleva a /reservar con el doctor y el horario', async () => {
@@ -261,9 +276,9 @@ describe('LandingComponent', () => {
       const { fixture } = await openModal();
       const navigate = vi.spyOn(TestBed.inject(Router), 'navigate');
 
-      (fixture.componentInstance as unknown as { onBookingSlotSelected(slot: string): void }).onBookingSlotSelected(
-        '2026-09-25T13:00:00Z',
-      );
+      (
+        fixture.componentInstance as unknown as { onBookingSlotSelected(slot: string): void }
+      ).onBookingSlotSelected('2026-09-25T13:00:00Z');
 
       expect(navigate).not.toHaveBeenCalled();
     });
@@ -279,9 +294,9 @@ describe('LandingComponent', () => {
       });
       await render(fixture);
 
-      expect((fixture.componentInstance as unknown as { bookingError(): string | null }).bookingError()).toContain(
-        'doctores',
-      );
+      expect(
+        (fixture.componentInstance as unknown as { bookingError(): string | null }).bookingError(),
+      ).toContain('doctores');
     });
   });
 
@@ -356,17 +371,22 @@ describe('LandingComponent', () => {
 
     Object.defineProperty(window, 'scrollY', { value: 120, configurable: true });
     window.dispatchEvent(new Event('scroll'));
-    expect((fixture.componentInstance as unknown as { navScrolled(): boolean }).navScrolled()).toBe(true);
+    expect((fixture.componentInstance as unknown as { navScrolled(): boolean }).navScrolled()).toBe(
+      true,
+    );
 
     Object.defineProperty(window, 'scrollY', { value: 0, configurable: true });
     window.dispatchEvent(new Event('scroll'));
-    expect((fixture.componentInstance as unknown as { navScrolled(): boolean }).navScrolled()).toBe(false);
+    expect((fixture.componentInstance as unknown as { navScrolled(): boolean }).navScrolled()).toBe(
+      false,
+    );
   });
 
   it('el carrusel de odontólogos avanza, retrocede (dando la vuelta) y salta con los puntos', async () => {
     const { fixture } = setup();
     await render(fixture);
-    const active = () => (fixture.componentInstance as unknown as { activeDoctorIndex(): number }).activeDoctorIndex();
+    const active = () =>
+      (fixture.componentInstance as unknown as { activeDoctorIndex(): number }).activeDoctorIndex();
     const [prev, next] = all(fixture, '.doctor-spotlight__nav-btn');
 
     prev.click();
@@ -399,10 +419,14 @@ describe('LandingComponent — esporas del hero', () => {
       arc: vi.fn(),
       fill: vi.fn(),
     };
-    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(ctx as unknown as CanvasRenderingContext2D);
+    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(
+      ctx as unknown as CanvasRenderingContext2D,
+    );
     // GSAP se prueba aparte: acá solo el canvas.
-    vi.spyOn(LandingComponent.prototype as unknown as { initAnimations(): Promise<void> }, 'initAnimations')
-      .mockResolvedValue(undefined);
+    vi.spyOn(
+      LandingComponent.prototype as unknown as { initAnimations(): Promise<void> },
+      'initAnimations',
+    ).mockResolvedValue(undefined);
     vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue({
       width: 1200,
       height: 700,
@@ -535,21 +559,26 @@ describe('LandingComponent — animaciones de GSAP', () => {
     vi.restoreAllMocks();
   });
 
-  it('arma las animaciones del hero y de las secciones, y las revierte al destruirse', async () => {
-    const { fixture } = setup();
-    await render(fixture);
-    const component = fixture.componentInstance as unknown as {
-      initAnimations(): Promise<void>;
-      gsapContext: { revert(): void } | null;
-    };
+  // GSAP se carga con import() dinámico: en una corrida completa puede tardar más que el timeout por defecto.
+  it(
+    'arma las animaciones del hero y de las secciones, y las revierte al destruirse',
+    { timeout: 20_000 },
+    async () => {
+      const { fixture } = setup();
+      await render(fixture);
+      const component = fixture.componentInstance as unknown as {
+        initAnimations(): Promise<void>;
+        gsapContext: { revert(): void } | null;
+      };
 
-    // ngAfterViewInit ya la disparó; se espera la carga (import dinámico) de GSAP.
-    await component.initAnimations();
-    expect(component.gsapContext).not.toBeNull();
-    const revert = vi.spyOn(component.gsapContext!, 'revert');
+      // ngAfterViewInit ya la disparó; se espera la carga (import dinámico) de GSAP.
+      await component.initAnimations();
+      expect(component.gsapContext).not.toBeNull();
+      const revert = vi.spyOn(component.gsapContext!, 'revert');
 
-    fixture.destroy();
+      fixture.destroy();
 
-    expect(revert).toHaveBeenCalled();
-  });
+      expect(revert).toHaveBeenCalled();
+    },
+  );
 });

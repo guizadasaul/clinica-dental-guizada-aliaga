@@ -14,10 +14,15 @@ describe('authGuard', () => {
     TestBed.configureTestingModule({
       providers: [
         provideRouter([]),
-        { provide: AuthService, useValue: { authReady: Promise.resolve(), currentUser: signal(user) } },
+        {
+          provide: AuthService,
+          useValue: { authReady: Promise.resolve(), currentUser: signal(user) },
+        },
       ],
     });
-    return TestBed.runInInjectionContext(() => authGuard({} as never, {} as never)) as Promise<boolean | UrlTree>;
+    return TestBed.runInInjectionContext(() => authGuard({} as never, {} as never)) as Promise<
+      boolean | UrlTree
+    >;
   }
 
   it('deja pasar a un usuario con sesión', async () => {
@@ -55,7 +60,9 @@ describe('interceptores HTTP', () => {
   afterEach(() => backend.verify());
 
   async function request(url: string) {
-    const result = new Promise<unknown>((resolve) => http.get(url).subscribe({ next: resolve, error: resolve }));
+    const result = new Promise<unknown>((resolve) =>
+      http.get(url).subscribe({ next: resolve, error: resolve }),
+    );
     await Promise.resolve();
     await Promise.resolve();
     return { req: backend.expectOne(url), result };

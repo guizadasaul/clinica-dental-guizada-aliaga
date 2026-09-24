@@ -36,14 +36,20 @@ describe('LangSwitcherComponent', () => {
     const { root, toggle } = setup('en');
 
     expect(root.querySelector('.lang-switcher__code')?.textContent).toBe('EN');
-    expect(root.querySelector('.lang-switcher__trigger')?.getAttribute('aria-expanded')).toBe('false');
+    expect(root.querySelector('.lang-switcher__trigger')?.getAttribute('aria-expanded')).toBe(
+      'false',
+    );
 
     toggle();
 
     const options = root.querySelectorAll<HTMLButtonElement>('button.lang-switcher__option');
     expect(options).toHaveLength(3);
-    expect(root.querySelector('.lang-switcher__trigger')?.getAttribute('aria-expanded')).toBe('true');
-    expect(root.querySelector('.lang-switcher__option--active')?.getAttribute('aria-current')).toBe('true');
+    expect(root.querySelector('.lang-switcher__trigger')?.getAttribute('aria-expanded')).toBe(
+      'true',
+    );
+    expect(root.querySelector('.lang-switcher__option--active')?.getAttribute('aria-current')).toBe(
+      'true',
+    );
     expect(root.querySelector('.lang-switcher__option--active')?.textContent).toContain('English');
   });
 
@@ -70,7 +76,9 @@ describe('LangSwitcherComponent', () => {
     const { fixture, root, toggle } = setup();
     toggle();
 
-    root.querySelector('.lang-switcher__dropdown')!.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    root
+      .querySelector('.lang-switcher__dropdown')!
+      .dispatchEvent(new MouseEvent('click', { bubbles: true }));
     fixture.detectChanges();
     expect(root.querySelector('.lang-switcher__dropdown')).not.toBeNull();
 

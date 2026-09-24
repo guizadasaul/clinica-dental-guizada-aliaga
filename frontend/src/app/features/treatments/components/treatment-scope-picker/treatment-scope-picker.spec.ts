@@ -1,9 +1,16 @@
 import { TestBed } from '@angular/core/testing';
-import { TreatmentScopePickerComponent, type TreatmentScopeSelection } from './treatment-scope-picker';
+import {
+  TreatmentScopePickerComponent,
+  type TreatmentScopeSelection,
+} from './treatment-scope-picker';
 import type { Treatment } from '../../models/treatment.model';
 import type { OdontogramEntry } from '../../../patients/models/patient.model';
 
-function treatment(id: string, applicationType: string, overrides: Partial<Treatment> = {}): Treatment {
+function treatment(
+  id: string,
+  applicationType: string,
+  overrides: Partial<Treatment> = {},
+): Treatment {
   return {
     id,
     code: id,
@@ -47,7 +54,8 @@ function setup(inputs: { entries?: OdontogramEntry[]; treated?: number[] } = {})
     select.dispatchEvent(new Event('change'));
     fixture.detectChanges();
   };
-  const tooth = (n: number) => root.querySelector<HTMLButtonElement>(`.tsp__tooth[aria-label="Diente ${n}"]`)!;
+  const tooth = (n: number) =>
+    root.querySelector<HTMLButtonElement>(`.tsp__tooth[aria-label="Diente ${n}"]`)!;
   const click = (n: number) => {
     tooth(n).click();
     fixture.detectChanges();
@@ -144,28 +152,37 @@ describe('TreatmentScopePickerComponent', () => {
       choose('arcada');
       const before = last();
 
-      (fixture.componentInstance as unknown as { onToothClick(t: { number: number }): void }).onToothClick({ number: 16 });
+      (
+        fixture.componentInstance as unknown as { onToothClick(t: { number: number }): void }
+      ).onToothClick({ number: 16 });
 
       expect(last()).toEqual(before);
     });
   });
 
   describe('colores del odontograma', () => {
-    const entry = (toothNumber: number, toothCondition: string) => ({ toothNumber, toothCondition }) as OdontogramEntry;
+    const entry = (toothNumber: number, toothCondition: string) =>
+      ({ toothNumber, toothCondition }) as OdontogramEntry;
 
     function crownFill(root: HTMLElement, n: number): string | null {
-      const fills = [...root.querySelectorAll(`.tsp__tooth[aria-label="Diente ${n}"] [fill]`)].map((e) =>
-        e.getAttribute('fill'),
+      const fills = [...root.querySelectorAll(`.tsp__tooth[aria-label="Diente ${n}"] [fill]`)].map(
+        (e) => e.getAttribute('fill'),
       );
       return fills.find((f) => f !== '#e5e7eb' && f !== '#f3f4f6') ?? null;
     }
 
     function stroke(root: HTMLElement, n: number): string | null {
-      return root.querySelector(`.tsp__tooth[aria-label="Diente ${n}"] [stroke]`)?.getAttribute('stroke') ?? null;
+      return (
+        root
+          .querySelector(`.tsp__tooth[aria-label="Diente ${n}"] [stroke]`)
+          ?.getAttribute('stroke') ?? null
+      );
     }
 
     it('pinta cada diente según su diagnóstico más reciente', () => {
-      const { root, choose } = setup({ entries: [entry(16, 'caries'), entry(16, 'sano'), entry(26, 'desconocido')] });
+      const { root, choose } = setup({
+        entries: [entry(16, 'caries'), entry(16, 'sano'), entry(26, 'desconocido')],
+      });
       choose('uno');
 
       expect(crownFill(root, 16)).toBe('#dc2626');

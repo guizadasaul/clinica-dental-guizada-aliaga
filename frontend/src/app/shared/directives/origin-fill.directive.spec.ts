@@ -23,7 +23,10 @@ function setup() {
   return { button };
 }
 
-function pointer(type: string, init: { clientX?: number; clientY?: number; pointerType?: string } = {}): Event {
+function pointer(
+  type: string,
+  init: { clientX?: number; clientY?: number; pointerType?: string } = {},
+): Event {
   const event = new MouseEvent(type, { clientX: init.clientX ?? 0, clientY: init.clientY ?? 0 });
   Object.defineProperty(event, 'pointerType', { value: init.pointerType ?? 'mouse' });
   return event;
@@ -52,7 +55,9 @@ describe('OriginFillDirective', () => {
     expect(button.style.getPropertyValue('--origin-fill-x')).toBe('10px');
     expect(button.style.getPropertyValue('--origin-fill-y')).toBe('10px');
     // Diámetro = 2 × distancia a la esquina más lejana (190, 30).
-    expect(button.style.getPropertyValue('--origin-fill-size')).toBe(`${Math.ceil(2 * Math.hypot(190, 30))}px`);
+    expect(button.style.getPropertyValue('--origin-fill-size')).toBe(
+      `${Math.ceil(2 * Math.hypot(190, 30))}px`,
+    );
   });
 
   it('se apaga al salir el puntero o al cancelarse', () => {

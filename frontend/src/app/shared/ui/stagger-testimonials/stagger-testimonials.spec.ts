@@ -22,7 +22,9 @@ function setup(list = items(4), innerWidth = 1280) {
   fixture.detectChanges();
   const root = fixture.nativeElement as HTMLElement;
   const order = () =>
-    Array.from(root.querySelectorAll('.stagger-card__by')).map((el) => (el.textContent ?? '').split(',')[0].trim());
+    Array.from(root.querySelectorAll('.stagger-card__by')).map((el) =>
+      (el.textContent ?? '').split(',')[0].trim(),
+    );
   return { fixture, root, order };
 }
 
@@ -130,7 +132,9 @@ describe('StaggerTestimonialsComponent', () => {
     it('apretar una flecha no inicia el swipe', () => {
       const { fixture, root } = setup();
 
-      root.querySelector<HTMLElement>('.stagger-nav')!.dispatchEvent(pointerEvent('pointerdown', 0));
+      root
+        .querySelector<HTMLElement>('.stagger-nav')!
+        .dispatchEvent(pointerEvent('pointerdown', 0));
       fixture.detectChanges();
 
       expect(root.querySelector('.stagger-testimonials')?.className).not.toContain('--dragging');

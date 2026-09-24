@@ -17,7 +17,10 @@ function setup(query: Record<string, string> = {}) {
       provideRouter([]),
       provideTranslateService({ defaultLanguage: 'es' }),
       { provide: AuthService, useValue: auth },
-      { provide: ActivatedRoute, useValue: { snapshot: { queryParamMap: convertToParamMap(query) } } },
+      {
+        provide: ActivatedRoute,
+        useValue: { snapshot: { queryParamMap: convertToParamMap(query) } },
+      },
     ],
   });
   const navigate = vi.spyOn(TestBed.inject(Router), 'navigateByUrl').mockResolvedValue(true);
@@ -45,7 +48,9 @@ describe('LoginComponent', () => {
   it('después de restablecer la contraseña muestra el aviso de éxito', () => {
     const { root } = setup({ reset: 'success' });
 
-    expect(root.querySelector('.login-card__success')?.textContent).toContain('auth.login.resetSuccess');
+    expect(root.querySelector('.login-card__success')?.textContent).toContain(
+      'auth.login.resetSuccess',
+    );
     expect(root.querySelector('.login-card__success')?.getAttribute('aria-live')).toBe('polite');
   });
 
@@ -58,17 +63,20 @@ describe('LoginComponent', () => {
     expect(auth.loginWithPassword).not.toHaveBeenCalled();
   });
 
-  it.each(['no-es-email@', '12'])('rechaza un usuario con formato inválido (%s) sin llamar a Supabase', async (id) => {
-    const { fixture, root, auth } = setup();
-    type(root, 'login-identifier', id);
-    type(root, 'login-password', 'clave');
+  it.each(['no-es-email@', '12'])(
+    'rechaza un usuario con formato inválido (%s) sin llamar a Supabase',
+    async (id) => {
+      const { fixture, root, auth } = setup();
+      type(root, 'login-identifier', id);
+      type(root, 'login-password', 'clave');
 
-    await submit(fixture);
+      await submit(fixture);
 
-    expect(root.textContent).toContain('auth.login.errors.invalidIdentifier');
-    expect(auth.loginWithPassword).not.toHaveBeenCalled();
-    expect(auth.loginWithPhone).not.toHaveBeenCalled();
-  });
+      expect(root.textContent).toContain('auth.login.errors.invalidIdentifier');
+      expect(auth.loginWithPassword).not.toHaveBeenCalled();
+      expect(auth.loginWithPhone).not.toHaveBeenCalled();
+    },
+  );
 
   it('con email entra por email y espera la sincronización antes de ir al panel', async () => {
     const { fixture, root, auth, navigate } = setup();
@@ -167,7 +175,9 @@ describe('LoginComponent', () => {
       fixture.detectChanges();
 
       expect(root.textContent).toContain('auth.login.errors.googleFailed');
-      expect((fixture.componentInstance as unknown as { loading(): boolean }).loading()).toBe(false);
+      expect((fixture.componentInstance as unknown as { loading(): boolean }).loading()).toBe(
+        false,
+      );
     });
   });
 });

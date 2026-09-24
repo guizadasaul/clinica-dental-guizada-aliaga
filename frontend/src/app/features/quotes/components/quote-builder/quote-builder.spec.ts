@@ -21,7 +21,9 @@ import {
   selector: 'app-treatment-scope-picker',
   standalone: true,
   template: 'selector',
-  providers: [{ provide: TreatmentScopePickerComponent, useExisting: forwardRef(() => ScopePickerStub) }],
+  providers: [
+    { provide: TreatmentScopePickerComponent, useExisting: forwardRef(() => ScopePickerStub) },
+  ],
 })
 class ScopePickerStub {
   readonly treatments = input<Treatment[]>([]);
@@ -90,7 +92,21 @@ function setup(existing: Quote[] = [quote()]) {
     removeItem: vi.fn(),
     addPayment: vi.fn(),
   };
-  const treatments = { getAll: vi.fn().mockReturnValue(of([treatment(), treatment({ id: 'treatment-2', name: 'Blanqueamiento', applicationType: 'full_mouth', currency: 'USD' })])) };
+  const treatments = {
+    getAll: vi
+      .fn()
+      .mockReturnValue(
+        of([
+          treatment(),
+          treatment({
+            id: 'treatment-2',
+            name: 'Blanqueamiento',
+            applicationType: 'full_mouth',
+            currency: 'USD',
+          }),
+        ]),
+      ),
+  };
   TestBed.configureTestingModule({
     imports: [QuoteBuilderComponent],
     providers: [
@@ -116,11 +132,14 @@ async function settle(fixture: ReturnType<typeof setup>['fixture']): Promise<voi
 }
 
 function picker(fixture: ReturnType<typeof setup>['fixture']): ScopePickerStub {
-  return fixture.debugElement.query(By.directive(ScopePickerStub)).componentInstance as ScopePickerStub;
+  return fixture.debugElement.query(By.directive(ScopePickerStub))
+    .componentInstance as ScopePickerStub;
 }
 
 function button(root: HTMLElement, label: string): HTMLButtonElement {
-  return [...root.querySelectorAll<HTMLButtonElement>('button')].find((b) => b.textContent?.includes(label))!;
+  return [...root.querySelectorAll<HTMLButtonElement>('button')].find((b) =>
+    b.textContent?.includes(label),
+  )!;
 }
 
 function type(root: HTMLElement, id: string, value: string): void {
@@ -132,7 +151,10 @@ function type(root: HTMLElement, id: string, value: string): void {
 describe('QuoteBuilderComponent', () => {
   describe('carga', () => {
     it('retoma el presupuesto abierto del paciente (pendiente o con pagos parciales)', () => {
-      const { root, quotes } = setup([quote({ id: 'viejo', status: 'paid' }), quote({ id: 'abierto', status: 'partially_paid' })]);
+      const { root, quotes } = setup([
+        quote({ id: 'viejo', status: 'paid' }),
+        quote({ id: 'abierto', status: 'partially_paid' }),
+      ]);
 
       expect(quotes.createForPatient).not.toHaveBeenCalled();
       expect(root.textContent).toContain('Este presupuesto todavía no tiene líneas');
@@ -150,7 +172,9 @@ describe('QuoteBuilderComponent', () => {
     ] as const)('si falla %s, muestra el error', (_, method) => {
       TestBed.resetTestingModule();
       const quotes = {
-        getByPatient: vi.fn().mockReturnValue(method === 'getByPatient' ? throwError(() => new Error('500')) : of([])),
+        getByPatient: vi
+          .fn()
+          .mockReturnValue(method === 'getByPatient' ? throwError(() => new Error('500')) : of([])),
         createForPatient: vi.fn().mockReturnValue(throwError(() => new Error('500'))),
       };
       TestBed.configureTestingModule({
@@ -164,7 +188,9 @@ describe('QuoteBuilderComponent', () => {
       fixture.componentRef.setInput('patientId', 'patient-1');
       fixture.detectChanges();
 
-      expect((fixture.nativeElement as HTMLElement).textContent).toContain('No se pudo cargar el presupuesto');
+      expect((fixture.nativeElement as HTMLElement).textContent).toContain(
+        'No se pudo cargar el presupuesto',
+      );
     });
   });
 
@@ -188,7 +214,9 @@ describe('QuoteBuilderComponent', () => {
     });
 
     it('una línea en dólares muestra también su equivalente en USD', () => {
-      const { root } = setup([quote({ items: [item({ currency: 'USD', exchangeRate: 6.96, subtotal: 696 })] })]);
+      const { root } = setup([
+        quote({ items: [item({ currency: 'USD', exchangeRate: 6.96, subtotal: 696 })] }),
+      ]);
 
       expect(root.querySelector('.qb__fx-hint')?.textContent).toContain('100.00');
     });
@@ -219,15 +247,19 @@ describe('QuoteBuilderComponent', () => {
       root.querySelector<HTMLButtonElement>('.qb__remove-btn')!.click();
       await settle(fixture);
 
-      expect((fixture.componentInstance as unknown as { formError(): string | null }).formError()).toContain(
-        'No se pudo eliminar la línea',
-      );
+      expect(
+        (fixture.componentInstance as unknown as { formError(): string | null }).formError(),
+      ).toContain('No se pudo eliminar la línea');
       expect(root.querySelector('.qb__remove-btn')).not.toBeNull();
     });
   });
 
   describe('agregar línea', () => {
-    function select(fixture: ReturnType<typeof setup>['fixture'], t: Treatment, toothNumbers: number[] = [16]): void {
+    function select(
+      fixture: ReturnType<typeof setup>['fixture'],
+      t: Treatment,
+      toothNumbers: number[] = [16],
+    ): void {
       picker(fixture).selectionChange.emit({ treatment: t, toothNumbers });
       fixture.detectChanges();
     }
@@ -271,7 +303,10 @@ describe('QuoteBuilderComponent', () => {
       button(root, 'Agregar línea').click();
       await settle(fixture);
 
-      expect(quotes.addItem).toHaveBeenCalledWith('quote-1', expect.objectContaining({ quantity: 3, customPrice: undefined }));
+      expect(quotes.addItem).toHaveBeenCalledWith(
+        'quote-1',
+        expect.objectContaining({ quantity: 3, customPrice: undefined }),
+      );
     });
 
     it('si falla, avisa y deja el panel abierto', async () => {
@@ -301,7 +336,24 @@ describe('QuoteBuilderComponent', () => {
     it('registra un pago con método y notas, y limpia el formulario', async () => {
       const { fixture, root, quotes } = setup([quote({ totalAmount: 300 })]);
       quotes.addPayment.mockReturnValue(
-        of(quote({ totalAmount: 300, totalPaid: 100, payments: [{ id: 'pay-1', quoteId: 'quote-1', amount: 100, paymentMethod: 'qr', receiptNumber: 'R-1', paymentDate: '2026-09-24', notes: null, createdAt: '2026-09-24' }] })),
+        of(
+          quote({
+            totalAmount: 300,
+            totalPaid: 100,
+            payments: [
+              {
+                id: 'pay-1',
+                quoteId: 'quote-1',
+                amount: 100,
+                paymentMethod: 'qr',
+                receiptNumber: 'R-1',
+                paymentDate: '2026-09-24',
+                notes: null,
+                createdAt: '2026-09-24',
+              },
+            ],
+          }),
+        ),
       );
       type(root, 'paymentAmount', '100');
       type(root, 'paymentMethod', '  qr ');
@@ -310,7 +362,11 @@ describe('QuoteBuilderComponent', () => {
       button(root, 'Registrar pago').click();
       await settle(fixture);
 
-      expect(quotes.addPayment).toHaveBeenCalledWith('quote-1', { amount: 100, paymentMethod: 'qr', notes: undefined });
+      expect(quotes.addPayment).toHaveBeenCalledWith('quote-1', {
+        amount: 100,
+        paymentMethod: 'qr',
+        notes: undefined,
+      });
       expect(root.textContent).toContain('Bs. 100.00');
       expect(root.querySelector<HTMLInputElement>('#paymentAmount')!.value).toBe('');
     });
@@ -323,7 +379,10 @@ describe('QuoteBuilderComponent', () => {
 
     it('un monto cero o negativo no se registra', async () => {
       const { fixture, quotes } = setup();
-      const builder = fixture.componentInstance as unknown as { paymentAmount: { set(v: number): void }; onAddPayment(): Promise<void> };
+      const builder = fixture.componentInstance as unknown as {
+        paymentAmount: { set(v: number): void };
+        onAddPayment(): Promise<void>;
+      };
 
       builder.paymentAmount.set(-5);
       await builder.onAddPayment();

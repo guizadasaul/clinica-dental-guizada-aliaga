@@ -101,7 +101,9 @@ describe('ThreeDCarouselComponent', () => {
     root.querySelectorAll<HTMLButtonElement>('.three-d-carousel__nav')[1].click();
     fixture.detectChanges();
 
-    expect(root.querySelectorAll('.three-d-carousel__card-inner')[0].className).not.toContain('flipped');
+    expect(root.querySelectorAll('.three-d-carousel__card-inner')[0].className).not.toContain(
+      'flipped',
+    );
   });
 
   describe('arrastre', () => {
@@ -126,7 +128,9 @@ describe('ThreeDCarouselComponent', () => {
     it('un "flick" rápido sigue girando el cilindro después de soltar', () => {
       const { root, state } = setup();
       const track = root.querySelector<HTMLElement>('.three-d-carousel__track')!;
-      root.querySelector<HTMLElement>('.three-d-carousel__hit')!.dispatchEvent(pointerEvent('pointerdown', 600));
+      root
+        .querySelector<HTMLElement>('.three-d-carousel__hit')!
+        .dispatchEvent(pointerEvent('pointerdown', 600));
       track.dispatchEvent(pointerEvent('pointermove', 560));
       const afterDrag = state.rotation();
 
@@ -164,7 +168,9 @@ describe('ThreeDCarouselComponent', () => {
     it('apretar un botón de la tarjeta no inicia el arrastre', () => {
       const { root, state } = setup();
 
-      root.querySelector<HTMLElement>('.three-d-carousel__link')!.dispatchEvent(pointerEvent('pointerdown', 10));
+      root
+        .querySelector<HTMLElement>('.three-d-carousel__link')!
+        .dispatchEvent(pointerEvent('pointerdown', 10));
 
       expect(state.isDragging()).toBe(false);
     });
@@ -172,7 +178,9 @@ describe('ThreeDCarouselComponent', () => {
     it('ignora movimientos de otro puntero', () => {
       const { root, state } = setup();
       const track = root.querySelector<HTMLElement>('.three-d-carousel__track')!;
-      root.querySelector<HTMLElement>('.three-d-carousel__hit')!.dispatchEvent(pointerEvent('pointerdown', 0, 1));
+      root
+        .querySelector<HTMLElement>('.three-d-carousel__hit')!
+        .dispatchEvent(pointerEvent('pointerdown', 0, 1));
 
       track.dispatchEvent(pointerEvent('pointermove', 500, 2));
       track.dispatchEvent(pointerEvent('pointerup', 500, 2));

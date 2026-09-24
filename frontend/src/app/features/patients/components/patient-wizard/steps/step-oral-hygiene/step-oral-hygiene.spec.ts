@@ -46,7 +46,13 @@ describe('StepOralHygieneComponent', () => {
           brushesTongue: false,
           usesMouthwash: false,
         },
-        clinicalExam: { tartar: false, saburra: false, bacterialPlaque: false, halitosis: false, occlusion: undefined },
+        clinicalExam: {
+          tartar: false,
+          saburra: false,
+          bacterialPlaque: false,
+          halitosis: false,
+          occlusion: undefined,
+        },
       },
     ]);
   });
@@ -79,7 +85,13 @@ describe('StepOralHygieneComponent', () => {
         brushesTongue: true,
         usesMouthwash: true,
       },
-      clinicalExam: { tartar: true, saburra: true, bacterialPlaque: true, halitosis: true, occlusion: 'Clase I' },
+      clinicalExam: {
+        tartar: true,
+        saburra: true,
+        bacterialPlaque: true,
+        halitosis: true,
+        occlusion: 'Clase I',
+      },
     });
   });
 

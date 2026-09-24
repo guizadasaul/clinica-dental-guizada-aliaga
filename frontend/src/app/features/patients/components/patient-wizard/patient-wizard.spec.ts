@@ -36,6 +36,7 @@ class Step4Stub {
   readonly currentExam = input<unknown>(null);
   readonly versions = input<unknown[]>([]);
   readonly patientId = input<string | null>(null);
+  readonly frequentDiagnosisCodes = input<string[]>([]);
   readonly submitStep = output<unknown>();
   readonly closeWithoutChanges = output<void>();
   readonly back = output<void>();
@@ -56,7 +57,10 @@ function setup(inputs: Record<string, unknown> = {}) {
     getCurrentDentalExam: vi.fn().mockReturnValue(of({ id: 'exam-1' })),
     getDentalExamVersions: vi.fn().mockReturnValue(of([{ id: 'exam-1' }])),
   };
-  const diagnoses = { getCatalog: vi.fn().mockReturnValue(of([{ id: 'cat-1' }])) };
+  const diagnoses = {
+    getCatalog: vi.fn().mockReturnValue(of([{ id: 'cat-1' }])),
+    getFrequentCodes: vi.fn().mockReturnValue(of(['caries'])),
+  };
   const conditions = { getCatalog: vi.fn().mockReturnValue(of([{ id: 'cond-1' }])) };
   TestBed.configureTestingModule({
     imports: [PatientWizardComponent],
@@ -87,7 +91,10 @@ async function settle(fixture: ReturnType<typeof setup>['fixture']): Promise<voi
   fixture.detectChanges();
 }
 
-function step<T>(fixture: ReturnType<typeof setup>['fixture'], type: new (...args: never[]) => T): T {
+function step<T>(
+  fixture: ReturnType<typeof setup>['fixture'],
+  type: new (...args: never[]) => T,
+): T {
   return fixture.debugElement.query(By.directive(type)).componentInstance as T;
 }
 
@@ -124,7 +131,9 @@ describe('PatientWizardComponent', () => {
       expect(patients.createDentalExam).toHaveBeenCalledWith('patient-new', { findings: [] });
       expect(text(fixture)).toContain('¡Ficha registrada correctamente!');
 
-      (fixture.nativeElement as HTMLElement).querySelector<HTMLButtonElement>('.wizard__success-btn')!.click();
+      (fixture.nativeElement as HTMLElement)
+        .querySelector<HTMLButtonElement>('.wizard__success-btn')!
+        .click();
       expect(events.complete).toBe(1);
     });
 
@@ -154,7 +163,10 @@ describe('PatientWizardComponent', () => {
 
     it('los pasos 2 a 4 no guardan nada si todavía no hay paciente', async () => {
       const { fixture, patients } = setup({ userId: 'user-1' });
-      const wizard = fixture.componentInstance as unknown as Record<string, (data: unknown) => Promise<void>>;
+      const wizard = fixture.componentInstance as unknown as Record<
+        string,
+        (data: unknown) => Promise<void>
+      >;
 
       await wizard['onStep2Submit']({});
       await wizard['onStep3Submit']({ hygieneHabits: {}, clinicalExam: {} });
@@ -179,7 +191,11 @@ describe('PatientWizardComponent', () => {
   describe('errores del backend', () => {
     it.each([
       ['el mensaje del backend', 'El DNI ya está registrado', 'El DNI ya está registrado'],
-      ['las reglas de class-validator unidas', ['firstName es obligatorio', '', 'dni inválido'], 'firstName es obligatorio dni inválido'],
+      [
+        'las reglas de class-validator unidas',
+        ['firstName es obligatorio', '', 'dni inválido'],
+        'firstName es obligatorio dni inválido',
+      ],
       ['el genérico si el mensaje viene vacío', '   ', 'Error al guardar los datos del paciente'],
       ['el genérico si la lista viene vacía', [''], 'Error al guardar los datos del paciente'],
       ['el genérico si el mensaje no es texto', 42, 'Error al guardar los datos del paciente'],
@@ -191,25 +207,25 @@ describe('PatientWizardComponent', () => {
       step(fixture, Step1Stub).submitStep.emit({});
       await settle(fixture);
 
-      expect((fixture.nativeElement as HTMLElement).querySelector('.wizard__error')?.textContent).toContain(expected);
+      expect(
+        (fixture.nativeElement as HTMLElement).querySelector('.wizard__error')?.textContent,
+      ).toContain(expected);
       expect(text(fixture)).toContain('Paso 1 de 4');
     });
 
-    it.each([
-      [null],
-      ['texto plano'],
-      [{ error: null }],
-      [{ error: { sinMessage: true } }],
-    ])('un error sin cuerpo usable (%o) muestra el genérico', async (err) => {
-      const { fixture, patients } = setup({ userId: 'user-1' });
-      patients.createPatient.mockReturnValue(throwError(() => err));
-      await settle(fixture);
+    it.each([[null], ['texto plano'], [{ error: null }], [{ error: { sinMessage: true } }]])(
+      'un error sin cuerpo usable (%o) muestra el genérico',
+      async (err) => {
+        const { fixture, patients } = setup({ userId: 'user-1' });
+        patients.createPatient.mockReturnValue(throwError(() => err));
+        await settle(fixture);
 
-      step(fixture, Step1Stub).submitStep.emit({});
-      await settle(fixture);
+        step(fixture, Step1Stub).submitStep.emit({});
+        await settle(fixture);
 
-      expect(text(fixture)).toContain('Error al guardar los datos del paciente');
-    });
+        expect(text(fixture)).toContain('Error al guardar los datos del paciente');
+      },
+    );
 
     it.each([
       [2, 'createMedicalHistory', 'Error al guardar el historial médico'],
@@ -220,7 +236,9 @@ describe('PatientWizardComponent', () => {
       patients[method].mockReturnValue(throwError(() => new Error('500')));
       await settle(fixture);
 
-      const stub = [Step2Stub, Step3Stub, Step4Stub][n - 2] as new () => { submitStep: { emit(v: unknown): void } };
+      const stub = [Step2Stub, Step3Stub, Step4Stub][n - 2] as new () => {
+        submitStep: { emit(v: unknown): void };
+      };
       step(fixture, stub).submitStep.emit({ hygieneHabits: {}, clinicalExam: {} });
       await settle(fixture);
 
@@ -239,6 +257,7 @@ describe('PatientWizardComponent', () => {
       expect(odontogram.currentExam()).toEqual({ id: 'exam-1' });
       expect(odontogram.versions()).toEqual([{ id: 'exam-1' }]);
       expect(odontogram.patientId()).toBe('patient-1');
+      expect(odontogram.frequentDiagnosisCodes()).toEqual(['caries']);
       // Entrando directo al examen no se muestra la barra de pasos.
       expect((fixture.nativeElement as HTMLElement).querySelector('.wizard__progress')).toBeNull();
     });
@@ -266,7 +285,11 @@ describe('PatientWizardComponent', () => {
 
     it('"Registrar diagnóstico" edita la ficha existente desde el paso 1', async () => {
       const patient = { id: 'patient-1', firstName: 'Ana' };
-      const { fixture, patients } = setup({ existingPatientId: 'patient-1', existingPatient: patient, startStep: 1 });
+      const { fixture, patients } = setup({
+        existingPatientId: 'patient-1',
+        existingPatient: patient,
+        startStep: 1,
+      });
       await settle(fixture);
       expect(text(fixture)).toContain('Registrar diagnóstico');
       expect(step(fixture, Step1Stub).existingPatient()).toBe(patient);
@@ -308,7 +331,9 @@ describe('PatientWizardComponent', () => {
     const { fixture, events } = setup({ userId: 'user-1' });
     await settle(fixture);
 
-    (fixture.nativeElement as HTMLElement).querySelector<HTMLButtonElement>('app-page-header button')!.click();
+    (fixture.nativeElement as HTMLElement)
+      .querySelector<HTMLButtonElement>('app-page-header button')!
+      .click();
 
     expect(events.cancelled).toBe(1);
   });

@@ -23,7 +23,11 @@ function auth(displayName: string | null) {
 }
 
 describe('PatientDashboardComponent', () => {
-  function setup(nav: string, patient: { id: string } | null = { id: 'patient-1' }, name: string | null = 'Ana Pérez') {
+  function setup(
+    nav: string,
+    patient: { id: string } | null = { id: 'patient-1' },
+    name: string | null = 'Ana Pérez',
+  ) {
     TestBed.configureTestingModule({
       imports: [PatientDashboardComponent],
       providers: [
@@ -34,7 +38,9 @@ describe('PatientDashboardComponent', () => {
         },
       ],
     });
-    TestBed.overrideComponent(PatientDashboardComponent, { set: { imports: [TreatmentHistoryStub, LogoComponent] } });
+    TestBed.overrideComponent(PatientDashboardComponent, {
+      set: { imports: [TreatmentHistoryStub, LogoComponent] },
+    });
     const fixture = TestBed.createComponent(PatientDashboardComponent);
     fixture.componentRef.setInput('activeNav', nav);
     fixture.detectChanges();
@@ -61,7 +67,8 @@ describe('PatientDashboardComponent', () => {
     const { fixture } = setup('history');
     const emitted: string[] = [];
     fixture.componentInstance.navChange.subscribe((nav) => emitted.push(nav));
-    const history = fixture.debugElement.query(By.directive(TreatmentHistoryStub)).componentInstance as TreatmentHistoryStub;
+    const history = fixture.debugElement.query(By.directive(TreatmentHistoryStub))
+      .componentInstance as TreatmentHistoryStub;
 
     expect(history.patientId()).toBe('patient-1');
     history.closed.emit();

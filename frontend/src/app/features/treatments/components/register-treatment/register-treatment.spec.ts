@@ -18,11 +18,18 @@ class OdontogramStub {
   readonly catalog = input<unknown[]>([]);
   readonly currentExam = input<unknown>(null);
   readonly procedures = input<ToothProcedure[]>([]);
+  readonly frequentTreatmentIds = input<string[]>([]);
   readonly procedureRegistered = output<ProcedureRegisteredEvent>();
 }
 
 const proc = (overrides: Partial<ToothProcedure> = {}) =>
-  ({ id: 'p1', toothNumber: 16, treatmentId: 'resina', priceCharged: 150, ...overrides }) as ToothProcedure;
+  ({
+    id: 'p1',
+    toothNumber: 16,
+    treatmentId: 'resina',
+    priceCharged: 150,
+    ...overrides,
+  }) as ToothProcedure;
 
 function setup(fail = false) {
   const reply = <T>(value: T) => (fail ? throwError(() => new Error('500')) : of(value));
@@ -32,15 +39,25 @@ function setup(fail = false) {
       {
         provide: TreatmentsService,
         useValue: {
-          getAll: () => of([{ id: 'resina', name: 'Resina', currency: 'BOB' }, { id: 'carilla', name: 'Carilla', currency: 'USD' }]),
+          getAll: () =>
+            of([
+              { id: 'resina', name: 'Resina', currency: 'BOB' },
+              { id: 'carilla', name: 'Carilla', currency: 'USD' },
+            ]),
           getToothProcedures: () => reply([proc()]),
+          getFrequentIds: () => of(['resina']),
         },
       },
-      { provide: PatientsService, useValue: { getCurrentDentalExam: () => reply({ id: 'exam-1' }) } },
+      {
+        provide: PatientsService,
+        useValue: { getCurrentDentalExam: () => reply({ id: 'exam-1' }) },
+      },
       { provide: DiagnosesService, useValue: { getCatalog: () => of([{ id: 'cat-1' }]) } },
     ],
   });
-  TestBed.overrideComponent(RegisterTreatmentComponent, { set: { imports: [PageHeaderComponent, OdontogramStub] } });
+  TestBed.overrideComponent(RegisterTreatmentComponent, {
+    set: { imports: [PageHeaderComponent, OdontogramStub] },
+  });
   const fixture = TestBed.createComponent(RegisterTreatmentComponent);
   fixture.componentRef.setInput('patientId', 'patient-1');
   fixture.detectChanges();
@@ -48,7 +65,8 @@ function setup(fail = false) {
   fixture.componentInstance.done.subscribe(() => events.done++);
   fixture.componentInstance.cancelled.subscribe(() => events.cancelled++);
   const root = fixture.nativeElement as HTMLElement;
-  const odontogram = fixture.debugElement.query(By.directive(OdontogramStub)).componentInstance as OdontogramStub;
+  const odontogram = fixture.debugElement.query(By.directive(OdontogramStub))
+    .componentInstance as OdontogramStub;
   return { fixture, root, events, odontogram };
 }
 
@@ -59,6 +77,7 @@ describe('RegisterTreatmentComponent', () => {
     expect(odontogram.currentExam()).toEqual({ id: 'exam-1' });
     expect(odontogram.catalog()).toEqual([{ id: 'cat-1' }]);
     expect(odontogram.procedures()).toEqual([proc()]);
+    expect(odontogram.frequentTreatmentIds()).toEqual(['resina']);
     expect(root.textContent).toContain('Resina');
     expect(root.textContent).toContain('Diente #16');
   });
@@ -88,7 +107,10 @@ describe('RegisterTreatmentComponent', () => {
   it('un tratamiento que ya no existe muestra su id', () => {
     const { fixture, root, odontogram } = setup();
 
-    odontogram.procedureRegistered.emit({ procedures: [proc({ id: 'p3', treatmentId: 'borrado' })], message: 'ok' });
+    odontogram.procedureRegistered.emit({
+      procedures: [proc({ id: 'p3', treatmentId: 'borrado' })],
+      message: 'ok',
+    });
     fixture.detectChanges();
 
     expect(root.textContent).toContain('borrado');

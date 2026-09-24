@@ -9,8 +9,14 @@ async function setup(query: Record<string, string>, user: object | null) {
     imports: [CallbackComponent],
     providers: [
       provideRouter([]),
-      { provide: AuthService, useValue: { authReady: Promise.resolve(), currentUser: signal(user) } },
-      { provide: ActivatedRoute, useValue: { snapshot: { queryParamMap: convertToParamMap(query) } } },
+      {
+        provide: AuthService,
+        useValue: { authReady: Promise.resolve(), currentUser: signal(user) },
+      },
+      {
+        provide: ActivatedRoute,
+        useValue: { snapshot: { queryParamMap: convertToParamMap(query) } },
+      },
     ],
   });
   const navigate = vi.spyOn(TestBed.inject(Router), 'navigateByUrl').mockResolvedValue(true);

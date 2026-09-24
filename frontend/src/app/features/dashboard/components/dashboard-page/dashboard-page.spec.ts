@@ -35,12 +35,15 @@ function setup(user: { role: Role; displayName?: string | null; photoURL?: strin
     ],
   });
   TestBed.overrideComponent(DashboardPageComponent, {
-    set: { imports: [PatientDashboardStub, DoctorDashboardStub, AdminDashboardStub, LogoComponent] },
+    set: {
+      imports: [PatientDashboardStub, DoctorDashboardStub, AdminDashboardStub, LogoComponent],
+    },
   });
   const fixture = TestBed.createComponent(DashboardPageComponent);
   fixture.detectChanges();
   const root = fixture.nativeElement as HTMLElement;
-  const navLabels = () => Array.from(root.querySelectorAll('.sidebar__link')).map((b) => b.textContent?.trim());
+  const navLabels = () =>
+    Array.from(root.querySelectorAll('.sidebar__link')).map((b) => b.textContent?.trim());
   return { fixture, root, auth, router, navLabels };
 }
 
@@ -57,14 +60,17 @@ describe('DashboardPageComponent', () => {
     ['patient', 'panel paciente', 'Paciente', 'Mis Citas'],
     ['odontologist', 'panel doctor', 'Odontólogo', 'Agenda'],
     ['admin', 'panel admin', 'Administrador', 'Doctores'],
-  ] as const)('con rol %s muestra su panel, su etiqueta y su menú', (role, panel, label, navItem) => {
-    const { root, navLabels } = setup({ role, displayName: 'Ana Pérez' });
+  ] as const)(
+    'con rol %s muestra su panel, su etiqueta y su menú',
+    (role, panel, label, navItem) => {
+      const { root, navLabels } = setup({ role, displayName: 'Ana Pérez' });
 
-    expect(root.textContent).toContain(panel);
-    expect(root.textContent).toContain(label);
-    expect(root.textContent).toContain('Ana');
-    expect(navLabels().join(' ')).toContain(navItem);
-  });
+      expect(root.textContent).toContain(panel);
+      expect(root.textContent).toContain(label);
+      expect(root.textContent).toContain('Ana');
+      expect(navLabels().join(' ')).toContain(navItem);
+    },
+  );
 
   it('elegir una sección del menú la marca activa, se la pasa al panel y cierra el menú mobile', () => {
     const { fixture, root } = setup({ role: 'odontologist' });
@@ -72,22 +78,23 @@ describe('DashboardPageComponent', () => {
     fixture.detectChanges();
     expect(root.querySelector('.layout__overlay')).not.toBeNull();
 
-    const agenda = Array.from(root.querySelectorAll<HTMLButtonElement>('.sidebar__link')).find((b) =>
-      b.textContent?.includes('Agenda'),
+    const agenda = Array.from(root.querySelectorAll<HTMLButtonElement>('.sidebar__link')).find(
+      (b) => b.textContent?.includes('Agenda'),
     )!;
     agenda.click();
     fixture.detectChanges();
 
     expect(agenda.classList).toContain('sidebar__link--active');
-    expect(fixture.debugElement.query(By.directive(DoctorDashboardStub)).componentInstance.activeNav()).toBe(
-      'schedule',
-    );
+    expect(
+      fixture.debugElement.query(By.directive(DoctorDashboardStub)).componentInstance.activeNav(),
+    ).toBe('schedule');
     expect(root.querySelector('.layout__overlay')).toBeNull();
   });
 
   it('el panel puede pedir cambiar de sección', () => {
     const { fixture } = setup({ role: 'admin' });
-    const panel = fixture.debugElement.query(By.directive(AdminDashboardStub)).componentInstance as AdminDashboardStub;
+    const panel = fixture.debugElement.query(By.directive(AdminDashboardStub))
+      .componentInstance as AdminDashboardStub;
 
     panel.navChange.emit('reports');
     fixture.detectChanges();
@@ -108,7 +115,9 @@ describe('DashboardPageComponent', () => {
     expect(root.querySelector('.layout__overlay')).toBeNull();
 
     open();
-    root.querySelector('.layout__overlay')!.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    root
+      .querySelector('.layout__overlay')!
+      .dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
     fixture.detectChanges();
     expect(root.querySelector('.layout__overlay')).toBeNull();
 
@@ -121,7 +130,9 @@ describe('DashboardPageComponent', () => {
   it('muestra la foto del usuario si tiene', () => {
     const { root } = setup({ role: 'patient', photoURL: 'https://foto/ana.png' });
 
-    expect(root.querySelector('.sidebar__avatar')?.getAttribute('src')).toBe('https://foto/ana.png');
+    expect(root.querySelector('.sidebar__avatar')?.getAttribute('src')).toBe(
+      'https://foto/ana.png',
+    );
   });
 
   it('cerrar sesión desloguea y lleva al login', async () => {

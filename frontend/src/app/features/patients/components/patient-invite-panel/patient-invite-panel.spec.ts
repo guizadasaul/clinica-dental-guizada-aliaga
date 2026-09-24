@@ -18,8 +18,14 @@ function setup(initial: { phone?: string | null; email?: string | null } = {}) {
   fixture.componentRef.setInput('patientId', 'patient-1');
   fixture.componentRef.setInput('initialFirstName', 'Ana');
   fixture.componentRef.setInput('initialLastNamePaternal', 'Pérez');
-  fixture.componentRef.setInput('initialPhone', initial.phone === undefined ? '+59170000000' : initial.phone);
-  fixture.componentRef.setInput('initialEmail', initial.email === undefined ? 'ana@example.com' : initial.email);
+  fixture.componentRef.setInput(
+    'initialPhone',
+    initial.phone === undefined ? '+59170000000' : initial.phone,
+  );
+  fixture.componentRef.setInput(
+    'initialEmail',
+    initial.email === undefined ? 'ana@example.com' : initial.email,
+  );
   fixture.detectChanges();
   const root = fixture.nativeElement as HTMLElement;
   const emitted = { sent: [] as string[], cancelled: 0 };
@@ -154,7 +160,9 @@ describe('PatientInvitePanelComponent', () => {
 
     it('por WhatsApp abre el link del mensaje en otra pestaña', async () => {
       const { fixture, root, invites, emitted } = setup();
-      invites.createInvite.mockReturnValue(of({ whatsappUrl: 'https://wa.me/59170000000?text=hola' }));
+      invites.createInvite.mockReturnValue(
+        of({ whatsappUrl: 'https://wa.me/59170000000?text=hola' }),
+      );
       const open = vi.spyOn(window, 'open').mockReturnValue(null);
 
       button(root, 'Enviar por WhatsApp').click();

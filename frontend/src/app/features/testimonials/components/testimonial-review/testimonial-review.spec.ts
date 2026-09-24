@@ -78,6 +78,8 @@ describe('TestimonialReviewComponent', () => {
 
     expect(root.textContent).toContain('No pudimos actualizar ese comentario');
     expect(names()).toEqual(['Persona 1', 'Persona 2']);
-    expect(root.querySelector<HTMLButtonElement>('.review-item__btn--approve')!.disabled).toBe(false);
+    expect(root.querySelector<HTMLButtonElement>('.review-item__btn--approve')!.disabled).toBe(
+      false,
+    );
   });
 });

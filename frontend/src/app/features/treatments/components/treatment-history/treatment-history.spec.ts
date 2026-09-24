@@ -39,7 +39,9 @@ function setup(procedures: ToothProcedure[] | Error) {
         provide: TreatmentsService,
         useValue: {
           getAll: () => of(TREATMENTS),
-          getToothProcedures: vi.fn(() => (procedures instanceof Error ? throwError(() => procedures) : of(procedures))),
+          getToothProcedures: vi.fn(() =>
+            procedures instanceof Error ? throwError(() => procedures) : of(procedures),
+          ),
         },
       },
     ],
@@ -48,7 +50,8 @@ function setup(procedures: ToothProcedure[] | Error) {
   fixture.componentRef.setInput('patientId', 'patient-1');
   fixture.detectChanges();
   const root = fixture.nativeElement as HTMLElement;
-  const rows = () => [...root.querySelectorAll('.th__table tbody tr')].map((r) => r.textContent ?? '');
+  const rows = () =>
+    [...root.querySelectorAll('.th__table tbody tr')].map((r) => r.textContent ?? '');
   return { fixture, root, rows };
 }
 
@@ -81,7 +84,13 @@ describe('TreatmentHistoryComponent', () => {
 
   it('agrupa las filas de una misma aplicación en varias piezas, sumando su precio', () => {
     const { root, rows } = setup([
-      procedure({ id: 'a', toothNumber: 16, applicationGroupId: 'g1', priceCharged: 300, surfaces: ['occlusal'] }),
+      procedure({
+        id: 'a',
+        toothNumber: 16,
+        applicationGroupId: 'g1',
+        priceCharged: 300,
+        surfaces: ['occlusal'],
+      }),
       procedure({ id: 'b', toothNumber: 17, applicationGroupId: 'g1', priceCharged: 0 }),
     ]);
 

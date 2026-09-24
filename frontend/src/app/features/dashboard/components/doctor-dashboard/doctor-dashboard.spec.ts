@@ -107,7 +107,11 @@ function agendaItem(overrides: Partial<AppointmentAgendaItem> = {}): Appointment
 }
 
 function setup(
-  options: { nav?: string; displayName?: string | null; agenda?: Observable<AppointmentAgendaItem[]> } = {},
+  options: {
+    nav?: string;
+    displayName?: string | null;
+    agenda?: Observable<AppointmentAgendaItem[]>;
+  } = {},
 ) {
   const appointments = { getAgenda: vi.fn().mockReturnValue(options.agenda ?? of([agendaItem()])) };
   const user = signal(
@@ -152,7 +156,10 @@ function text(fixture: ReturnType<typeof setup>['fixture']): string {
   return (fixture.nativeElement as HTMLElement).textContent ?? '';
 }
 
-function child<T>(fixture: ReturnType<typeof setup>['fixture'], type: new (...args: never[]) => T): T {
+function child<T>(
+  fixture: ReturnType<typeof setup>['fixture'],
+  type: new (...args: never[]) => T,
+): T {
   return fixture.debugElement.query(By.directive(type)).componentInstance as T;
 }
 
@@ -167,11 +174,15 @@ describe('DoctorDashboardComponent', () => {
       await render(fixture);
 
       expect(text(fixture)).toContain('Dr. Ariel');
-      const [[filters]] = appointments.getAgenda.mock.calls as [[{ status: string; from: string; to: string }]];
+      const [[filters]] = appointments.getAgenda.mock.calls as [
+        [{ status: string; from: string; to: string }],
+      ];
       expect(filters.status).toBe('confirmed');
       // De hoy a mañana, en fechas de La Paz.
       expect(filters.from).toMatch(/^\d{4}-\d{2}-\d{2}$/);
-      expect(new Date(filters.to).getTime() - new Date(filters.from).getTime()).toBe(24 * 60 * 60 * 1000);
+      expect(new Date(filters.to).getTime() - new Date(filters.from).getTime()).toBe(
+        24 * 60 * 60 * 1000,
+      );
       expect(text(fixture)).toContain('Ana Pérez');
       expect(text(fixture)).toContain('+59170000000');
     });
@@ -179,18 +190,32 @@ describe('DoctorDashboardComponent', () => {
     it('un invitado sin teléfono muestra un guion', async () => {
       const { fixture } = setup({
         agenda: of([
-          agendaItem({ patientFirstName: null, patientPhone: null, guestFirstName: 'Luis', guestPhone: null }),
+          agendaItem({
+            patientFirstName: null,
+            patientPhone: null,
+            guestFirstName: 'Luis',
+            guestPhone: null,
+          }),
         ]),
       });
       await render(fixture);
 
       expect(text(fixture)).toContain('Luis');
-      expect((fixture.nativeElement as HTMLElement).querySelector('.schedule-item__phone')?.textContent).toBe('—');
+      expect(
+        (fixture.nativeElement as HTMLElement).querySelector('.schedule-item__phone')?.textContent,
+      ).toBe('—');
     });
 
     it('usa el teléfono del invitado si no hay paciente registrado', async () => {
       const { fixture } = setup({
-        agenda: of([agendaItem({ patientFirstName: null, patientPhone: null, guestFirstName: 'Luis', guestPhone: '+59171111111' })]),
+        agenda: of([
+          agendaItem({
+            patientFirstName: null,
+            patientPhone: null,
+            guestFirstName: 'Luis',
+            guestPhone: '+59171111111',
+          }),
+        ]),
       });
       await render(fixture);
 
@@ -230,7 +255,9 @@ describe('DoctorDashboardComponent', () => {
       fixture.componentInstance.navChange.subscribe((nav) => emitted.push(nav));
       await render(fixture);
 
-      (fixture.nativeElement as HTMLElement).querySelector<HTMLButtonElement>('.doctor-action')!.click();
+      (fixture.nativeElement as HTMLElement)
+        .querySelector<HTMLButtonElement>('.doctor-action')!
+        .click();
 
       expect(emitted).toEqual(['patients']);
     });
@@ -323,20 +350,26 @@ describe('DoctorDashboardComponent', () => {
       ['viewHistory', 'patient-1', TreatmentHistoryStub, 'closed'],
       ['buildQuote', 'patient-1', QuoteBuilderStub, 'closed'],
       ['sendInvite', INVITE, InvitePanelStub, 'cancelled'],
-    ] as const)('%s abre su pantalla y "%s" vuelve a la lista', async (listEvent, payload, screen, closeEvent) => {
-      const { fixture, list } = await patients();
+    ] as const)(
+      '%s abre su pantalla y "%s" vuelve a la lista',
+      async (listEvent, payload, screen, closeEvent) => {
+        const { fixture, list } = await patients();
 
-      (list[listEvent] as { emit(value: unknown): void }).emit(payload);
-      fixture.detectChanges();
-      const opened = child(fixture, screen as unknown as new (...args: never[]) => Record<string, { emit(): void }>);
-      expect(opened).toBeTruthy();
-      expect(text(fixture)).not.toContain('lista');
+        (list[listEvent] as { emit(value: unknown): void }).emit(payload);
+        fixture.detectChanges();
+        const opened = child(
+          fixture,
+          screen as unknown as new (...args: never[]) => Record<string, { emit(): void }>,
+        );
+        expect(opened).toBeTruthy();
+        expect(text(fixture)).not.toContain('lista');
 
-      opened[closeEvent].emit();
-      fixture.detectChanges();
+        opened[closeEvent].emit();
+        fixture.detectChanges();
 
-      expect(text(fixture)).toContain('lista');
-    });
+        expect(text(fixture)).toContain('lista');
+      },
+    );
 
     it('la invitación recibe los datos de contacto del paciente', async () => {
       const { fixture, list } = await patients();
@@ -353,21 +386,24 @@ describe('DoctorDashboardComponent', () => {
     it.each([
       ['email', 'Correo enviado correctamente'],
       ['whatsapp', 'Mensaje de WhatsApp listo para enviar'],
-    ] as const)('al enviar por %s vuelve a la lista con un aviso que se va solo', async (channel, message) => {
-      vi.useFakeTimers();
-      const { fixture, list } = await patients();
-      list.sendInvite.emit(INVITE);
-      fixture.detectChanges();
+    ] as const)(
+      'al enviar por %s vuelve a la lista con un aviso que se va solo',
+      async (channel, message) => {
+        vi.useFakeTimers();
+        const { fixture, list } = await patients();
+        list.sendInvite.emit(INVITE);
+        fixture.detectChanges();
 
-      child(fixture, InvitePanelStub).sent.emit(channel);
-      fixture.detectChanges();
-      expect(text(fixture)).toContain(message);
-      expect(text(fixture)).toContain('lista');
+        child(fixture, InvitePanelStub).sent.emit(channel);
+        fixture.detectChanges();
+        expect(text(fixture)).toContain(message);
+        expect(text(fixture)).toContain('lista');
 
-      vi.advanceTimersByTime(6000);
-      fixture.detectChanges();
-      expect(text(fixture)).not.toContain(message);
-    });
+        vi.advanceTimersByTime(6000);
+        fixture.detectChanges();
+        expect(text(fixture)).not.toContain(message);
+      },
+    );
 
     it('el aviso se puede cerrar antes, y un segundo envío reinicia su tiempo', async () => {
       vi.useFakeTimers();
@@ -386,7 +422,9 @@ describe('DoctorDashboardComponent', () => {
       fixture.detectChanges();
       expect(text(fixture)).toContain('WhatsApp');
 
-      (fixture.nativeElement as HTMLElement).querySelector<HTMLButtonElement>('.invite-toast__close')!.click();
+      (fixture.nativeElement as HTMLElement)
+        .querySelector<HTMLButtonElement>('.invite-toast__close')!
+        .click();
       fixture.detectChanges();
       expect((fixture.nativeElement as HTMLElement).querySelector('.invite-toast')).toBeNull();
     });

@@ -33,7 +33,9 @@ describe('TestimonialCtaComponent', () => {
     expect(root.querySelector('dialog')).toBeNull();
     open();
 
-    expect(root.querySelector('dialog.testimonial-modal__panel app-testimonial-form')).not.toBeNull();
+    expect(
+      root.querySelector('dialog.testimonial-modal__panel app-testimonial-form'),
+    ).not.toBeNull();
     expect(scrollLock.lock).toHaveBeenCalled();
   });
 
@@ -70,7 +72,9 @@ describe('TestimonialCtaComponent', () => {
     expect(root.querySelector('dialog')).toBeNull();
 
     open();
-    root.querySelector('.testimonial-modal')!.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    root
+      .querySelector('.testimonial-modal')!
+      .dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
     fixture.detectChanges();
     expect(root.querySelector('dialog')).toBeNull();
 
