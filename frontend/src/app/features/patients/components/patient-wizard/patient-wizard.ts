@@ -8,7 +8,8 @@ import {
   computed,
   effect,
 } from '@angular/core';
-import { firstValueFrom } from 'rxjs';
+import { toSignal } from '@angular/core/rxjs-interop';
+import { catchError, firstValueFrom, of } from 'rxjs';
 import { PatientsService } from '../../services/patients.service';
 import { DiagnosesService } from '../../../diagnoses/services/diagnoses.service';
 import { MedicalConditionsService } from '../../../medical-conditions/services/medical-conditions.service';
@@ -96,15 +97,17 @@ export class PatientWizardComponent {
   });
 
   protected readonly diagnosisCatalog = signal<DiagnosisCategory[]>([]);
-  /** Los que más usa el doctor — atajo "Frecuentes" del selector de diagnóstico (CLI-118). */
-  protected readonly frequentDiagnosisCodes = signal<string[]>([]);
+  /** Los que más usa el doctor — atajo "Frecuentes" del selector de diagnóstico (CLI-118); vacío si falla. */
+  protected readonly frequentDiagnosisCodes = toSignal(
+    this.diagnosesService.getFrequentCodes().pipe(catchError(() => of([] as string[]))),
+    { initialValue: [] as string[] },
+  );
   protected readonly medicalConditionsCatalog = signal<MedicalCondition[]>([]);
   protected readonly currentDentalExam = signal<DentalExam | null>(null);
   protected readonly dentalExamVersions = signal<DentalExamVersionSummary[]>([]);
 
   constructor() {
     void this.loadDiagnosisCatalog();
-    void this.loadFrequentDiagnoses();
     void this.loadMedicalConditionsCatalog();
     effect(() => {
       const existingId = this.existingPatientId();
@@ -114,14 +117,6 @@ export class PatientWizardComponent {
         void this.loadDentalExam(existingId);
       }
     }, { allowSignalWrites: true });
-  }
-
-  private async loadFrequentDiagnoses(): Promise<void> {
-    try {
-      this.frequentDiagnosisCodes.set(await firstValueFrom(this.diagnosesService.getFrequentCodes()));
-    } catch {
-      // no-op: sin "Frecuentes" el selector funciona igual
-    }
   }
 
   private async loadDiagnosisCatalog(): Promise<void> {
