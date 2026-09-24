@@ -77,7 +77,8 @@ describe('CatalogPickerComponent', () => {
 
     (root(fixture).querySelector('.catalog-picker__change') as HTMLButtonElement).click();
     fixture.detectChanges();
-    expect(root(fixture).querySelector('.catalog-picker__search-input')).toBeTruthy();
+    const input = root(fixture).querySelector('.catalog-picker__search-input');
+    expect(input).toBeTruthy();
     expect(root(fixture).querySelector('.catalog-picker__option--selected')?.getAttribute('data-id')).toBe('e1');
   });
 

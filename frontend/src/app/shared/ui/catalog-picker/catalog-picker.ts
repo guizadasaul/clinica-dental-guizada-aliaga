@@ -1,4 +1,17 @@
-import { Component, ChangeDetectionStrategy, ElementRef, computed, effect, input, output, signal, viewChild } from '@angular/core';
+import {
+  Component,
+  ChangeDetectionStrategy,
+  ElementRef,
+  Injector,
+  afterNextRender,
+  computed,
+  effect,
+  inject,
+  input,
+  output,
+  signal,
+  viewChild,
+} from '@angular/core';
 
 /** Una opción elegible del catálogo (tratamiento, diagnóstico...). */
 export interface CatalogPickerItem {
@@ -52,6 +65,7 @@ export class CatalogPickerComponent {
   readonly extraGroups = input<readonly CatalogPickerExtraGroup[]>([]);
   readonly selectedChange = output<string>();
 
+  private readonly injector = inject(Injector);
   private readonly searchInput = viewChild<ElementRef<HTMLInputElement>>('search');
 
   protected readonly query = signal('');
@@ -156,7 +170,8 @@ export class CatalogPickerComponent {
 
   protected onChange(): void {
     this.open.set(true);
-    queueMicrotask(() => this.searchInput()?.nativeElement.focus());
+    // El buscador recién existe después del próximo render.
+    afterNextRender(() => this.searchInput()?.nativeElement.focus(), { injector: this.injector });
   }
 
   protected onKeydown(event: KeyboardEvent): void {
