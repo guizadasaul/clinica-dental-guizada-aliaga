@@ -1,0 +1,78 @@
+<div class="catalog-picker">
+  @if (!open() && selectedItem(); as selected) {
+    <div class="catalog-picker__selected">
+      @if (selected.color) {
+        <span class="catalog-picker__dot" [style.background]="selected.color"></span>
+      }
+      <div class="catalog-picker__selected-text">
+        <span class="catalog-picker__selected-label">{{ selected.label }}</span>
+        <span class="catalog-picker__selected-group">{{ selected.groupLabel }}</span>
+      </div>
+      <button type="button" class="catalog-picker__change" (click)="onChange()">Cambiar</button>
+    </div>
+  } @else {
+    <div class="catalog-picker__search">
+      <span class="material-symbols-outlined" aria-hidden="true">search</span>
+      <input
+        #search
+        type="search"
+        class="catalog-picker__search-input"
+        [placeholder]="'Buscar ' + noun() + '...'"
+        [attr.aria-label]="'Buscar ' + noun()"
+        [value]="query()"
+        (input)="onQueryInput($any($event.target).value)"
+        (keydown)="onKeydown($event)"
+      />
+    </div>
+
+    @if (!query()) {
+      <div class="catalog-picker__chips" role="tablist" [attr.aria-label]="'Categorías de ' + noun()">
+        @for (chip of chips(); track chip.id) {
+          <button
+            type="button"
+            role="tab"
+            class="catalog-picker__chip"
+            [class.catalog-picker__chip--active]="activeGroup() === chip.id"
+            [attr.aria-selected]="activeGroup() === chip.id"
+            (click)="onChip(chip.id)"
+          >
+            {{ chip.label }}
+          </button>
+        }
+      </div>
+    }
+
+    <div class="catalog-picker__list">
+      @for (section of sections(); track section.title) {
+        @if (section.title) {
+          <p class="catalog-picker__section">{{ section.title }}</p>
+        }
+        <div class="catalog-picker__grid">
+          @for (item of section.items; track item.id) {
+            <button
+              type="button"
+              class="catalog-picker__option"
+              [attr.data-id]="item.id"
+              [class.catalog-picker__option--selected]="item.id === selectedId()"
+              [class.catalog-picker__option--active]="isActive(item)"
+              [attr.aria-pressed]="item.id === selectedId()"
+              (click)="onSelect(item)"
+            >
+              @if (item.color) {
+                <span class="catalog-picker__dot" [style.background]="item.color"></span>
+              }
+              <span class="catalog-picker__option-text">
+                <span class="catalog-picker__option-label">{{ item.label }}</span>
+                @if (item.hint) {
+                  <span class="catalog-picker__option-hint">{{ item.hint }}</span>
+                }
+              </span>
+            </button>
+          }
+        </div>
+      } @empty {
+        <p class="catalog-picker__empty">Sin resultados para «{{ query() }}».</p>
+      }
+    </div>
+  }
+</div>

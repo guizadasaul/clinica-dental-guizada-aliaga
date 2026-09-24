@@ -19,6 +19,10 @@ import {
 } from '../../../../shared/ui/odontogram-chart/odontogram-chart';
 import { examToothColorMap } from '../../../../shared/utils/odontogram-paint.util';
 import {
+  CatalogPickerComponent,
+  type CatalogPickerItem,
+} from '../../../../shared/ui/catalog-picker/catalog-picker';
+import {
   teethForApplicationType,
   applicationTypeImpliesTeeth,
 } from '../../../../shared/constants/dental-chart.constants';
@@ -26,12 +30,6 @@ import {
   TOOTH_SURFACE_CODES,
   allowedSurfacesForTooth,
 } from '../../../../shared/validation/tooth-surface.validator';
-
-interface TreatmentGroup {
-  readonly categoryCode: string;
-  readonly categoryName: string;
-  readonly treatments: Treatment[];
-}
 
 /** Las 7 superficies dentales, por diente (CLI-41/CLI-49) — vista local, no viene del backend tal cual. */
 type ToothSurfaces = Record<ToothSurfaceCode, boolean>;
@@ -91,7 +89,7 @@ export interface ProcedureRegisteredEvent {
   selector: 'app-register-treatment-odontogram',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [DecimalPipe, OdontogramChartComponent],
+  imports: [DecimalPipe, OdontogramChartComponent, CatalogPickerComponent],
   templateUrl: './register-treatment-odontogram.html',
   styleUrl: './register-treatment-odontogram.scss',
 })
@@ -147,23 +145,18 @@ export class RegisterTreatmentOdontogramComponent {
 
   protected readonly treatedTeeth = computed(() => [...this.treatmentColorMap().keys()]);
 
-  // El backend ya devuelve GET /treatments ordenado por categoría y luego
-  // por orden dentro de la categoría (ver PrismaTreatmentsRepository) — acá
-  // solo se agrupan los consecutivos, sin reordenar.
-  protected readonly treatmentGroups = computed<TreatmentGroup[]>(() => {
-    const groups: TreatmentGroup[] = [];
-    const byCode = new Map<string, TreatmentGroup>();
-    for (const t of this.treatments()) {
-      let group = byCode.get(t.categoryCode);
-      if (!group) {
-        group = { categoryCode: t.categoryCode, categoryName: t.categoryName, treatments: [] };
-        byCode.set(t.categoryCode, group);
-        groups.push(group);
-      }
-      group.treatments.push(t);
-    }
-    return groups;
-  });
+  // Opciones del selector (CLI-116): el backend ya devuelve GET /treatments
+  // ordenado por categoría y orden interno (ver PrismaTreatmentsRepository),
+  // así que las categorías del picker salen en ese mismo orden.
+  protected readonly treatmentOptions = computed<CatalogPickerItem[]>(() =>
+    this.treatments().map((t) => ({
+      id: t.id,
+      label: t.name,
+      groupId: t.categoryCode,
+      groupLabel: t.categoryName,
+      color: t.categoryColor,
+    })),
+  );
 
   // Pinta el odontograma con el diagnóstico VIGENTE del paciente — el mismo
   // dato que ve StepOdontogramComponent al abrir "Editar diagnóstico"

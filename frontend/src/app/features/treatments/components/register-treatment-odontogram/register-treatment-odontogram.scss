@@ -135,27 +135,6 @@
     color: #6b7280;
   }
 
-  &__select {
-    padding: 0.625rem 0.75rem;
-    border: 1px solid #e5e7eb;
-    border-radius: 0.5rem;
-    font-size: 0.875rem;
-    color: #111827;
-    background: white;
-    outline: none;
-    transition: border-color 0.15s, box-shadow 0.15s;
-    width: 100%;
-    box-sizing: border-box;
-    font-family: inherit;
-    cursor: pointer;
-    appearance: auto;
-
-    &:focus {
-      border-color: var(--color-navy, #1a2b5e);
-      box-shadow: 0 0 0 3px rgba(26, 43, 94, 0.1);
-    }
-  }
-
   &__input {
     padding: 0.625rem 0.75rem;
     border: 1px solid #e5e7eb;
