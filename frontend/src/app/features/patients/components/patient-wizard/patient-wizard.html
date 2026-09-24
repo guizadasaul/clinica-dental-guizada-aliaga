@@ -100,10 +100,8 @@
           [catalog]="diagnosisCatalog()"
           [currentExam]="currentDentalExam()"
           [versions]="dentalExamVersions()"
-          [viewedVersion]="viewedDentalExam()"
+          [patientId]="patientId()"
           (submitStep)="onStep4Submit($event)"
-          (viewVersionRequest)="onViewDentalExamVersion($event)"
-          (closeViewedVersion)="onCloseViewedDentalExam()"
           (closeWithoutChanges)="onCancel()"
           (back)="goBack()"
         />

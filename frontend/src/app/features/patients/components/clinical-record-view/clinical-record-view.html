@@ -168,98 +168,11 @@
         <span class="material-symbols-outlined">dentistry</span>
         Exámenes dentales
       </h3>
-      @if (examVersions().length === 0) {
-        <p class="record__empty">Todavía no se registró ningún examen dental para este paciente.</p>
-      } @else {
-        <ul class="record__exams">
-          @for (v of examVersions(); track v.id; let first = $first) {
-            <li class="record__exam" [class.record__exam--open]="expandedExamId() === v.id">
-              <button
-                type="button"
-                class="record__exam-toggle"
-                [attr.aria-expanded]="expandedExamId() === v.id"
-                [attr.aria-controls]="'exam-' + v.id"
-                (click)="onToggleExam(v.id)"
-              >
-                <span class="record__exam-date">{{ v.recordedAt | date: 'dd/MM/yyyy' }}</span>
-                <span class="record__exam-kind">{{ v.kind === 'diagnosis' ? 'Diagnóstico' : 'Corrección' }}</span>
-                <span class="record__exam-meta">
-                  Versión {{ v.version }}
-                  @if (v.recordedByName) { · {{ v.recordedByName }} }
-                  · {{ v.findingsCount }} {{ v.findingsCount === 1 ? 'hallazgo' : 'hallazgos' }}
-                </span>
-                @if (first) {
-                  <span class="record__exam-badge">Actual</span>
-                }
-                <span class="material-symbols-outlined record__exam-chevron">expand_more</span>
-              </button>
-
-              @if (expandedExamId() === v.id) {
-                <div class="record__exam-body" [id]="'exam-' + v.id">
-                  @if (v.changeReason) {
-                    <p class="record__exam-reason">Motivo del cambio: {{ v.changeReason }}</p>
-                  }
-                  @if (examLoadingId() === v.id) {
-                    <p class="record__empty">Cargando examen...</p>
-                  } @else if (examErrorId() === v.id) {
-                    <p class="record__empty">No se pudo cargar este examen. Intentá de nuevo.</p>
-                  } @else if (expandedExam()) {
-                    <app-odontogram-chart
-                      [interactive]="false"
-                      [toothColor]="expandedToothColor()"
-                      [legendItems]="expandedLegend()"
-                    />
-
-                    @if (toothFindings().length === 0 && generalFindings().length === 0) {
-                      <p class="record__empty">Sin hallazgos — boca sana en esta versión.</p>
-                    } @else {
-                      @if (toothFindings().length > 0) {
-                        <ul class="record__entries-list">
-                          @for (f of toothFindings(); track f.key) {
-                            <li class="record__entry">
-                              <span class="record__entry-dot" [style.background]="f.diagnosisColor"></span>
-                              <span class="record__entry-tooth">
-                                {{ f.toothNumbers.length === 1 ? 'Diente #' + f.toothNumbers[0] : 'Dientes ' + f.toothNumbers.join(', ') }}
-                              </span>
-                              <span class="record__entry-sep">—</span>
-                              <span class="record__entry-diag">{{ f.diagnosisName }}</span>
-                              @if (f.modifierValue) {
-                                <span class="record__entry-badge">{{ modifierLabel(f.modifierValue) }}</span>
-                              }
-                              @if (f.description) {
-                                <span class="record__entry-desc">{{ f.description }}</span>
-                              }
-                              @if (f.xrayRequested) {
-                                <span class="record__entry-xray" title="Rayos X solicitados">
-                                  <span class="material-symbols-outlined">radiology</span>
-                                </span>
-                              }
-                            </li>
-                          }
-                        </ul>
-                      }
-                      @if (generalFindings().length > 0) {
-                        <h4 class="record__subsection-title">Hallazgos generales</h4>
-                        <ul class="record__entries-list">
-                          @for (f of generalFindings(); track f.key) {
-                            <li class="record__entry">
-                              <span class="record__entry-dot" [style.background]="f.diagnosisColor"></span>
-                              <span class="record__entry-diag">{{ f.diagnosisName }}</span>
-                              @if (f.description) {
-                                <span class="record__entry-desc">{{ f.description }}</span>
-                              }
-                            </li>
-                          }
-                        </ul>
-                      }
-                    }
-                  }
-                </div>
-              }
-            </li>
-          }
-        </ul>
-      }
+      <app-dental-exam-history
+        [patientId]="patient().id"
+        [versions]="examVersions()"
+        [initialExam]="currentExam()"
+      />
     </section>
 
   }

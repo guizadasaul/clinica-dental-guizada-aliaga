@@ -119,12 +119,12 @@ describe('ClinicalRecordViewComponent — exámenes dentales', () => {
     await settle(fixture);
     const root = fixture.nativeElement as HTMLElement;
 
-    expect(root.querySelectorAll('.record__exam')).toHaveLength(2);
-    expect(root.querySelector('.record__exam--open .record__exam-badge')?.textContent).toContain('Actual');
+    expect(root.querySelectorAll('.exam-history__item')).toHaveLength(2);
+    expect(root.querySelector('.exam-history__item--open .exam-history__badge')?.textContent).toContain('Actual');
     expect(root.querySelectorAll('app-odontogram-chart')).toHaveLength(1);
     expect(fillOf(root, 16)).toBe('#dc2626');
-    expect(root.querySelector('.record__exam-reason')?.textContent).toContain('Caries nueva');
-    const kinds = [...root.querySelectorAll('.record__exam-kind')].map((k) => k.textContent?.trim());
+    expect(root.querySelector('.exam-history__reason')?.textContent).toContain('Caries nueva');
+    const kinds = [...root.querySelectorAll('.exam-history__kind')].map((k) => k.textContent?.trim());
     expect(kinds).toEqual(['Corrección', 'Diagnóstico']);
   });
 
@@ -141,7 +141,7 @@ describe('ClinicalRecordViewComponent — exámenes dentales', () => {
     const { fixture, getDentalExam } = setup();
     await settle(fixture);
     const root = fixture.nativeElement as HTMLElement;
-    const toggles = root.querySelectorAll<HTMLButtonElement>('.record__exam-toggle');
+    const toggles = root.querySelectorAll<HTMLButtonElement>('.exam-history__toggle');
 
     toggles[1].click();
     await settle(fixture);

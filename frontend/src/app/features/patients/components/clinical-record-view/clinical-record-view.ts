@@ -5,32 +5,17 @@ import {
   input,
   output,
   signal,
-  computed,
   effect,
 } from '@angular/core';
 import { DatePipe } from '@angular/common';
 import { firstValueFrom } from 'rxjs';
 import { PatientsService } from '../../services/patients.service';
 import type { Patient, MedicalHistory, HygieneHabits, ClinicalExam } from '../../models/patient.model';
-import type { DentalExam, DentalExamFinding, DentalExamVersionSummary } from '../../models/dental-exam.model';
-import { modifierLabel } from '../../models/dental-exam-display.util';
+import type { DentalExam, DentalExamVersionSummary } from '../../models/dental-exam.model';
 import { BRUSHING_FREQUENCY_LABELS } from '../patient-wizard/steps/step-oral-hygiene/step-oral-hygiene';
 import type { BrushingFrequency } from '../../../../shared/validation/clinical-options';
-import { OdontogramChartComponent } from '../../../../shared/ui/odontogram-chart/odontogram-chart';
-import { examLegendItems, examToothColorMap } from '../../../../shared/utils/odontogram-paint.util';
+import { DentalExamHistoryComponent } from '../dental-exam-history/dental-exam-history';
 import { PageHeaderComponent } from '../../../../shared/ui/page-header/page-header';
-
-interface GroupedFinding {
-  readonly key: string;
-  readonly diagnosisName: string;
-  readonly categoryName: string;
-  readonly diagnosisColor: string;
-  readonly toothNumbers: number[];
-  readonly modifierValue: string | null;
-  readonly description: string | null;
-  readonly xrayRequested: boolean;
-  readonly notes: string | null;
-}
 
 const HYGIENE_HABIT_LABELS: { key: keyof HygieneHabits; label: string }[] = [
   { key: 'usesToothbrush', label: 'Usa cepillo dental' },
@@ -47,51 +32,13 @@ const CLINICAL_FINDING_LABELS: { key: keyof ClinicalExam; label: string }[] = [
   { key: 'halitosis', label: 'Halitosis' },
 ];
 
-function groupFindings(findings: DentalExamFinding[]): GroupedFinding[] {
-  const byGroup = new Map<string, DentalExamFinding[]>();
-  const singles: DentalExamFinding[] = [];
-  for (const f of findings) {
-    if (f.applicationGroupId) {
-      const list = byGroup.get(f.applicationGroupId) ?? [];
-      list.push(f);
-      byGroup.set(f.applicationGroupId, list);
-    } else {
-      singles.push(f);
-    }
-  }
-
-  const toGrouped = (key: string, first: DentalExamFinding, teeth: number[]): GroupedFinding => ({
-    key,
-    diagnosisName: first.diagnosisName,
-    categoryName: first.categoryName,
-    diagnosisColor: first.diagnosisColor,
-    toothNumbers: teeth,
-    modifierValue: first.modifierValue,
-    description: first.description,
-    xrayRequested: first.xrayRequested,
-    notes: first.notes,
-  });
-
-  const grouped = singles.map((f) =>
-    toGrouped(f.id, f, f.toothNumber != null ? [f.toothNumber] : []),
-  );
-  for (const [groupId, list] of byGroup) {
-    const teeth = list
-      .map((f) => f.toothNumber)
-      .filter((n): n is number => n != null)
-      .sort((a, b) => a - b);
-    grouped.push(toGrouped(groupId, list[0], teeth));
-  }
-  return grouped;
-}
-
 /** Resumen de solo lectura de la ficha completa de un paciente (CLI-40) —
  * a diferencia del wizard, no permite editar nada ni dispara ningún guardado. */
 @Component({
   selector: 'app-clinical-record-view',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [PageHeaderComponent, DatePipe, OdontogramChartComponent],
+  imports: [PageHeaderComponent, DatePipe, DentalExamHistoryComponent],
   templateUrl: './clinical-record-view.html',
   styleUrl: './clinical-record-view.scss',
 })
@@ -110,29 +57,9 @@ export class ClinicalRecordViewComponent {
   protected readonly loading = signal(true);
   protected readonly loadError = signal(false);
 
-  // ── Exámenes dentales (CLI-108) ──────────────────────────────────────────
-  /** Todas las versiones del examen dental, la más nueva primero. */
+  // ── Exámenes dentales (CLI-108): la lista y el visor viven en DentalExamHistoryComponent (CLI-114) ─
   protected readonly examVersions = signal<DentalExamVersionSummary[]>([]);
-  /** Examen desplegado (acordeón, uno a la vez) — arranca en el actual. */
-  protected readonly expandedExamId = signal<string | null>(null);
-  /** Exámenes ya traídos del backend, para no volver a pedirlos al re-desplegar. */
-  private readonly examsById = signal<ReadonlyMap<string, DentalExam>>(new Map());
-  protected readonly examLoadingId = signal<string | null>(null);
-  protected readonly examErrorId = signal<string | null>(null);
-
-  protected readonly expandedExam = computed(() => {
-    const id = this.expandedExamId();
-    return id ? (this.examsById().get(id) ?? null) : null;
-  });
-  protected readonly expandedToothColor = computed(() => examToothColorMap(this.expandedExam()?.findings ?? []));
-  protected readonly expandedLegend = computed(() => examLegendItems(this.expandedExam()?.findings ?? []));
-
-  protected readonly toothFindings = computed(() =>
-    groupFindings(this.expandedExam()?.findings ?? []).filter((f) => f.toothNumbers.length > 0),
-  );
-  protected readonly generalFindings = computed(() =>
-    groupFindings(this.expandedExam()?.findings ?? []).filter((f) => f.toothNumbers.length === 0),
-  );
+  protected readonly currentExam = signal<DentalExam | null>(null);
 
   private loadedForId: string | null = null;
 
@@ -160,34 +87,11 @@ export class ClinicalRecordViewComponent {
       this.hygieneHabits.set(hygieneHabits);
       this.clinicalExam.set(clinicalExam);
       this.examVersions.set(versions);
-      if (currentExam) {
-        this.examsById.set(new Map([[currentExam.id, currentExam]]));
-        this.expandedExamId.set(currentExam.id);
-      }
+      this.currentExam.set(currentExam);
     } catch {
       this.loadError.set(true);
     } finally {
       this.loading.set(false);
-    }
-  }
-
-  protected async onToggleExam(examId: string): Promise<void> {
-    if (this.expandedExamId() === examId) {
-      this.expandedExamId.set(null);
-      return;
-    }
-    this.expandedExamId.set(examId);
-    this.examErrorId.set(null);
-    if (this.examsById().has(examId)) { return; }
-
-    this.examLoadingId.set(examId);
-    try {
-      const exam = await firstValueFrom(this.patientsService.getDentalExam(this.patient().id, examId));
-      this.examsById.update((prev) => new Map(prev).set(exam.id, exam));
-    } catch {
-      this.examErrorId.set(examId);
-    } finally {
-      this.examLoadingId.set(null);
     }
   }
 
@@ -213,10 +117,6 @@ export class ClinicalRecordViewComponent {
   protected brushingFrequencyLabel(value: string | null): string {
     if (!value) { return ''; }
     return BRUSHING_FREQUENCY_LABELS[value as BrushingFrequency] ?? value;
-  }
-
-  protected modifierLabel(value: string): string {
-    return modifierLabel(value);
   }
 
   protected anesthesiaReactionsLabel(value: boolean | null): string {

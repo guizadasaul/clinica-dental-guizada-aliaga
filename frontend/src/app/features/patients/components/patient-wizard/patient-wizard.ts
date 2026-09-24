@@ -99,7 +99,6 @@ export class PatientWizardComponent {
   protected readonly medicalConditionsCatalog = signal<MedicalCondition[]>([]);
   protected readonly currentDentalExam = signal<DentalExam | null>(null);
   protected readonly dentalExamVersions = signal<DentalExamVersionSummary[]>([]);
-  protected readonly viewedDentalExam = signal<DentalExam | null>(null);
 
   constructor() {
     void this.loadDiagnosisCatalog();
@@ -143,21 +142,6 @@ export class PatientWizardComponent {
     } catch {
       // no-op: el step 5 arranca sin examen previo (paciente sin diagnóstico aún)
     }
-  }
-
-  protected async onViewDentalExamVersion(examId: string): Promise<void> {
-    const id = this.patientId();
-    if (!id) { return; }
-    try {
-      const exam = await firstValueFrom(this.patientsService.getDentalExam(id, examId));
-      this.viewedDentalExam.set(exam);
-    } catch {
-      // no-op
-    }
-  }
-
-  protected onCloseViewedDentalExam(): void {
-    this.viewedDentalExam.set(null);
   }
 
   /**
