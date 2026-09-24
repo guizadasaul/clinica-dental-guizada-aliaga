@@ -2,7 +2,6 @@ import {
   AfterViewInit,
   Directive,
   ElementRef,
-  OnDestroy,
   Renderer2,
   HostListener,
   inject,
@@ -18,7 +17,7 @@ import {
   selector: '[appOriginFill]',
   standalone: true,
 })
-export class OriginFillDirective implements AfterViewInit, OnDestroy {
+export class OriginFillDirective implements AfterViewInit {
   private readonly el = inject(ElementRef<HTMLElement>);
   private readonly renderer = inject(Renderer2);
 
@@ -37,10 +36,6 @@ export class OriginFillDirective implements AfterViewInit, OnDestroy {
     this.renderer.addClass(cover, 'origin-fill__cover');
     this.renderer.setAttribute(cover, 'aria-hidden', 'true');
     this.renderer.insertBefore(host, cover, content);
-  }
-
-  ngOnDestroy(): void {
-    // El host se destruye junto con el elemento; nada que limpiar.
   }
 
   @HostListener('pointerenter', ['$event'])

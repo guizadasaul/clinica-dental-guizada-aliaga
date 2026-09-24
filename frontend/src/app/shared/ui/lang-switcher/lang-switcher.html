@@ -3,7 +3,6 @@
     class="lang-switcher__trigger"
     type="button"
     [attr.aria-expanded]="open()"
-    aria-haspopup="listbox"
     (click)="toggle()"
   >
     <span class="material-symbols-outlined lang-switcher__icon">language</span>
@@ -14,17 +13,19 @@
   </button>
 
   @if (open()) {
-    <ul class="lang-switcher__dropdown" role="listbox">
+    <ul class="lang-switcher__dropdown">
       @for (lang of languages; track lang.code) {
-        <li
-          class="lang-switcher__option"
-          [class.lang-switcher__option--active]="lang.code === currentLang()"
-          role="option"
-          [attr.aria-selected]="lang.code === currentLang()"
-          (click)="selectLang(lang.code)"
-        >
-          <span class="lang-switcher__flag">{{ lang.flag }}</span>
-          <span class="lang-switcher__label">{{ lang.label }}</span>
+        <li>
+          <button
+            type="button"
+            class="lang-switcher__option"
+            [class.lang-switcher__option--active]="lang.code === currentLang()"
+            [attr.aria-current]="lang.code === currentLang() ? 'true' : null"
+            (click)="selectLang(lang.code)"
+          >
+            <span class="lang-switcher__flag" aria-hidden="true">{{ lang.flag }}</span>
+            <span class="lang-switcher__label">{{ lang.label }}</span>
+          </button>
         </li>
       }
     </ul>

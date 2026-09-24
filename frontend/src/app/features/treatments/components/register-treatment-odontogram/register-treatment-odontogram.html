@@ -29,7 +29,7 @@
 
     <!-- New treatment panel -->
     @if (panelOpen()) {
-      <div class="rto__panel" role="region" aria-label="Nuevo tratamiento">
+      <section class="rto__panel" aria-label="Nuevo tratamiento">
         <div class="rto__panel-header">
           <div class="rto__panel-tooth-badge">
             <span class="material-symbols-outlined">dentistry</span>
@@ -69,10 +69,10 @@
             @if (panelToothNumbers().length === 0) {
               <p class="rto__panel-hint">Hacé clic en {{ treatment.applicationType === 'single_tooth' ? 'un diente' : 'una o más piezas' }} del odontograma.</p>
             } @else {
-              <!-- Surfaces — una por cada diente seleccionado (CLI-41), no un juego copiado a todos -->
+              <!-- Surfaces — una por cada diente seleccionado (CLI-41), no un juego copiado a cada uno -->
               @for (n of panelToothNumbers(); track n) {
                 <div class="rto__panel-field">
-                  <label class="rto__panel-label">Superficies afectadas — diente #{{ n }}</label>
+                  <span class="rto__panel-label">Superficies afectadas — diente #{{ n }}</span>
                   <div class="rto__surfaces">
                     @for (option of surfaceOptionsFor(n); track option.code) {
                       <label class="rto__check">
@@ -186,7 +186,7 @@
             }
           </button>
         </div>
-      </div>
+      </section>
     }
 
   </div>

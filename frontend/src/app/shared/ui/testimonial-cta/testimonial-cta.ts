@@ -36,6 +36,13 @@ export class TestimonialCtaComponent {
     this.open.update((value) => !value);
   }
 
+  /** Cierra solo si el click cae en el fondo oscuro, no dentro del panel. */
+  protected onBackdropClick(event: MouseEvent): void {
+    if (event.target === event.currentTarget) {
+      this.close();
+    }
+  }
+
   protected close(): void {
     this.open.set(false);
   }

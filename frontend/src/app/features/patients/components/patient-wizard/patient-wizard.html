@@ -5,13 +5,12 @@
 
     <!-- Progress bar (solo en el alta completa: entrando directo al examen dental el encabezado ya alcanza) -->
     @if (!onlyDentalExam()) {
-      <div class="wizard__progress" role="list">
+      <ol class="wizard__progress">
         @for (step of steps; track step.number) {
-          <div
+          <li
             class="wizard__step"
             [class.wizard__step--active]="currentStep() === step.number"
             [class.wizard__step--done]="currentStep() > step.number || done()"
-            role="listitem"
           >
             <div class="wizard__step-circle">
               @if (currentStep() > step.number || done()) {
@@ -21,13 +20,13 @@
               }
             </div>
             <span class="wizard__step-label">{{ step.label }}</span>
-          </div>
+          </li>
 
           @if (step.number < steps.length) {
-            <div class="wizard__connector" [class.wizard__connector--done]="currentStep() > step.number || done()"></div>
+            <li class="wizard__connector" aria-hidden="true" [class.wizard__connector--done]="currentStep() > step.number || done()"></li>
           }
         }
-      </div>
+      </ol>
     }
   </div>
 

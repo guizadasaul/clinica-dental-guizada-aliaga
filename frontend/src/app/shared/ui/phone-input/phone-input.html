@@ -3,7 +3,6 @@
     <button
       type="button"
       class="phone-input__trigger"
-      aria-haspopup="listbox"
       [attr.aria-expanded]="open()"
       [attr.aria-label]="'shared.phoneInput.countryAriaLabel' | translate"
       [disabled]="disabled()"
@@ -31,18 +30,20 @@
           (input)="search.set($any($event.target).value)"
           (click)="$event.stopPropagation()"
         />
-        <ul class="phone-input__list" role="listbox">
+        <ul class="phone-input__list">
           @for (option of filteredCountries(); track option.code) {
-            <li
-              class="phone-input__option"
-              [class.phone-input__option--active]="option.code === country()"
-              role="option"
-              [attr.aria-selected]="option.code === country()"
-              (click)="selectCountry(option.code)"
-            >
-              <span class="phone-input__flag" aria-hidden="true">{{ option.flag }}</span>
-              <span class="phone-input__option-name">{{ option.name }}</span>
-              <span class="phone-input__option-code">+{{ option.callingCode }}</span>
+            <li>
+              <button
+                type="button"
+                class="phone-input__option"
+                [class.phone-input__option--active]="option.code === country()"
+                [attr.aria-current]="option.code === country() ? 'true' : null"
+                (click)="selectCountry(option.code)"
+              >
+                <span class="phone-input__flag" aria-hidden="true">{{ option.flag }}</span>
+                <span class="phone-input__option-name">{{ option.name }}</span>
+                <span class="phone-input__option-code">+{{ option.callingCode }}</span>
+              </button>
             </li>
           } @empty {
             <li class="phone-input__empty">{{ 'shared.phoneInput.noResults' | translate }}</li>

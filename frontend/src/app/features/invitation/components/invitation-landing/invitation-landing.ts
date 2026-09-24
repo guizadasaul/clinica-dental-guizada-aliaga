@@ -79,7 +79,12 @@ export class InvitationLandingComponent implements OnInit {
       : this.phoneValid() && this.phoneE164().length > 0;
   });
 
-  async ngOnInit(): Promise<void> {
+  ngOnInit(): void {
+    void this.checkInvite();
+  }
+
+  /** Valida el token del link antes de mostrar el registro. */
+  private async checkInvite(): Promise<void> {
     this.token = this.route.snapshot.paramMap.get('token');
     if (!this.token) {
       this.errorMessage.set('Este link de invitación no es válido.');

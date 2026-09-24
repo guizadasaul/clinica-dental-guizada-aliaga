@@ -147,7 +147,7 @@
 
     <!-- Finding form panel -->
     @if (panelOpen()) {
-      <div class="odontogram-step__panel" role="region" aria-label="Nuevo hallazgo">
+      <section class="odontogram-step__panel" aria-label="Nuevo hallazgo">
         <div class="odontogram-step__panel-header">
           <div class="odontogram-step__panel-tooth-badge">
             <span class="material-symbols-outlined">dentistry</span>
@@ -176,10 +176,10 @@
           <!-- Tooth selection -->
           @if (panelDiagnosis()!.scope !== 'general') {
             <div class="odontogram-step__panel-field">
-              <label class="odontogram-step__panel-label">
+              <span class="odontogram-step__panel-label">
                 {{ panelDiagnosis()!.scope === 'single_tooth' ? 'Pieza' : 'Piezas' }}
                 <span class="step-form__req">*</span>
-              </label>
+              </span>
               @if (panelToothNumbers().length === 0) {
                 <p class="odontogram-step__panel-hint">Hacé clic en {{ panelDiagnosis()!.scope === 'single_tooth' ? 'un diente' : 'una o más piezas' }} del odontograma.</p>
               } @else {
@@ -281,7 +281,7 @@
             {{ editingKey() ? 'Guardar cambios' : 'Agregar' }}
           </button>
         </div>
-      </div>
+      </section>
     }
 
   </div>

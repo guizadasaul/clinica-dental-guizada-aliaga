@@ -1,4 +1,4 @@
-import { Component, ChangeDetectionStrategy, inject, signal } from '@angular/core';
+import { Component, ChangeDetectionStrategy, inject, signal, OnInit } from '@angular/core';
 import { HttpErrorResponse } from '@angular/common/http';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
@@ -34,7 +34,7 @@ function todayIso(): string {
   templateUrl: './booking-page.html',
   styleUrl: './booking-page.scss',
 })
-export class BookingPageComponent {
+export class BookingPageComponent implements OnInit {
   private readonly bookingService = inject(BookingService);
   private readonly route = inject(ActivatedRoute);
 
@@ -51,7 +51,7 @@ export class BookingPageComponent {
   protected readonly qrImageBase64 = signal<string | null>(null);
   protected readonly amount = signal<number | null>(null);
 
-  constructor() {
+  ngOnInit(): void {
     // Si venimos de la landing con doctor y horario ya elegidos
     // (?doctorId=&slot=iso), reservamos directo y saltamos al paso de
     // contacto — sin pasar por el picker de doctor ni el de horarios. Si

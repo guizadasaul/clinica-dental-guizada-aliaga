@@ -27,7 +27,7 @@
       />
     </a>
 
-    <ul class="navbar__links" role="list">
+    <ul class="navbar__links">
       <li><a href="#servicios" class="navbar__link">{{ 'landing.nav.services' | translate }}</a></li>
       <li><a href="#nosotros" class="navbar__link">{{ 'landing.nav.about' | translate }}</a></li>
       <li><a href="#contacto" class="navbar__link">{{ 'landing.nav.contact' | translate }}</a></li>
@@ -53,11 +53,11 @@
   cubrir toda la pantalla) apenas se abría el menú habiendo scrolleado.
 -->
 @if (mobileMenuOpen()) {
-  <div class="navbar__mobile-backdrop" (click)="closeMobileMenu()"></div>
-  <div
+  <div class="navbar__mobile-backdrop" (click)="closeMobileMenu()" (keydown.escape)="closeMobileMenu()"></div>
+  <dialog
+    open
     id="mobile-nav-panel"
     class="navbar__mobile-panel"
-    role="dialog"
     aria-modal="true"
     [attr.aria-label]="'landing.nav.ariaLabel' | translate"
   >
@@ -67,7 +67,7 @@
       </a>
     </div>
 
-    <ul class="navbar__mobile-links" role="list">
+    <ul class="navbar__mobile-links">
       <li><a href="#servicios" class="navbar__mobile-link" (click)="navigateToMobileSection($event, 'servicios')">{{ 'landing.nav.services' | translate }}</a></li>
       <li><a href="#nosotros" class="navbar__mobile-link" (click)="navigateToMobileSection($event, 'nosotros')">{{ 'landing.nav.about' | translate }}</a></li>
       <li><a href="#contacto" class="navbar__mobile-link" (click)="navigateToMobileSection($event, 'contacto')">{{ 'landing.nav.contact' | translate }}</a></li>
@@ -86,11 +86,11 @@
         {{ 'landing.nav.cta' | translate }}
       </button>
     </div>
-  </div>
+  </dialog>
 }
 
 @if (showNoProfileBanner()) {
-  <div class="no-profile-banner" role="status">
+  <div class="no-profile-banner" aria-live="polite" aria-atomic="true">
     <div class="no-profile-banner__inner">
       <span class="material-symbols-outlined no-profile-banner__icon" aria-hidden="true">info</span>
       <p class="no-profile-banner__text">
@@ -124,7 +124,7 @@
 
   <!-- Esporas naranjas: campo de partículas sutil, más denso en el centro
        donde converge el abanico. Huyen del cursor. Solo decorativo. -->
-  <canvas #spores class="hero__spores" aria-hidden="true"></canvas>
+  <div aria-hidden="true"><canvas #spores class="hero__spores"></canvas></div>
 
   <div class="hero__content">
     <h1 id="hero-title" class="hero__title">
@@ -134,7 +134,7 @@
   </div>
 
   <!-- Abanico de fichas de instrumental -->
-  <div class="hero__fan" role="group" [attr.aria-label]="'landing.hero.instruments.fanAriaLabel' | translate">
+  <figure class="hero__fan" [attr.aria-label]="'landing.hero.instruments.fanAriaLabel' | translate">
     @for (item of instruments; track item.id) {
       <div class="fan__item">
         <img
@@ -146,7 +146,7 @@
         >
       </div>
     }
-  </div>
+  </figure>
 </section>
 
 <!-- ========================================================= -->
@@ -155,13 +155,12 @@
 <!-- Elegir un horario lleva a /reservar con ese horario en hold. -->
 <!-- ========================================================= -->
 @if (bookingModalOpen()) {
-  <div class="booking-modal" (click)="closeBookingModal()">
-    <div
+  <div class="booking-modal" (click)="onBookingBackdropClick($event)" (keydown.escape)="closeBookingModal()">
+    <dialog
+      open
       class="booking-modal__panel"
-      role="dialog"
       aria-modal="true"
       [attr.aria-label]="'landing.booking.title' | translate"
-      (click)="$event.stopPropagation()"
     >
       <button
         type="button"
@@ -190,7 +189,7 @@
           (slotSelected)="onBookingSlotSelected($event)"
         />
       }
-    </div>
+    </dialog>
   </div>
 }
 
@@ -443,7 +442,7 @@
 
       <nav [attr.aria-label]="'landing.footer.servicesAriaLabel' | translate">
         <h4 class="footer__heading">{{ 'landing.footer.servicesTitle' | translate }}</h4>
-        <ul class="footer__links" role="list">
+        <ul class="footer__links">
           <li><a href="#servicios" class="footer__link">{{ 'landing.services.categories.general.title' | translate }}</a></li>
           <li><a href="#servicios" class="footer__link">{{ 'landing.services.categories.esthetic.title' | translate }}</a></li>
           <li><a href="#servicios" class="footer__link">{{ 'landing.services.categories.ortho.title' | translate }}</a></li>
@@ -453,7 +452,7 @@
 
       <nav [attr.aria-label]="'landing.footer.clinicAriaLabel' | translate">
         <h4 class="footer__heading">{{ 'landing.footer.clinicTitle' | translate }}</h4>
-        <ul class="footer__links" role="list">
+        <ul class="footer__links">
           <li><a href="#nosotros" class="footer__link">{{ 'landing.footer.about' | translate }}</a></li>
           <li><a href="#contacto" class="footer__link">{{ 'landing.footer.contact' | translate }}</a></li>
           <li><button type="button" class="footer__link" (click)="openBookingModal()">{{ 'landing.footer.appointment' | translate }}</button></li>

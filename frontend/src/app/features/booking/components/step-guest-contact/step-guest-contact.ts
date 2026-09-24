@@ -12,6 +12,14 @@ import type { GuestContactRequest } from '../../models/booking.request';
 
 type NameField = 'firstName' | 'lastNamePaternal' | 'lastNameMaternal';
 
+/** Clave de i18n del error de un campo de nombre (el largo es común a los tres). */
+function nameErrorKey(field: NameField, error: NameValidationError): string {
+  if (error === 'too-long') {
+    return 'nameTooLong';
+  }
+  return error === 'empty' ? `${field}Empty` : `${field}Invalid`;
+}
+
 @Component({
   selector: 'app-step-guest-contact',
   standalone: true,
@@ -44,9 +52,7 @@ export class StepGuestContactComponent {
   // nombre y apellido paterno son dos campos separados, cada uno obligatorio
   // por su cuenta, y el materno es opcional.
   private nameErrorMessage(field: NameField, error: NameValidationError): string {
-    const key =
-      error === 'too-long' ? 'nameTooLong' : error === 'empty' ? `${field}Empty` : `${field}Invalid`;
-    return this.translate.instant(`landing.booking.guestContact.errors.${key}`);
+    return this.translate.instant(`landing.booking.guestContact.errors.${nameErrorKey(field, error)}`);
   }
 
   protected onSubmit(): void {

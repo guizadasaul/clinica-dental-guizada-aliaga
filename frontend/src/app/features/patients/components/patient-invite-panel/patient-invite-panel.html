@@ -10,8 +10,9 @@
     <h4 class="invite-panel__section-title">Datos de contacto</h4>
     <div class="invite-panel__grid">
       <div class="invite-panel__field">
-        <label class="invite-panel__label">Nombre <span class="invite-panel__req">*</span></label>
+        <label class="invite-panel__label" for="invitePanelFirstName">Nombre <span class="invite-panel__req">*</span></label>
         <input
+          id="invitePanelFirstName"
           class="invite-panel__input"
           type="text"
           [value]="firstName()"
@@ -20,8 +21,9 @@
         />
       </div>
       <div class="invite-panel__field">
-        <label class="invite-panel__label">Apellido paterno <span class="invite-panel__req">*</span></label>
+        <label class="invite-panel__label" for="invitePanelLastNamePaternal">Apellido paterno <span class="invite-panel__req">*</span></label>
         <input
+          id="invitePanelLastNamePaternal"
           class="invite-panel__input"
           type="text"
           [value]="lastNamePaternal()"
@@ -30,8 +32,9 @@
         />
       </div>
       <div class="invite-panel__field">
-        <label class="invite-panel__label">Teléfono</label>
+        <label class="invite-panel__label" for="invitePanelPhone">Teléfono</label>
         <input
+          id="invitePanelPhone"
           class="invite-panel__input"
           type="tel"
           [value]="phone()"
@@ -39,8 +42,9 @@
         />
       </div>
       <div class="invite-panel__field">
-        <label class="invite-panel__label">Email</label>
+        <label class="invite-panel__label" for="invitePanelEmail">Email</label>
         <input
+          id="invitePanelEmail"
           class="invite-panel__input"
           type="email"
           [value]="email()"

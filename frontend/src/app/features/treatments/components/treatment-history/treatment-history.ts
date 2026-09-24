@@ -46,7 +46,7 @@ export class TreatmentHistoryComponent {
   private readonly treatmentsService = inject(TreatmentsService);
 
   readonly patientId = input.required<string>();
-  readonly close = output<void>();
+  readonly closed = output<void>();
 
   protected readonly treatments = toSignal(
     this.treatmentsService.getAll(),
@@ -141,6 +141,6 @@ export class TreatmentHistoryComponent {
   }
 
   protected onClose(): void {
-    this.close.emit();
+    this.closed.emit();
   }
 }

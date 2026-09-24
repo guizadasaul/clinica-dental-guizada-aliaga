@@ -1,6 +1,6 @@
 <form class="guest-contact" (ngSubmit)="onSubmit()" novalidate>
   <div class="guest-contact__field">
-    <label class="guest-contact__label">
+    <label class="guest-contact__label" for="guestFirstName">
       {{ 'landing.booking.guestContact.firstNameLabel' | translate }} <span class="guest-contact__req">*</span>
     </label>
     <input
@@ -15,7 +15,7 @@
     />
   </div>
   <div class="guest-contact__field">
-    <label class="guest-contact__label">
+    <label class="guest-contact__label" for="guestLastNamePaternal">
       {{ 'landing.booking.guestContact.lastNamePaternalLabel' | translate }} <span class="guest-contact__req">*</span>
     </label>
     <input
@@ -30,7 +30,7 @@
     />
   </div>
   <div class="guest-contact__field">
-    <label class="guest-contact__label">
+    <label class="guest-contact__label" for="guestLastNameMaternal">
       {{ 'landing.booking.guestContact.lastNameMaternalLabel' | translate }}
       <span class="guest-contact__optional">{{ 'landing.booking.guestContact.lastNameMaternalOptional' | translate }}</span>
     </label>
@@ -45,17 +45,18 @@
     />
   </div>
   <div class="guest-contact__field">
-    <label class="guest-contact__label">
+    <span class="guest-contact__label">
       {{ 'landing.booking.guestContact.phoneLabel' | translate }} <span class="guest-contact__req">*</span>
-    </label>
+    </span>
     <app-phone-input [disabled]="loading()" (changed)="onPhoneChanged($event)" />
   </div>
   <div class="guest-contact__field">
-    <label class="guest-contact__label">
+    <label class="guest-contact__label" for="guestEmail">
       {{ 'landing.booking.guestContact.emailLabel' | translate }}
       <span class="guest-contact__optional">{{ 'landing.booking.guestContact.emailOptional' | translate }}</span>
     </label>
     <input
+      id="guestEmail"
       class="guest-contact__input"
       type="email"
       [value]="email()"

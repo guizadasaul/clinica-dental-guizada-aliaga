@@ -75,7 +75,7 @@ export const FULL_MOUTH_TEETH: ToothDef[] = [...UPPER_TEETH, ...LOWER_TEETH];
 /**
  * Espejo frontend de `teethForApplicationType` en
  * api/src/treatments/domain/TreatmentApplicationType.ts — cambiar uno
- * implica revisar el otro. Devuelve [] para todo lo que no sea arcada/boca
+ * implica revisar el otro. Devuelve [] para cualquier alcance que no sea arcada/boca
  * completa: single_tooth/multiple_teeth dependen de la selección del
  * doctor, y el resto (general, soft_tissue, frenulum, prosthesis,
  * orthodontic, unit, box) no lleva diente.

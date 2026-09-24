@@ -31,7 +31,7 @@ export class LangSwitcherComponent {
 
   protected readonly languages = LANGUAGES;
   protected readonly open = signal(false);
-  protected readonly currentLang = signal(this.translate.currentLang ?? 'es');
+  protected readonly currentLang = signal(this.translate.getCurrentLang() || 'es');
 
   @HostListener('document:click', ['$event'])
   onDocumentClick(event: MouseEvent): void {

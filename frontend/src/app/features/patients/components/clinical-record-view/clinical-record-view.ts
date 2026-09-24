@@ -46,7 +46,7 @@ export class ClinicalRecordViewComponent {
   private readonly patientsService = inject(PatientsService);
 
   readonly patient = input.required<Patient>();
-  readonly close = output<void>();
+  readonly closed = output<void>();
 
   protected readonly hygieneHabitLabels = HYGIENE_HABIT_LABELS;
   protected readonly clinicalFindingLabels = CLINICAL_FINDING_LABELS;
@@ -132,6 +132,6 @@ export class ClinicalRecordViewComponent {
   }
 
   protected onClose(): void {
-    this.close.emit();
+    this.closed.emit();
   }
 }

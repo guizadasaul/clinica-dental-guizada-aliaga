@@ -55,6 +55,12 @@ function resolveCard(viewportWidth: number): CardDimensions {
 export class StaggerTestimonialsComponent {
   readonly items = input.required<readonly StaggerTestimonial[]>();
 
+  /** Identidad nueva por cada copia que entra o "envuelve": solo tiene que ser única, no aleatoria. */
+  private slotSeq = 0;
+  private nextSlotId(): number {
+    return ++this.slotSeq;
+  }
+
   protected readonly slots = signal<StaggerSlot[]>([]);
   protected readonly card = signal<CardDimensions>(
     typeof window !== 'undefined' ? resolveCard(window.innerWidth) : DESKTOP_CARD,
@@ -76,7 +82,7 @@ export class StaggerTestimonialsComponent {
         const existingIds = new Set(current.map((slot) => slot.id));
         const toAdd = incoming
           .filter((item) => !existingIds.has(item.id))
-          .map((item) => ({ ...item, slotId: Math.random() }));
+          .map((item) => ({ ...item, slotId: this.nextSlotId() }));
         return toAdd.length ? [...current, ...toAdd] : current;
       });
     });
@@ -129,9 +135,11 @@ export class StaggerTestimonialsComponent {
 
   protected cardTransform(position: number): string {
     const isCenter = position === 0;
+    // Las tarjetas laterales alternan arriba/abajo e inclinación según su paridad.
+    const side = position % 2 ? 1 : -1;
     const x = (this.card().width / 1.5) * position;
-    const y = isCenter ? -65 : position % 2 ? 15 : -15;
-    const rotation = isCenter ? 0 : position % 2 ? 2.5 : -2.5;
+    const y = isCenter ? -65 : 15 * side;
+    const rotation = isCenter ? 0 : 2.5 * side;
     return `translate(-50%, -50%) translateX(${x}px) translateY(${y}px) rotate(${rotation}deg)`;
   }
 
@@ -141,14 +149,14 @@ export class StaggerTestimonialsComponent {
       for (let i = steps; i > 0; i--) {
         const item = list.shift();
         if (!item) return;
-        list.push({ ...item, slotId: Math.random() });
+        list.push({ ...item, slotId: this.nextSlotId() });
       }
       this.slots.set(list);
     } else if (steps < 0) {
       for (let i = steps; i < 0; i++) {
         const item = list.pop();
         if (!item) return;
-        list.unshift({ ...item, slotId: Math.random() });
+        list.unshift({ ...item, slotId: this.nextSlotId() });
       }
       this.slots.set(list);
     }

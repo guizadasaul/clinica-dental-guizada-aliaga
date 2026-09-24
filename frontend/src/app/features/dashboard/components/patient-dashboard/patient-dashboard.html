@@ -2,7 +2,7 @@
   @if (patientId()) {
     <app-treatment-history
       [patientId]="patientId()!"
-      (close)="onHistoryClose()"
+      (closed)="onHistoryClose()"
     />
   } @else {
     <div class="patient__no-profile">

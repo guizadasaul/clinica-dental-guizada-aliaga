@@ -53,8 +53,12 @@ interface FindingDraft {
   readonly notes: string | null;
 }
 
+let localKeySeq = 0;
+
+/** Clave local de un hallazgo en edición: solo tiene que ser única dentro de la sesión. */
 function localKey(): string {
-  return `f-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  localKeySeq += 1;
+  return `f-${Date.now()}-${localKeySeq}`;
 }
 
 function buildDraftsFromExam(exam: DentalExam): FindingDraft[] {
