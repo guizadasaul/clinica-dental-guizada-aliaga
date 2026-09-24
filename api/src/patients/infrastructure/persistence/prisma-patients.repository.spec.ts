@@ -1,5 +1,9 @@
 import { Prisma } from '@prisma/client';
 import { PrismaPatientsRepository } from './prisma-patients.repository';
+import { PatientMapper } from './patient.mapper';
+import { OdontogramEntryMapper } from './odontogram-entry.mapper';
+import { ToothProcedureMapper } from './tooth-procedure.mapper';
+import { DentalExamMapper } from './dental-exam.mapper';
 import type { OdontogramEntryData } from '../../domain/PatientRepository';
 
 // Regresión CLI-39: antes de este cambio, createOdontogramEntries hacía
@@ -663,5 +667,315 @@ describe('PrismaPatientsRepository custom_price', () => {
       create.mock.calls as [{ data: { custom_price: number | null } }][]
     ).map(([args]) => args.data.custom_price);
     expect(prices).toEqual([150, null]);
+  });
+});
+
+// Lecturas simples: cada una arma su query y delega en el mapper; si no hay
+// fila devuelve null. Los mappers tienen sus propios specs con filas reales.
+describe('PrismaPatientsRepository — lecturas', () => {
+  const ROW = { id: 'row-1' };
+
+  beforeEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  function repoWith(prisma: Record<string, unknown>) {
+    return new PrismaPatientsRepository(prisma as never);
+  }
+
+  it('findAllWithUsers mapea cada usuario', async () => {
+    const spy = jest
+      .spyOn(PatientMapper, 'toDomainPatientWithUser')
+      .mockReturnValue('mapped' as never);
+    const repo = repoWith({
+      users: { findMany: jest.fn().mockResolvedValue([ROW, ROW]) },
+    });
+
+    await expect(repo.findAllWithUsers()).resolves.toEqual([
+      'mapped',
+      'mapped',
+    ]);
+    expect(spy).toHaveBeenCalledTimes(2);
+  });
+
+  describe.each([
+    ['findPatientById', { id: 'patient-1' }],
+    ['findByUserId', { user_id: 'patient-1' }],
+  ] as const)('%s', (method, where) => {
+    it('busca con el usuario incluido y mapea la fila', async () => {
+      jest
+        .spyOn(PatientMapper, 'toDomainPatient')
+        .mockReturnValue('mapped' as never);
+      const findUnique = jest.fn().mockResolvedValue(ROW);
+      const repo = repoWith({ patients: { findUnique } });
+
+      await expect(repo[method]('patient-1')).resolves.toBe('mapped');
+      expect(findUnique).toHaveBeenCalledWith({
+        where,
+        include: { users: true },
+      });
+    });
+
+    it('devuelve null si no existe', async () => {
+      const repo = repoWith({
+        patients: { findUnique: jest.fn().mockResolvedValue(null) },
+      });
+
+      await expect(repo[method]('patient-1')).resolves.toBeNull();
+    });
+  });
+
+  it('findHygieneHabits mapea la fila o devuelve null', async () => {
+    jest
+      .spyOn(PatientMapper, 'toDomainHygieneHabits')
+      .mockReturnValue('mapped' as never);
+    const findUnique = jest
+      .fn()
+      .mockResolvedValueOnce(ROW)
+      .mockResolvedValueOnce(null);
+    const repo = repoWith({ hygiene_habits: { findUnique } });
+
+    await expect(repo.findHygieneHabits('patient-1')).resolves.toBe('mapped');
+    await expect(repo.findHygieneHabits('patient-1')).resolves.toBeNull();
+    expect(findUnique).toHaveBeenCalledWith({
+      where: { patient_id: 'patient-1' },
+    });
+  });
+
+  it('findLatestClinicalExam trae el examen más reciente o null', async () => {
+    jest
+      .spyOn(PatientMapper, 'toDomainClinicalExam')
+      .mockReturnValue('mapped' as never);
+    const findFirst = jest
+      .fn()
+      .mockResolvedValueOnce(ROW)
+      .mockResolvedValueOnce(null);
+    const repo = repoWith({ clinical_exams: { findFirst } });
+
+    await expect(repo.findLatestClinicalExam('patient-1')).resolves.toBe(
+      'mapped',
+    );
+    await expect(repo.findLatestClinicalExam('patient-1')).resolves.toBeNull();
+    expect(findFirst).toHaveBeenCalledWith({
+      where: { patient_id: 'patient-1' },
+      orderBy: { exam_date: 'desc' },
+    });
+  });
+
+  it('findOdontogramEntries trae las entries más nuevas primero', async () => {
+    jest
+      .spyOn(OdontogramEntryMapper, 'toDomain')
+      .mockReturnValue('mapped' as never);
+    const findMany = jest.fn().mockResolvedValue([ROW]);
+    const repo = repoWith({ odontogram_entries: { findMany } });
+
+    await expect(repo.findOdontogramEntries('patient-1')).resolves.toEqual([
+      'mapped',
+    ]);
+    expect(findMany).toHaveBeenCalledWith({
+      where: { patient_id: 'patient-1' },
+      orderBy: { created_at: 'desc' },
+    });
+  });
+
+  it('findToothProcedures trae los procedimientos más nuevos primero', async () => {
+    jest
+      .spyOn(ToothProcedureMapper, 'toDomain')
+      .mockReturnValue('mapped' as never);
+    const findMany = jest.fn().mockResolvedValue([ROW]);
+    const repo = repoWith({ tooth_procedures: { findMany } });
+
+    await expect(repo.findToothProcedures('patient-1')).resolves.toEqual([
+      'mapped',
+    ]);
+    expect(findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { patient_id: 'patient-1' },
+        orderBy: { procedure_date: 'desc' },
+      }),
+    );
+  });
+
+  it('findDentalExamVersions lista las versiones de la más nueva a la más vieja', async () => {
+    jest
+      .spyOn(DentalExamMapper, 'toVersionSummary')
+      .mockReturnValue('summary' as never);
+    const findMany = jest.fn().mockResolvedValue([ROW, ROW]);
+    const repo = repoWith({ dental_exams: { findMany } });
+
+    await expect(repo.findDentalExamVersions('patient-1')).resolves.toEqual([
+      'summary',
+      'summary',
+    ]);
+    expect(findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { patient_id: 'patient-1' },
+        orderBy: { version: 'desc' },
+      }),
+    );
+  });
+
+  it('findCurrentDentalExam trae la última versión o null', async () => {
+    jest.spyOn(DentalExamMapper, 'toDomain').mockReturnValue('exam' as never);
+    const findFirst = jest
+      .fn()
+      .mockResolvedValueOnce(ROW)
+      .mockResolvedValueOnce(null);
+    const repo = repoWith({ dental_exams: { findFirst } });
+
+    await expect(repo.findCurrentDentalExam('patient-1')).resolves.toBe('exam');
+    await expect(repo.findCurrentDentalExam('patient-1')).resolves.toBeNull();
+    expect(findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({ orderBy: { version: 'desc' } }),
+    );
+  });
+
+  it('findDentalExam acota el examen al paciente (no deja leer uno ajeno)', async () => {
+    jest.spyOn(DentalExamMapper, 'toDomain').mockReturnValue('exam' as never);
+    const findFirst = jest
+      .fn()
+      .mockResolvedValueOnce(ROW)
+      .mockResolvedValueOnce(null);
+    const repo = repoWith({ dental_exams: { findFirst } });
+
+    await expect(repo.findDentalExam('patient-1', 'exam-1')).resolves.toBe(
+      'exam',
+    );
+    await expect(
+      repo.findDentalExam('patient-2', 'exam-1'),
+    ).resolves.toBeNull();
+    expect(findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: 'exam-1', patient_id: 'patient-1' },
+      }),
+    );
+  });
+});
+
+describe('PrismaPatientsRepository.upsertHygieneHabits', () => {
+  it('crea o actualiza con false/null por defecto en lo que no vino', async () => {
+    jest
+      .spyOn(PatientMapper, 'toDomainHygieneHabits')
+      .mockReturnValue('mapped' as never);
+    const upsert = jest.fn().mockResolvedValue({ id: 'hh-1' });
+    const repo = new PrismaPatientsRepository({
+      hygiene_habits: { upsert },
+    } as never);
+
+    await expect(
+      repo.upsertHygieneHabits('patient-1', { usesToothbrush: true }),
+    ).resolves.toBe('mapped');
+
+    const [[args]] = upsert.mock.calls as [
+      [
+        {
+          where: unknown;
+          create: Record<string, unknown>;
+          update: Record<string, unknown>;
+        },
+      ],
+    ];
+    const expected = {
+      uses_toothbrush: true,
+      brushing_frequency: null,
+      uses_dental_floss: false,
+      uses_toothpick: false,
+      brushes_tongue: false,
+      uses_mouthwash: false,
+    };
+    expect(args.where).toEqual({ patient_id: 'patient-1' });
+    expect(args.create).toMatchObject({ patient_id: 'patient-1', ...expected });
+    expect(args.update).toMatchObject(expected);
+  });
+
+  it('respeta los valores que vinieron', async () => {
+    jest
+      .spyOn(PatientMapper, 'toDomainHygieneHabits')
+      .mockReturnValue('mapped' as never);
+    const upsert = jest.fn().mockResolvedValue({ id: 'hh-1' });
+    const repo = new PrismaPatientsRepository({
+      hygiene_habits: { upsert },
+    } as never);
+    const data = {
+      usesToothbrush: false,
+      brushingFrequency: '3_veces_dia',
+      usesDentalFloss: true,
+      usesToothpick: true,
+      brushesTongue: true,
+      usesMouthwash: true,
+    };
+
+    await repo.upsertHygieneHabits('patient-1', data);
+
+    const [[args]] = upsert.mock.calls as [
+      [{ update: Record<string, unknown> }],
+    ];
+    expect(args.update).toMatchObject({
+      uses_toothbrush: false,
+      brushing_frequency: '3_veces_dia',
+      uses_dental_floss: true,
+      uses_toothpick: true,
+      brushes_tongue: true,
+      uses_mouthwash: true,
+    });
+  });
+});
+
+describe('PrismaPatientsRepository.createToothProcedures', () => {
+  it('crea una fila por procedimiento, con superficies solo si vinieron', async () => {
+    jest
+      .spyOn(ToothProcedureMapper, 'toDomain')
+      .mockReturnValue('mapped' as never);
+    const create = jest.fn().mockResolvedValue({ id: 'proc' });
+    const repo = new PrismaPatientsRepository({
+      transaction: jest.fn((fn: (tx: unknown) => unknown) =>
+        fn({ tooth_procedures: { create } }),
+      ),
+    } as never);
+    const procedureDate = new Date('2026-09-20');
+
+    const result = await repo.createToothProcedures('patient-1', [
+      {
+        toothNumber: 16,
+        treatmentId: 'treatment-1',
+        priceCharged: 200,
+        quantity: 2,
+        procedureDate,
+        notes: 'ok',
+        performedBy: 'doctor-1',
+        surfaceCodes: ['occlusal', 'mesial'],
+      },
+      {
+        toothNumber: null,
+        treatmentId: 'treatment-2',
+        priceCharged: 50,
+        performedBy: 'doctor-1',
+      },
+    ]);
+
+    expect(result).toEqual(['mapped', 'mapped']);
+    const rows = (
+      create.mock.calls as [{ data: Record<string, unknown> }][]
+    ).map(([args]) => args.data);
+    expect(rows[0]).toMatchObject({
+      patient_id: 'patient-1',
+      tooth_number: 16,
+      quantity: 2,
+      procedure_date: procedureDate,
+      notes: 'ok',
+      tooth_procedure_surfaces: {
+        create: [
+          { tooth_surfaces: { connect: { code: 'occlusal' } } },
+          { tooth_surfaces: { connect: { code: 'mesial' } } },
+        ],
+      },
+    });
+    expect(rows[1]).toMatchObject({
+      tooth_number: null,
+      quantity: 1,
+      notes: null,
+      tooth_procedure_surfaces: undefined,
+    });
+    expect(rows[1].procedure_date).toBeInstanceOf(Date);
   });
 });

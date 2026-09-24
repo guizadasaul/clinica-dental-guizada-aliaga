@@ -34,6 +34,58 @@ describe('DentalExamMapper', () => {
       _count: { dental_exam_findings: 3 },
     } as unknown as SummaryRecord);
 
-    expect(summary).toMatchObject({ version: 2, kind: 'correction', findingsCount: 3 });
+    expect(summary).toMatchObject({
+      version: 2,
+      kind: 'correction',
+      findingsCount: 3,
+    });
+  });
+
+  it('toDomain mapea cada hallazgo con su diagnóstico y categoría', () => {
+    const exam = DentalExamMapper.toDomain({
+      ...BASE,
+      kind: 'diagnosis',
+      users: { display_name: null },
+      dental_exam_findings: [
+        {
+          id: 'finding-1',
+          diagnosis_id: 'diagnosis-1',
+          tooth_number: 16,
+          tooth_type: 'permanent',
+          application_group_id: null,
+          modifier_value: 'clase_ii',
+          description: 'Caries oclusal',
+          xray_requested: true,
+          notes: null,
+          diagnoses: {
+            code: 'caries_segundo_grado',
+            name: 'Caries de segundo grado',
+            scope: 'single_tooth',
+            color: '#b91c1c',
+            diagnosis_categories: { name: 'Caries' },
+          },
+        },
+      ],
+    } as unknown as ExamRecord);
+
+    expect(exam.recordedByName).toBeNull();
+    expect(exam.findings).toEqual([
+      {
+        id: 'finding-1',
+        diagnosisId: 'diagnosis-1',
+        diagnosisCode: 'caries_segundo_grado',
+        diagnosisName: 'Caries de segundo grado',
+        diagnosisScope: 'single_tooth',
+        diagnosisColor: '#b91c1c',
+        categoryName: 'Caries',
+        toothNumber: 16,
+        toothType: 'permanent',
+        applicationGroupId: null,
+        modifierValue: 'clase_ii',
+        description: 'Caries oclusal',
+        xrayRequested: true,
+        notes: null,
+      },
+    ]);
   });
 });
