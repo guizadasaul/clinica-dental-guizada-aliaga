@@ -12,4 +12,9 @@ export class DiagnosesService {
   getCatalog(): Observable<DiagnosisCategory[]> {
     return this.http.get<DiagnosisCategory[]>(this.base);
   }
+
+  /** Códigos de los diagnósticos que más usa el doctor logueado, el más usado primero (CLI-118). */
+  getFrequentCodes(): Observable<string[]> {
+    return this.http.get<string[]>(`${this.base}/frequent`);
+  }
 }

@@ -33,6 +33,7 @@ const mockTreatmentRepo = {
   findDefaultConsultation: jest.fn(),
   create: jest.fn(),
   update: jest.fn(),
+  findUsageByDoctor: jest.fn(),
 };
 
 const mockExchangeRateProvider = {
@@ -53,6 +54,26 @@ describe('TreatmentsService', () => {
       ],
     }).compile();
     service = module.get(TreatmentsService);
+  });
+
+  describe('findFrequentIds (CLI-118)', () => {
+    it('pide el uso del doctor en el último año y devuelve los más usados primero', async () => {
+      mockTreatmentRepo.findUsageByDoctor.mockResolvedValue([
+        { key: 't-1', occurrence: 'a', at: new Date('2026-09-01') },
+        { key: 't-2', occurrence: 'b', at: new Date('2026-09-02') },
+        { key: 't-2', occurrence: 'c', at: new Date('2026-09-03') },
+      ]);
+
+      const ids = await service.findFrequentIds('doctor-1', 8);
+
+      expect(ids).toEqual(['t-2', 't-1']);
+      const [doctorId, since] = mockTreatmentRepo.findUsageByDoctor.mock
+        .calls[0] as [string, Date];
+      expect(doctorId).toBe('doctor-1');
+      const daysAgo = (Date.now() - since.getTime()) / 86_400_000;
+      expect(daysAgo).toBeGreaterThan(364);
+      expect(daysAgo).toBeLessThan(367);
+    });
   });
 
   describe('create', () => {

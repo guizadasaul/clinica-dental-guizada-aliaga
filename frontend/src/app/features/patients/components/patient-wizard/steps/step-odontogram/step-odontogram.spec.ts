@@ -591,4 +591,16 @@ describe('StepOdontogramComponent', () => {
 
     expect(el(fixture, '.catalog-picker__selected-label')?.textContent).toContain('Caries de segundo grado');
   });
+  it('con frecuentes del doctor, el selector de diagnóstico abre en "Frecuentes" (CLI-118)', async () => {
+    const fixture = setup();
+    fixture.componentRef.setInput('catalog', CATALOG);
+    fixture.componentRef.setInput('frequentDiagnosisCodes', ['gingivitis', 'lesion_lengua']);
+    await settle(fixture);
+    openAddPanel(fixture);
+    await settle(fixture);
+
+    expect(el(fixture, '.catalog-picker__chip--active')?.textContent?.trim()).toBe('Frecuentes');
+    const options = [...fixture.nativeElement.querySelectorAll('.catalog-picker__option')] as HTMLElement[];
+    expect(options.map((o) => o.dataset['id'])).toEqual(['gingivitis', 'lesion_lengua']);
+  });
 });

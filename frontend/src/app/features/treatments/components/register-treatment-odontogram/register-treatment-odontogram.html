@@ -54,6 +54,7 @@
           <app-catalog-picker
             noun="tratamiento"
             [items]="treatmentOptions()"
+            [extraGroups]="treatmentShortcuts()"
             [selectedId]="panelTreatmentId() || null"
             (selectedChange)="onPanelTreatmentChange($event)"
           />

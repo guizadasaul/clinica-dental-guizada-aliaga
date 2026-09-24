@@ -1,6 +1,7 @@
 import { TreatmentsController } from './treatments.controller';
 import { TreatmentsService } from '../../application/treatments.service';
 import type { CreateTreatmentDto } from './dto/create-treatment.dto';
+import type { User } from '../../../auth/domain/User';
 
 describe('TreatmentsController', () => {
   const service = {
@@ -53,5 +54,28 @@ describe('TreatmentsController', () => {
       displayOrder: undefined,
       isActive: undefined,
     });
+  });
+});
+
+describe('TreatmentsController.findFrequent (CLI-118)', () => {
+  const service = { findFrequentIds: jest.fn().mockResolvedValue(['t-1']) };
+  const controller = new TreatmentsController(
+    service as unknown as TreatmentsService,
+  );
+  const doctor = { id: 'doctor-1' } as User;
+
+  beforeEach(() => service.findFrequentIds.mockClear());
+
+  it('usa el doctor autenticado y el límite pedido', async () => {
+    await expect(controller.findFrequent(doctor, 5)).resolves.toEqual(['t-1']);
+    expect(service.findFrequentIds).toHaveBeenCalledWith('doctor-1', 5);
+  });
+
+  it('acota el límite entre 1 y 20', async () => {
+    await controller.findFrequent(doctor, 0);
+    await controller.findFrequent(doctor, 500);
+    expect(
+      (service.findFrequentIds.mock.calls as unknown[][]).map((c) => c[1]),
+    ).toEqual([1, 20]);
   });
 });

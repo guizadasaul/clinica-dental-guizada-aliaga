@@ -8,6 +8,7 @@ import {
   effect,
 } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
+import { catchError, of } from 'rxjs';
 import { TreatmentsService } from '../../services/treatments.service';
 import { PatientsService } from '../../../patients/services/patients.service';
 import { DiagnosesService } from '../../../diagnoses/services/diagnoses.service';
@@ -40,6 +41,12 @@ export class RegisterTreatmentComponent {
   protected readonly treatments = toSignal(
     this.treatmentsService.getAll(),
     { initialValue: [] as Treatment[] },
+  );
+
+  /** Los que más usa el doctor — atajo "Frecuentes" del selector (CLI-118); vacío si falla. */
+  protected readonly frequentTreatmentIds = toSignal(
+    this.treatmentsService.getFrequentIds().pipe(catchError(() => of([] as string[]))),
+    { initialValue: [] as string[] },
   );
 
   protected readonly diagnosisCatalog = toSignal(

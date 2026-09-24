@@ -27,6 +27,7 @@ import { modifierLabel } from '../../../../models/dental-exam-display.util';
 import { DentalExamHistoryComponent } from '../../../dental-exam-history/dental-exam-history';
 import {
   CatalogPickerComponent,
+  type CatalogPickerExtraGroup,
   type CatalogPickerItem,
 } from '../../../../../../shared/ui/catalog-picker/catalog-picker';
 
@@ -129,6 +130,8 @@ export class StepOdontogramComponent {
   readonly loading = input(false);
   readonly mode = input<DentalExamMode>('correct');
   readonly catalog = input<DiagnosisCategory[]>([]);
+  /** Códigos de los diagnósticos que más usa el doctor (CLI-118) — chip "Frecuentes" del selector. */
+  readonly frequentDiagnosisCodes = input<readonly string[]>([]);
   readonly currentExam = input<DentalExam | null>(null);
   readonly versions = input<DentalExamVersionSummary[]>([]);
   /** Para traer las versiones viejas del examen al desplegarlas (CLI-114). */
@@ -140,6 +143,12 @@ export class StepOdontogramComponent {
 
   protected readonly allDiagnoses = computed<(Diagnosis & { categoryName: string })[]>(() =>
     this.catalog().flatMap((c) => c.diagnoses.map((d) => ({ ...d, categoryName: c.name }))),
+  );
+
+  protected readonly diagnosisShortcuts = computed<CatalogPickerExtraGroup[]>(() =>
+    this.frequentDiagnosisCodes().length > 0
+      ? [{ id: 'frequent', label: 'Frecuentes', itemIds: this.frequentDiagnosisCodes() }]
+      : [],
   );
 
   /** Opciones del selector de diagnóstico (CLI-117): el code identifica, la categoría agrupa. */

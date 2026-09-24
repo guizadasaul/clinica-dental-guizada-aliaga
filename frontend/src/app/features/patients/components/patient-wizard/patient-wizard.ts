@@ -8,7 +8,8 @@ import {
   computed,
   effect,
 } from '@angular/core';
-import { firstValueFrom } from 'rxjs';
+import { toSignal } from '@angular/core/rxjs-interop';
+import { catchError, firstValueFrom, of } from 'rxjs';
 import { PatientsService } from '../../services/patients.service';
 import { DiagnosesService } from '../../../diagnoses/services/diagnoses.service';
 import { MedicalConditionsService } from '../../../medical-conditions/services/medical-conditions.service';
@@ -96,6 +97,11 @@ export class PatientWizardComponent {
   });
 
   protected readonly diagnosisCatalog = signal<DiagnosisCategory[]>([]);
+  /** Los que más usa el doctor — atajo "Frecuentes" del selector de diagnóstico (CLI-118); vacío si falla. */
+  protected readonly frequentDiagnosisCodes = toSignal(
+    this.diagnosesService.getFrequentCodes().pipe(catchError(() => of([] as string[]))),
+    { initialValue: [] as string[] },
+  );
   protected readonly medicalConditionsCatalog = signal<MedicalCondition[]>([]);
   protected readonly currentDentalExam = signal<DentalExam | null>(null);
   protected readonly dentalExamVersions = signal<DentalExamVersionSummary[]>([]);

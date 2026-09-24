@@ -17,6 +17,7 @@ import {
 } from '../../exchange-rate/domain/ExchangeRateProvider';
 import type { ExchangeRateProvider as IExchangeRateProvider } from '../../exchange-rate/domain/ExchangeRateProvider';
 import type { PricedTreatment } from './PricedTreatment';
+import { frequentSince, rankByUsage } from '../../shared/usage-ranking';
 
 @Injectable()
 export class TreatmentsService {
@@ -26,6 +27,15 @@ export class TreatmentsService {
     @Inject(ExchangeRateProvider)
     private readonly exchangeRateProvider: IExchangeRateProvider,
   ) {}
+
+  /** Ids de los tratamientos que más usa el doctor en el último año, el más usado primero (CLI-118). */
+  async findFrequentIds(doctorId: string, limit: number): Promise<string[]> {
+    const usage = await this.treatmentRepo.findUsageByDoctor(
+      doctorId,
+      frequentSince(),
+    );
+    return rankByUsage(usage, limit);
+  }
 
   async findActive(): Promise<PricedTreatment[]> {
     const treatments = await this.treatmentRepo.findActive();

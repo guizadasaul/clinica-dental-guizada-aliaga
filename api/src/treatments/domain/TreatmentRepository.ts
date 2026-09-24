@@ -17,6 +17,8 @@ export interface CreateTreatmentData {
 
 export type UpdateTreatmentData = Partial<CreateTreatmentData>;
 
+import type { UsageEntry } from '../../shared/usage-ranking';
+
 export interface ITreatmentRepository {
   findActive(): Promise<Treatment[]>;
   findById(id: string): Promise<Treatment | null>;
@@ -25,6 +27,12 @@ export interface ITreatmentRepository {
   create(data: CreateTreatmentData): Promise<Treatment>;
   /** null si no existe un treatment con ese id. */
   update(id: string, data: UpdateTreatmentData): Promise<Treatment | null>;
+  /**
+   * Tratamientos activos que registró el doctor desde `since` (CLI-118), un
+   * uso por fila — las filas de un mismo grupo multi-pieza comparten
+   * `occurrence` y cuentan una sola vez.
+   */
+  findUsageByDoctor(doctorId: string, since: Date): Promise<UsageEntry[]>;
 }
 
 export const TreatmentRepository = Symbol('ITreatmentRepository');
