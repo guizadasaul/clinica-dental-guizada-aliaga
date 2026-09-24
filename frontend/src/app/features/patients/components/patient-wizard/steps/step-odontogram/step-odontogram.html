@@ -6,10 +6,7 @@
     <div class="odontogram-step__chart">
 
       <div class="odontogram-step__toolbar">
-        <h3 class="odontogram-step__chart-title">
-          <span class="material-symbols-outlined">dentistry</span>
-          Examen dental
-        </h3>
+        <p class="odontogram-step__chart-hint">Hacé clic en un diente para registrar un hallazgo en esa pieza.</p>
         <button
           type="button"
           class="step-form__btn step-form__btn--secondary"
@@ -20,7 +17,6 @@
           Agregar hallazgo
         </button>
       </div>
-      <p class="odontogram-step__chart-hint">Hacé clic en un diente para registrar un hallazgo en esa pieza.</p>
 
       <app-odontogram-chart
         [toothColor]="toothColorMap()"

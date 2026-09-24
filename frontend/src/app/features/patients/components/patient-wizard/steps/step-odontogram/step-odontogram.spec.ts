@@ -491,4 +491,12 @@ describe('StepOdontogramComponent', () => {
 
     expect(emitted[0].kind).toBeUndefined();
   });
+
+  it('no repite el título de la pantalla dentro del odontograma (CLI-112)', async () => {
+    const fixture = setup();
+    fixture.componentRef.setInput('catalog', CATALOG);
+    await settle(fixture);
+
+    expect((fixture.nativeElement as HTMLElement).querySelector('h3')).toBeNull();
+  });
 });

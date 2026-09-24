@@ -3,30 +3,32 @@
   <div class="wizard__header">
     <app-page-header [title]="wizardTitle()" backLabel="Volver a la lista" (back)="onCancel()" />
 
-    <!-- Progress bar -->
-    <div class="wizard__progress" role="list">
-      @for (step of steps; track step.number) {
-        <div
-          class="wizard__step"
-          [class.wizard__step--active]="currentStep() === step.number"
-          [class.wizard__step--done]="currentStep() > step.number || done()"
-          role="listitem"
-        >
-          <div class="wizard__step-circle">
-            @if (currentStep() > step.number || done()) {
-              <span class="material-symbols-outlined">check</span>
-            } @else {
-              <span class="wizard__step-num">{{ step.number }}</span>
-            }
+    <!-- Progress bar (solo en el alta completa: entrando directo al examen dental el encabezado ya alcanza) -->
+    @if (!onlyDentalExam()) {
+      <div class="wizard__progress" role="list">
+        @for (step of steps; track step.number) {
+          <div
+            class="wizard__step"
+            [class.wizard__step--active]="currentStep() === step.number"
+            [class.wizard__step--done]="currentStep() > step.number || done()"
+            role="listitem"
+          >
+            <div class="wizard__step-circle">
+              @if (currentStep() > step.number || done()) {
+                <span class="material-symbols-outlined">check</span>
+              } @else {
+                <span class="wizard__step-num">{{ step.number }}</span>
+              }
+            </div>
+            <span class="wizard__step-label">{{ step.label }}</span>
           </div>
-          <span class="wizard__step-label">{{ step.label }}</span>
-        </div>
 
-        @if (step.number < steps.length) {
-          <div class="wizard__connector" [class.wizard__connector--done]="currentStep() > step.number || done()"></div>
+          @if (step.number < steps.length) {
+            <div class="wizard__connector" [class.wizard__connector--done]="currentStep() > step.number || done()"></div>
+          }
         }
-      }
-    </div>
+      </div>
+    }
   </div>
 
   <!-- Error banner -->
@@ -62,10 +64,12 @@
         </button>
       </div>
     } @else {
-      <div class="wizard__step-title">
-        <span class="wizard__step-number">Paso {{ currentStep() }} de {{ steps.length }}</span>
-        <h3 class="wizard__step-heading">{{ steps[currentStep() - 1].label }}</h3>
-      </div>
+      @if (!onlyDentalExam()) {
+        <div class="wizard__step-title">
+          <span class="wizard__step-number">Paso {{ currentStep() }} de {{ steps.length }}</span>
+          <h3 class="wizard__step-heading">{{ steps[currentStep() - 1].label }}</h3>
+        </div>
+      }
 
       @if (currentStep() === 1) {
         <app-step-patient-data
