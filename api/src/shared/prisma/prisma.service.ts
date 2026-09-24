@@ -88,6 +88,12 @@ export class PrismaService implements OnModuleInit, OnModuleDestroy {
   get doctor_schedule_blocks() {
     return this._client.doctor_schedule_blocks;
   }
+  get chat_sessions() {
+    return this._client.chat_sessions;
+  }
+  get chat_messages() {
+    return this._client.chat_messages;
+  }
 
   transaction<T>(fn: (tx: Prisma.TransactionClient) => Promise<T>): Promise<T> {
     return this._client.$transaction(fn);
