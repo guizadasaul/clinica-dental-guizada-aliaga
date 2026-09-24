@@ -10,6 +10,11 @@
     width: 100%;
     max-width: 680px;
     margin: 0 auto;
+    // Es un <fieldset> (agrupa los dientes seleccionables): sin el borde ni el
+    // relleno por defecto, y sin el min-width que no lo deja achicarse.
+    min-width: 0;
+    padding: 0;
+    border: 0;
   }
 
   &__canvas-img {

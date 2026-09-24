@@ -51,6 +51,7 @@
           [value]="row.drugName"
           (input)="updateMedication($index, 'drugName', $any($event.target).value)"
           placeholder="Fármaco"
+          aria-label="Fármaco"
           maxlength="150"
         />
         <input
@@ -59,6 +60,7 @@
           [value]="row.dose"
           (input)="updateMedication($index, 'dose', $any($event.target).value)"
           placeholder="Dosis"
+          aria-label="Dosis"
           maxlength="50"
         />
         <input
@@ -67,6 +69,7 @@
           [value]="row.frequency"
           (input)="updateMedication($index, 'frequency', $any($event.target).value)"
           placeholder="Frecuencia"
+          aria-label="Frecuencia"
           maxlength="100"
         />
         <input
@@ -130,7 +133,7 @@
         }
       </div>
       <div class="step-form__field">
-        <label class="step-form__label">¿Reacciones a la anestesia?</label>
+        <span class="step-form__label">¿Reacciones a la anestesia?</span>
         <div class="step-form__radio-row">
           <label class="step-form__radio">
             <input type="radio" name="anesthesia" [checked]="anesthesiaReactions() === true" (change)="anesthesiaReactions.set(true)" />

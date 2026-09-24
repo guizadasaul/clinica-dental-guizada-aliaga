@@ -4,13 +4,12 @@
 </button>
 
 @if (open()) {
-  <div class="testimonial-modal" (click)="close()">
-    <div
+  <div class="testimonial-modal" (click)="onBackdropClick($event)" (keydown.escape)="close()">
+    <dialog
+      open
       class="testimonial-modal__panel"
-      role="dialog"
       aria-modal="true"
       [attr.aria-label]="'landing.testimonials.form.title' | translate"
-      (click)="$event.stopPropagation()"
     >
       <button
         type="button"
@@ -25,6 +24,6 @@
       <p class="testimonial-modal__subtitle">{{ 'landing.testimonials.form.subtitle' | translate }}</p>
 
       <app-testimonial-form />
-    </div>
+    </dialog>
   </div>
 }

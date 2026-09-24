@@ -277,6 +277,13 @@
 }
 
 .navbar__mobile-panel {
+  // Es un <dialog open> (no modal): sin el margen, borde, color y alto
+  // "fit-content" que le pone el navegador.
+  margin: 0;
+  border: 0;
+  color: inherit;
+  height: auto;
+  right: auto;
   position: fixed;
   // top:0 (no 4.5rem) para que el fondo del drawer llegue hasta arriba de
   // la pantalla — así la hamburguesa/X de &__inner (z-index:50, por
@@ -594,6 +601,7 @@
 // ============================================================
 
 .hero__fan {
+  margin: 0; // es un <figure>
   // Slot horizontal de cada instrumento (para centrar); el ancho real
   // del PNG lo decide su proporción. --fan-h es el largo común al que
   // se ajustan todos los instrumentos.
@@ -720,6 +728,12 @@
 }
 
 .booking-modal__panel {
+  // Es un <dialog open> (no modal): sin el margen, borde, color y alto
+  // "fit-content" que le pone el navegador.
+  margin: 0;
+  border: 0;
+  color: inherit;
+  height: auto;
   position: relative;
   width: 100%;
   max-width: 44rem;

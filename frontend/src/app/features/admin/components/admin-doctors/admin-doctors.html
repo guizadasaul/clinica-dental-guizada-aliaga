@@ -399,7 +399,7 @@
 
         <div class="admin-doctors__field admin-doctors__field--schedule">
           <div class="admin-doctors__schedule-header">
-            <label>Horario de atención</label>
+            <span class="admin-doctors__label">Horario de atención</span>
             <button type="button" class="admin-doctors__btn admin-doctors__btn--ghost" (click)="addScheduleBlock()">
               <span class="material-symbols-outlined">add</span>
               Agregar bloque
@@ -412,14 +412,14 @@
             <div class="admin-doctors__schedule-list">
               @for (block of scheduleBlocks(); track $index) {
                 <div class="admin-doctors__schedule-row">
-                  <select [value]="block.weekday" (change)="setBlockWeekday($index, $event)">
+                  <select aria-label="Día" [value]="block.weekday" (change)="setBlockWeekday($index, $event)">
                     @for (label of weekdayLabels; track $index) {
                       <option [value]="$index">{{ label }}</option>
                     }
                   </select>
-                  <input type="time" [value]="block.start" (change)="setBlockStart($index, $event)" />
+                  <input type="time" aria-label="Desde" [value]="block.start" (change)="setBlockStart($index, $event)" />
                   <span>a</span>
-                  <input type="time" [value]="block.end" (change)="setBlockEnd($index, $event)" />
+                  <input type="time" aria-label="Hasta" [value]="block.end" (change)="setBlockEnd($index, $event)" />
                   <button
                     type="button"
                     class="admin-doctors__icon-btn"

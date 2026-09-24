@@ -11,6 +11,7 @@
           class="patients-list__search"
           type="text"
           placeholder="Buscar por nombre o teléfono..."
+          aria-label="Buscar paciente por nombre o teléfono"
           [value]="filter()"
           (input)="filter.set($any($event.target).value)"
         />

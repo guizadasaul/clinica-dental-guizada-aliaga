@@ -1,7 +1,7 @@
 <div class="layout">
   <!-- Mobile overlay -->
   @if (sidebarOpen()) {
-    <div class="layout__overlay" (click)="toggleSidebar()"></div>
+    <div class="layout__overlay" (click)="toggleSidebar()" (keydown.escape)="closeSidebar()"></div>
   }
 
   <!-- Sidebar -->
@@ -57,7 +57,7 @@
 
     <!-- Dashboard content by role -->
     @if (role() === null) {
-      <div class="layout__loading" role="status" aria-label="Cargando">
+      <div class="layout__loading" aria-live="polite" aria-atomic="true">
         <div class="layout__spinner"></div>
         <p>Cargando tu panel...</p>
       </div>

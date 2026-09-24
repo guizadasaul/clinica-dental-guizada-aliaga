@@ -56,6 +56,12 @@
 }
 
 .testimonial-modal__panel {
+  // Es un <dialog open> (no modal): sin el margen, borde, color y alto
+  // "fit-content" que le pone el navegador.
+  margin: 0;
+  border: 0;
+  color: inherit;
+  height: auto;
   position: relative;
   width: 100%;
   max-width: 32rem;

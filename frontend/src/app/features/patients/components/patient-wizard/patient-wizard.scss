@@ -19,6 +19,10 @@
     display: flex;
     align-items: center;
     gap: 0;
+    // Es un <ol> (pasos en orden): sin viñetas ni sangría de lista.
+    list-style: none;
+    margin: 0;
+    padding-left: 0;
     overflow-x: auto;
     padding-bottom: 0.25rem;
   }
@@ -42,7 +46,7 @@
     }
 
     &--done &-circle {
-      background: #16a34a;
+      background: #15803d;
       color: white;
     }
 
@@ -56,7 +60,7 @@
     height: 2.25rem;
     border-radius: 50%;
     background: #f3f4f6;
-    color: #9ca3af;
+    color: #4b5563;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -102,7 +106,7 @@
     padding: 0.75rem 1.5rem;
     background: #fef2f2;
     border-bottom: 1px solid #fecaca;
-    color: #dc2626;
+    color: #b91c1c;
     font-size: 0.875rem;
 
     .material-symbols-outlined { font-size: 1.125rem; flex-shrink: 0; }

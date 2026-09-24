@@ -125,8 +125,11 @@ $topbar-h: 56px;
     flex-shrink: 0;
   }
 
+  // Colores opacos ya mezclados sobre el fondo del sidebar (--color-navy, #000):
+  // se ven igual que el blanco/rojo translúcido de antes, pero con un contraste
+  // que se puede medir (con transparencias Sonar lo calcula contra blanco).
   &:hover {
-    background: rgb(255 255 255 / 0.06);
+    background: #0f0f0f;
     color: #fff;
   }
 
@@ -168,12 +171,12 @@ $topbar-h: 56px;
   width: 36px;
   height: 36px;
   border-radius: 50%;
-  background: rgb(255 255 255 / 0.12);
+  background: #1f1f1f;
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  color: rgb(255 255 255 / 0.5);
+  color: #8f8f8f;
 
   .material-symbols-outlined {
     font-size: 20px;
@@ -222,7 +225,7 @@ $topbar-h: 56px;
   }
 
   &:hover {
-    background: rgb(186 26 26 / 0.2);
+    background: #250505;
     color: #fca5a5;
   }
 }

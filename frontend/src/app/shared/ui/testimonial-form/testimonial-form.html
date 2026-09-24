@@ -9,11 +9,13 @@
          que muchos bots saltean), fuera del tab order y oculto para lectores de
          pantalla. Un humano nunca lo completa; si llega con contenido, es un bot
          (ver TestimonialsService.create() en el backend). -->
-    <div class="testimonial-form__honeypot">
+    <div class="testimonial-form__honeypot" aria-hidden="true">
+      <!-- Etiqueta de cebo para bots, invisible y fuera del árbol accesible: no se traduce. -->
+      <label for="testimonialWebsite">Website</label>
       <input
+        id="testimonialWebsite"
         type="text"
         tabindex="-1"
-        aria-hidden="true"
         autocomplete="off"
         [value]="website()"
         (input)="website.set($any($event.target).value)"
@@ -21,10 +23,11 @@
     </div>
 
     <div class="testimonial-form__field">
-      <label class="testimonial-form__label">
+      <label class="testimonial-form__label" for="testimonialName">
         {{ 'landing.testimonials.form.nameLabel' | translate }} <span class="testimonial-form__req">*</span>
       </label>
       <input
+        id="testimonialName"
         class="testimonial-form__input"
         type="text"
         [value]="name()"
@@ -35,10 +38,11 @@
     </div>
 
     <div class="testimonial-form__field">
-      <label class="testimonial-form__label">
+      <label class="testimonial-form__label" for="testimonialTreatment">
         {{ 'landing.testimonials.form.treatmentLabel' | translate }} <span class="testimonial-form__req">*</span>
       </label>
       <input
+        id="testimonialTreatment"
         class="testimonial-form__input"
         type="text"
         [value]="treatment()"
@@ -49,10 +53,11 @@
     </div>
 
     <div class="testimonial-form__field">
-      <label class="testimonial-form__label">
+      <label class="testimonial-form__label" for="testimonialComment">
         {{ 'landing.testimonials.form.commentLabel' | translate }} <span class="testimonial-form__req">*</span>
       </label>
       <textarea
+        id="testimonialComment"
         class="testimonial-form__input testimonial-form__textarea"
         rows="5"
         [value]="comment()"

@@ -1,5 +1,5 @@
 @if (inviteSuccessMessage()) {
-  <div class="invite-toast" role="status">
+  <div class="invite-toast" aria-live="polite" aria-atomic="true">
     <span class="material-symbols-outlined invite-toast__icon" aria-hidden="true">check_circle</span>
     <p class="invite-toast__text">{{ inviteSuccessMessage() }}</p>
     <button

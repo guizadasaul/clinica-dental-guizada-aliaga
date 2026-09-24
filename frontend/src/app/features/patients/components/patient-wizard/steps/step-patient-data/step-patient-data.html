@@ -176,7 +176,7 @@
         }
       </div>
       <div class="step-form__field">
-        <label class="step-form__label">Teléfono</label>
+        <span class="step-form__label">Teléfono</span>
         <app-phone-input [value]="phoneE164()" [disabled]="loading()" (changed)="onPhoneChanged($event)" />
       </div>
     </div>
@@ -262,7 +262,7 @@
         }
       </div>
       <div class="step-form__field">
-        <label class="step-form__label">Teléfono <span class="step-form__req">*</span></label>
+        <span class="step-form__label">Teléfono <span class="step-form__req">*</span></span>
         <app-phone-input
           [value]="emergencyContactPhoneE164()"
           [disabled]="loading()"

@@ -8,7 +8,7 @@
     <p class="login-card__subtitle">{{ 'auth.login.subtitle' | translate }}</p>
 
     @if (successMessage()) {
-      <div class="login-card__success" role="status">
+      <div class="login-card__success" aria-live="polite" aria-atomic="true">
         <span class="material-symbols-outlined" aria-hidden="true">check_circle</span>
         {{ successMessage() }}
       </div>

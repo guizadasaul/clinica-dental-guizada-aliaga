@@ -4,6 +4,7 @@ import {
   inject,
   computed,
   signal,
+  HostListener,
 } from '@angular/core';
 import { Router } from '@angular/router';
 import { AuthService } from '../../../../auth/application/auth.service';
@@ -105,6 +106,12 @@ export class DashboardPageComponent {
 
   protected toggleSidebar(): void {
     this.sidebarOpen.update((v) => !v);
+  }
+
+  /** Escape cierra el menú lateral en mobile, igual que tocar el fondo oscuro. */
+  @HostListener('document:keydown.escape')
+  protected closeSidebar(): void {
+    this.sidebarOpen.set(false);
   }
 
   protected async logout(): Promise<void> {

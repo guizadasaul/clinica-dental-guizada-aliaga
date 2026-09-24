@@ -1,14 +1,13 @@
 <div class="odontogram-chart" [class.odontogram-chart--readonly]="!interactive()">
 
   <!-- Chart: static drawing + interactive overlay (618x554 grid) -->
-  <div class="odontogram-chart__canvas">
+  <fieldset class="odontogram-chart__canvas">
+    <legend class="visually-hidden">Selector de dientes</legend>
     <img class="odontogram-chart__canvas-img" [src]="odontogramUrl" alt="Odontograma" />
     <svg
       class="odontogram-chart__canvas-overlay"
       viewBox="0 0 618 554"
       xmlns="http://www.w3.org/2000/svg"
-      role="group"
-      aria-label="Selector de dientes"
     >
       <text class="odontogram-chart__arch-title-svg" x="309" y="16" text-anchor="middle">Arcada superior</text>
       <text class="odontogram-chart__arch-title-svg" x="309" y="550" text-anchor="middle">Arcada inferior</text>
@@ -53,7 +52,7 @@
         </g>
       }
     </svg>
-  </div>
+  </fieldset>
 
   <!-- Legend -->
   @if (legendItems().length > 0) {
