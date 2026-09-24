@@ -1,4 +1,5 @@
 import { PrismaQuotesRepository } from './prisma-quotes.repository';
+import { QuoteMapper } from './quote.mapper';
 import { PrismaService } from '../../../shared/prisma/prisma.service';
 
 const NOW = new Date('2026-08-17T13:00:00.000Z');
@@ -21,7 +22,12 @@ function fakeQuoteRecord(overrides: Record<string, unknown> = {}) {
 
 describe('PrismaQuotesRepository', () => {
   let prismaMock: {
-    quotes: { create: jest.Mock; findUnique: jest.Mock; findMany: jest.Mock; update: jest.Mock };
+    quotes: {
+      create: jest.Mock;
+      findUnique: jest.Mock;
+      findMany: jest.Mock;
+      update: jest.Mock;
+    };
     quote_items: {
       createMany: jest.Mock;
       findUnique: jest.Mock;
@@ -64,7 +70,9 @@ describe('PrismaQuotesRepository', () => {
   describe('addItemGroup (CLI-45)', () => {
     it('creates the application_groups row first, then one quote_items row per tooth pointing at it', async () => {
       prismaMock.application_groups.create.mockResolvedValue({ id: 'group-1' });
-      prismaMock.quote_items.aggregate.mockResolvedValue({ _sum: { subtotal: null } });
+      prismaMock.quote_items.aggregate.mockResolvedValue({
+        _sum: { subtotal: null },
+      });
       prismaMock.application_groups.aggregate.mockResolvedValue({
         _sum: { subtotal: 1700 },
       });
@@ -108,11 +116,15 @@ describe('PrismaQuotesRepository', () => {
       // Ninguna fila de quote_items tiene subtotal propio (todas NULL,
       // como corresponde para filas de un grupo) — el aggregate de Prisma
       // ignora los NULL, así que suma 0 acá.
-      prismaMock.quote_items.aggregate.mockResolvedValue({ _sum: { subtotal: null } });
+      prismaMock.quote_items.aggregate.mockResolvedValue({
+        _sum: { subtotal: null },
+      });
       prismaMock.application_groups.aggregate.mockResolvedValue({
         _sum: { subtotal: 1700 },
       });
-      prismaMock.quotes.update.mockResolvedValue(fakeQuoteRecord({ total_amount: 1700 }));
+      prismaMock.quotes.update.mockResolvedValue(
+        fakeQuoteRecord({ total_amount: 1700 }),
+      );
 
       await repo.addItemGroup('quote-1', {
         treatmentId: 'treatment-1',
@@ -142,11 +154,15 @@ describe('PrismaQuotesRepository', () => {
         application_group_id: 'group-1',
       });
       prismaMock.application_groups.delete.mockResolvedValue({ id: 'group-1' });
-      prismaMock.quote_items.aggregate.mockResolvedValue({ _sum: { subtotal: null } });
+      prismaMock.quote_items.aggregate.mockResolvedValue({
+        _sum: { subtotal: null },
+      });
       prismaMock.application_groups.aggregate.mockResolvedValue({
         _sum: { subtotal: null },
       });
-      prismaMock.quotes.update.mockResolvedValue(fakeQuoteRecord({ total_amount: 0 }));
+      prismaMock.quotes.update.mockResolvedValue(
+        fakeQuoteRecord({ total_amount: 0 }),
+      );
 
       await repo.removeItemGroup('quote-1', 'item-1');
 
@@ -163,7 +179,9 @@ describe('PrismaQuotesRepository', () => {
         application_group_id: null,
       });
       prismaMock.quote_items.delete.mockResolvedValue({ id: 'item-1' });
-      prismaMock.quote_items.aggregate.mockResolvedValue({ _sum: { subtotal: null } });
+      prismaMock.quote_items.aggregate.mockResolvedValue({
+        _sum: { subtotal: null },
+      });
       prismaMock.application_groups.aggregate.mockResolvedValue({
         _sum: { subtotal: null },
       });
@@ -190,11 +208,15 @@ describe('PrismaQuotesRepository', () => {
 
   describe('total_amount recalculation', () => {
     it('sums loose quote_items.subtotal and application_groups.subtotal together (they never overlap)', async () => {
-      prismaMock.quote_items.aggregate.mockResolvedValue({ _sum: { subtotal: 60 } });
+      prismaMock.quote_items.aggregate.mockResolvedValue({
+        _sum: { subtotal: 60 },
+      });
       prismaMock.application_groups.aggregate.mockResolvedValue({
         _sum: { subtotal: 1700 },
       });
-      prismaMock.quotes.update.mockResolvedValue(fakeQuoteRecord({ total_amount: 1760 }));
+      prismaMock.quotes.update.mockResolvedValue(
+        fakeQuoteRecord({ total_amount: 1760 }),
+      );
 
       await repo.addItems('quote-1', [
         {
@@ -213,6 +235,121 @@ describe('PrismaQuotesRepository', () => {
             string,
             unknown
           >,
+        }),
+      );
+    });
+  });
+});
+
+describe('PrismaQuotesRepository — altas, lecturas y pagos', () => {
+  const tx = {
+    payments: { create: jest.fn(), aggregate: jest.fn() },
+    quotes: { findUniqueOrThrow: jest.fn(), update: jest.fn() },
+  };
+  const prisma = {
+    quotes: { create: jest.fn(), findUnique: jest.fn(), findMany: jest.fn() },
+    transaction: jest.fn((fn: (t: unknown) => unknown) => fn(tx)),
+  };
+  const repo = new PrismaQuotesRepository(prisma as unknown as PrismaService);
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    jest.spyOn(QuoteMapper, 'toDomain').mockReturnValue('mapped' as never);
+  });
+
+  afterAll(() => jest.restoreAllMocks());
+
+  it('createForPatient crea el presupuesto vacío con sus notas', async () => {
+    prisma.quotes.create.mockResolvedValue({ id: 'quote-1' });
+
+    await expect(repo.createForPatient('patient-1', 'plan')).resolves.toBe(
+      'mapped',
+    );
+    expect(prisma.quotes.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: { patient_id: 'patient-1', notes: 'plan' },
+      }),
+    );
+  });
+
+  it('findById mapea el presupuesto o devuelve null', async () => {
+    prisma.quotes.findUnique
+      .mockResolvedValueOnce({ id: 'quote-1' })
+      .mockResolvedValueOnce(null);
+
+    await expect(repo.findById('quote-1')).resolves.toBe('mapped');
+    await expect(repo.findById('missing')).resolves.toBeNull();
+  });
+
+  it('findByPatient trae los del paciente, más nuevos primero', async () => {
+    prisma.quotes.findMany.mockResolvedValue([{ id: 'q1' }, { id: 'q2' }]);
+
+    await expect(repo.findByPatient('patient-1')).resolves.toEqual([
+      'mapped',
+      'mapped',
+    ]);
+    expect(prisma.quotes.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { patient_id: 'patient-1' },
+        orderBy: { created_at: 'desc' },
+      }),
+    );
+  });
+
+  describe('addPayment', () => {
+    beforeEach(() => {
+      tx.quotes.update.mockResolvedValue({ id: 'quote-1' });
+    });
+
+    it('registra el pago y recalcula lo pagado y el estado', async () => {
+      tx.payments.aggregate.mockResolvedValue({ _sum: { amount: '300' } });
+      tx.quotes.findUniqueOrThrow.mockResolvedValue({ total_amount: '300' });
+
+      await expect(
+        repo.addPayment('quote-1', {
+          amount: 100,
+          paymentMethod: 'qr',
+          notes: 'saldo',
+        }),
+      ).resolves.toBe('mapped');
+
+      expect(tx.payments.create).toHaveBeenCalledWith({
+        data: {
+          quote_id: 'quote-1',
+          amount: 100,
+          payment_method: 'qr',
+          notes: 'saldo',
+        },
+      });
+      expect(tx.quotes.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: 'quote-1' },
+          data: expect.objectContaining({
+            total_paid: 300,
+            status: 'paid',
+          }) as object,
+        }),
+      );
+    });
+
+    it('sin medio ni notas los guarda en null; sin pagos previos queda en 0', async () => {
+      tx.payments.aggregate.mockResolvedValue({ _sum: { amount: null } });
+      tx.quotes.findUniqueOrThrow.mockResolvedValue({ total_amount: '300' });
+
+      await repo.addPayment('quote-1', { amount: 100 });
+
+      expect(tx.payments.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          payment_method: null,
+          notes: null,
+        }) as object,
+      });
+      expect(tx.quotes.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            total_paid: 0,
+            status: 'pending',
+          }) as object,
         }),
       );
     });
