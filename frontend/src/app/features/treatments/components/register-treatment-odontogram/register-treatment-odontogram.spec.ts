@@ -515,4 +515,12 @@ describe('RegisterTreatmentOdontogramComponent', () => {
       expect(toothPaint(fixture, 16).classList).toContain('odontogram-chart__cell-paint--treated');
     });
   });
+
+  it('no repite el título de la pantalla dentro del odontograma (CLI-112)', async () => {
+    const { fixture } = setup();
+    fixture.componentRef.setInput('treatments', [fakeTreatment()]);
+    await settle(fixture);
+
+    expect((fixture.nativeElement as HTMLElement).querySelector('h3')).toBeNull();
+  });
 });
