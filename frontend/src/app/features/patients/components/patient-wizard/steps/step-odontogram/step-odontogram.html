@@ -160,26 +160,15 @@
 
         <!-- Diagnosis -->
         <div class="odontogram-step__panel-field">
-          <label class="odontogram-step__panel-label" for="diagnosisCode">
+          <span class="odontogram-step__panel-label">
             Diagnóstico <span class="step-form__req">*</span>
-          </label>
-          <select
-            id="diagnosisCode"
-            class="step-form__input odontogram-step__panel-select"
-            [value]="panelDiagnosisCode()"
-            (change)="onPanelDiagnosisChange($any($event.target).value)"
-          >
-            <option value="" disabled>Elegí un diagnóstico...</option>
-            @for (category of catalog(); track category.id) {
-              @if (category.diagnoses.length > 0) {
-                <optgroup [label]="category.name">
-                  @for (d of category.diagnoses; track d.id) {
-                    <option [value]="d.code">{{ d.name }}</option>
-                  }
-                </optgroup>
-              }
-            }
-          </select>
+          </span>
+          <app-catalog-picker
+            noun="diagnóstico"
+            [items]="diagnosisOptions()"
+            [selectedId]="panelDiagnosisCode() || null"
+            (selectedChange)="onPanelDiagnosisChange($event)"
+          />
         </div>
 
         @if (panelDiagnosis()) {

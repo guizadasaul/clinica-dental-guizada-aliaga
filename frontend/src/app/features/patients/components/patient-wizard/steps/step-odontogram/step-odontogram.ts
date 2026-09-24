@@ -25,6 +25,10 @@ import { normalizeText, optionalTextError, requiredTextError } from '../../../..
 import { BLACK_CLASSES, MOBILITY_GRADES } from '../../../../../../shared/validation/clinical-options';
 import { modifierLabel } from '../../../../models/dental-exam-display.util';
 import { DentalExamHistoryComponent } from '../../../dental-exam-history/dental-exam-history';
+import {
+  CatalogPickerComponent,
+  type CatalogPickerItem,
+} from '../../../../../../shared/ui/catalog-picker/catalog-picker';
 
 /**
  * Cómo arranca el paso (CLI-109): `new` = diagnóstico nuevo desde cero (el
@@ -117,7 +121,7 @@ function findingsSignature(drafts: readonly FindingDraft[]): string {
   selector: 'app-step-odontogram',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [FormsModule, DatePipe, OdontogramChartComponent, DentalExamHistoryComponent],
+  imports: [FormsModule, DatePipe, OdontogramChartComponent, DentalExamHistoryComponent, CatalogPickerComponent],
   templateUrl: './step-odontogram.html',
   styleUrl: './step-odontogram.scss',
 })
@@ -136,6 +140,18 @@ export class StepOdontogramComponent {
 
   protected readonly allDiagnoses = computed<(Diagnosis & { categoryName: string })[]>(() =>
     this.catalog().flatMap((c) => c.diagnoses.map((d) => ({ ...d, categoryName: c.name }))),
+  );
+
+  /** Opciones del selector de diagnóstico (CLI-117): el code identifica, la categoría agrupa. */
+  protected readonly diagnosisOptions = computed<CatalogPickerItem[]>(() =>
+    this.allDiagnoses().map((d) => ({
+      id: d.code,
+      label: d.name,
+      groupId: d.categoryId,
+      groupLabel: d.categoryName,
+      color: d.color,
+      hint: this.scopeLabel(d.scope),
+    })),
   );
 
   protected readonly legendItems = computed(() =>

@@ -21,6 +21,15 @@ function el<T extends Element>(fixture: ReturnType<typeof setup>, selector: stri
   return (fixture.nativeElement as HTMLElement).querySelector(selector) as T;
 }
 
+/** Elige un diagnóstico por código en el CatalogPicker del panel (CLI-117). */
+function pickDiagnosis(fixture: ReturnType<typeof setup>, code: string): void {
+  const option = (fixture.nativeElement as HTMLElement).querySelector<HTMLButtonElement>(
+    `.catalog-picker__option[data-id="${code}"]`,
+  );
+  if (!option) { throw new Error(`No hay opción ${code} en el picker`); }
+  option.click();
+}
+
 function select(sel: HTMLSelectElement, value: string): void {
   sel.value = value;
   sel.dispatchEvent(new Event('change'));
@@ -153,7 +162,7 @@ async function setupWithExistingExam(mode: 'new' | 'correct' = 'correct') {
 function addGeneralFinding(fixture: ReturnType<typeof setup>): void {
   openAddPanel(fixture);
   fixture.detectChanges();
-  select(el(fixture, '#diagnosisCode'), 'lesion_lengua');
+  pickDiagnosis(fixture, 'lesion_lengua');
   fixture.detectChanges();
   saveButton(fixture).click();
   fixture.detectChanges();
@@ -179,7 +188,7 @@ describe('StepOdontogramComponent', () => {
 
     openAddPanel(fixture);
     await settle(fixture);
-    select(el(fixture, '#diagnosisCode'), 'caries_segundo_grado');
+    pickDiagnosis(fixture, 'caries_segundo_grado');
     await settle(fixture);
 
     clickTooth(fixture, 16);
@@ -199,7 +208,7 @@ describe('StepOdontogramComponent', () => {
 
     openAddPanel(fixture);
     await settle(fixture);
-    select(el(fixture, '#diagnosisCode'), 'caries_segundo_grado');
+    pickDiagnosis(fixture, 'caries_segundo_grado');
     await settle(fixture);
     clickTooth(fixture, 16);
     await settle(fixture);
@@ -218,7 +227,7 @@ describe('StepOdontogramComponent', () => {
 
     openAddPanel(fixture);
     await settle(fixture);
-    select(el(fixture, '#diagnosisCode'), 'caries_segundo_grado');
+    pickDiagnosis(fixture, 'caries_segundo_grado');
     await settle(fixture);
     clickTooth(fixture, 16);
     await settle(fixture);
@@ -243,7 +252,7 @@ describe('StepOdontogramComponent', () => {
 
     openAddPanel(fixture);
     await settle(fixture);
-    select(el(fixture, '#diagnosisCode'), 'gingivitis');
+    pickDiagnosis(fixture, 'gingivitis');
     await settle(fixture);
 
     clickTooth(fixture, 16);
@@ -266,7 +275,7 @@ describe('StepOdontogramComponent', () => {
 
     openAddPanel(fixture);
     await settle(fixture);
-    select(el(fixture, '#diagnosisCode'), 'lesion_lengua');
+    pickDiagnosis(fixture, 'lesion_lengua');
     await settle(fixture);
 
     expect(el(fixture, '.odontogram-step__panel-chips')).toBeFalsy();
@@ -287,7 +296,7 @@ describe('StepOdontogramComponent', () => {
 
     openAddPanel(fixture);
     await settle(fixture);
-    select(el(fixture, '#diagnosisCode'), 'lesion_lengua');
+    pickDiagnosis(fixture, 'lesion_lengua');
     await settle(fixture);
     saveButton(fixture).click();
     await settle(fixture);
@@ -555,5 +564,31 @@ describe('StepOdontogramComponent', () => {
 
     expect(el(fixture, 'app-dental-exam-history app-odontogram-chart')).toBeTruthy();
     expect(el(fixture, '.exam-history__copy')).toBeNull();
+  });
+
+  it('el selector de diagnóstico busca sin tildes y muestra el alcance (CLI-117)', async () => {
+    const fixture = setup();
+    fixture.componentRef.setInput('catalog', CATALOG);
+    await settle(fixture);
+    openAddPanel(fixture);
+    await settle(fixture);
+
+    const input = el<HTMLInputElement>(fixture, '.catalog-picker__search-input');
+    input.value = 'lesion';
+    input.dispatchEvent(new Event('input'));
+    await settle(fixture);
+
+    const options = [...fixture.nativeElement.querySelectorAll('.catalog-picker__option')] as HTMLElement[];
+    expect(options.map((o) => o.dataset['id'])).toEqual(['lesion_lengua']);
+    expect(options[0].textContent).toContain('General');
+  });
+
+  it('al editar un hallazgo el selector arranca con su diagnóstico elegido', async () => {
+    const fixture = await setupWithExistingExam();
+
+    (fixture.nativeElement.querySelector('.odontogram-step__entry-edit') as HTMLButtonElement).click();
+    await settle(fixture);
+
+    expect(el(fixture, '.catalog-picker__selected-label')?.textContent).toContain('Caries de segundo grado');
   });
 });
