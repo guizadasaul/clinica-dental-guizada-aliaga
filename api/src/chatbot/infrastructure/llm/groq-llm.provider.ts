@@ -22,11 +22,20 @@ const DEFAULT_TIMEOUT_MS = 20_000;
 const DEFAULT_MAX_COMPLETION_TOKENS = 1024;
 const RETRY_DELAY_MS = 500;
 const MAX_RETRY_AFTER_MS = 3_000;
-const REASONING_EFFORTS: readonly GroqReasoningEffort[] = [
+const REASONING_EFFORTS: ReadonlySet<string> = new Set<GroqReasoningEffort>([
   'low',
   'medium',
   'high',
-];
+]);
+
+/** Quita las barras finales sin regex (evita backtracking con muchas barras). */
+function withoutTrailingSlashes(url: string): string {
+  let end = url.length;
+  while (end > 0 && url[end - 1] === '/') {
+    end--;
+  }
+  return url.slice(0, end);
+}
 
 interface GroqConfig {
   apiKey: string;
@@ -105,9 +114,8 @@ export class GroqLlmProvider implements LlmProvider {
     const effort = process.env['GROQ_REASONING_EFFORT'] as GroqReasoningEffort;
     return {
       apiKey,
-      baseUrl: (process.env['GROQ_BASE_URL'] || DEFAULT_BASE_URL).replace(
-        /\/+$/,
-        '',
+      baseUrl: withoutTrailingSlashes(
+        process.env['GROQ_BASE_URL'] || DEFAULT_BASE_URL,
       ),
       model: process.env['GROQ_MODEL'] || DEFAULT_MODEL,
       timeoutMs: readEnvInt('GROQ_TIMEOUT_MS', DEFAULT_TIMEOUT_MS),
@@ -115,7 +123,7 @@ export class GroqLlmProvider implements LlmProvider {
         'GROQ_MAX_COMPLETION_TOKENS',
         DEFAULT_MAX_COMPLETION_TOKENS,
       ),
-      reasoningEffort: REASONING_EFFORTS.includes(effort) ? effort : 'low',
+      reasoningEffort: REASONING_EFFORTS.has(effort) ? effort : 'low',
     };
   }
 
@@ -153,9 +161,8 @@ export class GroqLlmProvider implements LlmProvider {
     }
 
     const code = await this.readErrorCode(response);
-    this.logger.warn(
-      `Groq respondió HTTP ${response.status}${code ? ` (${code})` : ''}`,
-    );
+    const codeSuffix = code ? ` (${code})` : '';
+    this.logger.warn(`Groq respondió HTTP ${response.status}${codeSuffix}`);
 
     if (response.status === 429) {
       throw new RetryableFailure(
