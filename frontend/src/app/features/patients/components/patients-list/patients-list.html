@@ -133,14 +133,6 @@
                   <button
                     class="patients-list__btn"
                     type="button"
-                    (click)="onNewDiagnosis(p.patient!.id)"
-                  >
-                    <span class="material-symbols-outlined">dentistry</span>
-                    Nuevo diagnóstico
-                  </button>
-                  <button
-                    class="patients-list__btn"
-                    type="button"
                     (click)="onRegisterTreatment(p.patient!.id)"
                   >
                     <span class="material-symbols-outlined">healing</span>
@@ -176,29 +168,25 @@
                     </button>
 
                     @if (openMenuFor() === p.userId && menuPosition()) {
-                      <ul
+                      <div
                         class="patients-list__menu"
                         role="menu"
                         [style.top.px]="menuPosition()!.top"
                         [style.right.px]="menuPosition()!.right"
                       >
-                        <li
-                          class="patients-list__menu-item"
-                          role="menuitem"
-                          (click)="onOpenOdontogram(p.patient!.id)"
-                        >
+                        <button type="button" class="patients-list__menu-item" role="menuitem" (click)="onNewDiagnosis(p.patient!.id)">
+                          <span class="material-symbols-outlined">dentistry</span>
+                          Nuevo diagnóstico
+                        </button>
+                        <button type="button" class="patients-list__menu-item" role="menuitem" (click)="onOpenOdontogram(p.patient!.id)">
                           <span class="material-symbols-outlined">edit</span>
                           Corregir diagnóstico actual
-                        </li>
-                        <li
-                          class="patients-list__menu-item"
-                          role="menuitem"
-                          (click)="onViewClinicalRecord(p.patient!)"
-                        >
+                        </button>
+                        <button type="button" class="patients-list__menu-item" role="menuitem" (click)="onViewClinicalRecord(p.patient!)">
                           <span class="material-symbols-outlined">medical_information</span>
                           Ver historia clínica
-                        </li>
-                      </ul>
+                        </button>
+                      </div>
                     }
                   </div>
                 }

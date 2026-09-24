@@ -155,18 +155,27 @@ describe('PatientsListComponent', () => {
     expect(patientsService.getAll).toHaveBeenLastCalledWith(undefined);
   });
 
-  it('"Nuevo diagnóstico" emite el id del paciente y el menú ofrece corregir el vigente (CLI-109)', async () => {
+  it('"Nuevo diagnóstico" vive en el menú ⋮, no en la fila, y emite el id del paciente (CLI-113)', async () => {
     const { fixture } = setup();
     await settle(fixture);
     const emitted: string[] = [];
     fixture.componentInstance.newDiagnosis.subscribe((id) => emitted.push(id));
 
-    const buttons = [...(fixture.nativeElement as HTMLElement).querySelectorAll<HTMLButtonElement>('.patients-list__btn')];
-    buttons.find((b) => b.textContent?.includes('Nuevo diagnóstico'))!.click();
-    expect(emitted).toEqual(['patient-1']);
+    const rowButtons = [...(fixture.nativeElement as HTMLElement).querySelectorAll<HTMLButtonElement>('.patients-list__btn')];
+    expect(rowButtons.some((b) => b.textContent?.includes('Nuevo diagnóstico'))).toBe(false);
 
     el<HTMLButtonElement>(fixture, '.patients-list__menu-trigger').click();
     await settle(fixture);
-    expect(el(fixture, '.patients-list__menu')?.textContent).toContain('Corregir diagnóstico actual');
+    const items = [...(fixture.nativeElement as HTMLElement).querySelectorAll<HTMLElement>('.patients-list__menu-item')];
+    expect(items.map((i) => i.textContent?.trim())).toEqual([
+      expect.stringContaining('Nuevo diagnóstico'),
+      expect.stringContaining('Corregir diagnóstico actual'),
+      expect.stringContaining('Ver historia clínica'),
+    ]);
+
+    items[0].click();
+    await settle(fixture);
+    expect(emitted).toEqual(['patient-1']);
+    expect(el(fixture, '.patients-list__menu')).toBeFalsy();
   });
 });
