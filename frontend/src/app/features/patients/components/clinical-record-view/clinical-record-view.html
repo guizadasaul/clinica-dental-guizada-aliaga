@@ -1,18 +1,11 @@
 <div class="record">
 
-  <div class="record__header">
-    <div class="record__header-title">
-      <span class="material-symbols-outlined">medical_information</span>
-      <div>
-        <h2>Historia clínica</h2>
-        <p class="record__header-subtitle">{{ fullName(patient()) }}</p>
-      </div>
-    </div>
-    <button type="button" class="record__back-btn" (click)="onClose()">
-      <span class="material-symbols-outlined">arrow_back</span>
-      Volver
-    </button>
-  </div>
+  <app-page-header
+    title="Historia clínica"
+    [subtitle]="fullName(patient())"
+    backLabel="Volver a la lista"
+    (back)="onClose()"
+  />
 
   @if (loading()) {
     <div class="record__state">

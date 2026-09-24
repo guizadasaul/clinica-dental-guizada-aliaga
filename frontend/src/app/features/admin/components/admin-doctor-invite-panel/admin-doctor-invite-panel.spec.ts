@@ -145,7 +145,7 @@ describe('AdminDoctorInvitePanelComponent', () => {
     const { fixture, closed, adminDoctorsService } = setup();
     await settle(fixture);
 
-    el<HTMLButtonElement>(fixture, '.invite-panel__header .invite-panel__btn').click();
+    el<HTMLButtonElement>(fixture, '.page-header__back').click();
 
     expect(closed).toHaveBeenCalled();
     expect(adminDoctorsService.createInvite).not.toHaveBeenCalled();

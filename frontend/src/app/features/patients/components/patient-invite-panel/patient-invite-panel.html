@@ -1,8 +1,10 @@
 <div class="invite-panel">
-  <h3 class="invite-panel__title">Enviar registro de paciente nuevo</h3>
-  <p class="invite-panel__hint">
-    Le mandamos un link para que complete su registro. Al usarlo queda vinculado a esta ficha.
-  </p>
+  <app-page-header
+    title="Enviar registro de paciente"
+    subtitle="Le mandamos un link para que complete su registro. Al usarlo queda vinculado a esta ficha."
+    backLabel="Volver a la lista"
+    (back)="onCancel()"
+  />
 
   <div class="invite-panel__section">
     <h4 class="invite-panel__section-title">Datos de contacto</h4>

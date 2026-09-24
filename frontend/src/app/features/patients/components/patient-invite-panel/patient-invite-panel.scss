@@ -3,18 +3,6 @@
   flex-direction: column;
   gap: 1.25rem;
 
-  &__title {
-    margin: 0;
-    font-size: 1rem;
-    color: var(--color-navy, #1a2b5e);
-  }
-
-  &__hint {
-    margin: 0;
-    font-size: 0.8125rem;
-    color: #6b7280;
-  }
-
   &__section {
     display: flex;
     flex-direction: column;

@@ -3,15 +3,6 @@
   flex-direction: column;
   gap: 1.25rem;
 
-  &__title {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    margin: 0;
-    font-size: 1.125rem;
-    color: var(--color-navy, #1a2b5e);
-  }
-
   &__error {
     color: #dc2626;
     font-size: 0.875rem;

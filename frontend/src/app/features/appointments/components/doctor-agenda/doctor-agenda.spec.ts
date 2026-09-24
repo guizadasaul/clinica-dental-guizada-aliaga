@@ -120,8 +120,8 @@ describe('DoctorAgendaComponent', () => {
     fixture.componentRef.setInput('readOnly', true);
     await settle(fixture);
 
-    expect(fixture.nativeElement.querySelector('.agenda__title')?.textContent).toContain('Agenda');
-    expect(fixture.nativeElement.querySelector('.agenda__title')?.textContent).not.toContain('Mi agenda');
+    expect(fixture.nativeElement.querySelector('.page-header__title')?.textContent).toContain('Agenda');
+    expect(fixture.nativeElement.querySelector('.page-header__title')?.textContent).not.toContain('Mi agenda');
   });
 
   describe('agenda común (CLI-110)', () => {
@@ -139,7 +139,7 @@ describe('DoctorAgendaComponent', () => {
       await settle(fixture);
 
       expect(appointmentsService.getAgenda).toHaveBeenCalledWith(expect.objectContaining({ scope: 'all' }));
-      expect(fixture.nativeElement.querySelector('.agenda__title')?.textContent).toContain('Agenda común');
+      expect(fixture.nativeElement.querySelector('.page-header__title')?.textContent).toContain('Agenda común');
     });
 
     it('pinta cada turno con el color de su doctor y muestra la leyenda', async () => {

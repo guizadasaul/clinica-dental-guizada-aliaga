@@ -22,6 +22,7 @@ import type { AdminDoctorSummary } from '../../models/admin-doctor.model';
 import type { CreateDoctorRequest, UpdateDoctorRequest } from '../../models/admin-doctor.request';
 import type { Doctor } from '../../../booking/models/booking.model';
 import type { InviteChannel } from '../../../patient-invites/services/patient-invites.service';
+import { PageHeaderComponent } from '../../../../shared/ui/page-header/page-header';
 
 const WEEKDAY_LABELS = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
 
@@ -78,7 +79,7 @@ function suggestPublicName(firstName: string, lastNamePaternal: string): string 
   selector: 'app-admin-doctors',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [
+  imports: [PageHeaderComponent, 
     FormsModule,
     PhoneInputComponent,
     AdminDoctorInvitePanelComponent,

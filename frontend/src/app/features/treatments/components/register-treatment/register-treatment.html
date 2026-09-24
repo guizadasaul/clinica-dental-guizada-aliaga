@@ -1,14 +1,6 @@
 <div class="reg-treatment">
 
-  <div class="reg-treatment__header">
-    <div class="reg-treatment__header-title">
-      <span class="material-symbols-outlined">healing</span>
-      <h2>Registrar tratamiento</h2>
-    </div>
-    <button type="button" class="reg-treatment__close-btn" (click)="onClose()" aria-label="Cerrar">
-      <span class="material-symbols-outlined">close</span>
-    </button>
-  </div>
+  <app-page-header title="Registrar tratamiento" backLabel="Volver a la lista" (back)="onClose()" />
 
   @if (successMessage()) {
     <div class="reg-treatment__success">

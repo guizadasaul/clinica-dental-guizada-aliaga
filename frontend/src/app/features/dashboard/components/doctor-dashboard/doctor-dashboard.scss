@@ -111,21 +111,6 @@
   justify-content: space-between;
 }
 
-.doctor__section-title {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  font-family: var(--font-headline);
-  font-size: var(--font-size-lg);
-  color: var(--color-text);
-  margin: 0;
-
-  .material-symbols-outlined {
-    font-size: 20px;
-    color: var(--color-primary-dark);
-  }
-}
-
 // ─── Schedule empty ───────────────────────────────────────────────────────────
 
 .schedule-empty {
