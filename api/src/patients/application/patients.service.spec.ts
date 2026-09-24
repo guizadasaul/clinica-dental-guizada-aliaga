@@ -1382,13 +1382,14 @@ describe('PatientsService', () => {
 
   describe('findMyPatient', () => {
     it('devuelve la ficha del usuario autenticado', async () => {
+      const patient = fakePatient();
       mockUserRepo.findByAuthUserId.mockResolvedValue(
         makeAppUser(UserRole.PATIENT, 'user-1'),
       );
-      mockPatientRepo.findByUserId.mockResolvedValue(fakePatient());
+      mockPatientRepo.findByUserId.mockResolvedValue(patient);
 
-      await expect(service.findMyPatient(PATIENT_AUTH_ID)).resolves.toEqual(
-        fakePatient(),
+      await expect(service.findMyPatient(PATIENT_AUTH_ID)).resolves.toBe(
+        patient,
       );
       expect(mockPatientRepo.findByUserId).toHaveBeenCalledWith('user-1');
     });
