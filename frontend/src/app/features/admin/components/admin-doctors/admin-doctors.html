@@ -410,16 +410,20 @@
             <p class="admin-doctors__schedule-empty">Sin bloques de horario cargados.</p>
           } @else {
             <div class="admin-doctors__schedule-list">
+              <!-- Nombres accesibles de las columnas de cada bloque (una sola vez, fuera del @for). -->
+              <span id="schedule-label-weekday" class="visually-hidden">Día</span>
+              <span id="schedule-label-start" class="visually-hidden">Desde</span>
+              <span id="schedule-label-end" class="visually-hidden">Hasta</span>
               @for (block of scheduleBlocks(); track $index) {
                 <div class="admin-doctors__schedule-row">
-                  <select aria-label="Día" [value]="block.weekday" (change)="setBlockWeekday($index, $event)">
+                  <select aria-labelledby="schedule-label-weekday" [value]="block.weekday" (change)="setBlockWeekday($index, $event)">
                     @for (label of weekdayLabels; track $index) {
                       <option [value]="$index">{{ label }}</option>
                     }
                   </select>
-                  <input type="time" aria-label="Desde" [value]="block.start" (change)="setBlockStart($index, $event)" />
+                  <input type="time" aria-labelledby="schedule-label-start" [value]="block.start" (change)="setBlockStart($index, $event)" />
                   <span>a</span>
-                  <input type="time" aria-label="Hasta" [value]="block.end" (change)="setBlockEnd($index, $event)" />
+                  <input type="time" aria-labelledby="schedule-label-end" [value]="block.end" (change)="setBlockEnd($index, $event)" />
                   <button
                     type="button"
                     class="admin-doctors__icon-btn"
