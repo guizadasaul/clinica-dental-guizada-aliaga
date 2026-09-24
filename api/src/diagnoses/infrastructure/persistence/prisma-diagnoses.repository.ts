@@ -17,6 +17,14 @@ export class PrismaDiagnosesRepository implements IDiagnosisRepository {
         diagnoses: {
           where: { is_active: true },
           orderBy: { display_order: 'asc' },
+          // Solo sugerencias de tratamientos activos, la más habitual primero (CLI-119).
+          include: {
+            diagnosis_treatment_suggestions: {
+              where: { treatments: { is_active: true } },
+              orderBy: { rank: 'asc' },
+              select: { treatment_id: true },
+            },
+          },
         },
       },
     });

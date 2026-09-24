@@ -9,4 +9,6 @@ export interface Diagnosis {
   modifier: DiagnosisModifier;
   color: string;
   displayOrder: number;
+  /** Tratamientos activos sugeridos para este diagnóstico, el más habitual primero (CLI-119). */
+  suggestedTreatmentIds: string[];
 }
