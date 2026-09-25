@@ -1,4 +1,11 @@
-import { Body, Controller, HttpCode, HttpStatus, Post } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Headers,
+  HttpCode,
+  HttpStatus,
+  Post,
+} from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
 import { readEnvInt } from '../../../shared/env.util.js';
 import { ChatService } from '../../application/chat.service.js';
@@ -6,6 +13,7 @@ import { ActorResolver } from '../../application/actor-resolver.js';
 import { ChatChannel } from '../../domain/ChatChannel.js';
 import type { ChatLink } from '../../domain/ChatLink.js';
 import { SendPublicChatMessageDto } from './dto/send-chat-message.dto.js';
+import { resolveRequestId } from './request-id.js';
 
 const HOUR_MS = 60 * 60_000;
 
@@ -37,6 +45,7 @@ export class PublicChatController {
   })
   async sendMessage(
     @Body() dto: SendPublicChatMessageDto,
+    @Headers('x-request-id') requestIdHeader?: string,
   ): Promise<PublicChatMessageResponse> {
     const result = await this.chatService.handleMessage({
       actor: this.actorResolver.anonymous(),
@@ -44,6 +53,7 @@ export class PublicChatController {
       anonToken: dto.sessionToken,
       text: dto.message,
       locale: dto.locale,
+      requestId: resolveRequestId(requestIdHeader),
     });
     // Para un anónimo ChatService siempre devuelve el token (nuevo o el mismo).
     return {

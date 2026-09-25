@@ -326,6 +326,42 @@ describe('Chatbot: autorización (e2e) — CLI-95', () => {
     });
   });
 
+  describe('métricas de uso (CLI-98)', () => {
+    function usage(token: string) {
+      const today = new Date(Date.now() - 4 * 60 * 60 * 1000)
+        .toISOString()
+        .slice(0, 10);
+      return request(app.getHttpServer())
+        .get(`/admin/chatbot/usage?from=${today}&to=${today}`)
+        .set('Authorization', `Bearer ${token}`);
+    }
+
+    it('el admin ve los turnos de hoy y cuadran con chat_messages', async () => {
+      const res = await usage(fx.admin.token).expect(200);
+      const body = res.body as {
+        rows: { role: string; turns: number; deniedTools: number }[];
+      };
+      const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
+      const patientTurns = await prisma.chat_messages.count({
+        where: {
+          role: 'assistant',
+          created_at: { gte: since },
+          chat_sessions: { user_id: fx.patientA.id },
+        },
+      });
+
+      const patientRow = body.rows.find((row) => row.role === 'patient');
+      expect(patientRow?.turns).toBeGreaterThanOrEqual(patientTurns);
+      // El caso 4 pidió un reporte de admin como paciente: quedó contado.
+      expect(patientRow?.deniedTools).toBeGreaterThanOrEqual(1);
+    });
+
+    it('un paciente o un doctor no pueden verlas', async () => {
+      await usage(fx.patientA.token).expect(403);
+      await usage(fx.doctor1.token).expect(403);
+    });
+  });
+
   describe('visitante anónimo', () => {
     it('10. get_clinic_info funciona sin sesión', async () => {
       const turn = await callTool(null, 'get_clinic_info');

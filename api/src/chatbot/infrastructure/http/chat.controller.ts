@@ -2,6 +2,7 @@ import {
   Body,
   Controller,
   Delete,
+  Headers,
   HttpCode,
   HttpStatus,
   Param,
@@ -20,8 +21,10 @@ import { readEnvInt } from '../../../shared/env.util.js';
 import { ChatService } from '../../application/chat.service.js';
 import { ActorResolver } from '../../application/actor-resolver.js';
 import { ChatChannel } from '../../domain/ChatChannel.js';
+import { chatAuditContext } from '../../domain/ChatAudit.js';
 import type { ChatLink } from '../../domain/ChatLink.js';
 import { SendChatMessageDto } from './dto/send-chat-message.dto.js';
+import { resolveRequestId } from './request-id.js';
 
 const MINUTE_MS = 60_000;
 
@@ -56,6 +59,7 @@ export class ChatController {
   async sendMessage(
     @CurrentAppUser() appUser: User,
     @Body() dto: SendChatMessageDto,
+    @Headers('x-request-id') requestIdHeader?: string,
   ): Promise<ChatMessageResponse> {
     const actor = await this.actorResolver.fromAppUser(appUser);
     const result = await this.chatService.handleMessage({
@@ -64,6 +68,7 @@ export class ChatController {
       sessionId: dto.sessionId,
       text: dto.message,
       locale: dto.locale,
+      requestId: resolveRequestId(requestIdHeader),
     });
     return {
       sessionId: result.sessionId,
@@ -77,8 +82,19 @@ export class ChatController {
   async deleteSession(
     @CurrentAppUser() appUser: User,
     @Param('id', ParseUUIDPipe) id: string,
+    @Headers('x-request-id') requestIdHeader?: string,
   ): Promise<void> {
-    await this.chatService.deleteSession(appUser.id, id);
+    const actor = {
+      kind: 'user' as const,
+      userId: appUser.id,
+      role: appUser.role,
+      patientId: null,
+    };
+    await this.chatService.deleteSession(
+      appUser.id,
+      id,
+      chatAuditContext(resolveRequestId(requestIdHeader), actor, null),
+    );
   }
 
   @Delete('sessions')

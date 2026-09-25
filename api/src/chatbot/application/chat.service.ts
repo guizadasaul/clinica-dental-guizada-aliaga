@@ -8,6 +8,8 @@ import {
   ServiceUnavailableException,
 } from '@nestjs/common';
 import type { ChatActor } from '../domain/ChatActor';
+import { chatAuditContext } from '../domain/ChatAudit';
+import type { ChatAuditContext } from '../domain/ChatAudit';
 import type { ChatChannel } from '../domain/ChatChannel';
 import { ChatRepository } from '../domain/ChatRepository';
 import type { ChatRepository as IChatRepository } from '../domain/ChatRepository';
@@ -16,6 +18,7 @@ import type { ChatLink } from '../domain/ChatLink';
 import type { LlmMessage } from '../domain/LlmProvider';
 import { readEnvInt } from '../../shared/env.util';
 import { AgentRunner } from './agent-runner';
+import { ChatAuditLogger } from './chat-audit.logger';
 import type { ChatLocale } from './fallback-reply';
 import { SystemPromptBuilder } from './system-prompt.builder';
 
@@ -39,6 +42,8 @@ export interface IncomingChatMessage {
   anonToken?: string;
   text: string;
   locale?: ChatLocale;
+  /** Correlación de los eventos de auditoría (x-request-id). */
+  requestId?: string;
 }
 
 export interface ChatReply {
@@ -71,14 +76,27 @@ export class ChatService {
     @Inject(ChatRepository) private readonly chatRepo: IChatRepository,
     private readonly agent: AgentRunner,
     private readonly promptBuilder: SystemPromptBuilder,
+    private readonly audit: ChatAuditLogger,
   ) {}
 
   async handleMessage(message: IncomingChatMessage): Promise<ChatReply> {
     const started = Date.now();
     this.ensureEnabled();
+    let audit = chatAuditContext(
+      message.requestId ?? null,
+      message.actor,
+      message.anonToken ? hashAnonToken(message.anonToken) : null,
+    );
     // Antes de resolver la sesión: sin cupo no se crea ninguna conversación.
-    await this.ensureWithinDailyQuota(message.actor, message.anonToken);
-    const { session, anonToken } = await this.resolveSession(message);
+    await this.ensureWithinDailyQuota(message.actor, message.anonToken, audit);
+    const { session, anonToken } = await this.resolveSession(message, audit);
+    if (anonToken) {
+      audit = chatAuditContext(
+        audit.requestId,
+        message.actor,
+        hashAnonToken(anonToken),
+      );
+    }
 
     await this.chatRepo.appendMessage(session.id, {
       role: 'user',
@@ -91,15 +109,28 @@ export class ChatService {
       system: this.promptBuilder.build(message.actor, new Date()),
       history,
       locale: message.locale,
+      audit,
     });
+    const totalMs = Date.now() - started;
 
     await this.chatRepo.appendMessage(session.id, {
       role: 'assistant',
       content: result.reply,
       toolNames: result.toolNames,
-      latencyMs: Date.now() - started,
+      latencyMs: totalMs,
       promptTokens: result.usage.promptTokens,
       completionTokens: result.usage.completionTokens,
+      errorCode: result.errorCode,
+      deniedTools: result.toolCalls.filter((t) => t.status === 'denied').length,
+    });
+    this.audit.turn(audit, {
+      channel: message.channel,
+      tools: result.toolCalls,
+      llmMs: result.llmLatencyMs,
+      totalMs,
+      promptTokens: result.usage.promptTokens,
+      completionTokens: result.usage.completionTokens,
+      iterations: result.iterations,
       errorCode: result.errorCode,
     });
 
@@ -112,9 +143,16 @@ export class ChatService {
   }
 
   /** Borra una conversación propia. 404 si no existe o es de otro usuario. */
-  async deleteSession(userId: string, sessionId: string): Promise<void> {
+  async deleteSession(
+    userId: string,
+    sessionId: string,
+    audit?: ChatAuditContext,
+  ): Promise<void> {
     const deleted = await this.chatRepo.deleteSessionForUser(sessionId, userId);
     if (!deleted) {
+      if (audit) {
+        this.audit.security(audit, 'foreign_or_unknown_session');
+      }
       throw new NotFoundException('Conversación no encontrada');
     }
   }
@@ -141,6 +179,7 @@ export class ChatService {
   private async ensureWithinDailyQuota(
     actor: ChatActor,
     anonToken: string | undefined,
+    audit: ChatAuditContext,
   ): Promise<void> {
     const since = new Date(Date.now() - DAY_MS);
     let sent: number;
@@ -164,6 +203,7 @@ export class ChatService {
       );
     }
     if (sent >= limit) {
+      this.audit.security(audit, 'daily_quota_exceeded');
       throw new HttpException(
         'Alcanzaste el límite diario de mensajes del asistente',
         HttpStatus.TOO_MANY_REQUESTS,
@@ -173,6 +213,7 @@ export class ChatService {
 
   private async resolveSession(
     message: IncomingChatMessage,
+    audit: ChatAuditContext,
   ): Promise<ResolvedSession> {
     const { actor } = message;
     if (actor.kind === 'user') {
@@ -184,6 +225,7 @@ export class ChatService {
         // Misma respuesta para "no existe" y "es de otro usuario": no se
         // confirma la existencia de conversaciones ajenas.
         if (!session) {
+          this.audit.security(audit, 'foreign_or_unknown_session');
           throw new NotFoundException('Conversación no encontrada');
         }
         return { session, anonToken: null };

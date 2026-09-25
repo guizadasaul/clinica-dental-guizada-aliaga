@@ -1,4 +1,5 @@
 import type { ChatActor } from './ChatActor';
+import type { ChatAuditContext } from './ChatAudit';
 import type { ChatLink } from './ChatLink';
 import type { LlmToolCall, LlmToolDefinition } from './LlmProvider';
 
@@ -22,8 +23,15 @@ export interface ToolExecutionResult {
 export interface ToolExecutionPort {
   /** Solo las tools que el actor tiene permitidas (lo que se le ofrece al LLM). */
   definitionsFor(actor: ChatActor): LlmToolDefinition[];
-  /** Nunca lanza: una tool desconocida, prohibida o que falla devuelve status != 'ok'. */
-  execute(actor: ChatActor, call: LlmToolCall): Promise<ToolExecutionResult>;
+  /**
+   * Nunca lanza: una tool desconocida, prohibida o que falla devuelve status
+   * != 'ok'. `audit` correlaciona los eventos de seguridad con el turno.
+   */
+  execute(
+    actor: ChatActor,
+    call: LlmToolCall,
+    audit?: ChatAuditContext,
+  ): Promise<ToolExecutionResult>;
 }
 
 export const ToolExecutionPort = Symbol('ToolExecutionPort');

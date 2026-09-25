@@ -1,5 +1,6 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import type { ChatActor } from '../domain/ChatActor';
+import type { ChatAuditContext } from '../domain/ChatAudit';
 import {
   LlmInvalidResponseError,
   LlmProvider,
@@ -23,6 +24,7 @@ import { guardOutput } from './output-guard';
 import type { OutputGuardAction } from './output-guard';
 import type { ChatLink } from '../domain/ChatLink';
 import type { ChatLocale } from './fallback-reply';
+import type { ToolCallAudit } from './chat-audit.logger';
 
 export const DEFAULT_MAX_TOOL_ITERATIONS = 4;
 /** Tool calls que se ejecutan por iteración; el resto recibe un error sin ejecutarse. */
@@ -41,6 +43,8 @@ export interface AgentRunInput {
   /** Historial reciente user/assistant, terminando en el mensaje actual del usuario. */
   history: LlmMessage[];
   locale?: ChatLocale;
+  /** Identidad redactada del turno, para correlacionar los eventos de seguridad. */
+  audit?: ChatAuditContext;
 }
 
 export interface AgentRunResult {
@@ -49,6 +53,8 @@ export interface AgentRunResult {
   links: ChatLink[];
   /** Tools pedidas por el modelo y enviadas a ejecutar, en orden (métricas). */
   toolNames: string[];
+  /** Cada tool ejecutada con su resultado y duración (auditoría, CLI-98). */
+  toolCalls: ToolCallAudit[];
   usage: LlmUsage;
   llmLatencyMs: number;
   /** Iteraciones del loop que terminaron en tool calls. */
@@ -60,6 +66,7 @@ export interface AgentRunResult {
 
 interface RunState {
   toolNames: string[];
+  toolCalls: ToolCallAudit[];
   links: ChatLink[];
   usage: LlmUsage;
   llmLatencyMs: number;
@@ -101,6 +108,7 @@ export class AgentRunner {
     const messages: LlmMessage[] = [...input.history];
     const state: RunState = {
       toolNames: [],
+      toolCalls: [],
       links: [],
       usage: { promptTokens: 0, completionTokens: 0 },
       llmLatencyMs: 0,
@@ -127,7 +135,7 @@ export class AgentRunner {
           messages.push({
             role: 'tool',
             toolCallId: call.id,
-            content: await this.runTool(input.actor, call, index, state),
+            content: await this.runTool(input, call, index, state),
           });
         }
       }
@@ -165,7 +173,7 @@ export class AgentRunner {
   }
 
   private async runTool(
-    actor: ChatActor,
+    input: AgentRunInput,
     call: LlmToolCall,
     index: number,
     state: RunState,
@@ -175,7 +183,13 @@ export class AgentRunner {
       return JSON.stringify({ error: 'too_many_tool_calls' });
     }
     state.toolNames.push(call.name);
-    const result = await this.tools.execute(actor, call);
+    const started = Date.now();
+    const result = await this.tools.execute(input.actor, call, input.audit);
+    state.toolCalls.push({
+      name: result.toolName,
+      status: result.status,
+      ms: Date.now() - started,
+    });
     mergeLinks(state.links, result.links);
     return result.content;
   }
@@ -211,6 +225,7 @@ export class AgentRunner {
       // Con fallback no se muestran links: la respuesta no los menciona.
       links: errorCode ? [] : state.links,
       toolNames: state.toolNames,
+      toolCalls: state.toolCalls,
       usage: state.usage,
       llmLatencyMs: state.llmLatencyMs,
       iterations: state.iterations,

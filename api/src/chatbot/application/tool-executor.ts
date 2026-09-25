@@ -5,8 +5,9 @@ import {
   Logger,
   NotFoundException,
 } from '@nestjs/common';
-import { actorRole } from '../domain/ChatActor';
 import type { ChatActor } from '../domain/ChatActor';
+import { chatAuditContext } from '../domain/ChatAudit';
+import type { ChatAuditContext } from '../domain/ChatAudit';
 import type { LlmToolCall, LlmToolDefinition } from '../domain/LlmProvider';
 import { ToolOutputWithLinks } from '../domain/ChatLink';
 import { ToolArgsValidator } from '../domain/ToolArgsValidator';
@@ -18,6 +19,7 @@ import type {
 } from '../domain/ToolExecution';
 import { isToolAllowed } from '../domain/toolPermissions';
 import { readEnvInt } from '../../shared/env.util';
+import { ChatAuditLogger } from './chat-audit.logger';
 import { ToolRegistry } from './tool-registry';
 import { sanitizeToolOutput } from './tool-output.sanitizer';
 
@@ -63,6 +65,7 @@ export class ToolExecutor implements ToolExecutionPort {
   constructor(
     private readonly registry: ToolRegistry,
     @Inject(ToolArgsValidator) private readonly validator: IToolArgsValidator,
+    private readonly audit: ChatAuditLogger,
   ) {}
 
   definitionsFor(actor: ChatActor): LlmToolDefinition[] {
@@ -76,13 +79,14 @@ export class ToolExecutor implements ToolExecutionPort {
   async execute(
     actor: ChatActor,
     call: LlmToolCall,
+    audit: ChatAuditContext = chatAuditContext(null, actor, null),
   ): Promise<ToolExecutionResult> {
     const tool = this.registry.find(call.name);
     if (!tool) {
       return this.error(call.name, 'error', 'unknown_tool');
     }
     if (!isToolAllowed(actor, tool.name)) {
-      this.securityEvent(actor, tool.name, 'not_allowed');
+      this.audit.security(audit, 'not_allowed', tool.name);
       return this.error(tool.name, 'denied', 'not_allowed');
     }
 
@@ -99,7 +103,7 @@ export class ToolExecutor implements ToolExecutionPort {
     const validation = await this.validator.validate(tool.argsDto, parsed);
     if (!validation.ok) {
       if (validation.fields.some((field) => IDENTITY_FIELDS.has(field))) {
-        this.securityEvent(actor, tool.name, 'identity_field_in_arguments');
+        this.audit.security(audit, 'identity_field_in_arguments', tool.name);
       }
       return this.error(tool.name, 'error', 'invalid_arguments', {
         fields: validation.fields,
@@ -193,13 +197,5 @@ export class ToolExecutor implements ToolExecutionPort {
       content: JSON.stringify({ error: code, ...extra }),
       links: [],
     };
-  }
-
-  /** Sin argumentos ni resultados: solo quién, con qué rol, qué tool y por qué. */
-  private securityEvent(actor: ChatActor, toolName: string, reason: string) {
-    const who = actor.kind === 'user' ? `user:${actor.userId}` : 'anon';
-    this.logger.warn(
-      `chat.security ${reason} tool=${toolName} actor=${who} role=${actorRole(actor)}`,
-    );
   }
 }

@@ -1,6 +1,7 @@
 import type { ChatChannel } from './ChatChannel';
 import type { ChatMessage, ChatMessageRole } from './ChatMessage';
 import type { ChatSession } from './ChatSession';
+import type { ChatTurnRecord } from './ChatUsage';
 
 export interface CreateChatSessionData {
   /** users.id, o null para un visitante anónimo. */
@@ -18,6 +19,8 @@ export interface NewChatMessageData {
   promptTokens?: number | null;
   completionTokens?: number | null;
   errorCode?: string | null;
+  /** Tools denegadas por la matriz en el turno (auditoría, CLI-98). */
+  deniedTools?: number;
 }
 
 /**
@@ -51,6 +54,8 @@ export interface ChatRepository {
   deleteSessionForUser(sessionId: string, userId: string): Promise<boolean>;
   /** Cantidad de sesiones borradas. */
   deleteAllForUser(userId: string): Promise<number>;
+  /** Turnos respondidos en [from, to), con canal y rol de quien chateó (métricas de uso). */
+  findAssistantTurnsBetween(from: Date, to: Date): Promise<ChatTurnRecord[]>;
   /** Borra las sesiones sin actividad desde `date` (retención). Cantidad borrada. */
   deleteInactiveSince(date: Date): Promise<number>;
 }

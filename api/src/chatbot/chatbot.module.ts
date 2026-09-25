@@ -27,6 +27,9 @@ import { ReportsModule } from '../reports/reports.module';
 import { ActorResolver } from './application/actor-resolver';
 import { ChatController } from './infrastructure/http/chat.controller';
 import { PublicChatController } from './infrastructure/http/public-chat.controller';
+import { AdminChatbotUsageController } from './infrastructure/http/admin-chatbot-usage.controller';
+import { ChatAuditLogger } from './application/chat-audit.logger';
+import { ChatUsageService } from './application/chat-usage.service';
 
 /** Todas las tools concretas; CHAT_TOOLS las junta para el ToolRegistry. */
 const TOOL_CLASSES = [
@@ -43,7 +46,8 @@ const TOOL_CLASSES = [
  * (ToolRegistry + ToolExecutor, CLI-87), las tools públicas (CLI-88) y los
  * endpoints web con su resolución de identidad, cuotas y rate limit
  * (CLI-89), el hardening contra prompt injection (CLI-90) y las tools del
- * paciente (CLI-91), del doctor (CLI-92) y del administrador (CLI-93).
+ * paciente (CLI-91), del doctor (CLI-92) y del administrador (CLI-93), y la
+ * auditoría con métricas de uso (CLI-98).
  */
 @Module({
   imports: [
@@ -55,7 +59,11 @@ const TOOL_CLASSES = [
     DoctorsModule,
     AppointmentsModule,
   ],
-  controllers: [ChatController, PublicChatController],
+  controllers: [
+    ChatController,
+    PublicChatController,
+    AdminChatbotUsageController,
+  ],
   providers: [
     { provide: LlmProvider, useClass: GroqLlmProvider },
     { provide: ChatRepository, useClass: PrismaChatRepository },
@@ -74,6 +82,8 @@ const TOOL_CLASSES = [
     ChatService,
     ActorResolver,
     ChatRetentionScheduler,
+    ChatAuditLogger,
+    ChatUsageService,
   ],
 })
 export class ChatbotModule {}
