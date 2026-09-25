@@ -261,7 +261,7 @@ export class GetBookingLinkTool implements ChatTool<GetBookingLinkArgsDto> {
         date: args.date,
         time: args.time,
         linkNote:
-          'El link de reserva se agrega solo debajo de tu respuesta: no escribas ninguna URL.',
+          'El link de reserva se agrega solo debajo de tu respuesta: no escribas ninguna URL. La cita todavía NO está reservada: queda reservada recién cuando el usuario complete sus datos y el pago por QR en ese link.',
       },
       [
         {
