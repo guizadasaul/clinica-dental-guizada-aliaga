@@ -1,0 +1,134 @@
+name: Deploy staging
+
+# Cada push a develop (un PR mergeado) despliega staging:
+#   1. construye api/Dockerfile y lo publica en GHCR con el SHA del commit
+#   2. aplica migraciones + seed de catálogos a la base de staging (DB migrate)
+#   3. por SSH, /opt/clinic/deploy.sh staging <sha> en el VPS: levanta la
+#      imagen, espera /health/ready y, si no queda sana, vuelve sola a la
+#      anterior (el job queda en rojo)
+#   4. smoke test contra https://api-staging.guizadaaliaga.com/health/ready
+#
+# Todo corre en runners de GitHub, nunca en el runner propio. Los secretos de
+# runtime (Groq, Resend, BANECO, service_role) no pasan por acá: viven solo en
+# el .env del servidor. Lo que usa este workflow está en el GitHub Environment
+# `staging` (ver deploy/README.md → CI/CD).
+#
+# Rollback manual: Run workflow con el SHA anterior en `ref`, o en el VPS
+# /opt/clinic/deploy.sh staging <sha anterior>.
+
+on:
+  push:
+    branches: [develop]
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: Commit a desplegar (vacío = último de develop)
+        type: string
+        default: ""
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-staging
+  cancel-in-progress: false
+
+env:
+  IMAGE: ghcr.io/guizadasaul/clinic-api
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      sha: ${{ steps.sha.outputs.sha }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref || github.sha }}
+
+      - id: sha
+        run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # El tag por SHA es inmutable (es el que se despliega y al que se vuelve
+      # en un rollback); `staging` solo marca cuál es el último publicado.
+      - uses: docker/build-push-action@v6
+        with:
+          context: api
+          push: true
+          tags: |
+            ${{ env.IMAGE }}:${{ steps.sha.outputs.sha }}
+            ${{ env.IMAGE }}:staging
+          labels: |
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+            org.opencontainers.image.revision=${{ steps.sha.outputs.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  migrate:
+    needs: build
+    uses: ./.github/workflows/db-migrate.yml
+    with:
+      environment: staging
+      ref: ${{ needs.build.outputs.sha }}
+    secrets: inherit
+
+  deploy:
+    needs: [build, migrate]
+    runs-on: ubuntu-latest
+    environment: staging
+    steps:
+      - name: Configurar SSH
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          SSH_KNOWN_HOSTS: ${{ secrets.SSH_KNOWN_HOSTS }}
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_USER: ${{ secrets.SSH_USER }}
+        run: |
+          for name in SSH_PRIVATE_KEY SSH_KNOWN_HOSTS SSH_HOST SSH_USER; do
+            if [ -z "${!name}" ]; then
+              echo "::error::Falta el secret $name en el Environment staging (ver deploy/README.md → CI/CD)"
+              exit 1
+            fi
+          done
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$SSH_PRIVATE_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          printf '%s\n' "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
+
+      # La clave está atada en el VPS a `ssh-deploy.sh staging`: lo único que
+      # se manda es el tag; no hay shell ni otro comando posible.
+      - name: Desplegar en el VPS
+        env:
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_USER: ${{ secrets.SSH_USER }}
+          SHA: ${{ needs.build.outputs.sha }}
+        run: |
+          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=yes -o BatchMode=yes \
+            "$SSH_USER@$SSH_HOST" "$SHA"
+
+      - name: Smoke test a través de Cloudflare
+        run: |
+          for _ in $(seq 1 10); do
+            if curl -fsS --max-time 10 https://api-staging.guizadaaliaga.com/health/ready; then
+              echo
+              exit 0
+            fi
+            sleep 3
+          done
+          echo "::error::https://api-staging.guizadaaliaga.com/health/ready no respondió"
+          exit 1
+
+      - name: Borrar la clave del runner
+        if: always()
+        run: rm -f ~/.ssh/deploy_key

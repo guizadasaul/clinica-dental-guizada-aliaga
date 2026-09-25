@@ -138,6 +138,7 @@ nada más instalado: solo Docker.
 ```
 /opt/clinic/                    ← copia de deploy/ del repo
   deploy.sh                     despliega una imagen en un ambiente, con rollback automático
+  ssh-deploy.sh                 único comando que puede correr la clave SSH del pipeline
   proxy/                        clinic-proxy (Caddy): único container que publica 80/443
     Caddyfile
     certs/origin.pem, origin.key   certificado de origen de Cloudflare (no en git)
@@ -203,6 +204,57 @@ ambiente: alcanza para una clínica chica).
 | Recargar el Caddyfile sin cortar | `cd /opt/clinic/proxy && docker compose exec caddy caddy reload --config /etc/caddy/Caddyfile` |
 | Reinicio del VPS | todo vuelve solo (`restart: unless-stopped`) |
 
-## Cloudflare y CI/CD
+## CI/CD
 
-Pendiente (CLI-128 Cloudflare, CLI-131 CI/CD staging): DNS, SSL Full (strict) y workflows de deploy.
+| Workflow | Cuándo | Qué hace |
+|---|---|---|
+| `ci.yml` | cada PR y push a `develop`/`main` | tests + coverage + Sonar (runner propio), e2e, guard `db-safety` |
+| `deploy-staging.yml` | push a `develop` (PR mergeado), o a mano | imagen → GHCR (`clinic-api:<sha>`), `DB migrate` en staging, `deploy.sh staging <sha>` por SSH, smoke test |
+| `db-migrate.yml` | a mano, o llamado por el deploy | `migrate deploy` + seed de catálogos + verificación de la base |
+
+Los deploys corren en runners de GitHub (nunca en el runner propio). Rollback: *Run workflow* de
+`Deploy staging` con el SHA anterior en `ref`, o `/opt/clinic/deploy.sh staging <sha anterior>` en el VPS.
+
+### Secrets del GitHub Environment `staging`
+
+Settings → Environments → `staging`. Mismos nombres en `production` (con valores de producción).
+
+| Secret | Para qué | De dónde sale |
+|---|---|---|
+| `DATABASE_URL` | migraciones y seed desde el runner | Supabase → Connect → Session pooler (sin `?...`) |
+| `SSH_HOST` | a qué VPS conectarse | IP del VPS (`2.28.22.171`) |
+| `SSH_USER` | usuario del VPS | `saul` |
+| `SSH_PRIVATE_KEY` | clave del pipeline para desplegar | clave **nueva y dedicada** (ver abajo); nunca tu clave personal |
+| `SSH_KNOWN_HOSTS` | que el runner verifique que habla con tu VPS | `ssh-keyscan -t ed25519 2.28.22.171` (huella `SHA256:aMCEnYZu9Mwdcd6/EA0aiQjoCyii/ZzT9xHBY7NMPYs`) |
+
+GHCR no necesita secret (usa el `GITHUB_TOKEN` del workflow). Los secretos de la app (Groq, Resend, BANECO,
+`service_role`) no están en GitHub: solo en el `.env` del servidor.
+
+### Clave SSH de deploy (una por ambiente)
+
+La clave del pipeline no da shell: en el VPS queda atada a `ssh-deploy.sh <ambiente>`, que solo acepta un tag
+y llama a `deploy.sh`. Si se filtrara, lo máximo que permite es desplegar una imagen ya publicada, y solo en su
+ambiente.
+
+1. En tu máquina: `ssh-keygen -t ed25519 -N "" -C deploy-staging -f /tmp/deploy-staging` (sin passphrase: la usa
+   un robot).
+2. En el VPS, agregar **una línea** a `~/.ssh/authorized_keys` con la clave pública precedida de la restricción:
+   ```
+   command="/opt/clinic/ssh-deploy.sh staging",restrict ssh-ed25519 AAAA... deploy-staging
+   ```
+3. Cargar el contenido de `/tmp/deploy-staging` (la privada) en el secret `SSH_PRIVATE_KEY` del Environment
+   `staging`, y después borrar los dos archivos de `/tmp`.
+4. Probar: `ssh -i /tmp/deploy-staging saul@2.28.22.171 cualquier-cosa` tiene que contestar `Tag inválido`
+   (y nunca abrir una shell).
+
+### Imagen en GHCR
+
+`ghcr.io/guizadasaul/clinic-api` no lleva secretos (el `.env` no entra a la imagen; `certs/` es la CA pública
+de Supabase) y el código ya es público, así que el paquete puede ser **público**: el VPS la baja sin login.
+La primera vez que el pipeline la publica, GitHub la crea privada: Profile → Packages → `clinic-api` →
+Package settings → Change visibility → Public. (Alternativa: dejarla privada y hacer `docker login ghcr.io`
+en el VPS con un token de solo lectura.)
+
+## Cloudflare
+
+Pendiente de documentar al cerrar CLI-128: DNS, SSL Full (strict) y certificado de origen.

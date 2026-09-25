@@ -31,6 +31,11 @@ on:
       seed_demo:
         type: boolean
         default: false
+      # Commit exacto a migrar (el pipeline de deploy pasa el mismo que
+      # construyó en la imagen). Vacío: el commit que disparó el workflow.
+      ref:
+        type: string
+        default: ""
 
 permissions:
   contents: read
@@ -76,6 +81,8 @@ jobs:
           fi
 
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref || github.sha }}
 
       - uses: actions/setup-node@v4
         with:
