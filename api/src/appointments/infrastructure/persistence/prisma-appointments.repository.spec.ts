@@ -184,6 +184,85 @@ describe('PrismaAppointmentsRepository', () => {
     });
   });
 
+  describe('findForPatient (CLI-91)', () => {
+    it('trae solo citas confirmadas de ESE paciente, con doctor y tratamiento', async () => {
+      const from = new Date('2026-09-25T12:00:00Z');
+      prismaMock.appointments.findMany.mockResolvedValue([
+        fakeAppointmentRecord({
+          status: 'confirmed',
+          patient_id: 'patient-1',
+          duration_minutes: 60,
+          users: { display_name: 'Dr. Ariel Guizada' },
+          treatments: { name: 'Limpieza' },
+        }),
+      ]);
+
+      const result = await repo.findForPatient('patient-1', {
+        from,
+        order: 'asc',
+        limit: 1,
+      });
+
+      expect(prismaMock.appointments.findMany).toHaveBeenCalledWith({
+        where: {
+          patient_id: 'patient-1',
+          status: 'confirmed',
+          appointment_datetime: { gte: from },
+        },
+        include: { users: true, treatments: true },
+        orderBy: { appointment_datetime: 'asc' },
+        take: 1,
+      });
+      expect(result).toEqual([
+        {
+          id: 'appt-1',
+          appointmentDatetime: SLOT,
+          durationMinutes: 60,
+          doctorName: 'Dr. Ariel Guizada',
+          treatmentName: 'Limpieza',
+        },
+      ]);
+    });
+
+    it('con `to` filtra hacia atrás, y tolera citas sin tratamiento', async () => {
+      const to = new Date('2026-09-25T12:00:00Z');
+      prismaMock.appointments.findMany.mockResolvedValue([
+        fakeAppointmentRecord({
+          status: 'confirmed',
+          users: { display_name: null },
+          treatments: null,
+        }),
+      ]);
+
+      const [item] = await repo.findForPatient('patient-1', {
+        to,
+        order: 'desc',
+        limit: 5,
+      });
+
+      const args = (
+        prismaMock.appointments.findMany.mock.calls as unknown[][]
+      )[0][0] as {
+        where: Record<string, unknown>;
+      };
+      expect(args.where).toMatchObject({ appointment_datetime: { lt: to } });
+      expect(item).toMatchObject({ doctorName: null, treatmentName: null });
+    });
+
+    it('sin rango no filtra por fecha', async () => {
+      prismaMock.appointments.findMany.mockResolvedValue([]);
+
+      await repo.findForPatient('patient-1', { order: 'asc', limit: 3 });
+
+      const args = (
+        prismaMock.appointments.findMany.mock.calls as unknown[][]
+      )[0][0] as {
+        where: Record<string, unknown>;
+      };
+      expect(args.where).not.toHaveProperty('appointment_datetime');
+    });
+  });
+
   describe('findForAgenda', () => {
     // CLI-57: la agenda de un doctor no debe traer turnos de otro.
     it('scopes the query to the given doctorId', async () => {

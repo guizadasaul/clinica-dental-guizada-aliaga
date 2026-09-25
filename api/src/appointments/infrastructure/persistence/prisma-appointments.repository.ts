@@ -11,9 +11,11 @@ import {
   GuestPhoneBelongsToAccountError,
   GuestPhoneConflictError,
   IAppointmentRepository,
+  PatientAppointmentFilters,
   SlotUnavailableError,
 } from '../../domain/AppointmentRepository.js';
 import type { AppointmentWithPatient } from '../../domain/AppointmentWithPatient.js';
+import type { PatientAppointment } from '../../domain/PatientAppointment.js';
 import { AppointmentMapper } from './appointment.mapper.js';
 
 @Injectable()
@@ -47,6 +49,30 @@ export class PrismaAppointmentsRepository implements IAppointmentRepository {
     });
     return records.map((record) =>
       AppointmentMapper.toDomainWithPatient(record),
+    );
+  }
+
+  async findForPatient(
+    patientId: string,
+    filters: PatientAppointmentFilters,
+  ): Promise<PatientAppointment[]> {
+    const records = await this.prisma.appointments.findMany({
+      where: {
+        patient_id: patientId,
+        status: AppointmentStatus.CONFIRMED,
+        ...((filters.from || filters.to) && {
+          appointment_datetime: {
+            ...(filters.from && { gte: filters.from }),
+            ...(filters.to && { lt: filters.to }),
+          },
+        }),
+      },
+      include: { users: true, treatments: true },
+      orderBy: { appointment_datetime: filters.order },
+      take: filters.limit,
+    });
+    return records.map((record) =>
+      AppointmentMapper.toPatientAppointment(record),
     );
   }
 

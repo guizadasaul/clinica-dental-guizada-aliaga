@@ -48,6 +48,7 @@ const mockRepo = {
   attachQr: jest.fn(),
   appendNote: jest.fn(),
   findForAgenda: jest.fn(),
+  findForPatient: jest.fn(),
 };
 
 const mockTreatmentRepo = {
@@ -495,6 +496,53 @@ describe('AppointmentsService', () => {
           null,
         ),
       ).rejects.toThrow(ConflictException);
+    });
+  });
+
+  describe('getPatientAppointments (CLI-91)', () => {
+    const NOW_FIXED = new Date('2026-09-25T12:00:00Z');
+
+    it('upcoming: desde ahora, la más cercana primero', async () => {
+      mockRepo.findForPatient.mockResolvedValue([]);
+
+      await service.getPatientAppointments(
+        'patient-1',
+        'upcoming',
+        1,
+        NOW_FIXED,
+      );
+
+      expect(mockRepo.findForPatient).toHaveBeenCalledWith('patient-1', {
+        from: NOW_FIXED,
+        order: 'asc',
+        limit: 1,
+      });
+    });
+
+    it('past: hasta ahora, la más reciente primero', async () => {
+      mockRepo.findForPatient.mockResolvedValue([]);
+
+      await service.getPatientAppointments('patient-1', 'past', 5, NOW_FIXED);
+
+      expect(mockRepo.findForPatient).toHaveBeenCalledWith('patient-1', {
+        to: NOW_FIXED,
+        order: 'desc',
+        limit: 5,
+      });
+    });
+
+    it('usa la hora actual por defecto', async () => {
+      mockRepo.findForPatient.mockResolvedValue([]);
+      const before = Date.now();
+
+      await service.getPatientAppointments('patient-1', 'upcoming', 1);
+
+      const filters = (
+        mockRepo.findForPatient.mock.calls as unknown[][]
+      )[0][1] as {
+        from: Date;
+      };
+      expect(filters.from.getTime()).toBeGreaterThanOrEqual(before);
     });
   });
 
