@@ -50,7 +50,7 @@ function normalize(text: string): string {
 }
 
 function isControlChar(char: string): boolean {
-  const code = char.charCodeAt(0);
+  const code = Number(char.codePointAt(0));
   // C0 salvo \n y \t, DEL y C1.
   return (
     (code < 0x20 && char !== '\n' && char !== '\t') ||
