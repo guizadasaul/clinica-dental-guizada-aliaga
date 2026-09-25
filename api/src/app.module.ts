@@ -19,6 +19,7 @@ import { MedicalConditionsModule } from './medical-conditions/medical-conditions
 import { AdminModule } from './admin/admin.module';
 import { ReportsModule } from './reports/reports.module';
 import { ChatbotModule } from './chatbot/chatbot.module';
+import { HealthModule } from './health/health.module';
 
 @Module({
   imports: [
@@ -45,6 +46,7 @@ import { ChatbotModule } from './chatbot/chatbot.module';
     AdminModule,
     ReportsModule,
     ChatbotModule,
+    HealthModule,
   ],
   controllers: [AppController],
   providers: [AppService, { provide: APP_GUARD, useClass: ThrottlerGuard }],

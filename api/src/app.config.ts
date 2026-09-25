@@ -3,6 +3,7 @@ import type { ArgumentMetadata } from '@nestjs/common';
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import helmet from 'helmet';
 import { allowsUnknownProperties } from './shared/validators/allow-unknown-properties';
+import { readEnvInt } from './shared/env.util';
 
 /**
  * Lista blanca de orígenes para CORS (CLI-36). Orden de resolución:
@@ -62,6 +63,18 @@ class RouteAwareValidationPipe extends ValidationPipe {
  * exactamente la misma config, en vez de que main.ts la duplique inline.
  */
 export function configureApp(app: NestExpressApplication): void {
+  // Detrás de Cloudflare → Caddy, la conexión TCP llega siempre desde Caddy:
+  // sin esto `req.ip` sería la IP de Caddy para todos, y el rate limit
+  // (ThrottlerGuard, que agrupa por `req.ip`) trataría a todos los clientes
+  // como uno solo. TRUST_PROXY_HOPS = cuántos proxies de confianza hay
+  // delante (1 = Caddy, que pone en X-Forwarded-For la IP real que manda
+  // Cloudflare). Sin setear (desarrollo local, sin proxy) no se confía en
+  // ningún X-Forwarded-For, que cualquier cliente podría falsificar.
+  const trustProxyHops = readEnvInt('TRUST_PROXY_HOPS', 0);
+  if (trustProxyHops > 0) {
+    app.set('trust proxy', trustProxyHops);
+  }
+
   app.use(helmet());
   app.enableCors({ origin: corsOrigins(), credentials: false });
   app.useBodyParser('json', { limit: '100kb' });

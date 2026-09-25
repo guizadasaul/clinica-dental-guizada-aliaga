@@ -136,6 +136,11 @@ async function seedPatient(doctorUserId: string) {
 }
 
 async function main() {
+  // Los usuarios de demo existen solo en el Supabase de staging/desarrollo:
+  // en producción nunca se siembran, aunque alguien ponga SEED_DEMO=true.
+  if (process.env['APP_ENV'] === 'production') {
+    throw new Error('seed-demo no se corre en producción (APP_ENV=production)');
+  }
   await seedAdmin();
   const doctor = await seedDoctor();
   await seedPatient(doctor.id);

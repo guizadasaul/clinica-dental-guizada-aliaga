@@ -7,8 +7,9 @@ import { RegisterPhoneDto } from './dto/register-phone.dto.js';
 const HOUR_MS = 3_600_000;
 
 // Sin guard a propósito: lo llama alguien que todavía no tiene sesión, para
-// crearse una cuenta nueva por teléfono+contraseña (CLI-27) — análogo al
-// signUp por email, que también es alcanzable sin sesión previa.
+// crearse una cuenta nueva por teléfono+contraseña (CLI-27). La autorización
+// es el token de invitación del DTO, que AuthService verifica antes de crear
+// nada.
 @Controller('auth')
 export class PublicPhoneRegistrationController {
   constructor(private readonly authService: AuthService) {}
@@ -23,6 +24,10 @@ export class PublicPhoneRegistrationController {
     },
   })
   register(@Body() dto: RegisterPhoneDto): Promise<void> {
-    return this.authService.registerWithPhone(dto.phone, dto.password);
+    return this.authService.registerWithPhone(
+      dto.phone,
+      dto.password,
+      dto.inviteToken,
+    );
   }
 }

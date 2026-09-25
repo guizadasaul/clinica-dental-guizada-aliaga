@@ -95,6 +95,11 @@ export class PrismaService implements OnModuleInit, OnModuleDestroy {
     return this._client.chat_messages;
   }
 
+  /** `SELECT 1` — para el readiness check (`GET /health/ready`). */
+  async ping(): Promise<void> {
+    await this._client.$queryRaw`SELECT 1`;
+  }
+
   transaction<T>(fn: (tx: Prisma.TransactionClient) => Promise<T>): Promise<T> {
     return this._client.$transaction(fn);
   }

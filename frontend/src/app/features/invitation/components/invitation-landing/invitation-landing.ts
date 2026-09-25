@@ -196,7 +196,7 @@ export class InvitationLandingComponent implements OnInit {
     this.formLoading.set(true);
     localStorage.setItem('pendingInviteToken', token);
     try {
-      await this.authService.registerWithPhone(phoneE164, password);
+      await this.authService.registerWithPhone(phoneE164, password, token);
       // waitForSync, no authReady: authReady ya está resuelta desde que
       // arrancó la app (esta pantalla no es una carga fresca) — no sirve
       // para esperar el sync nuevo que recién disparó este registro, y sin

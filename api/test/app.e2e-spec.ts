@@ -23,6 +23,20 @@ describe('AppController (e2e)', () => {
       .expect('Hello World!');
   });
 
+  it('/health (GET) responde ok sin tocar la base', () => {
+    return request(app.getHttpServer())
+      .get('/health')
+      .expect(200)
+      .expect({ status: 'ok' });
+  });
+
+  it('/health/ready (GET) responde ok cuando la base responde', () => {
+    return request(app.getHttpServer())
+      .get('/health/ready')
+      .expect(200)
+      .expect({ status: 'ok' });
+  });
+
   afterEach(async () => {
     await app.close();
   });
