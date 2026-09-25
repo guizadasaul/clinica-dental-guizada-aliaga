@@ -18,6 +18,7 @@ import type {
   FinancialReport,
 } from '../../domain/FinancialReport.js';
 import type { IReportsRepository } from '../../domain/ReportsRepository.js';
+import type { TopTreatmentsReport } from '../../domain/TopTreatmentsReport.js';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -255,5 +256,44 @@ export class PrismaReportsRepository implements IReportsRepository {
     );
 
     return { from, to, doctors: rows };
+  }
+
+  async getTopTreatments(
+    params: ReportParams & { limit: number },
+  ): Promise<TopTreatmentsReport> {
+    const from = toClinicDateString(params.from);
+    const to = lastInclusiveDateString(params.to);
+    const groups = await this.prisma.tooth_procedures.groupBy({
+      by: ['treatment_id'],
+      where: {
+        // procedure_date es DATE: se compara contra las fechas de calendario
+        // de la clínica, no contra instantes.
+        procedure_date: {
+          gte: new Date(`${from}T00:00:00Z`),
+          lte: new Date(`${to}T00:00:00Z`),
+        },
+        ...(params.doctorId && { performed_by: params.doctorId }),
+      },
+      _count: { _all: true },
+      orderBy: { _count: { treatment_id: 'desc' } },
+      take: params.limit,
+    });
+    if (groups.length === 0) {
+      return { from, to, treatments: [] };
+    }
+    const names = await this.prisma.treatments.findMany({
+      where: { id: { in: groups.map((g) => g.treatment_id) } },
+      select: { id: true, name: true },
+    });
+    const nameById = new Map(names.map((t) => [t.id, t.name]));
+    return {
+      from,
+      to,
+      treatments: groups.map((g) => ({
+        treatmentId: g.treatment_id,
+        name: nameById.get(g.treatment_id) ?? 'Tratamiento',
+        count: g._count._all,
+      })),
+    };
   }
 }
