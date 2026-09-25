@@ -129,6 +129,80 @@ Un solo proyecto de Vercel con root en `frontend/`, configurado por [`frontend/v
   (y completar ese archivo) es parte de la fase de producción.
 - Las demás ramas no se construyen: un preview en `*.vercel.app` no está en el CORS de ninguna API.
 
-## Servidor, Cloudflare y CI/CD
+## Servidor (Hetzner)
 
-Pendiente (fases 5, 6, 7 y 14 del plan): compose por ambiente, Caddy, firewall, DNS y workflows de deploy.
+El VPS no tiene estado propio: todo lo que corre está en esta carpeta, y lo único que no está en git son los
+`.env` y el certificado de origen (los dos con copia en el gestor de contraseñas). No hay Postgres, Redis ni
+nada más instalado: solo Docker.
+
+```
+/opt/clinic/                    ← copia de deploy/ del repo
+  deploy.sh                     despliega una imagen en un ambiente, con rollback automático
+  proxy/                        clinic-proxy (Caddy): único container que publica 80/443
+    Caddyfile
+    certs/origin.pem, origin.key   certificado de origen de Cloudflare (no en git)
+  staging/                      clinic-api-staging
+    docker-compose.yml
+    .env                        secretos de staging (chmod 600, no en git)
+    current.env, previous.env   tag desplegado y el anterior (los escribe deploy.sh)
+  production/                   clinic-api-production (misma estructura)
+```
+
+Los tres stacks comparten la red Docker externa `clinic-edge`. Las APIs **no publican puertos**: Caddy les
+habla por esa red (`clinic-api-<ambiente>:3000`). Lo que no es secreto y define al ambiente (`APP_ENV`,
+`FRONTEND_URL`, `CORS_ORIGINS`, `TRUST_PROXY_HOPS`, `DATABASE_SSL_CA`) está fijo en cada `docker-compose.yml`,
+así no se puede olvidar ni cruzar entre ambientes; el `.env` solo lleva secretos.
+
+Hardening de los containers de la API: usuario `node`, filesystem de solo lectura (`read_only`, `/tmp` en
+tmpfs), `cap_drop: ALL`, `no-new-privileges`, límite de memoria, logs `json-file` rotados (5 × 10 MB).
+
+### IP real del cliente
+
+Cloudflare manda la IP real en `CF-Connecting-IP`. Caddy **solo** la acepta si el request viene de un rango de
+Cloudflare (`trusted_proxies` en el Caddyfile) y se la pasa a la API como único valor de `X-Forwarded-For`; la
+API la toma con `TRUST_PROXY_HOPS=1`. Un request que no venga de Cloudflare no puede falsificarla (probado: con
+`CF-Connecting-IP` y `X-Forwarded-For` inventados, la API ve la IP real de la conexión). Si Cloudflare cambia
+sus rangos (https://www.cloudflare.com/ips/), actualizarlos en el Caddyfile.
+
+### Primera puesta en marcha (una vez)
+
+1. **Hetzner Cloud Firewall** (consola de Hetzner, no ufw: Docker se saltea ufw al publicar puertos): 22/tcp como
+   está hoy; 80/tcp y 443/tcp solo desde los rangos de Cloudflare (IPv4 e IPv6); todo lo demás cerrado.
+2. Copiar la carpeta: `sudo mkdir -p /opt/clinic && sudo chown saul: /opt/clinic`, y desde tu máquina
+   `scp -r deploy/. saul@<vps>:/opt/clinic/` (desde la raíz del repo).
+3. Certificado de origen de Cloudflare en `/opt/clinic/proxy/certs/origin.pem` y `origin.key`
+   (`chmod 600 origin.key`).
+4. `cp staging/.env.example staging/.env && chmod 600 staging/.env` y completarlo.
+5. `docker network create clinic-edge`
+6. `cd /opt/clinic/proxy && docker compose up -d`
+7. Si la imagen de GHCR es privada: `docker login ghcr.io` con un token de solo lectura (`read:packages`).
+8. `/opt/clinic/deploy.sh staging <tag>`
+
+### Desplegar y volver atrás
+
+```
+/opt/clinic/deploy.sh staging <tag>      # tag = SHA del commit (lo publica el pipeline)
+```
+
+`deploy.sh` levanta la imagen, espera el healthcheck (`/health`) y después `/health/ready` (la base responde).
+Si no queda sana, muestra los últimos logs y **vuelve sola a la versión anterior** (probado con una imagen que no
+arranca). Rollback manual: correrlo con el tag anterior (`cat staging/previous.env`). No toca la base: las
+migraciones van antes, con el workflow `DB migrate`, y tienen que ser aditivas para que volver a la imagen
+anterior no rompa.
+
+Mientras se reemplaza el container, el ambiente queda unos segundos sin responder (una sola instancia por
+ambiente: alcanza para una clínica chica).
+
+### Operación
+
+| Qué | Cómo |
+|---|---|
+| Logs de la API | `docker logs -f clinic-api-staging` |
+| Access log del proxy | `docker logs -f clinic-proxy` (JSON, con `client_ip`) |
+| Estado | `docker ps` (las APIs tienen que figurar `healthy`) |
+| Recargar el Caddyfile sin cortar | `cd /opt/clinic/proxy && docker compose exec caddy caddy reload --config /etc/caddy/Caddyfile` |
+| Reinicio del VPS | todo vuelve solo (`restart: unless-stopped`) |
+
+## Cloudflare y CI/CD
+
+Pendiente (CLI-128 Cloudflare, CLI-131 CI/CD staging): DNS, SSL Full (strict) y workflows de deploy.
