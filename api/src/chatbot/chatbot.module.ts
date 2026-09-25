@@ -14,6 +14,7 @@ import { CHAT_TOOLS, ToolRegistry } from './application/tool-registry';
 import { ToolExecutor } from './application/tool-executor';
 import { PUBLIC_TOOLS } from './infrastructure/tools/public.tools';
 import { PATIENT_TOOLS } from './infrastructure/tools/patient.tools';
+import { DOCTOR_TOOLS } from './infrastructure/tools/doctor.tools';
 import type { ChatTool } from './domain/ChatTool';
 import { TreatmentsModule } from '../treatments/treatments.module';
 import { DoctorsModule } from '../doctors/doctors.module';
@@ -21,12 +22,13 @@ import { AppointmentsModule } from '../appointments/appointments.module';
 import { AuthModule } from '../auth/auth.module';
 import { PatientsModule } from '../patients/patients.module';
 import { QuotesModule } from '../quotes/quotes.module';
+import { ReportsModule } from '../reports/reports.module';
 import { ActorResolver } from './application/actor-resolver';
 import { ChatController } from './infrastructure/http/chat.controller';
 import { PublicChatController } from './infrastructure/http/public-chat.controller';
 
 /** Todas las tools concretas; CHAT_TOOLS las junta para el ToolRegistry. */
-const TOOL_CLASSES = [...PUBLIC_TOOLS, ...PATIENT_TOOLS];
+const TOOL_CLASSES = [...PUBLIC_TOOLS, ...PATIENT_TOOLS, ...DOCTOR_TOOLS];
 
 /**
  * Chatbot con LLM + tool calling (épica CLI-81): contrato de dominio
@@ -35,14 +37,15 @@ const TOOL_CLASSES = [...PUBLIC_TOOLS, ...PATIENT_TOOLS];
  * (ToolRegistry + ToolExecutor, CLI-87), las tools públicas (CLI-88) y los
  * endpoints web con su resolución de identidad, cuotas y rate limit
  * (CLI-89), el hardening contra prompt injection (CLI-90) y las tools del
- * paciente (CLI-91). Las de doctor y admin se suman a TOOL_CLASSES en las
- * issues siguientes.
+ * paciente (CLI-91) y del doctor (CLI-92). Las de admin se suman a
+ * TOOL_CLASSES en la issue siguiente.
  */
 @Module({
   imports: [
     AuthModule,
     PatientsModule,
     QuotesModule,
+    ReportsModule,
     TreatmentsModule,
     DoctorsModule,
     AppointmentsModule,
