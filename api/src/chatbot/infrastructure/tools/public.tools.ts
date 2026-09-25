@@ -35,6 +35,12 @@ const DESCRIPTION_MAX_CHARS = 200;
 const FIRST_SLOTS_PER_DAY = 6;
 const DEFAULT_SLOT_DAYS = 7;
 
+/** "2026-09-26" → "26/09". */
+function ddmm(date: string): string {
+  const [, month, day] = date.split('-');
+  return `${day}/${month}`;
+}
+
 function truncate(text: string | null, max: number): string | null {
   if (!text) return null;
   return text.length > max ? `${text.slice(0, max - 1)}…` : text;
@@ -265,7 +271,9 @@ export class GetBookingLinkTool implements ChatTool<GetBookingLinkArgsDto> {
       },
       [
         {
-          label: `Reservar el ${args.date} a las ${args.time}`,
+          // El texto del botón lo pone el backend: deja claro que falta pagar
+          // aunque el modelo diga otra cosa.
+          label: `Completar reserva y pago (${ddmm(args.date)}, ${args.time})`,
           url: url.toString(),
         },
       ],

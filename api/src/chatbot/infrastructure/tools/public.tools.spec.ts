@@ -324,7 +324,7 @@ describe('public tools', () => {
       const output = result as ToolOutputWithLinks;
       expect(output.links).toEqual([
         {
-          label: 'Reservar el 2026-10-05 a las 09:00',
+          label: 'Completar reserva y pago (05/10, 09:00)',
           url: `https://clinica.example.com/reservar?slot=${encodeURIComponent(SLOT)}&doctorId=${DOCTOR_A}`,
         },
       ]);
