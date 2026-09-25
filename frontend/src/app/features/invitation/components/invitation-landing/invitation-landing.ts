@@ -55,6 +55,7 @@ export class InvitationLandingComponent implements OnInit {
   protected readonly loading = signal(true);
   protected readonly valid = signal(false);
   protected readonly kind = signal<InviteKind>('patient');
+  protected readonly phoneHint = signal<string | null>(null);
   protected readonly copy = computed(() => INVITE_COPY[this.kind()]);
   protected readonly errorMessage = signal<string | null>(null);
   protected readonly connecting = signal(false);
@@ -96,6 +97,7 @@ export class InvitationLandingComponent implements OnInit {
       const result = await firstValueFrom(this.patientInvitesService.checkStatus(this.token));
       this.valid.set(result.valid);
       this.kind.set(result.kind ?? 'patient');
+      this.phoneHint.set(result.phoneHint ?? null);
       if (!result.valid) {
         this.errorMessage.set(this.copy().expired);
       }
@@ -208,6 +210,13 @@ export class InvitationLandingComponent implements OnInit {
       localStorage.removeItem('pendingInviteToken');
       if (err instanceof HttpErrorResponse && err.status === 409) {
         this.errorMessage.set('Ese teléfono ya está registrado.');
+      } else if (err instanceof HttpErrorResponse && err.status === 422) {
+        // El número no es el de la ficha (CLI-144): el backend dice cuál usar.
+        this.errorMessage.set(
+          typeof err.error?.message === 'string'
+            ? err.error.message
+            : 'Registrate con el número que diste en la clínica.',
+        );
       } else {
         this.errorMessage.set(err instanceof Error ? err.message : 'No se pudo crear la cuenta.');
       }

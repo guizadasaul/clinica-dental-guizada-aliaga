@@ -138,11 +138,53 @@ describe('PrismaUserRepository', () => {
         photoUrl: null,
       });
 
-      const upsertArgs = prismaMock.users.upsert.mock.calls[0][0] as {
+      const upsertArgs = firstCallArg<{
         update: Record<string, unknown>;
-      };
+      }>(prismaMock.users.upsert);
       expect(upsertArgs.update).not.toHaveProperty('email');
-      expect(upsertArgs.update['phone']).toBe('71234567');
+    });
+
+    // CLI-144: el teléfono de users es el de la ficha (el oficial): un login
+    // no lo reemplaza; solo se usa al crear la fila.
+    it('never replaces the ficha phone on re-sync, but uses the login phone when creating the row', async () => {
+      prismaMock.users.upsert.mockResolvedValue(
+        fakeUserRecord({ auth_user_id: AUTH_USER_ID, phone: '+59170000001' }),
+      );
+
+      await repo.upsertByAuthUserId({
+        authUserId: AUTH_USER_ID,
+        email: null,
+        phone: '59179999999',
+        displayName: null,
+        photoUrl: null,
+      });
+
+      const upsertArgs = firstCallArg<{
+        create: Record<string, unknown>;
+        update: Record<string, unknown>;
+      }>(prismaMock.users.upsert);
+      expect(upsertArgs.update).not.toHaveProperty('phone');
+      expect(upsertArgs.create['phone']).toBe('59179999999');
+    });
+
+    // CLI-144: un login por teléfono no trae nombre; no borra el de la ficha.
+    it('does not overwrite an existing display_name with null', async () => {
+      prismaMock.users.upsert.mockResolvedValue(
+        fakeUserRecord({ auth_user_id: AUTH_USER_ID }),
+      );
+
+      await repo.upsertByAuthUserId({
+        authUserId: AUTH_USER_ID,
+        email: null,
+        phone: '59171234567',
+        displayName: null,
+        photoUrl: null,
+      });
+
+      const upsertArgs = firstCallArg<{
+        update: Record<string, unknown>;
+      }>(prismaMock.users.upsert);
+      expect(upsertArgs.update).not.toHaveProperty('display_name');
     });
   });
 
@@ -333,8 +375,9 @@ describe('PrismaUserRepository', () => {
       expect(prismaMock.doctor_profiles.updateMany).not.toHaveBeenCalled();
     });
 
-    it('is idempotent: returns null and never reads the row when it was already linked', async () => {
+    it('is idempotent: returns null (without reading the linked row back) when it was already linked', async () => {
       prismaMock.users.updateMany.mockResolvedValue({ count: 0 });
+      prismaMock.users.findUnique.mockResolvedValue({ phone: null });
 
       const result = await repo.linkAuthIdentity(USER_ID, {
         authUserId: AUTH_USER_ID,
@@ -344,7 +387,12 @@ describe('PrismaUserRepository', () => {
       });
 
       expect(result).toBeNull();
-      expect(prismaMock.users.findUnique).not.toHaveBeenCalled();
+      // Solo la lectura previa del teléfono de la ficha (CLI-144).
+      expect(prismaMock.users.findUnique).toHaveBeenCalledTimes(1);
+      expect(prismaMock.users.findUnique).toHaveBeenCalledWith({
+        where: { id: USER_ID },
+        select: { phone: true },
+      });
     });
 
     it('translates a unique-email conflict into ConflictException', async () => {
@@ -385,11 +433,78 @@ describe('PrismaUserRepository', () => {
         photoUrl: null,
       });
 
-      const updateManyArgs = prismaMock.users.updateMany.mock.calls[0][0] as {
+      const updateManyArgs = firstCallArg<{
         data: Record<string, unknown>;
-      };
+      }>(prismaMock.users.updateMany);
       expect(updateManyArgs.data).not.toHaveProperty('email');
-      expect(updateManyArgs.data['phone']).toBe('59171234567');
+    });
+
+    // CLI-144: la ficha ya tenía teléfono → es el oficial, el del login no lo
+    // reemplaza (antes el login pasaba en silencio al número de la ficha).
+    it('keeps the ficha phone when the invited patient already had one', async () => {
+      prismaMock.users.updateMany.mockResolvedValue({ count: 1 });
+      prismaMock.users.findUnique.mockResolvedValue(
+        fakeUserRecord({ auth_user_id: AUTH_USER_ID, phone: '+59170000001' }),
+      );
+
+      await repo.linkAuthIdentity(USER_ID, {
+        authUserId: AUTH_USER_ID,
+        email: null,
+        phone: '59179999999',
+        displayName: null,
+        photoUrl: null,
+      });
+
+      const updateManyArgs = firstCallArg<{
+        data: Record<string, unknown>;
+      }>(prismaMock.users.updateMany);
+      expect(updateManyArgs.data).not.toHaveProperty('phone');
+    });
+
+    it('stores the login phone when the ficha had none', async () => {
+      prismaMock.users.updateMany.mockResolvedValue({ count: 1 });
+      prismaMock.users.findUnique
+        .mockResolvedValueOnce({ phone: null })
+        .mockResolvedValueOnce(
+          fakeUserRecord({ auth_user_id: AUTH_USER_ID, phone: '59179999999' }),
+        );
+
+      await repo.linkAuthIdentity(USER_ID, {
+        authUserId: AUTH_USER_ID,
+        email: null,
+        phone: '59179999999',
+        displayName: null,
+        photoUrl: null,
+      });
+
+      const updateManyArgs = firstCallArg<{
+        data: Record<string, unknown>;
+      }>(prismaMock.users.updateMany);
+      expect(updateManyArgs.data['phone']).toBe('59179999999');
+    });
+
+    // CLI-144: un registro por teléfono no trae nombre → no borra el de la ficha.
+    it("does not overwrite the invited patient's name with null", async () => {
+      prismaMock.users.updateMany.mockResolvedValue({ count: 1 });
+      prismaMock.users.findUnique.mockResolvedValue(
+        fakeUserRecord({
+          auth_user_id: AUTH_USER_ID,
+          display_name: 'Juan Pérez Quispe',
+        }),
+      );
+
+      await repo.linkAuthIdentity(USER_ID, {
+        authUserId: AUTH_USER_ID,
+        email: null,
+        phone: '59171234567',
+        displayName: null,
+        photoUrl: null,
+      });
+
+      const updateManyArgs = firstCallArg<{
+        data: Record<string, unknown>;
+      }>(prismaMock.users.updateMany);
+      expect(updateManyArgs.data).not.toHaveProperty('display_name');
     });
   });
 

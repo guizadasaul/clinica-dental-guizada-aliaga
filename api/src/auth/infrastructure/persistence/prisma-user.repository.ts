@@ -58,8 +58,12 @@ export class PrismaUserRepository implements UserRepository {
           // canal (Google, registro por correo, o la ficha que llenó el
           // doctor).
           ...(data.email !== null && { email: data.email }),
-          ...(data.phone !== undefined && { phone: data.phone }),
-          ...(!keepPublicName && { display_name: data.displayName }),
+          // El teléfono de users es el de la ficha, el oficial (CLI-144):
+          // un login no lo reemplaza. Solo se toma del login al crear la fila.
+          // Tampoco se pisa un nombre con null: un login por teléfono no trae
+          // nombre, y borraría el que cargó el doctor en la ficha.
+          ...(!keepPublicName &&
+            data.displayName !== null && { display_name: data.displayName }),
           photo_url: data.photoUrl,
           updated_at: new Date(),
         },
@@ -108,6 +112,10 @@ export class PrismaUserRepository implements UserRepository {
       const record = await this.prisma.transaction(async (tx) => {
         const isDoctor =
           (await tx.doctor_profiles.count({ where: { user_id: userId } })) > 0;
+        const current = await tx.users.findUnique({
+          where: { id: userId },
+          select: { phone: true },
+        });
         const { count } = await tx.users.updateMany({
           where: { id: userId, auth_user_id: null },
           data: {
@@ -115,10 +123,16 @@ export class PrismaUserRepository implements UserRepository {
             // Mismo motivo que en upsertByAuthUserId: un login por teléfono no
             // trae email (null) — no pisar el que ya haya en la ficha.
             ...(data.email !== null && { email: data.email }),
-            ...(data.phone !== undefined && { phone: data.phone }),
+            // El teléfono de la ficha es el oficial (CLI-144): el del login
+            // solo se guarda si la ficha no tenía ninguno.
+            ...(data.phone !== undefined &&
+              !current?.phone && { phone: data.phone }),
             // Un doctor conserva el nombre público que le cargó el admin
-            // (CLI-77) — ver isDoctor().
-            ...(!isDoctor && { display_name: data.displayName }),
+            // (CLI-77) — ver isDoctor(). A un paciente tampoco se le pisa el
+            // nombre de la ficha con null (un registro por teléfono no trae
+            // nombre, CLI-144).
+            ...(!isDoctor &&
+              data.displayName !== null && { display_name: data.displayName }),
             photo_url: data.photoUrl,
             updated_at: new Date(),
           },
