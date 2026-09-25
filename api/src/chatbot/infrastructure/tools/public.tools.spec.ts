@@ -115,7 +115,7 @@ describe('public tools', () => {
         topic: 'pagos',
       })) as object[];
 
-      expect(faq.length).toBe(
+      expect(faq).toHaveLength(
         CLINIC_FAQ.filter((entry) => entry.topic === 'pagos').length,
       );
     });
@@ -157,7 +157,7 @@ describe('public tools', () => {
         originalPrice: 800,
         originalCurrency: 'USD',
       });
-      expect((result.services[1].description as string).length).toBe(200);
+      expect(result.services[1].description as string).toHaveLength(200);
       expect(result.note).toContain('referenciales');
     });
 
@@ -377,6 +377,19 @@ describe('public tools', () => {
       await expect(
         validator.validate(tool.argsDto, { doctorId: 'x', slot: 'mañana' }),
       ).resolves.toEqual({ ok: false, fields: ['doctorId', 'slot'] });
+    });
+
+    it('las tools sin argumentos aceptan {} y rechazan cualquier campo', async () => {
+      const tool = new GetClinicInfoTool();
+
+      await expect(validator.validate(tool.argsDto, {})).resolves.toMatchObject(
+        {
+          ok: true,
+        },
+      );
+      await expect(
+        validator.validate(tool.argsDto, { userId: 'alguien' }),
+      ).resolves.toEqual({ ok: false, fields: ['userId'] });
     });
 
     it('get_faq solo acepta temas conocidos', async () => {

@@ -14,8 +14,6 @@ import { FAQ_TOPICS } from '../../knowledge/clinic-info.js';
 
 const DATE_REGEX = /^\d{4}-\d{2}-\d{2}$/;
 
-export class NoArgsDto {}
-
 export class GetFaqArgsDto {
   @IsOptional()
   @IsIn(FAQ_TOPICS)

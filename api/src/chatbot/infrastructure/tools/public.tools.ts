@@ -15,7 +15,6 @@ import {
   GetBookingLinkArgsDto,
   GetFaqArgsDto,
   ListServicesArgsDto,
-  NoArgsDto,
 } from './dto/public-tool-args.dto.js';
 
 const NO_PARAMETERS: JsonSchema = {
@@ -23,7 +22,12 @@ const NO_PARAMETERS: JsonSchema = {
   properties: {},
   additionalProperties: false,
 };
-const DATE_PATTERN = '^\\d{4}-\\d{2}-\\d{2}$';
+const DATE_PATTERN = String.raw`^\d{4}-\d{2}-\d{2}$`;
+/**
+ * DTO de las tools sin argumentos: Object no tiene propiedades declaradas, así
+ * que el validador (forbidNonWhitelisted) rechaza cualquier campo que llegue.
+ */
+const NO_ARGS = Object;
 const DESCRIPTION_MAX_CHARS = 200;
 const FIRST_SLOTS_PER_DAY = 6;
 const DEFAULT_SLOT_DAYS = 7;
@@ -34,12 +38,12 @@ function truncate(text: string | null, max: number): string | null {
 }
 
 @Injectable()
-export class GetClinicInfoTool implements ChatTool<NoArgsDto> {
+export class GetClinicInfoTool implements ChatTool<object> {
   readonly name = 'get_clinic_info';
   readonly description =
     'Datos de contacto de la clínica: dirección, horario general de atención, WhatsApp y correo.';
   readonly parameters = NO_PARAMETERS;
-  readonly argsDto = NoArgsDto;
+  readonly argsDto = NO_ARGS;
 
   execute(): Promise<unknown> {
     return Promise.resolve(CLINIC_INFO);
@@ -107,12 +111,12 @@ export class ListServicesTool implements ChatTool<ListServicesArgsDto> {
 }
 
 @Injectable()
-export class ListDoctorsTool implements ChatTool<NoArgsDto> {
+export class ListDoctorsTool implements ChatTool<object> {
   readonly name = 'list_doctors';
   readonly description =
     'Doctores de la clínica que atienden con reserva online, con su especialidad. Devuelve el doctorId necesario para consultar disponibilidad.';
   readonly parameters = NO_PARAMETERS;
-  readonly argsDto = NoArgsDto;
+  readonly argsDto = NO_ARGS;
 
   constructor(
     @Inject(DoctorRepository) private readonly doctorRepo: IDoctorRepository,
