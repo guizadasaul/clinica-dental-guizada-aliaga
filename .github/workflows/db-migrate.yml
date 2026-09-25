@@ -23,6 +23,10 @@ on:
         description: Sembrar además los usuarios de demo (solo staging)
         type: boolean
         default: false
+      seed_catalogs:
+        description: Correr el seed de catálogos (idempotente)
+        type: boolean
+        default: true
   workflow_call:
     inputs:
       environment:
@@ -31,6 +35,11 @@ on:
       seed_demo:
         type: boolean
         default: false
+      # El deploy de producción no siembra: el seed de catálogos se corre a
+      # mano allá (hace deleteMany de las sugerencias diagnóstico→tratamiento).
+      seed_catalogs:
+        type: boolean
+        default: true
       # Commit exacto a migrar (el pipeline de deploy pasa el mismo que
       # construyó en la imagen). Vacío: el commit que disparó el workflow.
       ref:
@@ -104,6 +113,7 @@ jobs:
         run: npx prisma migrate deploy
 
       - name: Seed de catálogos (idempotente)
+        if: inputs.seed_catalogs
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
         run: npx prisma db seed

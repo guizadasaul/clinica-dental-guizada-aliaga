@@ -1,0 +1,135 @@
+name: Deploy production
+
+# Cada push a main (un PR develop → main o hotfix/* → main mergeado) despliega
+# producción, con dos aprobaciones manuales (Environment `production` con
+# required reviewers): una antes de migrar la base y otra antes de reemplazar
+# el container. Se puede frenar después de migrar y antes de desplegar.
+#   1. construye api/Dockerfile y lo publica en GHCR con el SHA del commit
+#   2. [aprobación] migraciones a la base de producción (sin seed: allá el
+#      seed de catálogos se corre a mano con DB migrate)
+#   3. [aprobación] por SSH, /opt/clinic/deploy.sh production <sha>, con
+#      rollback automático a la versión anterior si no queda sana
+#   4. smoke test contra https://api.guizadaaliaga.com/health/ready
+#
+# Runners de GitHub, nunca el runner propio. Los secretos de la app no pasan
+# por acá: viven solo en /opt/clinic/production/.env. Lo que usa este
+# workflow está en el Environment `production` (ver deploy/README.md → CI/CD).
+#
+# Rollback: Run workflow con el SHA anterior en `ref`, o en el VPS
+# /opt/clinic/deploy.sh production <sha anterior>.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: Commit a desplegar (vacío = último de main)
+        type: string
+        default: ""
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+env:
+  IMAGE: ghcr.io/guizadasaul/clinic-api
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      sha: ${{ steps.sha.outputs.sha }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref || github.sha }}
+
+      - id: sha
+        run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: docker/build-push-action@v6
+        with:
+          context: api
+          push: true
+          tags: |
+            ${{ env.IMAGE }}:${{ steps.sha.outputs.sha }}
+            ${{ env.IMAGE }}:production
+          labels: |
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+            org.opencontainers.image.revision=${{ steps.sha.outputs.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  migrate:
+    needs: build
+    uses: ./.github/workflows/db-migrate.yml
+    with:
+      environment: production
+      ref: ${{ needs.build.outputs.sha }}
+      seed_catalogs: false
+    secrets: inherit
+
+  deploy:
+    needs: [build, migrate]
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: Configurar SSH
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          SSH_KNOWN_HOSTS: ${{ secrets.SSH_KNOWN_HOSTS }}
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_USER: ${{ secrets.SSH_USER }}
+        run: |
+          for name in SSH_PRIVATE_KEY SSH_KNOWN_HOSTS SSH_HOST SSH_USER; do
+            if [ -z "${!name}" ]; then
+              echo "::error::Falta el secret $name en el Environment production (ver deploy/README.md → CI/CD)"
+              exit 1
+            fi
+          done
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$SSH_PRIVATE_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          printf '%s\n' "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
+
+      # Clave propia de producción, atada en el VPS a `ssh-deploy.sh
+      # production`: la de staging no puede desplegar acá, ni al revés.
+      - name: Desplegar en el VPS
+        env:
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_USER: ${{ secrets.SSH_USER }}
+          SHA: ${{ needs.build.outputs.sha }}
+        run: |
+          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=yes -o BatchMode=yes \
+            "$SSH_USER@$SSH_HOST" "$SHA"
+
+      - name: Smoke test a través de Cloudflare
+        run: |
+          for _ in $(seq 1 10); do
+            if curl -fsS --max-time 10 https://api.guizadaaliaga.com/health/ready; then
+              echo
+              exit 0
+            fi
+            sleep 3
+          done
+          echo "::error::https://api.guizadaaliaga.com/health/ready no respondió"
+          exit 1
+
+      - name: Borrar la clave del runner
+        if: always()
+        run: rm -f ~/.ssh/deploy_key
