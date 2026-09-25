@@ -1,0 +1,3 @@
+# El certificado de origen de Cloudflare y su clave privada nunca van a git.
+*
+!.gitignore

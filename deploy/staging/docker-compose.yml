@@ -1,0 +1,47 @@
+# API de staging. No se levanta a mano: la despliega deploy/deploy.sh
+# (el pipeline o una persona), que fija la imagen con API_TAG:
+#   /opt/clinic/deploy.sh staging <tag>
+# Los secretos van en .env (chmod 600, a partir de .env.example). Lo que no es
+# secreto y define al ambiente está fijo acá abajo, para que no se pueda
+# olvidar ni mezclar con el otro ambiente.
+name: clinic-staging
+
+services:
+  api:
+    image: "ghcr.io/guizadasaul/clinic-api:${API_TAG:?API_TAG sin definir, desplegar con deploy.sh}"
+    container_name: clinic-api-staging
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      APP_ENV: staging
+      NODE_ENV: production
+      PORT: "3000"
+      FRONTEND_URL: https://staging.guizadaaliaga.com
+      CORS_ORIGINS: https://staging.guizadaaliaga.com
+      # Un solo proxy de confianza delante (Caddy): ver deploy/proxy/Caddyfile.
+      TRUST_PROXY_HOPS: "1"
+      # TLS verificado hacia el Postgres de Supabase (CA incluida en la imagen).
+      DATABASE_SSL_CA: /app/certs/supabase-root-2021.crt
+    # Sin "ports": solo Caddy le habla, por la red clinic-edge.
+    networks:
+      - clinic-edge
+    # La app no escribe en disco (no hay uploads): filesystem de solo lectura.
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    # Tiempo para que enableShutdownHooks() cierre ordenadamente tras SIGTERM.
+    stop_grace_period: 30s
+    mem_limit: 768m
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+
+networks:
+  clinic-edge:
+    external: true

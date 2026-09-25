@@ -1,0 +1,44 @@
+# Reverse proxy: único container del VPS que publica puertos (80 y 443).
+#   cd /opt/clinic/proxy && docker compose up -d
+# Recargar la config sin cortar conexiones:
+#   docker compose exec caddy caddy reload --config /etc/caddy/Caddyfile
+name: clinic-proxy
+
+services:
+  caddy:
+    image: caddy:2.11-alpine
+    container_name: clinic-proxy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      # El directorio entero, no el Caddyfile suelto: un bind mount de un solo
+      # archivo queda apuntando al archivo viejo cuando un editor (o sed -i)
+      # lo reemplaza al guardar, y `caddy reload` deja de verlo. Queda:
+      #   /etc/caddy/Caddyfile
+      #   /etc/caddy/certs/origin.pem + origin.key (certificado de origen de
+      #   Cloudflare; nunca en git, solo en el servidor y en el gestor de
+      #   contraseñas)
+      - .:/etc/caddy:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    networks:
+      - clinic-edge
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+
+networks:
+  # Red compartida con los stacks de staging y producción. Se crea una vez:
+  #   docker network create clinic-edge
+  clinic-edge:
+    external: true
+
+volumes:
+  caddy_data:
+  caddy_config:

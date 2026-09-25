@@ -1,0 +1,62 @@
+# Reverse proxy de las APIs (staging y producción) en el VPS.
+#
+# Internet → Cloudflare (proxied, SSL Full strict) → este Caddy :443 →
+# container de la API :3000 por la red Docker `clinic-edge`. Los containers
+# de la API no publican puertos: este es el único punto de entrada.
+{
+	servers {
+		# Solo se confía en Cloudflare para decir cuál es la IP real del
+		# cliente (CF-Connecting-IP). Un request que llegue de otra IP (el
+		# firewall ya lo impide) no puede falsificarla: su client_ip es su
+		# propia dirección. Rangos de https://www.cloudflare.com/ips/
+		# (revisados 2026-09-25); si Cloudflare los cambia, actualizar acá.
+		trusted_proxies static 173.245.48.0/20 103.21.244.0/22 103.22.200.0/22 103.31.4.0/22 141.101.64.0/18 108.162.192.0/18 190.93.240.0/20 188.114.96.0/20 197.234.240.0/22 198.41.128.0/17 162.158.0.0/15 104.16.0.0/13 104.24.0.0/14 172.64.0.0/13 131.0.72.0/22 2400:cb00::/32 2606:4700::/32 2803:f800::/32 2405:b500::/32 2405:8100::/32 2a06:98c0::/29 2c0f:f248::/32
+		client_ip_headers CF-Connecting-IP
+		timeouts {
+			read_header 10s
+			read_body 30s
+			write 60s
+			idle 120s
+		}
+	}
+	log {
+		output stdout
+		format json
+	}
+}
+
+(api) {
+	# Certificado de origen de Cloudflare (Origin CA, 15 años): solo lo
+	# confía Cloudflare, que es exactamente lo que se quiere. Con `tls`
+	# explícito Caddy no pide certificados a Let's Encrypt.
+	tls /etc/caddy/certs/origin.pem /etc/caddy/certs/origin.key
+
+	encode zstd gzip
+
+	header -Server
+
+	log {
+		output stdout
+		format json
+	}
+
+	reverse_proxy {args[0]}:3000 {
+		# La API corre con TRUST_PROXY_HOPS=1: toma de X-Forwarded-For un
+		# solo salto, así que acá va solo la IP real del cliente (por defecto
+		# Caddy agregaría también la del nodo de Cloudflare, y la API vería
+		# esa en vez de la del cliente).
+		header_up X-Forwarded-For {client_ip}
+		transport http {
+			dial_timeout 5s
+			response_header_timeout 60s
+		}
+	}
+}
+
+api-staging.guizadaaliaga.com {
+	import api clinic-api-staging
+}
+
+api.guizadaaliaga.com {
+	import api clinic-api-production
+}
