@@ -85,4 +85,29 @@ describe('ChatbotModule', () => {
       port.definitionsFor({ kind: 'anonymous' }).map((tool) => tool.name),
     ).not.toContain('get_my_balance');
   });
+
+  it('registra las tools del doctor, visibles solo para un odontólogo', async () => {
+    const moduleRef = await Test.createTestingModule({
+      imports: [PrismaModule, ChatbotModule],
+    }).compile();
+    const port = moduleRef.get<ToolExecutor>(ToolExecutionPort);
+    const doctorTools = port
+      .definitionsFor({
+        kind: 'user',
+        userId: 'd1',
+        role: UserRole.ODONTOLOGIST,
+        patientId: null,
+      })
+      .map((tool) => tool.name);
+
+    expect(doctorTools).toEqual(
+      expect.arrayContaining([
+        'get_my_agenda',
+        'get_my_next_patient',
+        'get_my_patients',
+        'get_my_monthly_stats',
+      ]),
+    );
+    expect(doctorTools).not.toContain('get_my_balance');
+  });
 });
