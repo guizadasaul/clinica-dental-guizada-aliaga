@@ -1,0 +1,120 @@
+@if (open()) {
+  <dialog open id="chat-panel" class="chat-panel" [attr.aria-label]="'chatbot.title' | translate">
+    <header class="chat-panel__header">
+      <span class="material-symbols-outlined chat-panel__avatar" aria-hidden="true"
+        >support_agent</span
+      >
+      <div class="chat-panel__heading">
+        <h2 class="chat-panel__title">{{ 'chatbot.title' | translate }}</h2>
+        <p class="chat-panel__subtitle">{{ 'chatbot.subtitle' | translate }}</p>
+      </div>
+      <button
+        type="button"
+        class="chat-panel__icon-btn"
+        [disabled]="sending() || messages().length === 0"
+        [attr.aria-label]="'chatbot.clear' | translate"
+        [title]="'chatbot.clear' | translate"
+        (click)="clear()"
+      >
+        <span class="material-symbols-outlined" aria-hidden="true">delete</span>
+      </button>
+      <button
+        type="button"
+        class="chat-panel__icon-btn"
+        [attr.aria-label]="'chatbot.close' | translate"
+        [title]="'chatbot.close' | translate"
+        (click)="close()"
+      >
+        <span class="material-symbols-outlined" aria-hidden="true">close</span>
+      </button>
+    </header>
+
+    <ol #messageList class="chat-panel__messages" aria-live="polite" aria-relevant="additions">
+      <li class="chat-msg chat-msg--assistant">{{ welcomeKey() | translate }}</li>
+      @for (entry of messages(); track entry.id) {
+        <li
+          class="chat-msg"
+          [class.chat-msg--user]="entry.role === 'user'"
+          [class.chat-msg--assistant]="entry.role === 'assistant'"
+          [class.chat-msg--error]="entry.role === 'error'"
+        >
+          @if (entry.errorKey) {
+            {{ entry.errorKey | translate }}
+          } @else {
+            @for (segment of entry.segments; track $index) {
+              @if (segment.href) {
+                <a
+                  class="chat-msg__inline-link"
+                  [href]="segment.href"
+                  (click)="openLink($event, segment.href)"
+                  >{{ segment.text }}</a
+                >
+              } @else {
+                <span>{{ segment.text }}</span>
+              }
+            }
+          }
+          @if (entry.links.length > 0) {
+            <span class="chat-msg__links">
+              @for (link of entry.links; track link.url) {
+                @if (isOwnLink(link)) {
+                  <a class="chat-msg__link" [href]="link.url" (click)="openLink($event, link.url)">
+                    <span class="material-symbols-outlined" aria-hidden="true"
+                      >event_available</span
+                    >
+                    {{ link.label }}
+                  </a>
+                } @else {
+                  <span class="chat-msg__link-text">{{ link.label }}: {{ link.url }}</span>
+                }
+              }
+            </span>
+          }
+        </li>
+      }
+      @if (sending()) {
+        <li class="chat-msg chat-msg--assistant chat-msg--typing">
+          {{ 'chatbot.typing' | translate }}
+        </li>
+      }
+    </ol>
+
+    <form class="chat-panel__form" (submit)="submit($event)">
+      <textarea
+        #input
+        class="chat-panel__input"
+        rows="2"
+        [maxLength]="maxLength"
+        [value]="draft()"
+        [placeholder]="'chatbot.placeholder' | translate"
+        [attr.aria-label]="'chatbot.inputLabel' | translate"
+        (input)="onInput($event)"
+        (keydown.enter)="onEnter($event)"
+      ></textarea>
+      <div class="chat-panel__form-row">
+        <p class="chat-panel__privacy">{{ 'chatbot.privacy' | translate }}</p>
+        <span class="chat-panel__counter">{{ draft().length }}/{{ maxLength }}</span>
+        <button
+          type="submit"
+          class="chat-panel__send"
+          [disabled]="!canSend()"
+          [attr.aria-label]="'chatbot.send' | translate"
+        >
+          <span class="material-symbols-outlined" aria-hidden="true">send</span>
+        </button>
+      </div>
+    </form>
+  </dialog>
+}
+
+<button
+  #launcher
+  type="button"
+  class="chat-launcher"
+  aria-controls="chat-panel"
+  [attr.aria-expanded]="open()"
+  [attr.aria-label]="(open() ? 'chatbot.close' : 'chatbot.open') | translate"
+  (click)="toggle()"
+>
+  <span class="material-symbols-outlined" aria-hidden="true">{{ open() ? 'close' : 'chat' }}</span>
+</button>

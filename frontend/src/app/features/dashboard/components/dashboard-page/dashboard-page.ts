@@ -12,6 +12,7 @@ import { PatientDashboardComponent } from '../patient-dashboard/patient-dashboar
 import { DoctorDashboardComponent } from '../doctor-dashboard/doctor-dashboard';
 import { AdminDashboardComponent } from '../admin-dashboard/admin-dashboard';
 import { LogoComponent } from '../../../../shared/ui/logo/logo';
+import { ChatWidgetComponent } from '../../../chatbot/components/chat-widget/chat-widget';
 
 interface NavItem {
   readonly icon: string;
@@ -52,6 +53,7 @@ const ADMIN_NAV: NavItem[] = [
     DoctorDashboardComponent,
     AdminDashboardComponent,
     LogoComponent,
+    ChatWidgetComponent,
   ],
   templateUrl: './dashboard-page.html',
   styleUrl: './dashboard-page.scss',
