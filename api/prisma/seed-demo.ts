@@ -4,8 +4,9 @@ import 'dotenv/config';
 import { PrismaClient } from '@prisma/client';
 import type { UserRole } from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
+import { pgConnectionConfig } from '../src/shared/prisma/pg-connection';
 
-const adapter = new PrismaPg({ connectionString: process.env['DATABASE_URL'] });
+const adapter = new PrismaPg(pgConnectionConfig());
 const prisma = new PrismaClient({ adapter });
 
 /**

@@ -34,7 +34,8 @@ Supabase del frontend es la publicable (anon); la `service_role` vive solo en el
 
 | Variable | Tipo | Staging vs producción |
 |---|---|---|
-| `DATABASE_URL` | secreta | distinta (Postgres del Supabase de cada ambiente, Session pooler) |
+| `DATABASE_URL` | secreta | distinta (Postgres del Supabase de cada ambiente, Session pooler, sin parámetros) |
+| `DATABASE_SSL_CA` | pública | `/app/certs/supabase-root-2021.crt` en los dos (TLS verificado hacia Supabase) |
 | `SUPABASE_URL` | pública | distinta |
 | `SUPABASE_SERVICE_ROLE_KEY` | secreta | distinta |
 | `SUPABASE_JWT_SECRET` | secreta | no se usa (los dos proyectos firman con ES256 vía JWKS) |
@@ -53,14 +54,43 @@ Supabase del frontend es la publicable (anon); la `service_role` vive solo en el
 
 ## Base de datos y migraciones
 
+### Conexión a Supabase: TLS verificado
+
+El pooler de Supabase presenta un certificado firmado por la **Supabase Root 2021 CA**, que no está entre
+las CAs de Node ni del sistema, y **acepta conexiones sin cifrar**. Por eso:
+
+- La CA va versionada en [`api/certs/supabase-root-2021.crt`](../api/certs/supabase-root-2021.crt) (es pública;
+  SHA-256 `80:70:25:AD:50:D4:ED:21:9D:2C:9C:7D:29:9C:00:4F:82:4E:B0:0C:F7:F6:5A:FE:F6:07:D0:7B:72:E6:CA:FA`,
+  la misma que publica Supabase y la que presenta el pooler; vence en 2031).
+- **App y seeds (node-pg):** `DATABASE_SSL_CA` apunta a esa CA y `DATABASE_URL` va **sin** `sslmode` — node-pg
+  lee el `sslmode` de la URL y pisa la CA (`pgConnectionConfig()` lo rechaza con un error explícito).
+- **`prisma migrate deploy` (motor en Rust):** no lee `DATABASE_SSL_CA`; `db-migrate.yml` le agrega a la URL
+  `sslmode=require&sslcert=<ca>&sslaccept=strict`, la única combinación que verifica de verdad
+  (`sslrootcert` y `verify-full` se ignoran y aceptan cualquier certificado — probado).
+
+### Migrar un ambiente: workflow `DB migrate`
+
+Actions → **DB migrate** → Run workflow → elegir `staging` o `production` (y, solo en staging, si sembrar los
+usuarios de demo). En un runner de GitHub (IPv4 — la conexión directa de Supabase es solo IPv6, por eso el
+Session pooler): `prisma migrate deploy` → seed de catálogos → `prisma/verify-db.ts`, que falla si queda alguna
+migración sin aplicar, alguna tabla sin RLS o algún catálogo vacío. El log muestra solo conteos.
+
+Necesita, en Settings → Environments → `<ambiente>`, el secret `DATABASE_URL`: el Session pooler tal cual lo
+muestra Supabase (Connect → Session pooler), sin parámetros.
+
+`ci.yml` corre `scripts/check-no-destructive-db-commands.sh` en cada PR: falla si un workflow o script de
+`deploy/` usa `migrate reset`, `migrate dev`, `db push` o `supabase db reset`.
+
+### Reglas
+
 Prisma es la única fuente de verdad del schema (`api/prisma/migrations/`). No hay `supabase/migrations/`:
 dos sistemas de migración sobre las mismas tablas terminan en drift.
 
 - Migración nueva: `npx prisma migrate dev --name <descripcion>` contra la base local de Docker, y va en el
   mismo PR que el código que la usa.
-- Staging y producción: el pipeline corre `npx prisma migrate deploy` contra el Postgres del ambiente, como
-  paso explícito antes de reemplazar el container. La imagen de la API no migra al arrancar (ni trae el CLI
-  de Prisma).
+- Staging y producción: `npx prisma migrate deploy` lo corre el workflow `DB migrate` (a mano o desde el
+  pipeline de deploy, antes de reemplazar el container). La imagen de la API no migra al arrancar (ni trae el
+  CLI de Prisma).
 - Nunca contra un ambiente remoto: `prisma migrate dev`, `prisma migrate reset`, `prisma db push`.
 - Seed de catálogos (`npx prisma db seed`): idempotente. En staging corre en cada deploy; en producción solo
   a mano. `prisma/seed-demo.ts` se niega a correr con `APP_ENV=production`.

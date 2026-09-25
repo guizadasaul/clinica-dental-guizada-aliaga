@@ -39,6 +39,9 @@ COPY --from=prod-deps /app/node_modules ./node_modules
 # lo escribe en node_modules/.prisma, no en un paquete publicado).
 COPY --from=build /app/node_modules/.prisma ./node_modules/.prisma
 COPY --from=build /app/dist ./dist
+# CA raíz de Supabase (pública): con DATABASE_SSL_CA=/app/certs/supabase-root-2021.crt
+# la conexión a la base va por TLS verificado (ver src/shared/prisma/pg-connection.ts).
+COPY certs ./certs
 COPY package.json ./
 USER node
 EXPOSE 3000
