@@ -1,7 +1,6 @@
 import {
   IsIn,
   IsInt,
-  IsISO8601,
   IsOptional,
   IsString,
   IsUUID,
@@ -42,10 +41,20 @@ export class GetAvailableSlotsArgsDto {
   days?: number;
 }
 
+const TIME_REGEX = /^([01]\d|2[0-3]):[0-5]\d$/;
+
+/**
+ * Fecha y hora en la hora local de la clínica, tal como las muestra
+ * get_available_slots: el modelo no tiene que calcular zonas horarias (en la
+ * prueba en vivo de CLI-89 armaba mal el ISO con el offset UTC-4).
+ */
 export class GetBookingLinkArgsDto {
   @IsUUID()
   doctorId!: string;
 
-  @IsISO8601({ strict: true })
-  slot!: string;
+  @Matches(DATE_REGEX, { message: 'date debe tener el formato YYYY-MM-DD' })
+  date!: string;
+
+  @Matches(TIME_REGEX, { message: 'time debe tener el formato HH:mm' })
+  time!: string;
 }

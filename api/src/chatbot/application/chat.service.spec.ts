@@ -1,4 +1,8 @@
-import { NotFoundException } from '@nestjs/common';
+import {
+  HttpException,
+  NotFoundException,
+  ServiceUnavailableException,
+} from '@nestjs/common';
 import { UserRole } from '../../auth/domain/value-objects/UserRole';
 import type { ChatActor } from '../domain/ChatActor';
 import type { ChatMessage } from '../domain/ChatMessage';
@@ -54,6 +58,7 @@ function message(
 
 const AGENT_RESULT: AgentRunResult = {
   reply: 'Tu próxima cita es el martes',
+  links: [{ label: 'Reservar', url: 'http://localhost:4200/reservar?x=1' }],
   toolNames: ['get_my_next_appointment'],
   usage: { promptTokens: 900, completionTokens: 40 },
   llmLatencyMs: 1500,
@@ -69,6 +74,10 @@ describe('ChatService', () => {
     findSessionByAnonTokenHash: jest.fn(),
     appendMessage: jest.fn(),
     findRecentMessages: jest.fn(),
+    countUserMessagesSince: jest.fn(),
+    countAnonMessagesSince: jest.fn(),
+    deleteSessionForUser: jest.fn(),
+    deleteAllForUser: jest.fn(),
   };
   const agent = { run: jest.fn() };
   const promptBuilder = { build: jest.fn(() => 'SYSTEM') };
@@ -83,6 +92,11 @@ describe('ChatService', () => {
     process.env = { ...originalEnv };
     delete process.env['CHAT_CONTEXT_MESSAGES'];
     delete process.env['CHAT_CONTEXT_MAX_CHARS'];
+    delete process.env['CHAT_DAILY_MESSAGES_USER'];
+    delete process.env['CHAT_DAILY_MESSAGES_ANON'];
+    process.env['CHATBOT_ENABLED'] = 'true';
+    repo.countUserMessagesSince.mockResolvedValue(0);
+    repo.countAnonMessagesSince.mockResolvedValue(0);
     repo.appendMessage.mockResolvedValue(message('user', 'x'));
     repo.findRecentMessages.mockResolvedValue([message('user', 'hola')]);
     agent.run.mockResolvedValue(AGENT_RESULT);
@@ -111,6 +125,9 @@ describe('ChatService', () => {
         sessionId: 'session-1',
         anonToken: null,
         reply: 'Tu próxima cita es el martes',
+        links: [
+          { label: 'Reservar', url: 'http://localhost:4200/reservar?x=1' },
+        ],
       });
     });
 
@@ -368,6 +385,146 @@ describe('ChatService', () => {
       await expect(historySent()).resolves.toEqual([
         { role: 'user', content: 'un mensaje largo' },
       ]);
+    });
+  });
+  describe('kill switch', () => {
+    it.each([undefined, 'false', 'TRUE', '1'])(
+      'con CHATBOT_ENABLED=%p responde 503 sin tocar la base ni el modelo',
+      async (value) => {
+        if (value === undefined) {
+          delete process.env['CHATBOT_ENABLED'];
+        } else {
+          process.env['CHATBOT_ENABLED'] = value;
+        }
+
+        await expect(
+          service.handleMessage({
+            actor: patient,
+            channel: 'web',
+            text: 'hola',
+          }),
+        ).rejects.toBeInstanceOf(ServiceUnavailableException);
+        expect(repo.createSession).not.toHaveBeenCalled();
+        expect(agent.run).not.toHaveBeenCalled();
+      },
+    );
+  });
+
+  describe('cuota diaria', () => {
+    async function expect429(promise: Promise<unknown>) {
+      const error = await promise.catch((e: unknown) => e);
+      expect(error).toBeInstanceOf(HttpException);
+      expect((error as HttpException).getStatus()).toBe(429);
+    }
+
+    it('un usuario que llegó a 100 mensajes en 24 h recibe 429 y no se crea conversación', async () => {
+      repo.countUserMessagesSince.mockResolvedValue(100);
+
+      await expect429(
+        service.handleMessage({ actor: patient, channel: 'web', text: 'hola' }),
+      );
+      const [userId, since] = repo.countUserMessagesSince.mock.calls[0] as [
+        string,
+        Date,
+      ];
+      expect(userId).toBe('user-1');
+      expect(Date.now() - since.getTime()).toBeGreaterThanOrEqual(
+        24 * 60 * 60 * 1000 - 1000,
+      );
+      expect(repo.createSession).not.toHaveBeenCalled();
+      expect(agent.run).not.toHaveBeenCalled();
+    });
+
+    it('respeta CHAT_DAILY_MESSAGES_USER', async () => {
+      process.env['CHAT_DAILY_MESSAGES_USER'] = '5';
+      repo.countUserMessagesSince.mockResolvedValue(5);
+
+      await expect429(
+        service.handleMessage({ actor: patient, channel: 'web', text: 'hola' }),
+      );
+    });
+
+    it('por debajo del límite el turno sigue', async () => {
+      repo.countUserMessagesSince.mockResolvedValue(99);
+      repo.createSession.mockResolvedValue(session());
+
+      await expect(
+        service.handleMessage({ actor: patient, channel: 'web', text: 'hola' }),
+      ).resolves.toMatchObject({ reply: 'Tu próxima cita es el martes' });
+    });
+
+    it('un anónimo con token cuenta los mensajes de esa conversación (límite 20)', async () => {
+      repo.countAnonMessagesSince.mockResolvedValue(20);
+
+      await expect429(
+        service.handleMessage({
+          actor: anonymous,
+          channel: 'web',
+          anonToken: 'mi-token',
+          text: 'hola',
+        }),
+      );
+      expect(repo.countAnonMessagesSince).toHaveBeenCalledWith(
+        hashAnonToken('mi-token'),
+        expect.any(Date),
+      );
+    });
+
+    it('respeta CHAT_DAILY_MESSAGES_ANON', async () => {
+      process.env['CHAT_DAILY_MESSAGES_ANON'] = '3';
+      repo.countAnonMessagesSince.mockResolvedValue(3);
+
+      await expect429(
+        service.handleMessage({
+          actor: anonymous,
+          channel: 'web',
+          anonToken: 'mi-token',
+          text: 'hola',
+        }),
+      );
+    });
+
+    it('un anónimo sin token arranca de cero (el límite por IP lo cubre el throttler)', async () => {
+      repo.createSession.mockResolvedValue(session({ userId: null }));
+
+      await service.handleMessage({
+        actor: anonymous,
+        channel: 'web',
+        text: 'hola',
+      });
+
+      expect(repo.countAnonMessagesSince).not.toHaveBeenCalled();
+      expect(agent.run).toHaveBeenCalled();
+    });
+  });
+
+  describe('borrar conversaciones', () => {
+    it('deleteSession borra una conversación propia', async () => {
+      repo.deleteSessionForUser.mockResolvedValue(true);
+
+      await expect(
+        service.deleteSession('user-1', 'session-1'),
+      ).resolves.toBeUndefined();
+      expect(repo.deleteSessionForUser).toHaveBeenCalledWith(
+        'session-1',
+        'user-1',
+      );
+    });
+
+    it('deleteSession de una conversación ajena o inexistente da 404', async () => {
+      repo.deleteSessionForUser.mockResolvedValue(false);
+
+      await expect(
+        service.deleteSession('user-1', 'session-de-otro'),
+      ).rejects.toBeInstanceOf(NotFoundException);
+    });
+
+    it('deleteAllSessions borra todas las del usuario', async () => {
+      repo.deleteAllForUser.mockResolvedValue(3);
+
+      await service.deleteAllSessions('user-1');
+
+      expect(repo.deleteAllForUser).toHaveBeenCalledWith('user-1');
     });
   });
 });

@@ -18,6 +18,8 @@ import { ToolExecutionPort } from '../domain/ToolExecution';
 import type { ToolExecutionPort as IToolExecutionPort } from '../domain/ToolExecution';
 import { readEnvInt } from '../../shared/env.util';
 import { fallbackReply } from './fallback-reply';
+import { linkOnlyReply, mergeLinks, removeBookingUrls } from './reply-links';
+import type { ChatLink } from '../domain/ChatLink';
 import type { ChatLocale } from './fallback-reply';
 
 export const DEFAULT_MAX_TOOL_ITERATIONS = 4;
@@ -41,6 +43,8 @@ export interface AgentRunInput {
 
 export interface AgentRunResult {
   reply: string;
+  /** Links que produjeron las tools (ej. el de reserva); los agrega el backend, no el modelo. */
+  links: ChatLink[];
   /** Tools pedidas por el modelo y enviadas a ejecutar, en orden (métricas). */
   toolNames: string[];
   usage: LlmUsage;
@@ -52,6 +56,7 @@ export interface AgentRunResult {
 
 interface RunState {
   toolNames: string[];
+  links: ChatLink[];
   usage: LlmUsage;
   llmLatencyMs: number;
   iterations: number;
@@ -92,6 +97,7 @@ export class AgentRunner {
     const messages: LlmMessage[] = [...input.history];
     const state: RunState = {
       toolNames: [],
+      links: [],
       usage: { promptTokens: 0, completionTokens: 0 },
       llmLatencyMs: 0,
       iterations: 0,
@@ -166,6 +172,7 @@ export class AgentRunner {
     }
     state.toolNames.push(call.name);
     const result = await this.tools.execute(actor, call);
+    mergeLinks(state.links, result.links);
     return result.content;
   }
 
@@ -174,7 +181,10 @@ export class AgentRunner {
     state: RunState,
     locale: ChatLocale | undefined,
   ): AgentRunResult {
-    const reply = content?.trim();
+    const reply = content ? removeBookingUrls(content) : '';
+    if (!reply && state.links.length > 0) {
+      return this.result(linkOnlyReply(locale), state, null);
+    }
     if (!reply) {
       return this.result(fallbackReply(locale), state, 'empty_response');
     }
@@ -188,6 +198,8 @@ export class AgentRunner {
   ): AgentRunResult {
     return {
       reply,
+      // Con fallback no se muestran links: la respuesta no los menciona.
+      links: errorCode ? [] : state.links,
       toolNames: state.toolNames,
       usage: state.usage,
       llmLatencyMs: state.llmLatencyMs,

@@ -1,4 +1,5 @@
 import type { ChatActor } from './ChatActor';
+import type { ChatLink } from './ChatLink';
 import type { LlmToolCall, LlmToolDefinition } from './LlmProvider';
 
 export type ToolExecutionStatus = 'ok' | 'denied' | 'error';
@@ -8,6 +9,8 @@ export interface ToolExecutionResult {
   status: ToolExecutionStatus;
   /** Lo que vuelve al LLM como mensaje `tool` (JSON serializado). */
   content: string;
+  /** Links para el usuario que produjo la tool; nunca pasan por el LLM. */
+  links: ChatLink[];
 }
 
 /**

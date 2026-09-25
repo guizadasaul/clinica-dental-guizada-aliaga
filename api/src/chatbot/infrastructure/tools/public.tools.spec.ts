@@ -5,6 +5,7 @@ import type { Doctor } from '../../../doctors/domain/Doctor';
 import type { ChatActor } from '../../domain/ChatActor';
 import { CLINIC_FAQ, CLINIC_INFO } from '../knowledge/clinic-info';
 import { ClassValidatorToolArgsValidator } from './class-validator-tool-args.validator';
+import { ToolOutputWithLinks } from '../../domain/ChatLink';
 import {
   GetAvailableSlotsTool,
   GetBookingLinkTool,
@@ -301,7 +302,7 @@ describe('public tools', () => {
       );
     const SLOT = '2026-10-05T13:00:00.000Z';
 
-    it('arma el link a /reservar con FRONTEND_URL cuando el horario está libre', async () => {
+    it('convierte la hora local de Bolivia (UTC-4) y arma el link a /reservar con FRONTEND_URL', async () => {
       process.env['FRONTEND_URL'] = 'https://clinica.example.com';
       appointmentsService.getAvailability.mockResolvedValue({
         date: '2026-10-05',
@@ -310,18 +311,25 @@ describe('public tools', () => {
 
       const result = await tool().execute(anonymous, {
         doctorId: DOCTOR_A,
-        slot: '2026-10-05T09:00:00-04:00',
+        date: '2026-10-05',
+        time: '09:00',
       });
 
       expect(appointmentsService.getAvailability).toHaveBeenCalledWith(
         DOCTOR_A,
         '2026-10-05',
       );
-      expect(result).toEqual({
-        url: `https://clinica.example.com/reservar?slot=${encodeURIComponent(SLOT)}&doctorId=${DOCTOR_A}`,
-        date: '2026-10-05',
-        time: '09:00',
-      });
+      // La URL no va al modelo: viaja como link aparte.
+      expect(result).toBeInstanceOf(ToolOutputWithLinks);
+      const output = result as ToolOutputWithLinks;
+      expect(output.links).toEqual([
+        {
+          label: 'Completar reserva y pago (05/10, 09:00)',
+          url: `https://clinica.example.com/reservar?slot=${encodeURIComponent(SLOT)}&doctorId=${DOCTOR_A}`,
+        },
+      ]);
+      expect(output.data).toMatchObject({ date: '2026-10-05', time: '09:00' });
+      expect(JSON.stringify(output.data)).not.toContain('http');
     });
 
     it('usa localhost:4200 si FRONTEND_URL no está seteada', async () => {
@@ -332,12 +340,13 @@ describe('public tools', () => {
 
       const result = (await tool().execute(anonymous, {
         doctorId: DOCTOR_A,
-        slot: SLOT,
-      })) as { url: string };
+        date: '2026-10-05',
+        time: '09:00',
+      })) as ToolOutputWithLinks;
 
-      expect(result.url.startsWith('http://localhost:4200/reservar?')).toBe(
-        true,
-      );
+      expect(
+        result.links[0].url.startsWith('http://localhost:4200/reservar?'),
+      ).toBe(true);
     });
 
     it('no da link para un horario ocupado o fuera de la grilla', async () => {
@@ -347,8 +356,30 @@ describe('public tools', () => {
       });
 
       await expect(
-        tool().execute(anonymous, { doctorId: DOCTOR_A, slot: SLOT }),
+        tool().execute(anonymous, {
+          doctorId: DOCTOR_A,
+          date: '2026-10-05',
+          time: '09:00',
+        }),
       ).resolves.toEqual({ error: 'slot_unavailable' });
+    });
+
+    it('interpreta la hora como hora de Bolivia, no UTC (el bug que se vio en vivo)', async () => {
+      // 10:00 en La Paz = 14:00 UTC. Si se tomara como UTC, no coincidiría.
+      appointmentsService.getAvailability.mockResolvedValue({
+        date: '2026-09-26',
+        slots: ['2026-09-26T14:00:00.000Z'],
+      });
+
+      const result = (await tool().execute(anonymous, {
+        doctorId: DOCTOR_A,
+        date: '2026-09-26',
+        time: '10:00',
+      })) as ToolOutputWithLinks;
+
+      expect(result.links[0].url).toContain(
+        encodeURIComponent('2026-09-26T14:00:00.000Z'),
+      );
     });
   });
 
@@ -369,14 +400,25 @@ describe('public tools', () => {
       ).resolves.toEqual({ ok: false, fields: ['from'] });
     });
 
-    it('get_booking_link exige un doctorId UUID y un slot ISO', async () => {
+    it('get_booking_link exige un doctorId UUID, fecha YYYY-MM-DD y hora HH:mm', async () => {
       const tool = new GetBookingLinkTool(
         appointmentsService as unknown as AppointmentsService,
       );
 
       await expect(
-        validator.validate(tool.argsDto, { doctorId: 'x', slot: 'mañana' }),
-      ).resolves.toEqual({ ok: false, fields: ['doctorId', 'slot'] });
+        validator.validate(tool.argsDto, {
+          doctorId: 'x',
+          date: 'mañana',
+          time: '25:00',
+        }),
+      ).resolves.toEqual({ ok: false, fields: ['doctorId', 'date', 'time'] });
+      await expect(
+        validator.validate(tool.argsDto, {
+          doctorId: DOCTOR_A,
+          date: '2026-09-26',
+          time: '10:00',
+        }),
+      ).resolves.toMatchObject({ ok: true });
     });
 
     it('las tools sin argumentos aceptan {} y rechazan cualquier campo', async () => {

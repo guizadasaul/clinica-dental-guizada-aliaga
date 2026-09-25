@@ -8,6 +8,7 @@ import {
 import { actorRole } from '../domain/ChatActor';
 import type { ChatActor } from '../domain/ChatActor';
 import type { LlmToolCall, LlmToolDefinition } from '../domain/LlmProvider';
+import { ToolOutputWithLinks } from '../domain/ChatLink';
 import { ToolArgsValidator } from '../domain/ToolArgsValidator';
 import type { ToolArgsValidator as IToolArgsValidator } from '../domain/ToolArgsValidator';
 import type {
@@ -107,10 +108,19 @@ export class ToolExecutor implements ToolExecutionPort {
       const result = await this.withTimeout(
         tool.execute(actor, validation.value),
       );
+      if (result instanceof ToolOutputWithLinks) {
+        return {
+          toolName: tool.name,
+          status: 'ok',
+          content: this.serialize(result.data),
+          links: result.links,
+        };
+      }
       return {
         toolName: tool.name,
         status: 'ok',
         content: this.serialize(result),
+        links: [],
       };
     } catch (error) {
       return this.error(
@@ -172,6 +182,7 @@ export class ToolExecutor implements ToolExecutionPort {
       toolName,
       status,
       content: JSON.stringify({ error: code, ...extra }),
+      links: [],
     };
   }
 

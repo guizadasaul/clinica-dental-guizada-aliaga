@@ -1,5 +1,6 @@
 import { Inject, Injectable } from '@nestjs/common';
 import type { ChatTool, JsonSchema } from '../../domain/ChatTool.js';
+import { ToolOutputWithLinks } from '../../domain/ChatLink.js';
 import { AppointmentsService } from '../../../appointments/application/appointments.service.js';
 import { TreatmentsService } from '../../../treatments/application/treatments.service.js';
 import { DoctorRepository } from '../../../doctors/domain/DoctorRepository.js';
@@ -9,6 +10,7 @@ import {
   CLINIC_INFO,
   FAQ_TOPICS,
 } from '../knowledge/clinic-info.js';
+import { CLINIC_UTC_OFFSET } from '../../../appointments/domain/ClinicSchedule.js';
 import { clinicDate, clinicTime, normalizeText } from './clinic-time.js';
 import {
   GetAvailableSlotsArgsDto,
@@ -23,6 +25,7 @@ const NO_PARAMETERS: JsonSchema = {
   additionalProperties: false,
 };
 const DATE_PATTERN = String.raw`^\d{4}-\d{2}-\d{2}$`;
+const TIME_PATTERN = String.raw`^([01]\d|2[0-3]):[0-5]\d$`;
 /**
  * DTO de las tools sin argumentos: Object no tiene propiedades declaradas, así
  * que el validador (forbidNonWhitelisted) rechaza cualquier campo que llegue.
@@ -31,6 +34,12 @@ const NO_ARGS = Object;
 const DESCRIPTION_MAX_CHARS = 200;
 const FIRST_SLOTS_PER_DAY = 6;
 const DEFAULT_SLOT_DAYS = 7;
+
+/** "2026-09-26" → "26/09". */
+function ddmm(date: string): string {
+  const [, month, day] = date.split('-');
+  return `${day}/${month}`;
+}
 
 function truncate(text: string | null, max: number): string | null {
   if (!text) return null;
@@ -203,18 +212,23 @@ export class GetAvailableSlotsTool implements ChatTool<GetAvailableSlotsArgsDto>
 export class GetBookingLinkTool implements ChatTool<GetBookingLinkArgsDto> {
   readonly name = 'get_booking_link';
   readonly description =
-    'Link a la página de reserva con el doctor y el horario ya elegidos (el pago y la confirmación se hacen ahí). Solo para un horario libre devuelto por get_available_slots.';
+    'Prepara el link de reserva con el doctor y el horario ya elegidos (el pago y la confirmación se hacen ahí). Usa la fecha y la hora exactamente como las devuelve get_available_slots (hora de Bolivia). El link lo agrega el sistema debajo de tu respuesta.';
   readonly parameters: JsonSchema = {
     type: 'object',
     properties: {
       doctorId: { type: 'string', format: 'uuid' },
-      slot: {
+      date: {
         type: 'string',
-        description:
-          'Inicio del turno en ISO 8601, tal como lo devuelve la disponibilidad.',
+        pattern: DATE_PATTERN,
+        description: 'YYYY-MM-DD',
+      },
+      time: {
+        type: 'string',
+        pattern: TIME_PATTERN,
+        description: 'HH:mm, hora de Bolivia',
       },
     },
-    required: ['doctorId', 'slot'],
+    required: ['doctorId', 'date', 'time'],
     additionalProperties: false,
   };
   readonly argsDto = GetBookingLinkArgsDto;
@@ -225,15 +239,18 @@ export class GetBookingLinkTool implements ChatTool<GetBookingLinkArgsDto> {
     _actor: unknown,
     args: GetBookingLinkArgsDto,
   ): Promise<unknown> {
-    const slot = new Date(args.slot);
+    // La conversión a instante la hace el backend, con el offset fijo de la
+    // clínica (Bolivia no tiene horario de verano).
+    const slotIso = new Date(
+      `${args.date}T${args.time}:00${CLINIC_UTC_OFFSET}`,
+    ).toISOString();
     const { slots } = await this.appointmentsService.getAvailability(
       args.doctorId,
-      clinicDate(slot),
+      args.date,
     );
     // Solo un horario que hoy esté libre en la grilla del doctor. No se crea
     // ningún hold acá: lo crea el flujo de reserva cuando el usuario abre el
     // link, así una charla abandonada no bloquea horarios.
-    const slotIso = slot.toISOString();
     if (!slots.includes(slotIso)) {
       return { error: 'slot_unavailable' };
     }
@@ -243,11 +260,24 @@ export class GetBookingLinkTool implements ChatTool<GetBookingLinkArgsDto> {
     );
     url.searchParams.set('slot', slotIso);
     url.searchParams.set('doctorId', args.doctorId);
-    return {
-      url: url.toString(),
-      date: clinicDate(slot),
-      time: clinicTime(slot),
-    };
+    // La URL no pasa por el modelo (podría recortarla): va como link aparte
+    // y el backend la agrega debajo de la respuesta.
+    return new ToolOutputWithLinks(
+      {
+        date: args.date,
+        time: args.time,
+        linkNote:
+          'El link de reserva se agrega solo debajo de tu respuesta: no escribas ninguna URL. La cita todavía NO está reservada: queda reservada recién cuando el usuario complete sus datos y el pago por QR en ese link.',
+      },
+      [
+        {
+          // El texto del botón lo pone el backend: deja claro que falta pagar
+          // aunque el modelo diga otra cosa.
+          label: `Completar reserva y pago (${ddmm(args.date)}, ${args.time})`,
+          url: url.toString(),
+        },
+      ],
+    );
   }
 }
 

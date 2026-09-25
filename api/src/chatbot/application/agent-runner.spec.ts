@@ -37,6 +37,7 @@ function toolsPort(
     toolName: call.name,
     status: 'ok',
     content: JSON.stringify({ data: { tool: call.name } }),
+    links: [],
   }),
 ) {
   const port = {
@@ -219,6 +220,7 @@ describe('AgentRunner', () => {
       toolName: call.name,
       status: 'denied',
       content: JSON.stringify({ error: 'not_allowed' }),
+      links: [],
     }));
 
     const result = await run(llm, tools);
@@ -294,5 +296,84 @@ describe('AgentRunner', () => {
 
     expect(result.usage).toEqual({ promptTokens: 0, completionTokens: 0 });
     expect(result.llmLatencyMs).toBeGreaterThanOrEqual(0);
+  });
+
+  describe('links', () => {
+    const BOOKING_URL =
+      'http://localhost:4200/reservar?slot=2026-09-26T14%3A00%3A00.000Z&doctorId=ac984e91-3391-4729-93e8-a89a495b7053';
+
+    function bookingPort() {
+      return toolsPort((call) => ({
+        toolName: call.name,
+        status: 'ok',
+        content: JSON.stringify({ date: '2026-09-26', time: '10:00' }),
+        links:
+          call.name === 'get_booking_link'
+            ? [
+                {
+                  label: 'Reservar el 2026-09-26 a las 10:00',
+                  url: BOOKING_URL,
+                },
+              ]
+            : [],
+      }));
+    }
+
+    it('devuelve los links de las tools aparte del texto, sin repetir', async () => {
+      const llm = new FakeLlmProvider([
+        toolCallResponse({ name: 'get_booking_link' }),
+        toolCallResponse({ name: 'get_booking_link' }),
+        textResponse('Listo, te dejo el link para reservar.'),
+      ]);
+
+      const result = await run(llm, bookingPort());
+
+      expect(result.reply).toBe('Listo, te dejo el link para reservar.');
+      expect(result.links).toEqual([
+        { label: 'Reservar el 2026-09-26 a las 10:00', url: BOOKING_URL },
+      ]);
+    });
+
+    it('saca del texto un link de reserva recortado por el modelo (lo que pasó en vivo)', async () => {
+      const llm = new FakeLlmProvider([
+        toolCallResponse({ name: 'get_booking_link' }),
+        textResponse(
+          'Puedes reservar a las 10:00 en el siguiente enlace: http://localhost:4200/reservar?slot=2026-09-26T14:00:00.000Z&doctorId=ac984e1...\nCualquier duda, avísame.',
+        ),
+      ]);
+
+      const result = await run(llm, bookingPort());
+
+      expect(result.reply).toBe(
+        'Puedes reservar a las 10:00 en el siguiente enlace:\nCualquier duda, avísame.',
+      );
+      expect(result.reply).not.toContain('/reservar');
+      expect(result.links).toHaveLength(1);
+    });
+
+    it('si la respuesta era solo el link, contesta una frase corta y conserva el link', async () => {
+      const llm = new FakeLlmProvider([
+        toolCallResponse({ name: 'get_booking_link' }),
+        textResponse(BOOKING_URL),
+      ]);
+
+      const result = await run(llm, bookingPort(), { locale: 'en' });
+
+      expect(result.reply).toBe('Here is the link below.');
+      expect(result.errorCode).toBeNull();
+      expect(result.links).toHaveLength(1);
+    });
+
+    it('con fallback no devuelve links', async () => {
+      const llm = new FakeLlmProvider([
+        toolCallResponse({ name: 'get_booking_link' }),
+        new LlmUnavailableError(),
+      ]);
+
+      const result = await run(llm, bookingPort());
+
+      expect(result.errorCode).toBe('llm_unavailable');
+      expect(result.links).toEqual([]);
+    });
   });
 });

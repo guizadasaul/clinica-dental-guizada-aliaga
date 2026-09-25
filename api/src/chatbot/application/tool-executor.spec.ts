@@ -8,6 +8,7 @@ import { ClassValidatorToolArgsValidator } from '../infrastructure/tools/class-v
 import { IsIn } from 'class-validator';
 import { ToolExecutor } from './tool-executor';
 import { ToolRegistry } from './tool-registry';
+import { ToolOutputWithLinks } from '../domain/ChatLink';
 
 class NoArgs {}
 
@@ -109,6 +110,7 @@ describe('ToolExecutor', () => {
       toolName: 'get_clinic_info',
       status: 'ok',
       content: JSON.stringify({ name: 'Clínica' }),
+      links: [],
     });
   });
 
@@ -141,6 +143,7 @@ describe('ToolExecutor', () => {
       toolName: 'query_database',
       status: 'error',
       content: JSON.stringify({ error: 'unknown_tool' }),
+      links: [],
     });
   });
 
@@ -227,6 +230,7 @@ describe('ToolExecutor', () => {
       toolName: 'get_faq',
       status: 'error',
       content: JSON.stringify({ error: code }),
+      links: [],
     });
     expect(errorSpy).not.toHaveBeenCalled();
   });
@@ -276,6 +280,28 @@ describe('ToolExecutor', () => {
     expect(result.status).toBe('ok');
     expect(parsed.truncated).toBe(true);
     expect(parsed.partial).toHaveLength(50);
+  });
+
+  it('separa los links de una ToolOutputWithLinks: solo data va al modelo', async () => {
+    const withLinks = tool('get_booking_link', () =>
+      Promise.resolve(
+        new ToolOutputWithLinks({ date: '2026-09-26', time: '10:00' }, [
+          { label: 'Reservar', url: 'http://localhost:4200/reservar?x=1' },
+        ]),
+      ),
+    );
+
+    const result = await executor(withLinks).execute(
+      anonymous,
+      call('get_booking_link'),
+    );
+
+    expect(result).toEqual({
+      toolName: 'get_booking_link',
+      status: 'ok',
+      content: JSON.stringify({ date: '2026-09-26', time: '10:00' }),
+      links: [{ label: 'Reservar', url: 'http://localhost:4200/reservar?x=1' }],
+    });
   });
 
   it('serializa un resultado undefined como null', async () => {
