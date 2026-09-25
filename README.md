@@ -523,9 +523,21 @@ Los formularios públicos de escritura tienen límite de peticiones por IP y hor
 
 Con el stack en Docker: `docker compose exec api npm test` y `docker compose exec frontend npm test`.
 
+### Ramas y ambientes
+
+| Rama | Ambiente |
+|------|----------|
+| `develop` (rama por defecto) | staging |
+| `main` | producción |
+
+El trabajo nuevo sale de `develop` y vuelve a `develop` por pull request. A `main` solo llega un
+pull request `develop → main` cuando staging está probado. Un arreglo urgente de producción sale de
+`main` como `hotfix/*`, entra a `main` por pull request y después se integra de vuelta en `develop`.
+Las dos ramas están protegidas: pull request obligatorio, sin force-push ni borrado.
+
 ### Integración continua
 
-`.github/workflows/ci.yml` corre en cada pull request y en cada push a `main`, sobre un runner
+`.github/workflows/ci.yml` corre en cada pull request y en cada push a `main` o `develop`, sobre un runner
 self-hosted, con tres jobs:
 
 - **api**: `npm ci`, `prisma generate`, `npm run test:cov` y análisis de SonarQube con quality gate.
