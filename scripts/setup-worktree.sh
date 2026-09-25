@@ -19,20 +19,27 @@ fi
 
 echo "Preparando worktree en $CURRENT_ROOT..."
 
-# Si la rama del worktree nace desde un main local desactualizado (por
+# Si la rama del worktree nace desde una base local desactualizada (por
 # ejemplo porque Orca u otro flujo la crea a partir de la rama `main` local
-# sin haber hecho fetch antes), esto la pone al día con origin/main. Solo
-# actúa si la rama todavía no tiene commits propios encima de origin/main
-# (HEAD == merge-base): en ese caso mover HEAD es un fast-forward puro, sin
-# riesgo de pisar nada. Si la rama ya tiene commits propios, no toca nada.
-git fetch origin main --quiet 2>/dev/null
-if git rev-parse --verify -q origin/main >/dev/null 2>&1; then
+# sin haber hecho fetch antes), esto la pone al día con su rama base remota:
+# origin/develop para el trabajo normal (develop → staging), origin/main solo
+# para hotfix/* (main → producción; un hotfix nunca debe arrastrar lo que
+# todavía no salió de develop). Solo actúa si la rama todavía no tiene
+# commits propios encima de esa base (HEAD == merge-base): en ese caso mover
+# HEAD es un fast-forward puro, sin riesgo de pisar nada. Si la rama ya tiene
+# commits propios, no toca nada.
+case "$(git rev-parse --abbrev-ref HEAD)" in
+  hotfix/*) base_branch="main" ;;
+  *) base_branch="develop" ;;
+esac
+git fetch origin "$base_branch" --quiet 2>/dev/null
+if git rev-parse --verify -q "origin/$base_branch" >/dev/null 2>&1; then
   head_sha="$(git rev-parse HEAD)"
-  origin_sha="$(git rev-parse origin/main)"
-  merge_base="$(git merge-base HEAD origin/main 2>/dev/null || true)"
+  origin_sha="$(git rev-parse "origin/$base_branch")"
+  merge_base="$(git merge-base HEAD "origin/$base_branch" 2>/dev/null || true)"
   if [ "$head_sha" != "$origin_sha" ] && [ "$head_sha" = "$merge_base" ]; then
-    if git merge --ff-only origin/main --quiet 2>/dev/null; then
-      echo "  rama actualizada a origin/main ($origin_sha)"
+    if git merge --ff-only "origin/$base_branch" --quiet 2>/dev/null; then
+      echo "  rama actualizada a origin/$base_branch ($origin_sha)"
     fi
   fi
 fi
