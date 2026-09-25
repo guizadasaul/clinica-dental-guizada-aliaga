@@ -21,6 +21,11 @@ jobs:
 
   api:
     runs-on: self-hosted
+    # Corre en el runner propio (la Mac de desarrollo): nunca con código de un
+    # fork. En un PR desde un fork este job se saltea; solo corre en PRs de
+    # ramas del propio repo y en push a develop/main. Además, Settings →
+    # Actions exige aprobación manual para cualquier contribuidor externo.
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     env:
       SONAR_HOST_URL: ${{ vars.SONAR_HOST_URL }}
       SONAR_TOKEN: ${{ secrets.SONAR_TOKEN_API }}
@@ -44,6 +49,11 @@ jobs:
 
   frontend:
     runs-on: self-hosted
+    # Corre en el runner propio (la Mac de desarrollo): nunca con código de un
+    # fork. En un PR desde un fork este job se saltea; solo corre en PRs de
+    # ramas del propio repo y en push a develop/main. Además, Settings →
+    # Actions exige aprobación manual para cualquier contribuidor externo.
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     env:
       SONAR_HOST_URL: ${{ vars.SONAR_HOST_URL }}
       SONAR_TOKEN: ${{ secrets.SONAR_TOKEN_FRONTEND }}
@@ -65,6 +75,11 @@ jobs:
 
   e2e:
     runs-on: self-hosted
+    # Corre en el runner propio (la Mac de desarrollo): nunca con código de un
+    # fork. En un PR desde un fork este job se saltea; solo corre en PRs de
+    # ramas del propio repo y en push a develop/main. Además, Settings →
+    # Actions exige aprobación manual para cualquier contribuidor externo.
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     env:
       DATABASE_URL: postgresql://postgres:postgres@localhost:5444/cga_e2e_ci?schema=public
       # Placeholder, no un proyecto real de Supabase — SupabaseJwtVerifier
