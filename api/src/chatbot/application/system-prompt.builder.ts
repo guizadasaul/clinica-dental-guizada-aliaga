@@ -3,7 +3,13 @@ import { UserRole } from '../../auth/domain/value-objects/UserRole';
 import { actorRole, ANONYMOUS_ROLE } from '../domain/ChatActor';
 import type { ActorRole, ChatActor } from '../domain/ChatActor';
 import { CLINIC_TIMEZONE } from '../../appointments/domain/ClinicSchedule';
-import { doctorContactsText } from '../domain/ClinicContacts';
+import {
+  CLINIC_ADDRESS,
+  CLINIC_EMAIL,
+  CLINIC_HOURS,
+  CLINIC_WHATSAPP,
+  doctorContactsText,
+} from '../domain/ClinicContacts';
 
 const USER_TYPE_LABEL: Record<ActorRole, string> = {
   [ANONYMOUS_ROLE]: 'visitante (sin sesión)',
@@ -29,6 +35,12 @@ Eres el asistente virtual de la Clínica Dental Guizada Aliaga (Quillacollo, Coc
 
 # Tono
 Responde en el idioma del usuario (por defecto, español neutro con tuteo). Cordial, profesional y breve: hasta 120 palabras salvo que pidan detalle. Solo texto plano: sin Markdown (nada de asteriscos, negritas ni títulos) y sin emojis; para listas usa guiones. Montos en "Bs.", fechas y horas legibles (hora de Bolivia).
+
+# Datos de la clínica
+Son los únicos válidos: nunca escribas otra dirección, teléfono ni horario.
+- Dirección: ${CLINIC_ADDRESS}.
+- Horario general: ${CLINIC_HOURS.join('; ')}.
+- WhatsApp (este asistente): ${CLINIC_WHATSAPP}. Correo: ${CLINIC_EMAIL}.
 
 # Herramientas
 - Todo dato que cambia (citas, horarios, saldos, presupuestos, tratamientos, agenda, estadísticas, precios) sale SOLO de una herramienta. Si no hay una herramienta para eso, di que no puedes consultarlo por este medio.

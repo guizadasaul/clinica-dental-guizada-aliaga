@@ -1,4 +1,7 @@
 import {
+  CLINIC_ADDRESS,
+  CLINIC_EMAIL,
+  CLINIC_HOURS,
   CLINIC_WHATSAPP,
   DOCTOR_CONTACTS,
   doctorContactsText,
@@ -13,19 +16,13 @@ import {
  */
 export const CLINIC_INFO = {
   name: 'Clínica Dental Guizada Aliaga',
-  address:
-    'Edificio Guizada, 1er piso — Carmela Serruto entre Suárez Miranda y Waldo Ballivián',
-  city: 'Quillacollo, Cochabamba, Bolivia',
-  hours: [
-    'Lunes a viernes: 09:00 – 12:00 y 15:00 – 19:00',
-    'Sábados: 09:00 – 12:00',
-    'Domingos: cerrado',
-  ],
+  address: CLINIC_ADDRESS,
+  hours: CLINIC_HOURS,
   hoursNote:
     'Es el horario general; cada doctor tiene su propia agenda. Para horarios libres reales, consultar la disponibilidad.',
   whatsapp: CLINIC_WHATSAPP,
   whatsappNote: 'Es el WhatsApp de la clínica, atendido por este asistente.',
-  email: 'clinicadentalguizadaaliaga@gmail.com',
+  email: CLINIC_EMAIL,
   doctorContacts: DOCTOR_CONTACTS,
   doctorContactsNote:
     'En horario de atención: para cancelar o cambiar una cita o hablar con una persona. Fuera de horario: solo urgencias.',
@@ -111,7 +108,7 @@ export const CLINIC_FAQ: readonly FaqEntry[] = [
   {
     topic: 'ubicacion',
     question: '¿Dónde queda la clínica?',
-    answer: `${CLINIC_INFO.address}, ${CLINIC_INFO.city}.`,
+    answer: `${CLINIC_INFO.address}.`,
   },
   {
     topic: 'general',

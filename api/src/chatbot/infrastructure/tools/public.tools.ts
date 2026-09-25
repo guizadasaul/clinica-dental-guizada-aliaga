@@ -9,6 +9,7 @@ import {
   CLINIC_INFO,
   FAQ_TOPICS,
 } from '../knowledge/clinic-info.js';
+import { CLINIC_UTC_OFFSET } from '../../../appointments/domain/ClinicSchedule.js';
 import { clinicDate, clinicTime, normalizeText } from './clinic-time.js';
 import {
   GetAvailableSlotsArgsDto,
@@ -23,6 +24,7 @@ const NO_PARAMETERS: JsonSchema = {
   additionalProperties: false,
 };
 const DATE_PATTERN = String.raw`^\d{4}-\d{2}-\d{2}$`;
+const TIME_PATTERN = String.raw`^([01]\d|2[0-3]):[0-5]\d$`;
 /**
  * DTO de las tools sin argumentos: Object no tiene propiedades declaradas, así
  * que el validador (forbidNonWhitelisted) rechaza cualquier campo que llegue.
@@ -203,18 +205,23 @@ export class GetAvailableSlotsTool implements ChatTool<GetAvailableSlotsArgsDto>
 export class GetBookingLinkTool implements ChatTool<GetBookingLinkArgsDto> {
   readonly name = 'get_booking_link';
   readonly description =
-    'Link a la página de reserva con el doctor y el horario ya elegidos (el pago y la confirmación se hacen ahí). Solo para un horario libre devuelto por get_available_slots.';
+    'Link a la página de reserva con el doctor y el horario ya elegidos (el pago y la confirmación se hacen ahí). Usa la fecha y la hora exactamente como las devuelve get_available_slots (hora de Bolivia).';
   readonly parameters: JsonSchema = {
     type: 'object',
     properties: {
       doctorId: { type: 'string', format: 'uuid' },
-      slot: {
+      date: {
         type: 'string',
-        description:
-          'Inicio del turno en ISO 8601, tal como lo devuelve la disponibilidad.',
+        pattern: DATE_PATTERN,
+        description: 'YYYY-MM-DD',
+      },
+      time: {
+        type: 'string',
+        pattern: TIME_PATTERN,
+        description: 'HH:mm, hora de Bolivia',
       },
     },
-    required: ['doctorId', 'slot'],
+    required: ['doctorId', 'date', 'time'],
     additionalProperties: false,
   };
   readonly argsDto = GetBookingLinkArgsDto;
@@ -225,15 +232,18 @@ export class GetBookingLinkTool implements ChatTool<GetBookingLinkArgsDto> {
     _actor: unknown,
     args: GetBookingLinkArgsDto,
   ): Promise<unknown> {
-    const slot = new Date(args.slot);
+    // La conversión a instante la hace el backend, con el offset fijo de la
+    // clínica (Bolivia no tiene horario de verano).
+    const slotIso = new Date(
+      `${args.date}T${args.time}:00${CLINIC_UTC_OFFSET}`,
+    ).toISOString();
     const { slots } = await this.appointmentsService.getAvailability(
       args.doctorId,
-      clinicDate(slot),
+      args.date,
     );
     // Solo un horario que hoy esté libre en la grilla del doctor. No se crea
     // ningún hold acá: lo crea el flujo de reserva cuando el usuario abre el
     // link, así una charla abandonada no bloquea horarios.
-    const slotIso = slot.toISOString();
     if (!slots.includes(slotIso)) {
       return { error: 'slot_unavailable' };
     }
@@ -243,11 +253,7 @@ export class GetBookingLinkTool implements ChatTool<GetBookingLinkArgsDto> {
     );
     url.searchParams.set('slot', slotIso);
     url.searchParams.set('doctorId', args.doctorId);
-    return {
-      url: url.toString(),
-      date: clinicDate(slot),
-      time: clinicTime(slot),
-    };
+    return { url: url.toString(), date: args.date, time: args.time };
   }
 }
 

@@ -301,7 +301,7 @@ describe('public tools', () => {
       );
     const SLOT = '2026-10-05T13:00:00.000Z';
 
-    it('arma el link a /reservar con FRONTEND_URL cuando el horario está libre', async () => {
+    it('convierte la hora local de Bolivia (UTC-4) y arma el link a /reservar con FRONTEND_URL', async () => {
       process.env['FRONTEND_URL'] = 'https://clinica.example.com';
       appointmentsService.getAvailability.mockResolvedValue({
         date: '2026-10-05',
@@ -310,7 +310,8 @@ describe('public tools', () => {
 
       const result = await tool().execute(anonymous, {
         doctorId: DOCTOR_A,
-        slot: '2026-10-05T09:00:00-04:00',
+        date: '2026-10-05',
+        time: '09:00',
       });
 
       expect(appointmentsService.getAvailability).toHaveBeenCalledWith(
@@ -332,7 +333,8 @@ describe('public tools', () => {
 
       const result = (await tool().execute(anonymous, {
         doctorId: DOCTOR_A,
-        slot: SLOT,
+        date: '2026-10-05',
+        time: '09:00',
       })) as { url: string };
 
       expect(result.url.startsWith('http://localhost:4200/reservar?')).toBe(
@@ -347,8 +349,30 @@ describe('public tools', () => {
       });
 
       await expect(
-        tool().execute(anonymous, { doctorId: DOCTOR_A, slot: SLOT }),
+        tool().execute(anonymous, {
+          doctorId: DOCTOR_A,
+          date: '2026-10-05',
+          time: '09:00',
+        }),
       ).resolves.toEqual({ error: 'slot_unavailable' });
+    });
+
+    it('interpreta la hora como hora de Bolivia, no UTC (el bug que se vio en vivo)', async () => {
+      // 10:00 en La Paz = 14:00 UTC. Si se tomara como UTC, no coincidiría.
+      appointmentsService.getAvailability.mockResolvedValue({
+        date: '2026-09-26',
+        slots: ['2026-09-26T14:00:00.000Z'],
+      });
+
+      const result = (await tool().execute(anonymous, {
+        doctorId: DOCTOR_A,
+        date: '2026-09-26',
+        time: '10:00',
+      })) as { url: string };
+
+      expect(result.url).toContain(
+        encodeURIComponent('2026-09-26T14:00:00.000Z'),
+      );
     });
   });
 
@@ -369,14 +393,25 @@ describe('public tools', () => {
       ).resolves.toEqual({ ok: false, fields: ['from'] });
     });
 
-    it('get_booking_link exige un doctorId UUID y un slot ISO', async () => {
+    it('get_booking_link exige un doctorId UUID, fecha YYYY-MM-DD y hora HH:mm', async () => {
       const tool = new GetBookingLinkTool(
         appointmentsService as unknown as AppointmentsService,
       );
 
       await expect(
-        validator.validate(tool.argsDto, { doctorId: 'x', slot: 'mañana' }),
-      ).resolves.toEqual({ ok: false, fields: ['doctorId', 'slot'] });
+        validator.validate(tool.argsDto, {
+          doctorId: 'x',
+          date: 'mañana',
+          time: '25:00',
+        }),
+      ).resolves.toEqual({ ok: false, fields: ['doctorId', 'date', 'time'] });
+      await expect(
+        validator.validate(tool.argsDto, {
+          doctorId: DOCTOR_A,
+          date: '2026-09-26',
+          time: '10:00',
+        }),
+      ).resolves.toMatchObject({ ok: true });
     });
 
     it('las tools sin argumentos aceptan {} y rechazan cualquier campo', async () => {
