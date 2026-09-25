@@ -339,5 +339,29 @@
         "googleFailed": "We couldn't sign you in with Google. Please try again."
       }
     }
+  },
+  "chatbot": {
+    "title": "Virtual assistant",
+    "subtitle": "Guizada Aliaga Dental Clinic",
+    "open": "Open the virtual assistant",
+    "close": "Close the assistant",
+    "clear": "Delete conversation",
+    "send": "Send message",
+    "inputLabel": "Your message to the assistant",
+    "placeholder": "Type your question…",
+    "typing": "Typing…",
+    "privacy": "We keep the conversation for 30 days. Don't share sensitive data.",
+    "welcome": {
+      "guest": "Hi! I'm the clinic's assistant. I can tell you about opening hours, services and prices, and help you book an appointment.",
+      "patient": "Hi! You can ask me about your upcoming appointments, your quotes or your pending balance.",
+      "doctor": "Hi! I can show you your schedule, your next patient, your patients and your monthly numbers.",
+      "admin": "Hi! I can give you the clinic reports, today's schedule and the most performed treatments."
+    },
+    "errors": {
+      "limit": "You've reached the message limit for now. Please try again later.",
+      "unavailable": "The assistant isn't available right now. During office hours you can message Dr. Ariel Guizada (+591 674 02602) or Dr. Marylu Aliaga (+591 577 29544).",
+      "generic": "I couldn't send your message. Check your connection and try again.",
+      "clear": "I couldn't delete the conversation. Please try again."
+    }
   }
 }

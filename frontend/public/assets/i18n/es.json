@@ -339,5 +339,29 @@
         "googleFailed": "No se pudo iniciar sesión con Google. Intentá nuevamente."
       }
     }
+  },
+  "chatbot": {
+    "title": "Asistente virtual",
+    "subtitle": "Clínica Dental Guizada Aliaga",
+    "open": "Abrir el asistente virtual",
+    "close": "Cerrar el asistente",
+    "clear": "Borrar conversación",
+    "send": "Enviar mensaje",
+    "inputLabel": "Tu mensaje para el asistente",
+    "placeholder": "Escribí tu consulta…",
+    "typing": "Escribiendo…",
+    "privacy": "Guardamos la conversación 30 días. No compartas datos sensibles.",
+    "welcome": {
+      "guest": "¡Hola! Soy el asistente de la clínica. Puedo contarte horarios, servicios y precios, y ayudarte a reservar una cita.",
+      "patient": "¡Hola! Podés preguntarme por tus próximas citas, tus presupuestos o tu saldo pendiente.",
+      "doctor": "¡Hola! Puedo mostrarte tu agenda, tu próximo paciente, tus pacientes y tus números del mes.",
+      "admin": "¡Hola! Puedo darte los reportes de la clínica, la agenda del día y los tratamientos más realizados."
+    },
+    "errors": {
+      "limit": "Alcanzaste el límite de mensajes por ahora. Probá de nuevo más tarde.",
+      "unavailable": "El asistente no está disponible en este momento. En horario de atención podés escribir a Dr. Ariel Guizada (+591 674 02602) o Dra. Marylu Aliaga (+591 577 29544).",
+      "generic": "No pude enviar tu mensaje. Revisá tu conexión y probá de nuevo.",
+      "clear": "No pude borrar la conversación. Probá de nuevo."
+    }
   }
 }
