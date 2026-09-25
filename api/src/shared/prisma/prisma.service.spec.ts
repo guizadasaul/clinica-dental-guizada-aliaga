@@ -21,6 +21,7 @@ const tables = Object.entries(
 const client = {
   ...Object.fromEntries(tables.map((table) => [table, { delegate: table }])),
   $transaction: jest.fn((fn: (tx: unknown) => unknown) => fn('tx')),
+  $queryRaw: jest.fn().mockResolvedValue([{ '?column?': 1 }]),
   $connect: jest.fn(),
   $disconnect: jest.fn(),
 };
@@ -66,6 +67,14 @@ describe('PrismaService', () => {
 
     await expect(service.transaction(fn)).resolves.toBe('ok');
     expect(fn).toHaveBeenCalledWith('tx');
+  });
+
+  it('ping hace un SELECT 1 contra la base', async () => {
+    await service.ping();
+
+    expect(client.$queryRaw).toHaveBeenCalledTimes(1);
+    const [strings] = client.$queryRaw.mock.calls[0] as [TemplateStringsArray];
+    expect(strings.join('')).toBe('SELECT 1');
   });
 
   it('conecta al iniciar el módulo y desconecta al cerrarlo', async () => {

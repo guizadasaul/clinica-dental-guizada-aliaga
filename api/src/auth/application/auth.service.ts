@@ -1,4 +1,10 @@
-import { Injectable, Inject, Logger, NotFoundException } from '@nestjs/common';
+import {
+  ForbiddenException,
+  Injectable,
+  Inject,
+  Logger,
+  NotFoundException,
+} from '@nestjs/common';
 import type { AuthenticatedUser } from '../domain/AuthenticatedUser';
 import { User } from '../domain/User';
 import { UserRepository } from '../domain/UserRepository';
@@ -92,12 +98,21 @@ export class AuthService {
   }
 
   /**
-   * Self-registro por teléfono (CLI-27): crea la identidad de Supabase Auth
-   * directo vía Admin API, sin SMS. No toca users/patients — la fila se crea
-   * sola en el próximo POST /auth/sync (mismo pipeline y mismo gate de "sin
-   * ficha" que cualquier otro login sin invitación).
+   * Registro por teléfono (CLI-27): crea la identidad de Supabase Auth
+   * directo vía Admin API, sin SMS. Solo con una invitación vigente — el
+   * token se verifica acá pero NO se canjea: lo canjea el POST /auth/sync
+   * que el frontend dispara apenas inicia sesión con la cuenta nueva, que es
+   * donde se vincula la identidad con la fila de users/patients.
    */
-  async registerWithPhone(phone: string, password: string): Promise<void> {
+  async registerWithPhone(
+    phone: string,
+    password: string,
+    inviteToken: string,
+  ): Promise<void> {
+    const invite = await this.patientInvitesService.checkStatus(inviteToken);
+    if (!invite.valid) {
+      throw new ForbiddenException('La invitación no es válida o ya venció');
+    }
     await this.supabaseAdminService.createPhoneUser(
       toE164Bolivia(phone),
       password,

@@ -1,4 +1,4 @@
-import { NotFoundException } from '@nestjs/common';
+import { ForbiddenException, NotFoundException } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { AuthService } from './auth.service';
 import { UserRepository } from '../domain/UserRepository';
@@ -206,25 +206,50 @@ describe('AuthService', () => {
 
   describe('registerWithPhone', () => {
     it('normalizes the phone to E.164 before creating the Supabase user', async () => {
+      mockPatientInvitesService.checkStatus.mockResolvedValue({ valid: true });
       mockSupabaseAdminService.createPhoneUser.mockResolvedValue({
         authUserId: 'new-uid',
       });
 
-      await service.registerWithPhone('71234567', 'secret123');
+      await service.registerWithPhone('71234567', 'secret123', 'invite-token');
 
+      expect(mockPatientInvitesService.checkStatus).toHaveBeenCalledWith(
+        'invite-token',
+      );
       expect(mockSupabaseAdminService.createPhoneUser).toHaveBeenCalledWith(
         '+59171234567',
         'secret123',
       );
     });
 
+    it('does not redeem the invite (POST /auth/sync does it after login)', async () => {
+      mockPatientInvitesService.checkStatus.mockResolvedValue({ valid: true });
+      mockSupabaseAdminService.createPhoneUser.mockResolvedValue({
+        authUserId: 'new-uid',
+      });
+
+      await service.registerWithPhone('71234567', 'secret123', 'invite-token');
+
+      expect(mockPatientInvitesService.redeem).not.toHaveBeenCalled();
+    });
+
+    it('rejects with ForbiddenException and creates nothing when the invite is not valid', async () => {
+      mockPatientInvitesService.checkStatus.mockResolvedValue({ valid: false });
+
+      await expect(
+        service.registerWithPhone('71234567', 'secret123', 'expired-token'),
+      ).rejects.toThrow(ForbiddenException);
+      expect(mockSupabaseAdminService.createPhoneUser).not.toHaveBeenCalled();
+    });
+
     it('propagates errors from SupabaseAdminService (e.g. duplicate phone)', async () => {
+      mockPatientInvitesService.checkStatus.mockResolvedValue({ valid: true });
       mockSupabaseAdminService.createPhoneUser.mockRejectedValue(
         new Error('Ese teléfono ya está registrado'),
       );
 
       await expect(
-        service.registerWithPhone('71234567', 'secret123'),
+        service.registerWithPhone('71234567', 'secret123', 'invite-token'),
       ).rejects.toThrow('Ese teléfono ya está registrado');
     });
   });

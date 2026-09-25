@@ -178,7 +178,7 @@ describe('InvitationLandingComponent', () => {
       (el<HTMLFormElement>(harness, '.auth-form')).dispatchEvent(new Event('submit'));
       await settle(harness);
 
-      expect(auth.registerWithPhone).toHaveBeenCalledWith('+59170011122', PASSWORD);
+      expect(auth.registerWithPhone).toHaveBeenCalledWith('+59170011122', PASSWORD, 'tok-1');
       expect(auth.waitForSync).toHaveBeenCalled();
       expect(navigate).toHaveBeenCalledWith('/dashboard');
     });

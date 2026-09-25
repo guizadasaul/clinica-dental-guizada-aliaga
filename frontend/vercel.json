@@ -1,0 +1,37 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": null,
+  "installCommand": "npm ci",
+  "buildCommand": "if [ \"$VERCEL_GIT_COMMIT_REF\" = \"main\" ]; then npx ng build --configuration production; else npx ng build --configuration staging; fi",
+  "outputDirectory": "dist/Clinica_Guizada_Aliaga_Frontend/browser",
+  "ignoreCommand": "if [ \"$VERCEL_GIT_COMMIT_REF\" = \"develop\" ]; then exit 1; else exit 0; fi",
+  "rewrites": [
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
+    }
+  ],
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        {
+          "key": "X-Content-Type-Options",
+          "value": "nosniff"
+        },
+        {
+          "key": "X-Frame-Options",
+          "value": "DENY"
+        },
+        {
+          "key": "Referrer-Policy",
+          "value": "strict-origin-when-cross-origin"
+        },
+        {
+          "key": "Permissions-Policy",
+          "value": "camera=(), microphone=(), geolocation=()"
+        }
+      ]
+    }
+  ]
+}

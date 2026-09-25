@@ -168,6 +168,27 @@ describe('AuthService', () => {
     httpMock.verify();
   });
 
+  it('registerWithPhone manda el token de invitación junto con el teléfono y la contraseña', async () => {
+    const { service, httpMock, fakeSupabase } = setup();
+    const signInWithPassword = vi.fn().mockResolvedValue({ error: null });
+    Object.assign(fakeSupabase.client.auth, { signInWithPassword });
+
+    const done = service.registerWithPhone('+59170011122', 'una-clave-segura', 'tok-1');
+    const req = httpMock.expectOne((r) => r.url.endsWith('/auth/register/phone'));
+    expect(req.request.body).toEqual({
+      phone: '+59170011122',
+      password: 'una-clave-segura',
+      inviteToken: 'tok-1',
+    });
+    req.flush(null);
+    await done;
+
+    expect(signInWithPassword).toHaveBeenCalledWith({
+      phone: '+59170011122',
+      password: 'una-clave-segura',
+    });
+  });
+
   describe('recuperación de contraseña (CLI-42)', () => {
     it('PASSWORD_RECOVERY marca la sesión como pendiente y hasRecoverySession() la reconoce', async () => {
       const { service, fakeSupabase } = setup();

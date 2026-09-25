@@ -6,6 +6,7 @@ import { INJECTION_PAYLOADS } from '../../../../shared/validators/__fixtures__/i
 const VALID_REGISTRATION = {
   phone: '+59177842665',
   password: 'una-contraseña-segura',
+  inviteToken: 'token-de-invitacion',
 };
 
 async function validateRegistration(
@@ -27,6 +28,20 @@ describe('RegisterPhoneDto', () => {
   it('rechaza una contraseña de menos de 8 caracteres', async () => {
     const errors = await validateRegistration({ password: '1234567' });
     expect(errors.some((e) => e.property === 'password')).toBe(true);
+  });
+
+  it('rechaza un registro sin token de invitación', async () => {
+    const dto = plainToInstance(RegisterPhoneDto, {
+      phone: VALID_REGISTRATION.phone,
+      password: VALID_REGISTRATION.password,
+    });
+    const errors = await validate(dto);
+    expect(errors.some((e) => e.property === 'inviteToken')).toBe(true);
+  });
+
+  it('rechaza un token de invitación de más de 400 caracteres', async () => {
+    const errors = await validateRegistration({ inviteToken: 'a'.repeat(401) });
+    expect(errors.some((e) => e.property === 'inviteToken')).toBe(true);
   });
 
   it('acepta una contraseña de exactamente 8 caracteres', async () => {

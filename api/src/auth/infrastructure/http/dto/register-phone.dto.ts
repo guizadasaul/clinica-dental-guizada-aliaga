@@ -24,4 +24,12 @@ export class RegisterPhoneDto {
   @MinLength(8)
   @MaxLength(72)
   password!: string;
+
+  // Solo se crea una cuenta con el link de invitación del odontólogo: sin un
+  // token vigente, el registro se rechaza antes de tocar Supabase Auth (así
+  // el endpoint tampoco sirve para averiguar qué teléfonos ya existen).
+  // Mismo límite de largo que SyncUserDto.inviteToken.
+  @IsString()
+  @MaxLength(400)
+  inviteToken!: string;
 }
