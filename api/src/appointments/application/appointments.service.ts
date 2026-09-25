@@ -23,6 +23,7 @@ import type {
   IAppointmentRepository,
 } from '../domain/AppointmentRepository.js';
 import type { AppointmentWithPatient } from '../domain/AppointmentWithPatient.js';
+import type { PatientAppointment } from '../domain/PatientAppointment.js';
 import {
   buildSlotsForDate,
   groupBlocksByWeekday,
@@ -289,5 +290,24 @@ export class AppointmentsService {
 
   getAgenda(filters: AgendaFilters): Promise<AppointmentWithPatient[]> {
     return this.appointmentRepo.findForAgenda(filters);
+  }
+
+  /**
+   * Citas confirmadas del paciente (CLI-91, chatbot). `upcoming`: desde ahora,
+   * la más cercana primero; `past`: hasta ahora, la más reciente primero.
+   * El patientId lo resuelve quien llama a partir de la identidad autenticada.
+   */
+  getPatientAppointments(
+    patientId: string,
+    scope: 'upcoming' | 'past',
+    limit: number,
+    now: Date = new Date(),
+  ): Promise<PatientAppointment[]> {
+    return this.appointmentRepo.findForPatient(
+      patientId,
+      scope === 'upcoming'
+        ? { from: now, order: 'asc', limit }
+        : { to: now, order: 'desc', limit },
+    );
   }
 }

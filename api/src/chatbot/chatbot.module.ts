@@ -13,18 +13,20 @@ import { SystemPromptBuilder } from './application/system-prompt.builder';
 import { CHAT_TOOLS, ToolRegistry } from './application/tool-registry';
 import { ToolExecutor } from './application/tool-executor';
 import { PUBLIC_TOOLS } from './infrastructure/tools/public.tools';
+import { PATIENT_TOOLS } from './infrastructure/tools/patient.tools';
 import type { ChatTool } from './domain/ChatTool';
 import { TreatmentsModule } from '../treatments/treatments.module';
 import { DoctorsModule } from '../doctors/doctors.module';
 import { AppointmentsModule } from '../appointments/appointments.module';
 import { AuthModule } from '../auth/auth.module';
 import { PatientsModule } from '../patients/patients.module';
+import { QuotesModule } from '../quotes/quotes.module';
 import { ActorResolver } from './application/actor-resolver';
 import { ChatController } from './infrastructure/http/chat.controller';
 import { PublicChatController } from './infrastructure/http/public-chat.controller';
 
 /** Todas las tools concretas; CHAT_TOOLS las junta para el ToolRegistry. */
-const TOOL_CLASSES = [...PUBLIC_TOOLS];
+const TOOL_CLASSES = [...PUBLIC_TOOLS, ...PATIENT_TOOLS];
 
 /**
  * Chatbot con LLM + tool calling (épica CLI-81): contrato de dominio
@@ -32,13 +34,15 @@ const TOOL_CLASSES = [...PUBLIC_TOOLS];
  * agente (CLI-85/86) y la capa que se interpone entre el LLM y los services
  * (ToolRegistry + ToolExecutor, CLI-87), las tools públicas (CLI-88) y los
  * endpoints web con su resolución de identidad, cuotas y rate limit
- * (CLI-89). Las tools de paciente, doctor y admin se suman a TOOL_CLASSES
- * en las issues siguientes.
+ * (CLI-89), el hardening contra prompt injection (CLI-90) y las tools del
+ * paciente (CLI-91). Las de doctor y admin se suman a TOOL_CLASSES en las
+ * issues siguientes.
  */
 @Module({
   imports: [
     AuthModule,
     PatientsModule,
+    QuotesModule,
     TreatmentsModule,
     DoctorsModule,
     AppointmentsModule,

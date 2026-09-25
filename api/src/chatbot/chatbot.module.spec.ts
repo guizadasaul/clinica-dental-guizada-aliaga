@@ -1,6 +1,7 @@
 import { Test } from '@nestjs/testing';
 import { PrismaModule } from '../shared/prisma/prisma.module';
 import { ChatbotModule } from './chatbot.module';
+import { UserRole } from '../auth/domain/value-objects/UserRole';
 import { ChatService } from './application/chat.service';
 import { ToolExecutor } from './application/tool-executor';
 import { ToolExecutionPort } from './domain/ToolExecution';
@@ -54,5 +55,34 @@ describe('ChatbotModule', () => {
       'list_doctors',
       'list_services',
     ]);
+  });
+
+  it('registra las tools del paciente, visibles solo para un paciente', async () => {
+    const moduleRef = await Test.createTestingModule({
+      imports: [PrismaModule, ChatbotModule],
+    }).compile();
+    const port = moduleRef.get<ToolExecutor>(ToolExecutionPort);
+    const patientTools = port
+      .definitionsFor({
+        kind: 'user',
+        userId: 'u1',
+        role: UserRole.PATIENT,
+        patientId: 'p1',
+      })
+      .map((tool) => tool.name);
+
+    expect(patientTools).toEqual(
+      expect.arrayContaining([
+        'get_my_next_appointment',
+        'get_my_appointments',
+        'get_my_quotes',
+        'get_my_balance',
+        'get_my_treatments',
+        'get_my_pending_treatments',
+      ]),
+    );
+    expect(
+      port.definitionsFor({ kind: 'anonymous' }).map((tool) => tool.name),
+    ).not.toContain('get_my_balance');
   });
 });

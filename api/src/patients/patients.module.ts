@@ -9,12 +9,18 @@ import { DiagnosesModule } from '../diagnoses/diagnoses.module';
 import { MedicalConditionsModule } from '../medical-conditions/medical-conditions.module';
 
 @Module({
-  imports: [AuthModule, TreatmentsModule, DiagnosesModule, MedicalConditionsModule],
+  imports: [
+    AuthModule,
+    TreatmentsModule,
+    DiagnosesModule,
+    MedicalConditionsModule,
+  ],
   controllers: [PatientsController],
   providers: [
     PatientsService,
     { provide: PatientRepository, useClass: PrismaPatientsRepository },
   ],
-  exports: [PatientRepository],
+  // PatientsService lo usan las tools del paciente del chatbot (CLI-91).
+  exports: [PatientRepository, PatientsService],
 })
 export class PatientsModule {}

@@ -16,5 +16,7 @@ import { ExchangeRateModule } from '../exchange-rate/exchange-rate.module';
     QuotesService,
     { provide: QuoteRepository, useClass: PrismaQuotesRepository },
   ],
+  // QuotesService lo usan las tools del paciente del chatbot (CLI-91).
+  exports: [QuotesService],
 })
 export class QuotesModule {}

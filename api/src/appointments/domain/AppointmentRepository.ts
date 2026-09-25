@@ -1,5 +1,6 @@
 import type { Appointment } from './Appointment';
 import type { AppointmentWithPatient } from './AppointmentWithPatient';
+import type { PatientAppointment } from './PatientAppointment';
 
 export class SlotUnavailableError extends Error {
   constructor(message = 'El horario ya no está disponible') {
@@ -71,9 +72,22 @@ export interface AgendaFilters {
   to?: Date;
 }
 
+/** Filtros de las citas de un paciente (CLI-91). `to` es exclusivo. */
+export interface PatientAppointmentFilters {
+  from?: Date;
+  to?: Date;
+  order: 'asc' | 'desc';
+  limit: number;
+}
+
 export interface IAppointmentRepository {
   /** Agenda del doctor — citas con datos básicos del paciente embebidos. */
   findForAgenda(filters: AgendaFilters): Promise<AppointmentWithPatient[]>;
+  /** Citas CONFIRMADAS de un paciente (CLI-91): el patientId sale siempre de la identidad autenticada, nunca de un parámetro del usuario. */
+  findForPatient(
+    patientId: string,
+    filters: PatientAppointmentFilters,
+  ): Promise<PatientAppointment[]>;
   /** Citas activas (confirmed, o held vigente) de ESE doctor que se solapan con el rango dado — CLI-56: cada doctor tiene su propia agenda. */
   findActiveBetween(
     from: Date,

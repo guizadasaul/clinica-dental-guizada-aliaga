@@ -31,6 +31,7 @@ const PATIENT_TOOLS = [
   'get_my_quotes',
   'get_my_balance',
   'get_my_treatments',
+  'get_my_pending_treatments',
 ];
 const DOCTOR_TOOLS = [
   'get_my_agenda',
