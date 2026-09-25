@@ -10,6 +10,15 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # Nada de `migrate reset`/`db push`/`supabase db reset` en workflows ni en
+  # scripts de deploy (ver scripts/check-no-destructive-db-commands.sh).
+  # Runner de GitHub: no necesita nada de la máquina del runner propio.
+  db-safety:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: scripts/check-no-destructive-db-commands.sh
+
   api:
     runs-on: self-hosted
     env:

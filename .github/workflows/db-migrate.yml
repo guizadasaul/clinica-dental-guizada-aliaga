@@ -1,0 +1,113 @@
+name: DB migrate
+
+# Aplica las migraciones Prisma y el seed de catálogos a la base de un
+# ambiente remoto (el Postgres de su proyecto Supabase), y verifica el
+# resultado. Se corre a mano (Actions → DB migrate → Run workflow) o lo llama
+# el pipeline de deploy. Nunca corre nada destructivo: solo `migrate deploy`
+# (aplica lo pendiente, no borra) y seeds idempotentes.
+#
+# La connection string sale del secret DATABASE_URL del GitHub Environment
+# del ambiente: el Session pooler de Supabase tal cual lo muestra el
+# Dashboard (Connect → Session pooler), sin parámetros — este workflow le
+# agrega los de TLS.
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: Ambiente
+        type: choice
+        options: [staging, production]
+        required: true
+      seed_demo:
+        description: Sembrar además los usuarios de demo (solo staging)
+        type: boolean
+        default: false
+  workflow_call:
+    inputs:
+      environment:
+        type: string
+        required: true
+      seed_demo:
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: db-migrate-${{ inputs.environment }}
+  cancel-in-progress: false
+
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    # Los secrets salen del Environment: staging y producción no comparten
+    # ninguno, y producción puede exigir aprobación manual antes de correr.
+    environment: ${{ inputs.environment }}
+    env:
+      APP_ENV: ${{ inputs.environment }}
+      # CA raíz de Supabase (pública, versionada en api/certs/): la conexión
+      # va por TLS y verifica el certificado del pooler.
+      DATABASE_SSL_CA: ${{ github.workspace }}/api/certs/supabase-root-2021.crt
+    defaults:
+      run:
+        working-directory: api
+    steps:
+      - name: Validar entradas
+        working-directory: .
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          SEED_DEMO: ${{ inputs.seed_demo }}
+        run: |
+          if [ -z "$DATABASE_URL" ]; then
+            echo "::error::Falta el secret DATABASE_URL en el Environment '$APP_ENV'"
+            exit 1
+          fi
+          case "$DATABASE_URL" in
+            *\?*)
+              echo "::error::DATABASE_URL no debe traer parámetros (?...): este workflow agrega los de TLS"
+              exit 1
+              ;;
+          esac
+          if [ "$SEED_DEMO" = "true" ] && [ "$APP_ENV" = "production" ]; then
+            echo "::error::Los usuarios de demo nunca se siembran en producción"
+            exit 1
+          fi
+
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: api/package-lock.json
+
+      - run: npm ci
+
+      - run: npx prisma generate
+
+      # El motor de migraciones de Prisma no es node-pg: no lee
+      # DATABASE_SSL_CA, se configura por la URL. `sslcert` + `sslaccept=strict`
+      # es la combinación que verifica de verdad contra la CA (sslrootcert y
+      # verify-full se ignoran y aceptan cualquier certificado).
+      - name: Aplicar migraciones pendientes
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}?sslmode=require&sslcert=${{ github.workspace }}/api/certs/supabase-root-2021.crt&sslaccept=strict
+        run: npx prisma migrate deploy
+
+      - name: Seed de catálogos (idempotente)
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: npx prisma db seed
+
+      - name: Usuarios de demo
+        if: inputs.seed_demo && inputs.environment == 'staging'
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: npm run seed:demo
+
+      - name: Verificar la base
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: npx ts-node prisma/verify-db.ts
