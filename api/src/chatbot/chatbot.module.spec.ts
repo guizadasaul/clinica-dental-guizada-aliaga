@@ -109,5 +109,31 @@ describe('ChatbotModule', () => {
       ]),
     );
     expect(doctorTools).not.toContain('get_my_balance');
+    expect(doctorTools).not.toContain('get_clinic_financial_report');
+  });
+
+  it('registra las tools del admin, visibles solo para el administrador', async () => {
+    const moduleRef = await Test.createTestingModule({
+      imports: [PrismaModule, ChatbotModule],
+    }).compile();
+    const port = moduleRef.get<ToolExecutor>(ToolExecutionPort);
+    const adminTools = port
+      .definitionsFor({
+        kind: 'user',
+        userId: 'a1',
+        role: UserRole.ADMIN,
+        patientId: null,
+      })
+      .map((tool) => tool.name);
+
+    expect(adminTools).toEqual(
+      expect.arrayContaining([
+        'get_clinic_operational_report',
+        'get_clinic_financial_report',
+        'get_clinic_agenda',
+        'get_top_treatments',
+      ]),
+    );
+    expect(adminTools).not.toContain('get_my_agenda');
   });
 });

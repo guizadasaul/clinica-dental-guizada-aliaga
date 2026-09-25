@@ -17,6 +17,8 @@ describe('PrismaReportsRepository', () => {
     doctor_schedule_blocks: { findMany: jest.Mock };
     payments: { findMany: jest.Mock };
     quotes: { findMany: jest.Mock };
+    tooth_procedures: { groupBy: jest.Mock };
+    treatments: { findMany: jest.Mock };
   };
   let repo: PrismaReportsRepository;
 
@@ -28,6 +30,8 @@ describe('PrismaReportsRepository', () => {
       doctor_schedule_blocks: { findMany: jest.fn() },
       payments: { findMany: jest.fn() },
       quotes: { findMany: jest.fn() },
+      tooth_procedures: { groupBy: jest.fn() },
+      treatments: { findMany: jest.fn() },
     };
     repo = new PrismaReportsRepository(prismaMock as unknown as PrismaService);
   });
@@ -263,6 +267,76 @@ describe('PrismaReportsRepository', () => {
           pending: 0,
         },
       ]);
+    });
+  });
+
+  describe('getTopTreatments (CLI-93)', () => {
+    const SEPTEMBER: ReportParams = {
+      from: new Date('2026-09-01T04:00:00.000Z'),
+      to: new Date('2026-10-01T04:00:00.000Z'),
+    };
+
+    it('agrupa por tratamiento en el rango (fechas de calendario), ordena y nombra', async () => {
+      prismaMock.tooth_procedures.groupBy.mockResolvedValue([
+        { treatment_id: 't1', _count: { _all: 2 } },
+        { treatment_id: 't2', _count: { _all: 1 } },
+      ]);
+      prismaMock.treatments.findMany.mockResolvedValue([
+        { id: 't1', name: 'Resina compuesta' },
+      ]);
+
+      const result = await repo.getTopTreatments({ ...SEPTEMBER, limit: 5 });
+
+      expect(prismaMock.tooth_procedures.groupBy).toHaveBeenCalledWith({
+        by: ['treatment_id'],
+        where: {
+          procedure_date: {
+            gte: new Date('2026-09-01T00:00:00Z'),
+            lte: new Date('2026-09-30T00:00:00Z'),
+          },
+        },
+        _count: { _all: true },
+        orderBy: { _count: { treatment_id: 'desc' } },
+        take: 5,
+      });
+      expect(result).toEqual({
+        from: '2026-09-01',
+        to: '2026-09-30',
+        treatments: [
+          { treatmentId: 't1', name: 'Resina compuesta', count: 2 },
+          { treatmentId: 't2', name: 'Tratamiento', count: 1 },
+        ],
+      });
+    });
+
+    it('con doctorId filtra por quién hizo el procedimiento', async () => {
+      prismaMock.tooth_procedures.groupBy.mockResolvedValue([]);
+
+      await repo.getTopTreatments({
+        ...SEPTEMBER,
+        doctorId: 'doc-1',
+        limit: 3,
+      });
+
+      const args = (
+        prismaMock.tooth_procedures.groupBy.mock.calls as unknown[][]
+      )[0][0] as {
+        where: Record<string, unknown>;
+      };
+      expect(args.where).toMatchObject({ performed_by: 'doc-1' });
+    });
+
+    it('sin procedimientos no consulta nombres', async () => {
+      prismaMock.tooth_procedures.groupBy.mockResolvedValue([]);
+
+      await expect(
+        repo.getTopTreatments({ ...SEPTEMBER, limit: 5 }),
+      ).resolves.toEqual({
+        from: '2026-09-01',
+        to: '2026-09-30',
+        treatments: [],
+      });
+      expect(prismaMock.treatments.findMany).not.toHaveBeenCalled();
     });
   });
 });

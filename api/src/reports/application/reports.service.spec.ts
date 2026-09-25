@@ -8,6 +8,7 @@ import type { FinancialReport } from '../domain/FinancialReport';
 const mockReportsRepo = {
   getOperationalReport: jest.fn(),
   getFinancialReport: jest.fn(),
+  getTopTreatments: jest.fn(),
 };
 
 const OPERATIONAL_REPORT: OperationalReport = {
@@ -101,6 +102,40 @@ describe('ReportsService', () => {
         service.getFinancialReport({ from: '2026-09-10', to: '2026-09-01' }),
       ).rejects.toThrow(BadRequestException);
       expect(mockReportsRepo.getFinancialReport).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('getTopTreatments (CLI-93)', () => {
+    it('normaliza el rango como los otros reportes y pasa el límite', async () => {
+      mockReportsRepo.getTopTreatments.mockResolvedValue({
+        from: '2026-09-01',
+        to: '2026-09-30',
+        treatments: [],
+      });
+
+      await service.getTopTreatments({
+        from: '2026-09-01',
+        to: '2026-09-30',
+        limit: 5,
+        doctorId: 'doc-1',
+      });
+
+      expect(mockReportsRepo.getTopTreatments).toHaveBeenCalledWith({
+        from: new Date('2026-09-01T04:00:00.000Z'),
+        to: new Date('2026-10-01T04:00:00.000Z'),
+        doctorId: 'doc-1',
+        limit: 5,
+      });
+    });
+
+    it('rechaza un rango invertido', async () => {
+      await expect(
+        service.getTopTreatments({
+          from: '2026-09-30',
+          to: '2026-09-01',
+          limit: 5,
+        }),
+      ).rejects.toBeInstanceOf(BadRequestException);
     });
   });
 });
