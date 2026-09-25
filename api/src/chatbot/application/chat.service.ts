@@ -1,5 +1,12 @@
 import { createHash, randomBytes } from 'node:crypto';
-import { Inject, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  HttpException,
+  HttpStatus,
+  Inject,
+  Injectable,
+  NotFoundException,
+  ServiceUnavailableException,
+} from '@nestjs/common';
 import type { ChatActor } from '../domain/ChatActor';
 import type { ChatChannel } from '../domain/ChatChannel';
 import { ChatRepository } from '../domain/ChatRepository';
@@ -13,6 +20,9 @@ import { SystemPromptBuilder } from './system-prompt.builder';
 
 export const DEFAULT_CONTEXT_MESSAGES = 12;
 export const DEFAULT_CONTEXT_MAX_CHARS = 8000;
+export const DEFAULT_DAILY_MESSAGES_USER = 100;
+export const DEFAULT_DAILY_MESSAGES_ANON = 20;
+const DAY_MS = 24 * 60 * 60 * 1000;
 
 /**
  * Entrada única del chatbot para todos los canales (web, WhatsApp). El
@@ -62,6 +72,9 @@ export class ChatService {
 
   async handleMessage(message: IncomingChatMessage): Promise<ChatReply> {
     const started = Date.now();
+    this.ensureEnabled();
+    // Antes de resolver la sesión: sin cupo no se crea ninguna conversación.
+    await this.ensureWithinDailyQuota(message.actor, message.anonToken);
     const { session, anonToken } = await this.resolveSession(message);
 
     await this.chatRepo.appendMessage(session.id, {
@@ -88,6 +101,66 @@ export class ChatService {
     });
 
     return { sessionId: session.id, anonToken, reply: result.reply };
+  }
+
+  /** Borra una conversación propia. 404 si no existe o es de otro usuario. */
+  async deleteSession(userId: string, sessionId: string): Promise<void> {
+    const deleted = await this.chatRepo.deleteSessionForUser(sessionId, userId);
+    if (!deleted) {
+      throw new NotFoundException('Conversación no encontrada');
+    }
+  }
+
+  /** Borra todas las conversaciones del usuario (derecho a borrar su historial). */
+  async deleteAllSessions(userId: string): Promise<void> {
+    await this.chatRepo.deleteAllForUser(userId);
+  }
+
+  /** Kill switch: el chat queda apagado salvo CHATBOT_ENABLED="true". */
+  private ensureEnabled(): void {
+    if (process.env['CHATBOT_ENABLED'] !== 'true') {
+      throw new ServiceUnavailableException(
+        'El asistente no está disponible en este momento',
+      );
+    }
+  }
+
+  /**
+   * Cuota diaria desde la base (el throttler es en memoria y por IP): mensajes
+   * del usuario en las últimas 24 h, en todas sus conversaciones; para un
+   * anónimo, los de su conversación (el rate limit por IP cubre el resto).
+   */
+  private async ensureWithinDailyQuota(
+    actor: ChatActor,
+    anonToken: string | undefined,
+  ): Promise<void> {
+    const since = new Date(Date.now() - DAY_MS);
+    let sent: number;
+    let limit: number;
+    if (actor.kind === 'user') {
+      sent = await this.chatRepo.countUserMessagesSince(actor.userId, since);
+      limit = readEnvInt(
+        'CHAT_DAILY_MESSAGES_USER',
+        DEFAULT_DAILY_MESSAGES_USER,
+      );
+    } else {
+      sent = anonToken
+        ? await this.chatRepo.countAnonMessagesSince(
+            hashAnonToken(anonToken),
+            since,
+          )
+        : 0;
+      limit = readEnvInt(
+        'CHAT_DAILY_MESSAGES_ANON',
+        DEFAULT_DAILY_MESSAGES_ANON,
+      );
+    }
+    if (sent >= limit) {
+      throw new HttpException(
+        'Alcanzaste el límite diario de mensajes del asistente',
+        HttpStatus.TOO_MANY_REQUESTS,
+      );
+    }
   }
 
   private async resolveSession(

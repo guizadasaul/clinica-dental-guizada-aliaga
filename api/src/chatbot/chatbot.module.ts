@@ -17,6 +17,11 @@ import type { ChatTool } from './domain/ChatTool';
 import { TreatmentsModule } from '../treatments/treatments.module';
 import { DoctorsModule } from '../doctors/doctors.module';
 import { AppointmentsModule } from '../appointments/appointments.module';
+import { AuthModule } from '../auth/auth.module';
+import { PatientsModule } from '../patients/patients.module';
+import { ActorResolver } from './application/actor-resolver';
+import { ChatController } from './infrastructure/http/chat.controller';
+import { PublicChatController } from './infrastructure/http/public-chat.controller';
 
 /** Todas las tools concretas; CHAT_TOOLS las junta para el ToolRegistry. */
 const TOOL_CLASSES = [...PUBLIC_TOOLS];
@@ -25,12 +30,20 @@ const TOOL_CLASSES = [...PUBLIC_TOOLS];
  * Chatbot con LLM + tool calling (épica CLI-81): contrato de dominio
  * (CLI-82), adaptador de Groq (CLI-83), persistencia con retención (CLI-84),
  * agente (CLI-85/86) y la capa que se interpone entre el LLM y los services
- * (ToolRegistry + ToolExecutor, CLI-87) y las tools públicas (CLI-88). Las
- * tools de paciente, doctor y admin se suman a TOOL_CLASSES en las issues
- * siguientes; los endpoints, en CLI-89.
+ * (ToolRegistry + ToolExecutor, CLI-87), las tools públicas (CLI-88) y los
+ * endpoints web con su resolución de identidad, cuotas y rate limit
+ * (CLI-89). Las tools de paciente, doctor y admin se suman a TOOL_CLASSES
+ * en las issues siguientes.
  */
 @Module({
-  imports: [TreatmentsModule, DoctorsModule, AppointmentsModule],
+  imports: [
+    AuthModule,
+    PatientsModule,
+    TreatmentsModule,
+    DoctorsModule,
+    AppointmentsModule,
+  ],
+  controllers: [ChatController, PublicChatController],
   providers: [
     { provide: LlmProvider, useClass: GroqLlmProvider },
     { provide: ChatRepository, useClass: PrismaChatRepository },
@@ -47,6 +60,7 @@ const TOOL_CLASSES = [...PUBLIC_TOOLS];
     AgentRunner,
     SystemPromptBuilder,
     ChatService,
+    ActorResolver,
     ChatRetentionScheduler,
   ],
 })
