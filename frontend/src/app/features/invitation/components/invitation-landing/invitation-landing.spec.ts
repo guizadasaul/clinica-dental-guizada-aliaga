@@ -197,6 +197,67 @@ describe('InvitationLandingComponent', () => {
       expect(localStorage.getItem('pendingInviteToken')).toBeNull();
     });
 
+    // CLI-144: el teléfono de la ficha es el oficial.
+    it('shows which number to use when the ficha has a phone', async () => {
+      const { harness } = await setup({ status: { valid: true, kind: 'patient', phoneHint: '665' } });
+
+      el<HTMLButtonElement>(harness, '.channel-toggle__btn:nth-child(2)').click();
+      await settle(harness);
+
+      expect(text(harness)).toContain('terminado en 665');
+    });
+
+    it('shows no phone hint when the ficha has no phone', async () => {
+      const { harness } = await setup({ status: { valid: true, kind: 'patient' } });
+
+      el<HTMLButtonElement>(harness, '.channel-toggle__btn:nth-child(2)').click();
+      await settle(harness);
+
+      expect(harness.fixture.nativeElement.querySelector('.phone-hint')).toBeNull();
+    });
+
+    it('shows the backend message when the phone is not the one in the ficha (422)', async () => {
+      const { harness, auth } = await setup({ status: { valid: true, kind: 'patient', phoneHint: '665' } });
+      auth.registerWithPhone.mockRejectedValue(
+        new HttpErrorResponse({
+          status: 422,
+          error: { message: 'Registrate con el número que diste en la clínica (terminado en 665).' },
+        }),
+      );
+
+      el<HTMLButtonElement>(harness, '.channel-toggle__btn:nth-child(2)').click();
+      await settle(harness);
+      harness.fixture.debugElement
+        .query(By.directive(PhoneInputComponent))
+        .componentInstance.changed.emit({ e164: '+59170011122', valid: true });
+      fill(harness, '#invite-password', PASSWORD);
+      fill(harness, '#invite-confirm-password', PASSWORD);
+      await settle(harness);
+      (el<HTMLFormElement>(harness, '.auth-form')).dispatchEvent(new Event('submit'));
+      await settle(harness);
+
+      expect(text(harness)).toContain('Registrate con el número que diste en la clínica (terminado en 665).');
+      expect(localStorage.getItem('pendingInviteToken')).toBeNull();
+    });
+
+    it('falls back to a generic message on a 422 without a message', async () => {
+      const { harness, auth } = await setup({ status: { valid: true, kind: 'patient' } });
+      auth.registerWithPhone.mockRejectedValue(new HttpErrorResponse({ status: 422 }));
+
+      el<HTMLButtonElement>(harness, '.channel-toggle__btn:nth-child(2)').click();
+      await settle(harness);
+      harness.fixture.debugElement
+        .query(By.directive(PhoneInputComponent))
+        .componentInstance.changed.emit({ e164: '+59170011122', valid: true });
+      fill(harness, '#invite-password', PASSWORD);
+      fill(harness, '#invite-confirm-password', PASSWORD);
+      await settle(harness);
+      (el<HTMLFormElement>(harness, '.auth-form')).dispatchEvent(new Event('submit'));
+      await settle(harness);
+
+      expect(text(harness)).toContain('Registrate con el número que diste en la clínica.');
+    });
+
     it('forgets the token and explains it when the phone is already registered (409)', async () => {
       const { harness, auth } = await setup();
       auth.registerWithPhone.mockRejectedValue(new HttpErrorResponse({ status: 409 }));

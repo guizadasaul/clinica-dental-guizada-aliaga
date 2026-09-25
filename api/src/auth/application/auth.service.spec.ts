@@ -1,4 +1,8 @@
-import { ForbiddenException, NotFoundException } from '@nestjs/common';
+import {
+  ForbiddenException,
+  NotFoundException,
+  UnprocessableEntityException,
+} from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { AuthService } from './auth.service';
 import { UserRepository } from '../domain/UserRepository';
@@ -35,6 +39,7 @@ const mockPatientInvitesService = {
   redeem: jest.fn(),
   createInvite: jest.fn(),
   checkStatus: jest.fn(),
+  registrationTarget: jest.fn(),
 };
 
 const mockSupabaseAdminService = {
@@ -206,14 +211,17 @@ describe('AuthService', () => {
 
   describe('registerWithPhone', () => {
     it('normalizes the phone to E.164 before creating the Supabase user', async () => {
-      mockPatientInvitesService.checkStatus.mockResolvedValue({ valid: true });
+      mockPatientInvitesService.registrationTarget.mockResolvedValue({
+        valid: true,
+        phone: null,
+      });
       mockSupabaseAdminService.createPhoneUser.mockResolvedValue({
         authUserId: 'new-uid',
       });
 
       await service.registerWithPhone('71234567', 'secret123', 'invite-token');
 
-      expect(mockPatientInvitesService.checkStatus).toHaveBeenCalledWith(
+      expect(mockPatientInvitesService.registrationTarget).toHaveBeenCalledWith(
         'invite-token',
       );
       expect(mockSupabaseAdminService.createPhoneUser).toHaveBeenCalledWith(
@@ -223,7 +231,10 @@ describe('AuthService', () => {
     });
 
     it('does not redeem the invite (POST /auth/sync does it after login)', async () => {
-      mockPatientInvitesService.checkStatus.mockResolvedValue({ valid: true });
+      mockPatientInvitesService.registrationTarget.mockResolvedValue({
+        valid: true,
+        phone: null,
+      });
       mockSupabaseAdminService.createPhoneUser.mockResolvedValue({
         authUserId: 'new-uid',
       });
@@ -234,7 +245,10 @@ describe('AuthService', () => {
     });
 
     it('rejects with ForbiddenException and creates nothing when the invite is not valid', async () => {
-      mockPatientInvitesService.checkStatus.mockResolvedValue({ valid: false });
+      mockPatientInvitesService.registrationTarget.mockResolvedValue({
+        valid: false,
+        phone: null,
+      });
 
       await expect(
         service.registerWithPhone('71234567', 'secret123', 'expired-token'),
@@ -242,8 +256,46 @@ describe('AuthService', () => {
       expect(mockSupabaseAdminService.createPhoneUser).not.toHaveBeenCalled();
     });
 
+    // CLI-144: el teléfono de la ficha es el oficial.
+    it('accepts the ficha phone even when stored in another format', async () => {
+      mockPatientInvitesService.registrationTarget.mockResolvedValue({
+        valid: true,
+        phone: '71234567',
+      });
+      mockSupabaseAdminService.createPhoneUser.mockResolvedValue({
+        authUserId: 'new-uid',
+      });
+
+      await service.registerWithPhone('+59171234567', 'secret123', 'tok');
+
+      expect(mockSupabaseAdminService.createPhoneUser).toHaveBeenCalledWith(
+        '+59171234567',
+        'secret123',
+      );
+    });
+
+    it('rejects a phone different from the ficha phone, saying which one to use, and creates nothing', async () => {
+      mockPatientInvitesService.registrationTarget.mockResolvedValue({
+        valid: true,
+        phone: '+59177842665',
+      });
+
+      const attempt = service.registerWithPhone(
+        '+59171234567',
+        'secret123',
+        'tok',
+      );
+
+      await expect(attempt).rejects.toThrow(UnprocessableEntityException);
+      await expect(attempt).rejects.toThrow('terminado en 665');
+      expect(mockSupabaseAdminService.createPhoneUser).not.toHaveBeenCalled();
+    });
+
     it('propagates errors from SupabaseAdminService (e.g. duplicate phone)', async () => {
-      mockPatientInvitesService.checkStatus.mockResolvedValue({ valid: true });
+      mockPatientInvitesService.registrationTarget.mockResolvedValue({
+        valid: true,
+        phone: null,
+      });
       mockSupabaseAdminService.createPhoneUser.mockRejectedValue(
         new Error('Ese teléfono ya está registrado'),
       );

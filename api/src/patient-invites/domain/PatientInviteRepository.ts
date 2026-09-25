@@ -17,6 +17,8 @@ export interface RedeemedInvite {
 export interface InviteTokenStatus {
   valid: boolean;
   kind: InviteEmailKind;
+  /** Teléfono de la ficha del invitado (users.phone), el oficial. Nunca sale completo por el endpoint público. */
+  phone: string | null;
 }
 
 export interface PatientContactInfo {

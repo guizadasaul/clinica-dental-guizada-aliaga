@@ -4,13 +4,14 @@ import {
   Inject,
   Logger,
   NotFoundException,
+  UnprocessableEntityException,
 } from '@nestjs/common';
 import type { AuthenticatedUser } from '../domain/AuthenticatedUser';
 import { User } from '../domain/User';
 import { UserRepository } from '../domain/UserRepository';
 import { PatientInvitesService } from '../../patient-invites/application/patient-invites.service';
 import { SupabaseAdminService } from '../infrastructure/SupabaseAdminService';
-import { toE164Bolivia } from '../../shared/phone.util';
+import { phoneLastDigits, toE164Bolivia } from '../../shared/phone.util';
 
 @Injectable()
 export class AuthService {
@@ -103,20 +104,29 @@ export class AuthService {
    * token se verifica acá pero NO se canjea: lo canjea el POST /auth/sync
    * que el frontend dispara apenas inicia sesión con la cuenta nueva, que es
    * donde se vincula la identidad con la fila de users/patients.
+   *
+   * El teléfono de la ficha es el oficial (lo cargó el doctor, CLI-144): si
+   * la ficha tiene uno, solo se puede registrar con ese. Antes se aceptaba
+   * cualquiera y, al canjear la invitación, el login pasaba en silencio al
+   * número de la ficha — el paciente dejaba de poder entrar con el suyo.
    */
   async registerWithPhone(
     phone: string,
     password: string,
     inviteToken: string,
   ): Promise<void> {
-    const invite = await this.patientInvitesService.checkStatus(inviteToken);
+    const invite =
+      await this.patientInvitesService.registrationTarget(inviteToken);
     if (!invite.valid) {
       throw new ForbiddenException('La invitación no es válida o ya venció');
     }
-    await this.supabaseAdminService.createPhoneUser(
-      toE164Bolivia(phone),
-      password,
-    );
+    const phoneE164 = toE164Bolivia(phone);
+    if (invite.phone && toE164Bolivia(invite.phone) !== phoneE164) {
+      throw new UnprocessableEntityException(
+        `Registrate con el número que diste en la clínica (terminado en ${phoneLastDigits(invite.phone)}).`,
+      );
+    }
+    await this.supabaseAdminService.createPhoneUser(phoneE164, password);
   }
 
   async getCurrentUser(uid: string): Promise<User> {

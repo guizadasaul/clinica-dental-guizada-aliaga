@@ -7,8 +7,11 @@ import {
 // Sin guard a propósito: lo consulta un visitante sin sesión desde /invitacion/:token,
 // antes de decidir si mandarlo a loguearse con Google. Siempre 200 — nunca 401/404,
 // para no disparar el redirect global del error.interceptor.ts del frontend.
-// Solo expone `valid` y `kind` (paciente o doctor) — ningún dato personal — y
-// `kind` solo si el token existe (CLI-79), para que la landing use el copy correcto.
+// Solo expone `valid`, `kind` (paciente o doctor; solo si el token existe,
+// CLI-79, para que la landing use el copy correcto) y `phoneHint`: los últimos
+// 3 dígitos del teléfono de la ficha, solo con la invitación vigente, para
+// decirle al invitado con qué número registrarse (CLI-144). Nunca el número
+// completo ni otro dato personal.
 @Controller('invites')
 export class PublicInviteStatusController {
   constructor(private readonly patientInvitesService: PatientInvitesService) {}
