@@ -121,13 +121,26 @@ dos sistemas de migración sobre las mismas tablas terminan en drift.
 
 ## Frontend (Vercel)
 
-Un solo proyecto de Vercel con root en `frontend/`, configurado por [`frontend/vercel.json`](../frontend/vercel.json):
+**Un proyecto de Vercel por ambiente**, los dos con root en `frontend/` y el mismo
+[`frontend/vercel.json`](../frontend/vercel.json):
 
-- `develop` se construye con `ng build --configuration staging` y se sirve en `staging.guizadaaliaga.com`.
-- `main` se construye con `--configuration production`. **Por ahora `ignoreCommand` solo deja construir
-  `develop`**: `environment.production.ts` no tiene todavía el proyecto Supabase de producción. Habilitar `main`
-  (y completar ese archivo) es parte de la fase de producción.
-- Las demás ramas no se construyen: un preview en `*.vercel.app` no está en el CORS de ninguna API.
+| Proyecto | Production Branch (Environments → Production → Branch Tracking) | Dominio (entorno Production) |
+|---|---|---|
+| `clinica-staging` | `develop` | `staging.guizadaaliaga.com` |
+| producción (se crea en CLI-138) | `main` | `guizadaaliaga.com` |
+
+Por qué dos proyectos y no uno con Preview para staging: la protección estándar de Vercel (Vercel
+Authentication) tapa los deploys **Preview** con un login de Vercel y solo deja públicos los dominios propios
+de **Production**. Con un proyecto por ambiente, cada uno sirve su dominio como Production (público) y
+staging y producción no comparten configuración.
+
+- `buildCommand`: `main` → `ng build --configuration production`; cualquier otra rama → `--configuration staging`.
+- `ignoreCommand`: **por ahora solo construye `develop`**. `environment.production.ts` todavía no tiene el
+  proyecto Supabase de producción; habilitar `main` es parte de CLI-138.
+- `staging.guizadaaliaga.com` responde con `X-Robots-Tag: noindex, nofollow`: que Google no lo indexe (tiene
+  BANECO real — un QR de staging es un cobro real).
+- Cada deploy tiene además una URL única `*.vercel.app`: queda detrás del login de Vercel y no está en el
+  CORS de ninguna API. La URL a usar es siempre el dominio.
 
 ## Servidor (Hetzner)
 
