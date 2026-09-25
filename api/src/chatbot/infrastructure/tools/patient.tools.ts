@@ -12,7 +12,6 @@ import type { ITreatmentRepository } from '../../../treatments/domain/TreatmentR
 import { clinicDate, clinicTime } from './clinic-time.js';
 import {
   MyAppointmentsArgsDto,
-  MyQuotesArgsDto,
   MyTreatmentsArgsDto,
 } from './dto/patient-tool-args.dto.js';
 
@@ -170,18 +169,14 @@ export class GetMyAppointmentsTool implements ChatTool<MyAppointmentsArgsDto> {
 }
 
 @Injectable()
-export class GetMyQuotesTool implements ChatTool<MyQuotesArgsDto> {
+export class GetMyQuotesTool implements ChatTool<object> {
   readonly name = 'get_my_quotes';
   readonly description =
-    'Presupuestos del paciente que está chateando (los 5 más recientes): total, pagado, saldo, tratamientos y pagos con su recibo. Montos en bolivianos.';
-  readonly parameters: JsonSchema = {
-    type: 'object',
-    properties: {
-      status: { type: 'string', enum: ['pending', 'partially_paid', 'paid'] },
-    },
-    additionalProperties: false,
-  };
-  readonly argsDto = MyQuotesArgsDto;
+    'Presupuestos del paciente que está chateando (los 5 más recientes, pagados o no): estado, total, pagado, saldo, tratamientos y pagos con su recibo. Montos en bolivianos.';
+  // Sin filtro por estado a propósito: en vivo el modelo pedía status=pending
+  // para "lo que me presupuestaron" y dejaba afuera los de pago parcial.
+  readonly parameters = NO_PARAMETERS;
+  readonly argsDto = NO_ARGS;
 
   constructor(
     private readonly quotesService: QuotesService,
@@ -189,12 +184,13 @@ export class GetMyQuotesTool implements ChatTool<MyQuotesArgsDto> {
     private readonly treatmentRepo: ITreatmentRepository,
   ) {}
 
-  async execute(actor: ChatActor, args: MyQuotesArgsDto): Promise<unknown> {
+  async execute(actor: ChatActor): Promise<unknown> {
     const patientId = patientIdOf(actor);
     if (!patientId) return NO_PROFILE;
-    const quotes = (await this.quotesService.findByPatient(patientId))
-      .filter((q) => !args.status || q.status === args.status)
-      .slice(0, MAX_QUOTES);
+    const quotes = (await this.quotesService.findByPatient(patientId)).slice(
+      0,
+      MAX_QUOTES,
+    );
     const names = await treatmentNames(
       this.treatmentRepo,
       quotes.flatMap((q) => q.items.map((i) => i.treatmentId)),

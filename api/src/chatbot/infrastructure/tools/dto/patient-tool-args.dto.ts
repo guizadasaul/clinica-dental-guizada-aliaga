@@ -12,12 +12,6 @@ export class MyAppointmentsArgsDto {
   limit?: number;
 }
 
-export class MyQuotesArgsDto {
-  @IsOptional()
-  @IsIn(['pending', 'partially_paid', 'paid'])
-  status?: 'pending' | 'partially_paid' | 'paid';
-}
-
 export class MyTreatmentsArgsDto {
   @IsOptional()
   @IsInt()

@@ -313,31 +313,30 @@ describe('patient tools (CLI-91)', () => {
       ]);
     });
 
-    it('filtra por estado, muestra como máximo 5 y nombra genérico un tratamiento desconocido', async () => {
+    it('devuelve pagados y con pago parcial juntos, como máximo 5 (el bug que se vio en vivo)', async () => {
       quotesService.findByPatient.mockResolvedValue([
-        ...Array.from({ length: 6 }, () => quote({ status: 'paid' })),
-        quote({
-          status: 'pending',
-          items: [item({ treatmentId: 'desconocido' })],
-        }),
+        quote({ status: 'partially_paid' }),
+        ...Array.from({ length: 5 }, () => quote({ status: 'paid' })),
       ]);
 
-      const paid = (await new GetMyQuotesTool(quotes, treatments).execute(
+      const result = (await new GetMyQuotesTool(quotes, treatments).execute(
         patient,
-        {
-          status: 'paid',
-        },
-      )) as unknown[];
-      const pending = (await new GetMyQuotesTool(quotes, treatments).execute(
-        patient,
-        {
-          status: 'pending',
-        },
-      )) as Array<{ status: string; items: Array<{ treatment: string }> }>;
+      )) as Array<{ status: string }>;
 
-      expect(paid).toHaveLength(5);
-      expect(pending[0].status).toBe('pendiente');
-      expect(pending[0].items[0].treatment).toBe('Tratamiento');
+      expect(result).toHaveLength(5);
+      expect(result[0].status).toBe('pago parcial');
+    });
+
+    it('nombra genérico un tratamiento desconocido', async () => {
+      quotesService.findByPatient.mockResolvedValue([
+        quote({ items: [item({ treatmentId: 'desconocido' })] }),
+      ]);
+
+      const [first] = (await new GetMyQuotesTool(quotes, treatments).execute(
+        patient,
+      )) as Array<{ items: Array<{ treatment: string }> }>;
+
+      expect(first.items[0].treatment).toBe('Tratamiento');
     });
 
     it('muestra el estado crudo si no tiene traducción', async () => {
@@ -483,6 +482,9 @@ describe('patient tools (CLI-91)', () => {
       await expect(
         validator.validate(quotesTool.argsDto, { patientId: 'otro' }),
       ).resolves.toEqual({ ok: false, fields: ['patientId'] });
+      await expect(
+        validator.validate(quotesTool.argsDto, { status: 'pending' }),
+      ).resolves.toEqual({ ok: false, fields: ['status'] });
       await expect(
         validator.validate(nextTool.argsDto, { userId: 'otro' }),
       ).resolves.toEqual({ ok: false, fields: ['userId'] });
