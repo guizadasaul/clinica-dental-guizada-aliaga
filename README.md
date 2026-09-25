@@ -548,6 +548,11 @@ self-hosted, con tres jobs:
 El análisis de SonarQube necesita la instancia local y sus tokens (`SONAR_HOST_URL`, `SONAR_TOKEN`), por
 lo que no se puede reproducir en un clon sin esa configuración.
 
+El repo es público y el runner self-hosted es una máquina de desarrollo, así que el código de un fork nunca
+corre ahí: los jobs `api`, `frontend` y `e2e` se saltean en PRs que vienen de un fork (solo corren en PRs de
+ramas del propio repo y en push a `develop`/`main`), y Settings → Actions exige aprobación manual para los
+workflows de cualquier contribuidor externo. Los deploys corren en runners de GitHub (ver `deploy/README.md`).
+
 ---
 
 ## 13. Troubleshooting
