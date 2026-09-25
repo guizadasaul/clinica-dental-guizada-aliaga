@@ -11,6 +11,21 @@ import { ToolExecutionPort } from './domain/ToolExecution';
  * que levantar toda la app.
  */
 describe('ChatbotModule', () => {
+  const originalEnv = process.env;
+
+  // SupabaseJwtVerifier (vía AuthModule) exige SUPABASE_URL al construirse;
+  // alcanza con un placeholder, igual que en el job e2e del CI.
+  beforeAll(() => {
+    process.env = {
+      ...originalEnv,
+      SUPABASE_URL: 'https://placeholder.supabase.co',
+    };
+  });
+
+  afterAll(() => {
+    process.env = originalEnv;
+  });
+
   it('resuelve todas sus dependencias', async () => {
     const moduleRef = await Test.createTestingModule({
       imports: [PrismaModule, ChatbotModule],
@@ -18,5 +33,26 @@ describe('ChatbotModule', () => {
 
     expect(moduleRef.get(ChatService)).toBeInstanceOf(ChatService);
     expect(moduleRef.get(ToolExecutionPort)).toBe(moduleRef.get(ToolExecutor));
+  });
+
+  it('registra las tools públicas para un visitante anónimo', async () => {
+    const moduleRef = await Test.createTestingModule({
+      imports: [PrismaModule, ChatbotModule],
+    }).compile();
+    const port = moduleRef.get<ToolExecutor>(ToolExecutionPort);
+
+    expect(
+      port
+        .definitionsFor({ kind: 'anonymous' })
+        .map((tool) => tool.name)
+        .sort((a, b) => a.localeCompare(b)),
+    ).toEqual([
+      'get_available_slots',
+      'get_booking_link',
+      'get_clinic_info',
+      'get_faq',
+      'list_doctors',
+      'list_services',
+    ]);
   });
 });
