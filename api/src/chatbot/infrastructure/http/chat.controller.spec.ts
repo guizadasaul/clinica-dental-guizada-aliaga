@@ -58,6 +58,7 @@ describe('chat controllers', () => {
         sessionId: 'session-1',
         anonToken: null,
         reply: 'Hola Ana',
+        links: [],
       });
 
       await expect(
@@ -66,7 +67,11 @@ describe('chat controllers', () => {
           message: 'hola',
           locale: 'es',
         }),
-      ).resolves.toEqual({ sessionId: 'session-1', reply: 'Hola Ana' });
+      ).resolves.toEqual({
+        sessionId: 'session-1',
+        reply: 'Hola Ana',
+        links: [],
+      });
       expect(actorResolver.fromAppUser).toHaveBeenCalledWith(appUser);
       expect(chatService.handleMessage).toHaveBeenCalledWith({
         actor: patientActor,
@@ -104,6 +109,7 @@ describe('chat controllers', () => {
         sessionId: 'session-9',
         anonToken: 'token-nuevo',
         reply: 'Atendemos de lunes a sábado',
+        links: [{ label: 'Reservar', url: 'http://x/reservar' }],
       });
 
       await expect(
@@ -114,6 +120,7 @@ describe('chat controllers', () => {
       ).resolves.toEqual({
         sessionToken: 'token-nuevo',
         reply: 'Atendemos de lunes a sábado',
+        links: [{ label: 'Reservar', url: 'http://x/reservar' }],
       });
       expect(chatService.handleMessage).toHaveBeenCalledWith({
         actor: { kind: 'anonymous' },
@@ -129,11 +136,12 @@ describe('chat controllers', () => {
         sessionId: 'session-9',
         anonToken: null,
         reply: 'ok',
+        links: [],
       });
 
       const response = await controller.sendMessage({ message: 'hola' });
 
-      expect(response).toEqual({ sessionToken: '', reply: 'ok' });
+      expect(response).toEqual({ sessionToken: '', reply: 'ok', links: [] });
       expect(JSON.stringify(response)).not.toContain('session-9');
     });
   });

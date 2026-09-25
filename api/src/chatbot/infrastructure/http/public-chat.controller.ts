@@ -4,6 +4,7 @@ import { readEnvInt } from '../../../shared/env.util.js';
 import { ChatService } from '../../application/chat.service.js';
 import { ActorResolver } from '../../application/actor-resolver.js';
 import { ChatChannel } from '../../domain/ChatChannel.js';
+import type { ChatLink } from '../../domain/ChatLink.js';
 import { SendPublicChatMessageDto } from './dto/send-chat-message.dto.js';
 
 const HOUR_MS = 60 * 60_000;
@@ -11,6 +12,7 @@ const HOUR_MS = 60 * 60_000;
 export interface PublicChatMessageResponse {
   sessionToken: string;
   reply: string;
+  links: ChatLink[];
 }
 
 /**
@@ -44,6 +46,10 @@ export class PublicChatController {
       locale: dto.locale,
     });
     // Para un anónimo ChatService siempre devuelve el token (nuevo o el mismo).
-    return { sessionToken: result.anonToken ?? '', reply: result.reply };
+    return {
+      sessionToken: result.anonToken ?? '',
+      reply: result.reply,
+      links: result.links,
+    };
   }
 }

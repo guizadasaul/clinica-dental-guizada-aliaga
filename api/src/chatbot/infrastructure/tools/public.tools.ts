@@ -1,5 +1,6 @@
 import { Inject, Injectable } from '@nestjs/common';
 import type { ChatTool, JsonSchema } from '../../domain/ChatTool.js';
+import { ToolOutputWithLinks } from '../../domain/ChatLink.js';
 import { AppointmentsService } from '../../../appointments/application/appointments.service.js';
 import { TreatmentsService } from '../../../treatments/application/treatments.service.js';
 import { DoctorRepository } from '../../../doctors/domain/DoctorRepository.js';
@@ -205,7 +206,7 @@ export class GetAvailableSlotsTool implements ChatTool<GetAvailableSlotsArgsDto>
 export class GetBookingLinkTool implements ChatTool<GetBookingLinkArgsDto> {
   readonly name = 'get_booking_link';
   readonly description =
-    'Link a la página de reserva con el doctor y el horario ya elegidos (el pago y la confirmación se hacen ahí). Usa la fecha y la hora exactamente como las devuelve get_available_slots (hora de Bolivia).';
+    'Prepara el link de reserva con el doctor y el horario ya elegidos (el pago y la confirmación se hacen ahí). Usa la fecha y la hora exactamente como las devuelve get_available_slots (hora de Bolivia). El link lo agrega el sistema debajo de tu respuesta.';
   readonly parameters: JsonSchema = {
     type: 'object',
     properties: {
@@ -253,7 +254,22 @@ export class GetBookingLinkTool implements ChatTool<GetBookingLinkArgsDto> {
     );
     url.searchParams.set('slot', slotIso);
     url.searchParams.set('doctorId', args.doctorId);
-    return { url: url.toString(), date: args.date, time: args.time };
+    // La URL no pasa por el modelo (podría recortarla): va como link aparte
+    // y el backend la agrega debajo de la respuesta.
+    return new ToolOutputWithLinks(
+      {
+        date: args.date,
+        time: args.time,
+        linkNote:
+          'El link de reserva se agrega solo debajo de tu respuesta: no escribas ninguna URL.',
+      },
+      [
+        {
+          label: `Reservar el ${args.date} a las ${args.time}`,
+          url: url.toString(),
+        },
+      ],
+    );
   }
 }
 

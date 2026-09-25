@@ -5,6 +5,7 @@ import type { Doctor } from '../../../doctors/domain/Doctor';
 import type { ChatActor } from '../../domain/ChatActor';
 import { CLINIC_FAQ, CLINIC_INFO } from '../knowledge/clinic-info';
 import { ClassValidatorToolArgsValidator } from './class-validator-tool-args.validator';
+import { ToolOutputWithLinks } from '../../domain/ChatLink';
 import {
   GetAvailableSlotsTool,
   GetBookingLinkTool,
@@ -318,11 +319,17 @@ describe('public tools', () => {
         DOCTOR_A,
         '2026-10-05',
       );
-      expect(result).toEqual({
-        url: `https://clinica.example.com/reservar?slot=${encodeURIComponent(SLOT)}&doctorId=${DOCTOR_A}`,
-        date: '2026-10-05',
-        time: '09:00',
-      });
+      // La URL no va al modelo: viaja como link aparte.
+      expect(result).toBeInstanceOf(ToolOutputWithLinks);
+      const output = result as ToolOutputWithLinks;
+      expect(output.links).toEqual([
+        {
+          label: 'Reservar el 2026-10-05 a las 09:00',
+          url: `https://clinica.example.com/reservar?slot=${encodeURIComponent(SLOT)}&doctorId=${DOCTOR_A}`,
+        },
+      ]);
+      expect(output.data).toMatchObject({ date: '2026-10-05', time: '09:00' });
+      expect(JSON.stringify(output.data)).not.toContain('http');
     });
 
     it('usa localhost:4200 si FRONTEND_URL no está seteada', async () => {
@@ -335,11 +342,11 @@ describe('public tools', () => {
         doctorId: DOCTOR_A,
         date: '2026-10-05',
         time: '09:00',
-      })) as { url: string };
+      })) as ToolOutputWithLinks;
 
-      expect(result.url.startsWith('http://localhost:4200/reservar?')).toBe(
-        true,
-      );
+      expect(
+        result.links[0].url.startsWith('http://localhost:4200/reservar?'),
+      ).toBe(true);
     });
 
     it('no da link para un horario ocupado o fuera de la grilla', async () => {
@@ -368,9 +375,9 @@ describe('public tools', () => {
         doctorId: DOCTOR_A,
         date: '2026-09-26',
         time: '10:00',
-      })) as { url: string };
+      })) as ToolOutputWithLinks;
 
-      expect(result.url).toContain(
+      expect(result.links[0].url).toContain(
         encodeURIComponent('2026-09-26T14:00:00.000Z'),
       );
     });

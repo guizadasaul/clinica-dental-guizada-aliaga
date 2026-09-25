@@ -12,6 +12,7 @@ import type { ChatChannel } from '../domain/ChatChannel';
 import { ChatRepository } from '../domain/ChatRepository';
 import type { ChatRepository as IChatRepository } from '../domain/ChatRepository';
 import type { ChatSession } from '../domain/ChatSession';
+import type { ChatLink } from '../domain/ChatLink';
 import type { LlmMessage } from '../domain/LlmProvider';
 import { readEnvInt } from '../../shared/env.util';
 import { AgentRunner } from './agent-runner';
@@ -46,6 +47,8 @@ export interface ChatReply {
   /** Solo para anónimos: el token a reenviar para seguir la conversación. */
   anonToken: string | null;
   reply: string;
+  /** Links para mostrar junto a la respuesta (ej. el de reserva). */
+  links: ChatLink[];
 }
 
 interface ResolvedSession {
@@ -100,7 +103,12 @@ export class ChatService {
       errorCode: result.errorCode,
     });
 
-    return { sessionId: session.id, anonToken, reply: result.reply };
+    return {
+      sessionId: session.id,
+      anonToken,
+      reply: result.reply,
+      links: result.links,
+    };
   }
 
   /** Borra una conversación propia. 404 si no existe o es de otro usuario. */
