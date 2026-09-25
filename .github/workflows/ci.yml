@@ -19,6 +19,24 @@ jobs:
       - uses: actions/checkout@v4
       - run: scripts/check-no-destructive-db-commands.sh
 
+  # A main (producción) solo llega lo que ya pasó por staging: PRs desde
+  # develop, o un hotfix/* que sale de main. Es check obligatorio de main.
+  main-source-branch:
+    if: github.event_name == 'pull_request' && github.base_ref == 'main'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validar la rama de origen
+        env:
+          HEAD_REF: ${{ github.head_ref }}
+        run: |
+          case "$HEAD_REF" in
+            develop | hotfix/*) echo "✓ $HEAD_REF → main" ;;
+            *)
+              echo "::error::A main solo se mergea desde develop o hotfix/* (este PR viene de $HEAD_REF)"
+              exit 1
+              ;;
+          esac
+
   api:
     runs-on: self-hosted
     # Corre en el runner propio (la Mac de desarrollo): nunca con código de un

@@ -223,10 +223,22 @@ ambiente: alcanza para una clínica chica).
 |---|---|---|
 | `ci.yml` | cada PR y push a `develop`/`main` | tests + coverage + Sonar (runner propio), e2e, guard `db-safety` |
 | `deploy-staging.yml` | push a `develop` (PR mergeado), o a mano | imagen → GHCR (`clinic-api:<sha>`), `DB migrate` en staging, `deploy.sh staging <sha>` por SSH, smoke test |
-| `db-migrate.yml` | a mano, o llamado por el deploy | `migrate deploy` + seed de catálogos + verificación de la base |
+| `deploy-production.yml` | push a `main` (PR `develop → main` o `hotfix/*`), o a mano | imagen → GHCR, **[aprobación]** migraciones en producción (sin seed), **[aprobación]** `deploy.sh production <sha>`, smoke test |
+| `db-migrate.yml` | a mano, o llamado por el deploy | `migrate deploy` + seed de catálogos (opcional) + verificación de la base |
 
 Los deploys corren en runners de GitHub (nunca en el runner propio). Rollback: *Run workflow* de
 `Deploy staging` con el SHA anterior en `ref`, o `/opt/clinic/deploy.sh staging <sha anterior>` en el VPS.
+
+### Producción: dos aprobaciones
+
+El Environment `production` tiene *required reviewers* (vos). Un merge a `main` construye la imagen y queda
+esperando: **primera aprobación** → migra la base de producción; **segunda aprobación** → reemplaza el
+container. Entre las dos se puede frenar (por ejemplo, si la migración mostró algo raro en su verificación).
+El deploy de producción no corre el seed de catálogos: si un PR cambia el catálogo, se corre a mano
+*DB migrate* → `production` con "seed de catálogos" marcado.
+
+`ci.yml` tiene además el check `main-source-branch` (obligatorio en `main`): un PR a `main` solo puede venir de
+`develop` o de `hotfix/*`.
 
 ### Secrets del GitHub Environment `staging`
 
