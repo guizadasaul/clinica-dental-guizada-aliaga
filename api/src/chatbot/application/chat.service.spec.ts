@@ -64,6 +64,7 @@ const AGENT_RESULT: AgentRunResult = {
   llmLatencyMs: 1500,
   iterations: 1,
   errorCode: null,
+  guardAction: 'none',
 };
 
 describe('ChatService', () => {

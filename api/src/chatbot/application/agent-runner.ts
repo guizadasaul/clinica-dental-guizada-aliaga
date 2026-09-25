@@ -19,6 +19,8 @@ import type { ToolExecutionPort as IToolExecutionPort } from '../domain/ToolExec
 import { readEnvInt } from '../../shared/env.util';
 import { fallbackReply } from './fallback-reply';
 import { linkOnlyReply, mergeLinks, removeBookingUrls } from './reply-links';
+import { guardOutput } from './output-guard';
+import type { OutputGuardAction } from './output-guard';
 import type { ChatLink } from '../domain/ChatLink';
 import type { ChatLocale } from './fallback-reply';
 
@@ -52,6 +54,8 @@ export interface AgentRunResult {
   /** Iteraciones del loop que terminaron en tool calls. */
   iterations: number;
   errorCode: AgentErrorCode | null;
+  /** Qué hizo el OutputGuard con la respuesta (auditoría, CLI-98). */
+  guardAction: OutputGuardAction;
 }
 
 interface RunState {
@@ -188,13 +192,19 @@ export class AgentRunner {
     if (!reply) {
       return this.result(fallbackReply(locale), state, 'empty_response');
     }
-    return this.result(reply, state, null);
+    const guarded = guardOutput(reply, locale);
+    if (guarded.action === 'blocked') {
+      // Una respuesta bloqueada no lleva links: no se sabe qué prometía.
+      state.links = [];
+    }
+    return this.result(guarded.reply, state, null, guarded.action);
   }
 
   private result(
     reply: string,
     state: RunState,
     errorCode: AgentErrorCode | null,
+    guardAction: OutputGuardAction = 'none',
   ): AgentRunResult {
     return {
       reply,
@@ -205,6 +215,7 @@ export class AgentRunner {
       llmLatencyMs: state.llmLatencyMs,
       iterations: state.iterations,
       errorCode,
+      guardAction,
     };
   }
 }
