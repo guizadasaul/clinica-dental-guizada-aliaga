@@ -16,7 +16,13 @@ pattern='prisma[[:space:]]+(migrate[[:space:]]+(reset|dev)|db[[:space:]]+push)|s
 targets=(.github/workflows)
 [ -d deploy ] && targets+=(deploy)
 
-if grep -rEn --include='*.yml' --include='*.yaml' --include='*.sh' "$pattern" "${targets[@]}"; then
+# Las líneas comentadas (`# ...`) no se ejecutan: se ignoran, así un
+# comentario puede nombrar los comandos prohibidos (como este archivo y ci.yml).
+matches="$(grep -rEn --include='*.yml' --include='*.yaml' --include='*.sh' "$pattern" "${targets[@]}" \
+  | grep -vE '^[^:]+:[0-9]+:[[:space:]]*#' || true)"
+
+if [ -n "$matches" ]; then
+  echo "$matches"
   echo "✗ Comando de base destructivo en un workflow o script de deploy (ver arriba)."
   echo "  Contra ambientes remotos solo se permite 'prisma migrate deploy' y seeds idempotentes."
   exit 1
