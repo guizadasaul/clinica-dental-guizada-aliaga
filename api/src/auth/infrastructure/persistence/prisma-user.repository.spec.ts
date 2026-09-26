@@ -36,6 +36,7 @@ describe('PrismaUserRepository', () => {
       updateMany: jest.Mock;
       upsert: jest.Mock;
       findUnique: jest.Mock;
+      findMany: jest.Mock;
     };
     doctor_profiles: { count: jest.Mock; updateMany: jest.Mock };
     transaction: jest.Mock;
@@ -50,6 +51,7 @@ describe('PrismaUserRepository', () => {
         updateMany: jest.fn(),
         upsert: jest.fn(),
         findUnique: jest.fn(),
+        findMany: jest.fn(),
       },
       // Por defecto ningún user es doctor: los tests de pacientes/admin no cambian.
       doctor_profiles: {
@@ -520,6 +522,27 @@ describe('PrismaUserRepository', () => {
         photoUrl: null,
       }),
     ).rejects.toBe(boom);
+  });
+
+  describe('findActiveByPhone (CLI-146)', () => {
+    it('trae candidatos activos por los últimos 8 dígitos y compara el número normalizado', async () => {
+      prismaMock.users.findMany.mockResolvedValue([
+        fakeUserRecord({ id: 'con-mas', phone: '+59171234567' }),
+        fakeUserRecord({ id: 'sin-mas', phone: '59171234567' }),
+        fakeUserRecord({ id: 'local', phone: '71234567' }),
+        // Mismos 8 dígitos finales, pero de otro país: no es el mismo número.
+        fakeUserRecord({ id: 'otro-pais', phone: '+5491171234567' }),
+        fakeUserRecord({ id: 'invalido', phone: '12' }),
+        fakeUserRecord({ id: 'sin-telefono', phone: null }),
+      ]);
+
+      const users = await repo.findActiveByPhone('+59171234567');
+
+      expect(prismaMock.users.findMany).toHaveBeenCalledWith({
+        where: { is_active: true, phone: { endsWith: '71234567' } },
+      });
+      expect(users.map((u) => u.id)).toEqual(['con-mas', 'sin-mas', 'local']);
+    });
   });
 
   describe('findById', () => {

@@ -11,6 +11,7 @@ import {
   UserRepository,
 } from '../../domain/UserRepository.js';
 import { UserMapper } from './user.mapper.js';
+import { toE164 } from '../../../shared/phone.util.js';
 
 @Injectable()
 export class PrismaUserRepository implements UserRepository {
@@ -19,6 +20,17 @@ export class PrismaUserRepository implements UserRepository {
   async findById(id: string): Promise<User | null> {
     const record = await this.prisma.users.findUnique({ where: { id } });
     return record ? UserMapper.toDomain(record) : null;
+  }
+
+  async findActiveByPhone(e164: string): Promise<User[]> {
+    // users.phone se guarda con y sin "+591": se trae por los últimos 8
+    // dígitos y se compara normalizado.
+    const records = await this.prisma.users.findMany({
+      where: { is_active: true, phone: { endsWith: e164.slice(-8) } },
+    });
+    return records
+      .filter((record) => record.phone && toE164(record.phone) === e164)
+      .map((record) => UserMapper.toDomain(record));
   }
 
   async findByAuthUserId(authUserId: string): Promise<User | null> {

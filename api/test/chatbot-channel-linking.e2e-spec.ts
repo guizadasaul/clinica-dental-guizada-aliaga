@@ -40,9 +40,17 @@ async function cleanup(prisma: PrismaService): Promise<void> {
   });
 }
 
+// Teléfonos de las fichas (CLI-146), guardados en formatos distintos a propósito.
+const PHONE_A = '+59170000111';
+const PHONE_SHARED = '59170000444';
+const PHONE_DOCTOR_STORED = '70000333';
+const PHONE_DOCTOR = '+59170000333';
+const PHONE_INACTIVE = '+59170000555';
+
 async function createPatient(
   prisma: PrismaService,
   key: string,
+  phone: string,
 ): Promise<LinkingUser> {
   const authUserId = randomUUID();
   const user = await prisma.users.create({
@@ -50,8 +58,7 @@ async function createPatient(
       auth_user_id: authUserId,
       email: `${key}${DOMAIN}`,
       role: 'patient',
-      // Un teléfono cargado por un tercero: nunca debe identificarlo.
-      phone: '+59170000999',
+      phone,
     },
   });
   const patient = await prisma.patients.create({
@@ -69,12 +76,30 @@ async function createPatient(
   };
 }
 
-describe('Chatbot: vinculación de WhatsApp (e2e) — CLI-100', () => {
+async function createDoctor(
+  prisma: PrismaService,
+  key: string,
+  phone: string,
+  isActive = true,
+): Promise<string> {
+  const user = await prisma.users.create({
+    data: {
+      auth_user_id: randomUUID(),
+      email: `${key}${DOMAIN}`,
+      role: 'odontologist',
+      phone,
+      is_active: isActive,
+    },
+  });
+  return user.id;
+}
+
+describe('Chatbot: identidad por WhatsApp (e2e) — CLI-100 y CLI-146', () => {
   let app: NestExpressApplication;
   let prisma: PrismaService;
   let linking: ChannelLinkingService;
   let actors: ActorResolver;
-  let fx: { patientA: LinkingUser; patientB: LinkingUser };
+  let fx: { patientA: LinkingUser; patientB: LinkingUser; doctorId: string };
   const verifier = new FakeAccessTokenVerifier();
 
   beforeAll(async () => {
@@ -94,9 +119,13 @@ describe('Chatbot: vinculación de WhatsApp (e2e) — CLI-100', () => {
     actors = app.get(ActorResolver);
     await cleanup(prisma);
     fx = {
-      patientA: await createPatient(prisma, 'link-a'),
-      patientB: await createPatient(prisma, 'link-b'),
+      patientA: await createPatient(prisma, 'link-a', PHONE_A),
+      // B y C comparten número (una familia): no se puede adivinar.
+      patientB: await createPatient(prisma, 'link-b', PHONE_SHARED),
+      doctorId: await createDoctor(prisma, 'link-doc', PHONE_DOCTOR_STORED),
     };
+    await createPatient(prisma, 'link-c', `+${PHONE_SHARED}`);
+    await createDoctor(prisma, 'link-inactive', PHONE_INACTIVE, false);
     for (const user of [fx.patientA, fx.patientB]) {
       verifier.register(user.token, user.authUserId);
     }
@@ -134,10 +163,49 @@ describe('Chatbot: vinculación de WhatsApp (e2e) — CLI-100', () => {
       .expect(401);
   });
 
-  it('un número sin vincular es anónimo aunque coincida con users.phone', async () => {
-    await expect(
-      actors.fromChannelIdentity('whatsapp', '+59170000999'),
-    ).resolves.toEqual({ kind: 'anonymous' });
+  describe('reconocimiento por el número de la ficha (CLI-146)', () => {
+    it('el número de un solo paciente lo reconoce directo, con su ficha', async () => {
+      await expect(
+        actors.fromChannelSender('whatsapp', PHONE_A),
+      ).resolves.toEqual({
+        actor: {
+          kind: 'user',
+          userId: fx.patientA.id,
+          role: 'patient',
+          patientId: fx.patientA.patientId,
+        },
+        match: 'patient',
+      });
+    });
+
+    it('el número de un doctor, guardado sin +591, lo reconoce directo', async () => {
+      await expect(
+        actors.fromChannelSender('whatsapp', PHONE_DOCTOR),
+      ).resolves.toEqual({
+        actor: {
+          kind: 'user',
+          userId: fx.doctorId,
+          role: 'odontologist',
+          patientId: null,
+        },
+        match: 'staff',
+      });
+    });
+
+    it('un número compartido por dos pacientes no se adivina', async () => {
+      await expect(
+        actors.fromChannelSender('whatsapp', `+${PHONE_SHARED}`),
+      ).resolves.toEqual({ actor: { kind: 'anonymous' }, match: 'ambiguous' });
+    });
+
+    it('una cuenta dada de baja y un número desconocido son visitantes', async () => {
+      await expect(
+        actors.fromChannelSender('whatsapp', PHONE_INACTIVE),
+      ).resolves.toEqual({ actor: { kind: 'anonymous' }, match: 'unknown' });
+      await expect(
+        actors.fromChannelSender('whatsapp', '+59170000666'),
+      ).resolves.toEqual({ actor: { kind: 'anonymous' }, match: 'unknown' });
+    });
   });
 
   it('código pedido en la web + canje desde el número → ese número es el paciente', async () => {
@@ -150,14 +218,17 @@ describe('Chatbot: vinculación de WhatsApp (e2e) — CLI-100', () => {
     await expect(
       linking.redeem('whatsapp', NUMBER.slice(1), code),
     ).resolves.toMatchObject({ status: 'linked', userId: fx.patientA.id });
-    await expect(
-      actors.fromChannelIdentity('whatsapp', NUMBER),
-    ).resolves.toEqual({
-      kind: 'user',
-      userId: fx.patientA.id,
-      role: 'patient',
-      patientId: fx.patientA.patientId,
-    });
+    await expect(actors.fromChannelSender('whatsapp', NUMBER)).resolves.toEqual(
+      {
+        actor: {
+          kind: 'user',
+          userId: fx.patientA.id,
+          role: 'patient',
+          patientId: fx.patientA.patientId,
+        },
+        match: 'linked',
+      },
+    );
     const res = await links(fx.patientA.token);
     expect(res.body).toEqual([
       expect.objectContaining({ channel: 'whatsapp', number: '•••• 0123' }),
@@ -176,8 +247,11 @@ describe('Chatbot: vinculación de WhatsApp (e2e) — CLI-100', () => {
     });
     expect((await links(fx.patientA.token)).body).toEqual([]);
     await expect(
-      actors.fromChannelIdentity('whatsapp', NUMBER),
-    ).resolves.toMatchObject({ userId: fx.patientB.id });
+      actors.fromChannelSender('whatsapp', NUMBER),
+    ).resolves.toMatchObject({
+      actor: { userId: fx.patientB.id },
+      match: 'linked',
+    });
   });
 
   it('la base no admite dos vínculos activos para el mismo número', async () => {
@@ -206,8 +280,8 @@ describe('Chatbot: vinculación de WhatsApp (e2e) — CLI-100', () => {
       .delete(`/chat/channel-links/${link.id}`)
       .set('Authorization', `Bearer ${fx.patientB.token}`)
       .expect(204);
-    await expect(
-      actors.fromChannelIdentity('whatsapp', NUMBER),
-    ).resolves.toEqual({ kind: 'anonymous' });
+    await expect(actors.fromChannelSender('whatsapp', NUMBER)).resolves.toEqual(
+      { actor: { kind: 'anonymous' }, match: 'unknown' },
+    );
   });
 });

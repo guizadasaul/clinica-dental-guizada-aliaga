@@ -3,8 +3,9 @@ export type LinkableChannel = 'whatsapp';
 
 /**
  * Un número de un canal externo vinculado a una cuenta (CLI-100). La
- * posesión se probó con un código de un solo uso enviado desde ese número;
- * nunca se infiere de users.phone, que lo carga un tercero y no es único.
+ * posesión se probó con un código de un solo uso enviado desde ese número.
+ * Tiene prioridad sobre users.phone (CLI-146), que lo carga un tercero y no
+ * es único.
  */
 export interface ChannelIdentity {
   id: string;

@@ -6,6 +6,24 @@ import type { UserRepository as IUserRepository } from '../../auth/domain/UserRe
 import { PatientRepository } from '../../patients/domain/PatientRepository';
 import type { IPatientRepository } from '../../patients/domain/PatientRepository';
 import type { ChatActor } from '../domain/ChatActor';
+
+/** Cómo se reconoció a quien escribe por un canal externo (CLI-146). */
+export type ChannelSenderMatch =
+  | 'linked'
+  | 'staff'
+  | 'patient'
+  | 'ambiguous'
+  | 'unknown';
+
+export interface ChannelSender {
+  actor: ChatActor;
+  match: ChannelSenderMatch;
+}
+
+const STAFF_ROLES: ReadonlySet<UserRole> = new Set([
+  UserRole.ODONTOLOGIST,
+  UserRole.ADMIN,
+]);
 import { ChannelIdentityRepository } from '../domain/ChannelIdentity';
 import type {
   ChannelIdentityRepository as IChannelIdentityRepository,
@@ -41,23 +59,44 @@ export class ActorResolver {
   }
 
   /**
-   * Actor de un mensaje de un canal externo (CLI-100): el usuario solo si el
-   * número tiene un vínculo activo, probado con un código, y la cuenta sigue
-   * activa. Sin vínculo, revocado o con la cuenta dada de baja → anónimo
-   * (solo tools públicas). Nunca se busca por users.phone.
+   * Quién escribe por un canal externo (CLI-100 + CLI-146), sin que se
+   * autentique. En orden:
+   * 1. vínculo por código activo (VINCULAR ######): tiene prioridad;
+   * 2. el número de UN solo doctor o admin activo;
+   * 3. el número de UN solo paciente activo;
+   * 4. si varias cuentas comparten el número (una familia), no se adivina:
+   *    anónimo con match "ambiguous" para que el canal sugiera el código;
+   * 5. si no coincide con nadie, anónimo (solo tools públicas).
+   * Una cuenta dada de baja nunca se reconoce.
    */
-  async fromChannelIdentity(
+  async fromChannelSender(
     channel: LinkableChannel,
     externalId: string,
-  ): Promise<ChatActor> {
+  ): Promise<ChannelSender> {
     const identity = await this.identityRepo.findActiveByExternalId(
       channel,
       externalId,
     );
-    if (!identity) return this.anonymous();
-    const user = await this.userRepo.findById(identity.userId);
-    if (!user?.isActive) return this.anonymous();
-    return this.fromAppUser(user);
+    if (identity) {
+      const linked = await this.userRepo.findById(identity.userId);
+      if (linked?.isActive) {
+        return { actor: await this.fromAppUser(linked), match: 'linked' };
+      }
+    }
+
+    const owners = await this.userRepo.findActiveByPhone(externalId);
+    const staff = owners.filter((u) => STAFF_ROLES.has(u.role));
+    const patients = owners.filter((u) => u.role === UserRole.PATIENT);
+    if (staff.length === 1) {
+      return { actor: await this.fromAppUser(staff[0]), match: 'staff' };
+    }
+    if (staff.length === 0 && patients.length === 1) {
+      return { actor: await this.fromAppUser(patients[0]), match: 'patient' };
+    }
+    return {
+      actor: this.anonymous(),
+      match: owners.length > 1 ? 'ambiguous' : 'unknown',
+    };
   }
 
   anonymous(): ChatActor {
