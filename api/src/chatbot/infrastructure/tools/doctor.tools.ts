@@ -218,13 +218,13 @@ export class GetMyMonthlyStatsTool implements ChatTool<MyMonthlyStatsArgsDto> {
         'Solo este doctor (sus citas y sus pacientes asignados). NO son números de toda la clínica: esos solo los ve el administrador.',
       month,
       confirmedAppointments: ops?.confirmedAppointments ?? 0,
-      attendedAppointments: past.length,
+      confirmedAlreadyPast: past.length,
       newPatients: ops?.newPatients ?? 0,
       occupancyPercent: Math.round((ops?.occupancyRate ?? 0) * 100),
       collectedBob: money?.collected ?? 0,
       pendingBob: money?.pending ?? 0,
       notes: [
-        '"Atendidas" = citas confirmadas cuya hora ya pasó (el sistema no registra asistencia).',
+        'confirmedAlreadyPast es parte de confirmedAppointments: las confirmadas cuya hora ya pasó (se toman como atendidas; el sistema no registra asistencia).',
         '"Cobrado" y "pendiente" son de los pacientes asignados a este doctor; el pendiente es el saldo actual, no solo del mes.',
       ],
     };

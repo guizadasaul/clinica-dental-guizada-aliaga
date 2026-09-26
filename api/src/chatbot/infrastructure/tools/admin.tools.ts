@@ -53,6 +53,23 @@ const REPORT_PARAMETERS: JsonSchema = {
   additionalProperties: false,
 };
 
+// Etiquetas en castellano: con las claves crudas el modelo presentaba las
+// "expired" como cancelaciones (CLI-145).
+const STATUS_LABEL: Record<string, string> = {
+  confirmed: 'confirmadas (pagadas)',
+  held: 'reservas en curso (sin pagar todavía)',
+  expired: 'vencidas sin pagar (no son cancelaciones)',
+};
+
+function labelStatuses(byStatus: Record<string, number>) {
+  return Object.fromEntries(
+    Object.entries(byStatus).map(([status, count]) => [
+      STATUS_LABEL[status] ?? status,
+      count,
+    ]),
+  );
+}
+
 function isAdmin(actor: ChatActor): boolean {
   return actor.kind === 'user' && actor.role === UserRole.ADMIN;
 }
@@ -89,7 +106,7 @@ export class GetClinicOperationalReportTool implements ChatTool<ClinicReportArgs
     const report = await this.reportsService.getOperationalReport(args);
     const doctors = report.doctors.map((d) => ({
       doctor: d.doctorName,
-      appointmentsByStatus: d.appointmentsByStatus,
+      appointmentsByStatus: labelStatuses(d.appointmentsByStatus),
       totalAppointments: d.totalAppointments,
       confirmedAppointments: d.confirmedAppointments,
       newPatients: d.newPatients,
@@ -108,7 +125,7 @@ export class GetClinicOperationalReportTool implements ChatTool<ClinicReportArgs
       },
       doctors,
       notes: [
-        'Estados: confirmed = reservas pagadas; held = reserva en curso; expired = reservas que no se pagaron a tiempo. El sistema no registra cancelaciones ni asistencia.',
+        'Las vencidas son reservas que no se pagaron a tiempo, no cancelaciones: el sistema no registra cancelaciones ni asistencia.',
       ],
     };
   }

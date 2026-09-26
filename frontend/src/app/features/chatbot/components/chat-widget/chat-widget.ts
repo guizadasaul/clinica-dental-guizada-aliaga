@@ -64,6 +64,7 @@ export function toSegments(text: string, origin: string): TextSegment[] {
 
 function errorKeyFor(error: unknown): string {
   const status = error instanceof HttpErrorResponse ? error.status : 0;
+  if (status === 409) return 'chatbot.errors.busy';
   if (status === 429) return 'chatbot.errors.limit';
   if (status === 503) return 'chatbot.errors.unavailable';
   return 'chatbot.errors.generic';

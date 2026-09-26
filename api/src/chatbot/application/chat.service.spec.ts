@@ -1,4 +1,5 @@
 import {
+  ConflictException,
   HttpException,
   Logger,
   NotFoundException,
@@ -403,6 +404,107 @@ describe('ChatService', () => {
       ]);
     });
   });
+  describe('CLI-145', () => {
+    it('no le reenvía al modelo las respuestas de fallback (turnos con error)', async () => {
+      repo.findSessionForUser.mockResolvedValue(session());
+      repo.findRecentMessages.mockResolvedValue([
+        message('user', '¿cuánto debo?'),
+        {
+          ...message('assistant', 'En este momento no puedo responder'),
+          errorCode: 'llm_rate_limited',
+        },
+        message('user', '¿cuánto debo?', 'u2'),
+      ]);
+
+      await service.handleMessage({
+        actor: patient,
+        channel: 'web',
+        sessionId: 'session-1',
+        text: '¿cuánto debo?',
+      });
+
+      expect(callArg<{ history: unknown }>(agent.run, 0, 0).history).toEqual([
+        { role: 'user', content: '¿cuánto debo?' },
+        { role: 'user', content: '¿cuánto debo?' },
+      ]);
+    });
+
+    it('rechaza con 409 un segundo mensaje mientras la conversación tiene un turno en curso', async () => {
+      repo.findSessionForUser.mockResolvedValue(session());
+      let finishFirst!: (value: AgentRunResult) => void;
+      agent.run.mockReturnValueOnce(
+        new Promise<AgentRunResult>((resolve) => {
+          finishFirst = resolve;
+        }),
+      );
+      const turn = {
+        actor: patient,
+        channel: 'web' as const,
+        sessionId: 'session-1',
+        text: 'hola',
+      };
+
+      const first = service.handleMessage(turn);
+      await new Promise((resolve) => setImmediate(resolve));
+      await expect(service.handleMessage(turn)).rejects.toBeInstanceOf(
+        ConflictException,
+      );
+
+      finishFirst(AGENT_RESULT);
+      await expect(first).resolves.toMatchObject({ sessionId: 'session-1' });
+      // Terminado el turno, la conversación vuelve a aceptar mensajes.
+      await expect(service.handleMessage(turn)).resolves.toMatchObject({
+        sessionId: 'session-1',
+      });
+    });
+
+    it('libera la conversación aunque el turno falle', async () => {
+      repo.findSessionForUser.mockResolvedValue(session());
+      agent.run.mockRejectedValueOnce(new Error('boom'));
+      const turn = {
+        actor: patient,
+        channel: 'web' as const,
+        sessionId: 'session-1',
+        text: 'hola',
+      };
+
+      await expect(service.handleMessage(turn)).rejects.toThrow('boom');
+      await expect(service.handleMessage(turn)).resolves.toMatchObject({
+        sessionId: 'session-1',
+      });
+    });
+
+    it('conversaciones distintas no se bloquean entre sí', async () => {
+      repo.findSessionForUser.mockImplementation((id: string) =>
+        Promise.resolve(session({ id })),
+      );
+      let finishFirst!: (value: AgentRunResult) => void;
+      agent.run.mockReturnValueOnce(
+        new Promise<AgentRunResult>((resolve) => {
+          finishFirst = resolve;
+        }),
+      );
+
+      const first = service.handleMessage({
+        actor: patient,
+        channel: 'web',
+        sessionId: 'session-1',
+        text: 'a',
+      });
+      await new Promise((resolve) => setImmediate(resolve));
+      await expect(
+        service.handleMessage({
+          actor: patient,
+          channel: 'web',
+          sessionId: 'session-2',
+          text: 'b',
+        }),
+      ).resolves.toMatchObject({ sessionId: 'session-2' });
+      finishFirst(AGENT_RESULT);
+      await first;
+    });
+  });
+
   describe('kill switch', () => {
     it.each([undefined, 'false', 'TRUE', '1'])(
       'con CHATBOT_ENABLED=%p responde 503 sin tocar la base ni el modelo',

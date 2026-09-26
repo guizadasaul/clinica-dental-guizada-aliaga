@@ -112,7 +112,7 @@ export class ListServicesTool implements ChatTool<ListServicesArgsDto> {
       }));
     return {
       services,
-      note: 'Precios base referenciales. El costo final se define en el presupuesto después de la evaluación.',
+      note: 'Precios base referenciales; el costo final sale del presupuesto tras la evaluación. Si varios tratamientos coinciden con lo que pide el usuario (ej. "resina"), nómbralos todos con su precio.',
     };
   }
 }
@@ -262,7 +262,7 @@ export class GetBookingLinkTool implements ChatTool<GetBookingLinkArgsDto> {
         date: args.date,
         time: args.time,
         linkNote:
-          'El link de reserva se agrega solo debajo de tu respuesta: no escribas ninguna URL. La cita todavía NO está reservada: queda reservada recién cuando el usuario complete sus datos y el pago por QR en ese link.',
+          'Debajo de tu respuesta aparece el botón "Completar reserva y pago". La cita no está reservada hasta que el usuario complete sus datos y pague por QR ahí.',
       },
       [
         {

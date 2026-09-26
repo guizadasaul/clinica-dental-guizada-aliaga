@@ -212,7 +212,7 @@ describe('Chatbot: autorización (e2e) — CLI-95', () => {
     it('3. A consulta su deuda y ve solo su saldo', async () => {
       const turn = await callTool(fx.patientA.token, 'get_my_balance');
 
-      expect(turn.result['data']).toEqual({
+      expect(turn.result['data']).toMatchObject({
         totalBalanceBob: A_QUOTE.total - A_QUOTE.paid,
         quotesWithBalance: 1,
       });

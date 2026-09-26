@@ -15,19 +15,46 @@ export function linkOnlyReply(locale: ChatLocale = 'es'): string {
 /** Marca de un link de reserva escrito por el modelo, completo o recortado. */
 const BOOKING_PATH = '/reservar';
 
+function isLetter(char: string): boolean {
+  return char >= 'a' && char <= 'z';
+}
+
 /**
- * Saca del texto cualquier "palabra" que sea un link de reserva. Los links
- * los agrega el backend aparte (ChatLink); si el modelo igual escribe uno,
- * puede venir recortado ("doctorId=ac98..."), así que nunca se confía en él.
+ * true si la "palabra" parece una URL: con esquema, www., wa.me/, un link de
+ * reserva (aunque venga recortado) o un dominio con ruta ("algo.com/x"). Un
+ * email o una fecha "24/09/2026" no cuentan.
+ */
+function isUrlLike(word: string): boolean {
+  const lower = word.toLowerCase();
+  if (
+    lower.includes(BOOKING_PATH) ||
+    lower.includes('://') ||
+    lower.startsWith('www.') ||
+    lower.includes('wa.me/')
+  ) {
+    return true;
+  }
+  const slash = lower.indexOf('/');
+  if (slash <= 0) return false;
+  const host = lower.slice(0, slash);
+  const dot = host.lastIndexOf('.');
+  const tld = host.slice(dot + 1);
+  return dot > 0 && tld.length >= 2 && [...tld].every(isLetter);
+}
+
+/**
+ * Saca del texto toda URL (CLI-145). Los links válidos los agrega el backend
+ * aparte (ChatLink); cualquier URL que escriba el modelo es inventada o puede
+ * venir recortada ("doctorId=ac98..."), y por WhatsApp se leería como real.
  * Sin regex: se recorre por espacios, lineal en el largo del texto.
  */
-export function removeBookingUrls(text: string): string {
+export function removeUrls(text: string): string {
   return text
     .split('\n')
     .map((line) =>
       line
         .split(' ')
-        .filter((word) => !word.includes(BOOKING_PATH))
+        .filter((word) => !isUrlLike(word))
         .join(' ')
         .trimEnd(),
     )

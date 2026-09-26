@@ -241,6 +241,7 @@ describe('ChatWidgetComponent', () => {
   });
 
   it.each([
+    [409, 'chatbot.errors.busy'],
     [429, 'chatbot.errors.limit'],
     [503, 'chatbot.errors.unavailable'],
     [500, 'chatbot.errors.generic'],
