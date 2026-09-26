@@ -5,6 +5,7 @@ import type {
   CreateChatSessionData,
   NewChatMessageData,
 } from '../../domain/ChatRepository.js';
+import type { ChatChannel } from '../../domain/ChatChannel.js';
 import type { ChatMessage } from '../../domain/ChatMessage.js';
 import type { ChatSession } from '../../domain/ChatSession.js';
 import type { ChatTurnRecord } from '../../domain/ChatUsage.js';
@@ -31,6 +32,17 @@ export class PrismaChatRepository implements ChatRepository {
   ): Promise<ChatSession | null> {
     const record = await this.prisma.chat_sessions.findFirst({
       where: { id: sessionId, user_id: userId },
+    });
+    return record ? ChatMapper.toSession(record) : null;
+  }
+
+  async findLatestSessionForUser(
+    userId: string,
+    channel: ChatChannel,
+  ): Promise<ChatSession | null> {
+    const record = await this.prisma.chat_sessions.findFirst({
+      where: { user_id: userId, channel },
+      orderBy: { last_activity_at: 'desc' },
     });
     return record ? ChatMapper.toSession(record) : null;
   }

@@ -36,6 +36,11 @@ export interface ChatRepository {
     sessionId: string,
     userId: string,
   ): Promise<ChatSession | null>;
+  /** La conversación más reciente del usuario en ese canal (WhatsApp retoma la suya). */
+  findLatestSessionForUser(
+    userId: string,
+    channel: ChatChannel,
+  ): Promise<ChatSession | null>;
   findSessionByAnonTokenHash(
     anonTokenHash: string,
   ): Promise<ChatSession | null>;
