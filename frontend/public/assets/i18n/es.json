@@ -361,7 +361,8 @@
       "limit": "Alcanzaste el límite de mensajes por ahora. Probá de nuevo más tarde.",
       "unavailable": "El asistente no está disponible en este momento. En horario de atención podés escribir a Dr. Ariel Guizada (+591 674 02602) o Dra. Marylu Aliaga (+591 577 29544).",
       "generic": "No pude enviar tu mensaje. Revisá tu conexión y probá de nuevo.",
-      "clear": "No pude borrar la conversación. Probá de nuevo."
+      "clear": "No pude borrar la conversación. Probá de nuevo.",
+      "busy": "Todavía estoy respondiendo tu mensaje anterior. Esperá un momento y volvé a intentar."
     }
   }
 }

@@ -1,5 +1,6 @@
 import { createHash, randomBytes } from 'node:crypto';
 import {
+  ConflictException,
   HttpException,
   HttpStatus,
   Inject,
@@ -72,6 +73,14 @@ export function hashAnonToken(token: string): string {
  */
 @Injectable()
 export class ChatService {
+  /**
+   * Conversaciones con un turno en curso (CLI-145). Dos mensajes en paralelo
+   * en la misma conversación cruzaban el historial y las respuestas. Es en
+   * memoria, como el throttler: alcanza mientras la API corra en un solo
+   * proceso.
+   */
+  private readonly activeSessions = new Set<string>();
+
   constructor(
     @Inject(ChatRepository) private readonly chatRepo: IChatRepository,
     private readonly agent: AgentRunner,
@@ -97,12 +106,31 @@ export class ChatService {
         hashAnonToken(anonToken),
       );
     }
+    if (this.activeSessions.has(session.id)) {
+      throw new ConflictException(
+        'Todavía estoy respondiendo tu mensaje anterior',
+      );
+    }
+    this.activeSessions.add(session.id);
+    try {
+      return await this.runTurn(message, session.id, anonToken, audit, started);
+    } finally {
+      this.activeSessions.delete(session.id);
+    }
+  }
 
-    await this.chatRepo.appendMessage(session.id, {
+  private async runTurn(
+    message: IncomingChatMessage,
+    sessionId: string,
+    anonToken: string | null,
+    audit: ChatAuditContext,
+    started: number,
+  ): Promise<ChatReply> {
+    await this.chatRepo.appendMessage(sessionId, {
       role: 'user',
       content: message.text,
     });
-    const history = await this.loadHistory(session.id);
+    const history = await this.loadHistory(sessionId);
 
     const result = await this.agent.run({
       actor: message.actor,
@@ -113,7 +141,7 @@ export class ChatService {
     });
     const totalMs = Date.now() - started;
 
-    await this.chatRepo.appendMessage(session.id, {
+    await this.chatRepo.appendMessage(sessionId, {
       role: 'assistant',
       content: result.reply,
       toolNames: result.toolNames,
@@ -136,7 +164,7 @@ export class ChatService {
     });
 
     return {
-      sessionId: session.id,
+      sessionId: sessionId,
       anonToken,
       reply: result.reply,
       links: result.links,
@@ -270,7 +298,13 @@ export class ChatService {
       'CHAT_CONTEXT_MAX_CHARS',
       DEFAULT_CONTEXT_MAX_CHARS,
     );
-    const recent = await this.chatRepo.findRecentMessages(sessionId, limit);
+    // Las respuestas de fallback (turnos con error_code) no se reenvían: en
+    // vivo, un "no puedo responder" en el historial hacía que el turno
+    // siguiente contestara "no tengo esa herramienta" sin intentar ninguna
+    // (CLI-145). El mensaje del usuario de ese turno sí queda.
+    const recent = (
+      await this.chatRepo.findRecentMessages(sessionId, limit)
+    ).filter((m) => !(m.role === 'assistant' && m.errorCode));
 
     const kept: LlmMessage[] = [];
     let totalChars = 0;

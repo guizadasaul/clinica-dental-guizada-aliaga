@@ -37,6 +37,11 @@ const NO_PROFILE = {
   note: 'El usuario todavía no tiene ficha de paciente en la clínica.',
 };
 
+// En vivo el modelo ofrecía "si deseas pagar, avísame" o "pagar por la web"
+// (CLI-145): el bot solo consulta.
+const PAYMENT_NOTE =
+  'El asistente no cobra ni agenda pagos: el saldo se paga en la clínica (efectivo, QR o transferencia).';
+
 const QUOTE_STATUS_LABEL: Record<string, string> = {
   pending: 'pendiente',
   partially_paid: 'pago parcial',
@@ -187,15 +192,13 @@ export class GetMyQuotesTool implements ChatTool<object> {
   async execute(actor: ChatActor): Promise<unknown> {
     const patientId = patientIdOf(actor);
     if (!patientId) return NO_PROFILE;
-    const quotes = (await this.quotesService.findByPatient(patientId)).slice(
-      0,
-      MAX_QUOTES,
-    );
+    const all = await this.quotesService.findByPatient(patientId);
+    const quotes = all.slice(0, MAX_QUOTES);
     const names = await treatmentNames(
       this.treatmentRepo,
       quotes.flatMap((q) => q.items.map((i) => i.treatmentId)),
     );
-    return quotes.map((quote) => ({
+    const views = quotes.map((quote) => ({
       date: clinicDate(quote.createdAt),
       status: QUOTE_STATUS_LABEL[quote.status] ?? quote.status,
       totalBob: round2(quote.totalAmount),
@@ -208,6 +211,7 @@ export class GetMyQuotesTool implements ChatTool<object> {
         receipt: p.receiptNumber,
       })),
     }));
+    return { total: all.length, quotes: views, note: PAYMENT_NOTE };
   }
 }
 
@@ -230,6 +234,7 @@ export class GetMyBalanceTool implements ChatTool<object> {
     return {
       totalBalanceBob: round2(withBalance.reduce((sum, b) => sum + b, 0)),
       quotesWithBalance: withBalance.length,
+      note: PAYMENT_NOTE,
     };
   }
 }
@@ -278,13 +283,15 @@ export class GetMyTreatmentsTool implements ChatTool<MyTreatmentsArgsDto> {
       }
       groups.set(key, group);
     }
-    return [...groups.values()]
+    const treatments = [...groups.values()]
       .slice(0, args.limit ?? DEFAULT_TREATMENTS)
       .map((g) => ({
         date: g.date,
         treatment: g.treatment,
         ...(g.teeth.length > 0 && { teeth: g.teeth }),
       }));
+    // total deja decir "te muestro los 10 más recientes de 14" (CLI-145).
+    return { total: groups.size, treatments };
   }
 }
 
@@ -316,7 +323,7 @@ export class GetMyPendingTreatmentsTool implements ChatTool<object> {
       treatments: unpaid.flatMap((q) => groupItems(q.items, names)),
       // No hay vínculo entre un ítem presupuestado y el procedimiento
       // realizado: "pendiente" se deriva de los presupuestos sin pagar.
-      note: 'Según los presupuestos que todavía no están pagados por completo. Para saber cuáles ya se realizaron, consultar al doctor.',
+      note: `Según los presupuestos que todavía no están pagados por completo. Para saber cuáles ya se realizaron, consultar al doctor. ${PAYMENT_NOTE}`,
     };
   }
 }

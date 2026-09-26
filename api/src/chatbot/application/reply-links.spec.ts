@@ -1,33 +1,51 @@
 import type { ChatLink } from '../domain/ChatLink';
 import type { ChatLocale } from './fallback-reply';
-import { linkOnlyReply, mergeLinks, removeBookingUrls } from './reply-links';
+import { linkOnlyReply, mergeLinks, removeUrls } from './reply-links';
 
 describe('reply-links', () => {
-  describe('removeBookingUrls', () => {
+  describe('removeUrls', () => {
     it('saca links de reserva completos o recortados y deja el resto del texto', () => {
       expect(
-        removeBookingUrls(
+        removeUrls(
           'Reserva acá: https://guizadaaliaga.com/reservar?slot=x&doctorId=ab12...\nTe esperamos.',
         ),
       ).toBe('Reserva acá:\nTe esperamos.');
     });
 
     it('saca también un link sin protocolo', () => {
-      expect(
-        removeBookingUrls('Link: localhost:4200/reservar?slot=1 listo'),
-      ).toBe('Link: listo');
+      expect(removeUrls('Link: localhost:4200/reservar?slot=1 listo')).toBe(
+        'Link: listo',
+      );
     });
 
     it('no toca un texto sin links de reserva', () => {
-      expect(removeBookingUrls('Atendemos de lunes a sábado.')).toBe(
+      expect(removeUrls('Atendemos de lunes a sábado.')).toBe(
         'Atendemos de lunes a sábado.',
       );
     });
 
     it('devuelve vacío si el texto era solo el link', () => {
-      expect(
-        removeBookingUrls('  http://localhost:4200/reservar?slot=1  '),
-      ).toBe('');
+      expect(removeUrls('  http://localhost:4200/reservar?slot=1  ')).toBe('');
+    });
+  });
+
+  describe('removeUrls: cualquier URL inventada (CLI-145)', () => {
+    it.each([
+      'https://clinicadentalguizadaaliaga.com/booking?token=generated_link_12345',
+      'www.clinica.com',
+      'clinica-dental.bo/turnos',
+      'wa.me/59157744250',
+      '(https://ejemplo.com/x)',
+    ])('saca %s', (url) => {
+      expect(removeUrls(`Reservá acá: ${url} gracias`)).toBe(
+        'Reservá acá: gracias',
+      );
+    });
+
+    it('no toca emails, fechas ni montos', () => {
+      const text =
+        'Escribí a clinicadentalguizadaaliaga@gmail.com. Pagado el 24/09/2026: 1/2 del total, Bs. 1.500.';
+      expect(removeUrls(text)).toBe(text);
     });
   });
 

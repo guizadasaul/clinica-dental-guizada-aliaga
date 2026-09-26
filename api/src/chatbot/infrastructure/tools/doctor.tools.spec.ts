@@ -323,7 +323,7 @@ describe('doctor tools (CLI-92)', () => {
       expect(result).toMatchObject({
         month: '2026-02',
         confirmedAppointments: 5,
-        attendedAppointments: 3,
+        confirmedAlreadyPast: 3,
         newPatients: 1,
         occupancyPercent: 12,
         collectedBob: 100,
@@ -364,7 +364,7 @@ describe('doctor tools (CLI-92)', () => {
       expect(result).toMatchObject({
         month: clinicDate(new Date()).slice(0, 7),
         confirmedAppointments: 0,
-        attendedAppointments: 0,
+        confirmedAlreadyPast: 0,
         newPatients: 0,
         occupancyPercent: 0,
         collectedBob: 0,

@@ -164,6 +164,19 @@ describe('AgentRunner', () => {
     expect(result.cachedPromptTokens).toBe(0);
   });
 
+  it('saca del texto una URL inventada por el modelo (CLI-145)', async () => {
+    const result = await run(
+      new FakeLlmProvider([
+        textResponse(
+          'Reservá acá: https://clinicadentalguizadaaliaga.com/booking?token=generated_link_12345 y listo.',
+        ),
+      ]),
+    );
+
+    expect(result.reply).toBe('Reservá acá: y listo.');
+    expect(result.links).toEqual([]);
+  });
+
   it('ejecuta una tool, le devuelve el resultado al modelo y responde', async () => {
     const llm = new FakeLlmProvider([
       toolCallResponse({ id: 'c1', name: 'get_my_balance' }),

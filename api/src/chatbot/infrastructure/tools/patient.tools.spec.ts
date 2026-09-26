@@ -260,19 +260,24 @@ describe('patient tools (CLI-91)', () => {
       );
 
       expect(quotesService.findByPatient).toHaveBeenCalledWith('patient-1');
-      expect(result).toEqual([
-        {
-          date: '2026-09-01',
-          status: 'pago parcial',
-          totalBob: 400,
-          paidBob: 100,
-          balanceBob: 300,
-          items: [{ treatment: 'Limpieza', subtotalBob: 250 }],
-          payments: [
-            { date: '2026-09-02', amountBob: 100, receipt: 'REC-000123' },
-          ],
-        },
-      ]);
+      expect(result).toEqual({
+        total: 1,
+        quotes: [
+          {
+            date: '2026-09-01',
+            status: 'pago parcial',
+            totalBob: 400,
+            paidBob: 100,
+            balanceBob: 300,
+            items: [{ treatment: 'Limpieza', subtotalBob: 250 }],
+            payments: [
+              { date: '2026-09-02', amountBob: 100, receipt: 'REC-000123' },
+            ],
+          },
+        ],
+        // CLI-145: el bot no cobra ni agenda pagos.
+        note: expect.stringContaining('no cobra') as unknown,
+      });
       const json = JSON.stringify(result);
       expect(json).not.toContain('nota');
       expect(json).not.toContain('quote-1');
@@ -301,12 +306,14 @@ describe('patient tools (CLI-91)', () => {
         }),
       ]);
 
-      const [first] = (await new GetMyQuotesTool(quotes, treatments).execute(
+      const {
+        quotes: [first],
+      } = (await new GetMyQuotesTool(quotes, treatments).execute(
         patient,
         {},
-      )) as Array<{
-        items: unknown[];
-      }>;
+      )) as {
+        quotes: Array<{ items: unknown[] }>;
+      };
 
       expect(first.items).toEqual([
         { treatment: 'Resina', teeth: [11, 12], subtotalBob: 600 },
@@ -321,10 +328,11 @@ describe('patient tools (CLI-91)', () => {
 
       const result = (await new GetMyQuotesTool(quotes, treatments).execute(
         patient,
-      )) as Array<{ status: string }>;
+      )) as { total: number; quotes: Array<{ status: string }> };
 
-      expect(result).toHaveLength(5);
-      expect(result[0].status).toBe('pago parcial');
+      expect(result.quotes).toHaveLength(5);
+      expect(result.total).toBe(6);
+      expect(result.quotes[0].status).toBe('pago parcial');
     });
 
     it('nombra genérico un tratamiento desconocido', async () => {
@@ -332,9 +340,11 @@ describe('patient tools (CLI-91)', () => {
         quote({ items: [item({ treatmentId: 'desconocido' })] }),
       ]);
 
-      const [first] = (await new GetMyQuotesTool(quotes, treatments).execute(
-        patient,
-      )) as Array<{ items: Array<{ treatment: string }> }>;
+      const {
+        quotes: [first],
+      } = (await new GetMyQuotesTool(quotes, treatments).execute(patient)) as {
+        quotes: Array<{ items: Array<{ treatment: string }> }>;
+      };
 
       expect(first.items[0].treatment).toBe('Tratamiento');
     });
@@ -344,12 +354,14 @@ describe('patient tools (CLI-91)', () => {
         quote({ status: 'raro' }),
       ]);
 
-      const [first] = (await new GetMyQuotesTool(quotes, treatments).execute(
+      const {
+        quotes: [first],
+      } = (await new GetMyQuotesTool(quotes, treatments).execute(
         patient,
         {},
-      )) as Array<{
-        status: string;
-      }>;
+      )) as {
+        quotes: Array<{ status: string }>;
+      };
 
       expect(first.status).toBe('raro');
     });
@@ -368,6 +380,7 @@ describe('patient tools (CLI-91)', () => {
       ).resolves.toEqual({
         totalBalanceBob: 450.56,
         quotesWithBalance: 2,
+        note: expect.stringContaining('no cobra') as unknown,
       });
     });
   });
@@ -398,10 +411,13 @@ describe('patient tools (CLI-91)', () => {
       expect(patientsService.findToothProcedures).toHaveBeenCalledWith(
         'patient-1',
       );
-      expect(result).toEqual([
-        { date: '2026-09-10', treatment: 'Brackets', teeth: [31, 32] },
-        { date: '2026-09-10', treatment: 'Limpieza' },
-      ]);
+      expect(result).toEqual({
+        total: 2,
+        treatments: [
+          { date: '2026-09-10', treatment: 'Brackets', teeth: [31, 32] },
+          { date: '2026-09-10', treatment: 'Limpieza' },
+        ],
+      });
       const json = JSON.stringify(result);
       expect(json).not.toContain('300');
       expect(json).not.toContain('nota');
@@ -419,9 +435,11 @@ describe('patient tools (CLI-91)', () => {
         treatments,
       ).execute(patient, {
         limit: 2,
-      })) as unknown[];
+      })) as { total: number; treatments: unknown[] };
 
-      expect(result).toHaveLength(2);
+      // Muestra 2 pero dice que hay 3 (CLI-145: "te muestro 2 de 3").
+      expect(result.treatments).toHaveLength(2);
+      expect(result.total).toBe(3);
     });
 
     it('nombra genérico un tratamiento que ya no existe', async () => {
@@ -429,12 +447,12 @@ describe('patient tools (CLI-91)', () => {
         procedure({ treatmentId: 'borrado' }),
       ]);
 
-      const [first] = (await new GetMyTreatmentsTool(
-        patients,
-        treatments,
-      ).execute(patient, {})) as Array<{
-        treatment: string;
-      }>;
+      const {
+        treatments: [first],
+      } = (await new GetMyTreatmentsTool(patients, treatments).execute(
+        patient,
+        {},
+      )) as { treatments: Array<{ treatment: string }> };
 
       expect(first.treatment).toBe('Tratamiento');
     });
@@ -462,6 +480,7 @@ describe('patient tools (CLI-91)', () => {
         { treatment: 'Resina', teeth: [26], subtotalBob: 250 },
       ]);
       expect(result.note).toContain('presupuestos');
+      expect(result.note).toContain('no cobra');
     });
   });
 

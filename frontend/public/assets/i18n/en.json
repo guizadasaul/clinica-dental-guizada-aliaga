@@ -361,7 +361,8 @@
       "limit": "You've reached the message limit for now. Please try again later.",
       "unavailable": "The assistant isn't available right now. During office hours you can message Dr. Ariel Guizada (+591 674 02602) or Dr. Marylu Aliaga (+591 577 29544).",
       "generic": "I couldn't send your message. Check your connection and try again.",
-      "clear": "I couldn't delete the conversation. Please try again."
+      "clear": "I couldn't delete the conversation. Please try again.",
+      "busy": "I'm still answering your previous message. Please wait a moment and try again."
     }
   }
 }

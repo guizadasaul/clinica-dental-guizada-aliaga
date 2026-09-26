@@ -19,7 +19,7 @@ import { ToolExecutionPort } from '../domain/ToolExecution';
 import type { ToolExecutionPort as IToolExecutionPort } from '../domain/ToolExecution';
 import { readEnvInt } from '../../shared/env.util';
 import { fallbackReply } from './fallback-reply';
-import { linkOnlyReply, mergeLinks, removeBookingUrls } from './reply-links';
+import { linkOnlyReply, mergeLinks, removeUrls } from './reply-links';
 import { guardOutput } from './output-guard';
 import type { OutputGuardAction } from './output-guard';
 import type { ChatLink } from '../domain/ChatLink';
@@ -204,7 +204,7 @@ export class AgentRunner {
     state: RunState,
     locale: ChatLocale | undefined,
   ): AgentRunResult {
-    const reply = content ? removeBookingUrls(content) : '';
+    const reply = content ? removeUrls(content) : '';
     if (!reply && state.links.length > 0) {
       return this.result(linkOnlyReply(locale), state, null);
     }
