@@ -29,6 +29,9 @@ import { ChatController } from './infrastructure/http/chat.controller';
 import { PublicChatController } from './infrastructure/http/public-chat.controller';
 import { AdminChatbotUsageController } from './infrastructure/http/admin-chatbot-usage.controller';
 import { ChannelLinkingController } from './infrastructure/http/channel-linking.controller';
+import { WhatsappWebhookController } from './infrastructure/whatsapp/whatsapp-webhook.controller';
+import { WhatsappSignatureGuard } from './infrastructure/whatsapp/whatsapp-signature.guard';
+import { WhatsappInboundService } from './application/whatsapp-inbound.service';
 import { ChannelLinkingService } from './application/channel-linking.service';
 import { ChannelIdentityRepository } from './domain/ChannelIdentity';
 import { PrismaChannelIdentityRepository } from './infrastructure/persistence/prisma-channel-identity.repository';
@@ -52,7 +55,7 @@ const TOOL_CLASSES = [
  * (CLI-89), el hardening contra prompt injection (CLI-90) y las tools del
  * paciente (CLI-91), del doctor (CLI-92) y del administrador (CLI-93), y la
  * auditoría con métricas de uso (CLI-98) y la vinculación de WhatsApp con
- * una cuenta (CLI-100).
+ * una cuenta (CLI-100) y el webhook de WhatsApp (CLI-101).
  */
 @Module({
   imports: [
@@ -69,6 +72,7 @@ const TOOL_CLASSES = [
     PublicChatController,
     AdminChatbotUsageController,
     ChannelLinkingController,
+    WhatsappWebhookController,
   ],
   providers: [
     { provide: LlmProvider, useClass: GroqLlmProvider },
@@ -91,6 +95,8 @@ const TOOL_CLASSES = [
     ChatAuditLogger,
     ChatUsageService,
     ChannelLinkingService,
+    WhatsappInboundService,
+    WhatsappSignatureGuard,
     {
       provide: ChannelIdentityRepository,
       useClass: PrismaChannelIdentityRepository,
