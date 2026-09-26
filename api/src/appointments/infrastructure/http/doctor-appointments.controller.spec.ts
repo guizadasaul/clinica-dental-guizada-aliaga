@@ -154,6 +154,22 @@ describe('DoctorAppointmentsController', () => {
     );
   });
 
+  // CLI-148: los días del query son días de Bolivia — si no, la semana
+  // lunes→lunes perdía las citas del domingo de 20:00 a 24:00.
+  it('interprets from/to as clinic (La Paz) midnights, not UTC', async () => {
+    await controller.findForAgenda(fakeDoctor('doctor-a'), {
+      from: '2026-09-28',
+      to: '2026-10-05',
+    });
+
+    expect(mockService.getAgenda).toHaveBeenCalledWith(
+      expect.objectContaining({
+        from: new Date('2026-09-28T04:00:00.000Z'),
+        to: new Date('2026-10-05T04:00:00.000Z'),
+      }),
+    );
+  });
+
   // CLI-148
   describe('createByDoctor', () => {
     it('agenda en la agenda del doctor autenticado', async () => {
