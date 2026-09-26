@@ -93,6 +93,15 @@ export class PrismaService implements OnModuleInit, OnModuleDestroy {
   get chat_messages() {
     return this._client.chat_messages;
   }
+  get chat_channel_identities() {
+    return this._client.chat_channel_identities;
+  }
+  get chat_link_codes() {
+    return this._client.chat_link_codes;
+  }
+  get chat_link_attempts() {
+    return this._client.chat_link_attempts;
+  }
 
   /** `SELECT 1` — para el readiness check (`GET /health/ready`). */
   async ping(): Promise<void> {

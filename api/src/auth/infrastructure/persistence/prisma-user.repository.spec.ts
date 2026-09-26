@@ -522,6 +522,25 @@ describe('PrismaUserRepository', () => {
     ).rejects.toBe(boom);
   });
 
+  describe('findById', () => {
+    it('busca por users.id y mapea el usuario', async () => {
+      prismaMock.users.findUnique.mockResolvedValue(fakeUserRecord());
+
+      await expect(repo.findById(USER_ID)).resolves.toMatchObject({
+        id: USER_ID,
+      });
+      expect(prismaMock.users.findUnique).toHaveBeenCalledWith({
+        where: { id: USER_ID },
+      });
+    });
+
+    it('devuelve null si no existe', async () => {
+      prismaMock.users.findUnique.mockResolvedValue(null);
+
+      await expect(repo.findById(USER_ID)).resolves.toBeNull();
+    });
+  });
+
   describe('findByAuthUserId', () => {
     it('busca por el uid de Supabase y mapea el usuario', async () => {
       prismaMock.users.findUnique.mockResolvedValue(

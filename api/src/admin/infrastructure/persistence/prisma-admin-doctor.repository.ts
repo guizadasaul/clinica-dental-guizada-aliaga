@@ -206,6 +206,11 @@ export class PrismaAdminDoctorRepository implements IAdminDoctorRepository {
           where: { user_id: id },
           data: { is_bookable: false, updated_at: new Date() },
         }),
+        // Un doctor dado de baja deja de ser él por WhatsApp (CLI-100).
+        tx.chat_channel_identities.updateMany({
+          where: { user_id: id, revoked_at: null },
+          data: { revoked_at: new Date() },
+        }),
       ]);
 
       const scheduleBlocks = await tx.doctor_schedule_blocks.findMany({
