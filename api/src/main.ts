@@ -11,6 +11,10 @@ const PRODUCTION_LOG_LEVELS: LogLevel[] = ['fatal', 'error', 'warn', 'log'];
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule, {
+    // Guarda el body crudo en req.rawBody (además del JSON parseado): lo
+    // necesita WhatsappSignatureGuard para verificar la firma de Meta
+    // (CLI-101). No cambia el parseo ni el límite de tamaño del resto.
+    rawBody: true,
     logger:
       process.env['NODE_ENV'] === 'production'
         ? PRODUCTION_LOG_LEVELS
