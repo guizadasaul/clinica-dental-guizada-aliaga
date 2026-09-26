@@ -207,6 +207,23 @@ describe('fromGroqResponseBody', () => {
     ).toThrow(LlmInvalidResponseError);
   });
 
+  it('maps the cached prompt tokens that Groq reports', () => {
+    const response = fromGroqResponseBody({
+      choices: [{ message: { content: 'hola' }, finish_reason: 'stop' }],
+      usage: {
+        prompt_tokens: 3000,
+        completion_tokens: 50,
+        prompt_tokens_details: { cached_tokens: 2048 },
+      },
+    });
+
+    expect(response.usage).toEqual({
+      promptTokens: 3000,
+      completionTokens: 50,
+      cachedPromptTokens: 2048,
+    });
+  });
+
   it('ignores usage with a wrong shape', () => {
     const response = fromGroqResponseBody({
       choices: [{ message: { content: 'x' } }],

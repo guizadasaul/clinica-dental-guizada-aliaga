@@ -25,7 +25,6 @@ import {
  * matriz de permisos, cada tool verifica el rol (defensa en profundidad).
  */
 
-const DATE_PATTERN = String.raw`^\d{4}-\d{2}-\d{2}$`;
 const MAX_REPORT_DAYS = 366;
 const MAX_AGENDA_ITEMS = 60;
 const DEFAULT_TOP_TREATMENTS = 5;
@@ -39,16 +38,15 @@ const INVALID_RANGE = {
 const REPORT_PARAMETERS: JsonSchema = {
   type: 'object',
   properties: {
-    from: { type: 'string', pattern: DATE_PATTERN, description: 'YYYY-MM-DD' },
+    from: { type: 'string', description: 'YYYY-MM-DD' },
     to: {
       type: 'string',
-      pattern: DATE_PATTERN,
       description: 'YYYY-MM-DD inclusive',
     },
     doctorId: {
       type: 'string',
       format: 'uuid',
-      description: 'Opcional: filtra por un doctor (ver list_doctors)',
+      description: 'Opcional (ver list_doctors)',
     },
   },
   required: ['from', 'to'],
@@ -79,7 +77,7 @@ function patientName(appointment: AppointmentWithPatient): string {
 export class GetClinicOperationalReportTool implements ChatTool<ClinicReportArgsDto> {
   readonly name = 'get_clinic_operational_report';
   readonly description =
-    'Reporte operativo de toda la clínica (o de un doctor) entre dos fechas: citas por estado, pacientes nuevos y ocupación por doctor, con totales.';
+    'Reporte operativo de la clínica (o de un doctor) entre from y to: citas por estado, pacientes nuevos y ocupación por doctor, con totales.';
   readonly parameters = REPORT_PARAMETERS;
   readonly argsDto = ClinicReportArgsDto;
 
@@ -120,7 +118,7 @@ export class GetClinicOperationalReportTool implements ChatTool<ClinicReportArgs
 export class GetClinicFinancialReportTool implements ChatTool<ClinicReportArgsDto> {
   readonly name = 'get_clinic_financial_report';
   readonly description =
-    'Reporte financiero de toda la clínica (o de un doctor): cobrado entre dos fechas y saldo pendiente de cobro actual, en bolivianos, por doctor y en total.';
+    'Finanzas de la clínica (o de un doctor) en Bs., por doctor y total: cobrado entre from y to, y saldo pendiente actual. Para "cuánto nos deben" manda igual from y to (el mes en curso): el pendiente no cambia con el rango.';
   readonly parameters = REPORT_PARAMETERS;
   readonly argsDto = ClinicReportArgsDto;
 
@@ -155,13 +153,12 @@ export class GetClinicFinancialReportTool implements ChatTool<ClinicReportArgsDt
 export class GetClinicAgendaTool implements ChatTool<ClinicAgendaArgsDto> {
   readonly name = 'get_clinic_agenda';
   readonly description =
-    'Agenda de citas confirmadas de un día (por defecto hoy) de toda la clínica o de un doctor: hora, doctor y paciente.';
+    'Citas confirmadas de un día (por defecto hoy) de la clínica o de un doctor: hora, doctor y paciente.';
   readonly parameters: JsonSchema = {
     type: 'object',
     properties: {
       date: {
         type: 'string',
-        pattern: DATE_PATTERN,
         description: 'YYYY-MM-DD, por defecto hoy',
       },
       doctorId: { type: 'string', format: 'uuid' },
@@ -198,7 +195,7 @@ export class GetClinicAgendaTool implements ChatTool<ClinicAgendaArgsDto> {
 export class GetTopTreatmentsTool implements ChatTool<TopTreatmentsArgsDto> {
   readonly name = 'get_top_treatments';
   readonly description =
-    'Tratamientos más realizados en la clínica (o por un doctor) entre dos fechas, con la cantidad de piezas tratadas.';
+    'Tratamientos más realizados (en la clínica o por un doctor) entre from y to, con las piezas tratadas.';
   readonly parameters: JsonSchema = {
     ...REPORT_PARAMETERS,
     properties: {

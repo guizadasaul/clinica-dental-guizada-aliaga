@@ -56,6 +56,8 @@ export interface AgentRunResult {
   /** Cada tool ejecutada con su resultado y duración (auditoría, CLI-98). */
   toolCalls: ToolCallAudit[];
   usage: LlmUsage;
+  /** Tokens de entrada que el proveedor sirvió desde su caché (métricas de costo, CLI-99). */
+  cachedPromptTokens: number;
   llmLatencyMs: number;
   /** Iteraciones del loop que terminaron en tool calls. */
   iterations: number;
@@ -69,6 +71,7 @@ interface RunState {
   toolCalls: ToolCallAudit[];
   links: ChatLink[];
   usage: LlmUsage;
+  cachedPromptTokens: number;
   llmLatencyMs: number;
   iterations: number;
 }
@@ -111,6 +114,7 @@ export class AgentRunner {
       toolCalls: [],
       links: [],
       usage: { promptTokens: 0, completionTokens: 0 },
+      cachedPromptTokens: 0,
       llmLatencyMs: 0,
       iterations: 0,
     };
@@ -165,6 +169,7 @@ export class AgentRunner {
       if (response.usage) {
         state.usage.promptTokens += response.usage.promptTokens;
         state.usage.completionTokens += response.usage.completionTokens;
+        state.cachedPromptTokens += response.usage.cachedPromptTokens ?? 0;
       }
       return response;
     } finally {
@@ -227,6 +232,7 @@ export class AgentRunner {
       toolNames: state.toolNames,
       toolCalls: state.toolCalls,
       usage: state.usage,
+      cachedPromptTokens: state.cachedPromptTokens,
       llmLatencyMs: state.llmLatencyMs,
       iterations: state.iterations,
       errorCode,

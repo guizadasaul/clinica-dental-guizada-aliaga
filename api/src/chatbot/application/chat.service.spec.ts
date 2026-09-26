@@ -64,6 +64,7 @@ const AGENT_RESULT: AgentRunResult = {
   toolNames: ['get_my_next_appointment'],
   toolCalls: [{ name: 'get_my_next_appointment', status: 'ok', ms: 12 }],
   usage: { promptTokens: 900, completionTokens: 40 },
+  cachedPromptTokens: 512,
   llmLatencyMs: 1500,
   iterations: 1,
   errorCode: null,
@@ -604,6 +605,7 @@ describe('ChatService', () => {
         ],
         llmMs: 1500,
         promptTokens: 900,
+        cachedPromptTokens: 512,
         completionTokens: 40,
         iterations: 1,
         errorCode: null,
@@ -669,7 +671,7 @@ describe('ChatService', () => {
       const context = {
         requestId: 'req-2',
         actor: 'user:user-1',
-        role: 'patient' as const,
+        role: UserRole.PATIENT,
       };
 
       await expect(

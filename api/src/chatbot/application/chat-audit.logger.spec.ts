@@ -33,7 +33,7 @@ describe('ChatAuditLogger', () => {
   const context = {
     requestId: 'req-1',
     actor: 'user:u-1',
-    role: 'patient' as const,
+    role: UserRole.PATIENT,
   };
   let logSpy: jest.SpyInstance;
   let warnSpy: jest.SpyInstance;
@@ -53,6 +53,7 @@ describe('ChatAuditLogger', () => {
       llmMs: 1830,
       totalMs: 2100,
       promptTokens: 1234,
+      cachedPromptTokens: 1024,
       completionTokens: 210,
       iterations: 2,
       errorCode: null,
@@ -71,6 +72,7 @@ describe('ChatAuditLogger', () => {
       llmMs: 1830,
       totalMs: 2100,
       promptTokens: 1234,
+      cachedPromptTokens: 1024,
       completionTokens: 210,
       iterations: 2,
       errorCode: null,
@@ -84,6 +86,7 @@ describe('ChatAuditLogger', () => {
       llmMs: 1,
       totalMs: 2,
       promptTokens: 3,
+      cachedPromptTokens: 0,
       completionTokens: 4,
       iterations: 0,
       errorCode: 'llm_unavailable',
@@ -105,6 +108,7 @@ describe('ChatAuditLogger', () => {
       llmMs: 1,
       totalMs: 1,
       promptTokens: 1,
+      cachedPromptTokens: 0,
       completionTokens: 1,
       iterations: 1,
       errorCode: null,

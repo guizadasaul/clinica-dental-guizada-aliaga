@@ -161,6 +161,9 @@ export function fromGroqResponseBody(body: unknown): LlmResponse {
     isRecord(usage) &&
     typeof usage['prompt_tokens'] === 'number' &&
     typeof usage['completion_tokens'] === 'number';
+  // Caché de prompt de Groq (prefijo repetido: system + tools): mitad de precio.
+  const details = hasUsage ? usage['prompt_tokens_details'] : undefined;
+  const cachedTokens = isRecord(details) ? details['cached_tokens'] : undefined;
 
   return {
     content: typeof message['content'] === 'string' ? message['content'] : null,
@@ -169,6 +172,9 @@ export function fromGroqResponseBody(body: unknown): LlmResponse {
       ? {
           promptTokens: usage['prompt_tokens'] as number,
           completionTokens: usage['completion_tokens'] as number,
+          ...(typeof cachedTokens === 'number' && {
+            cachedPromptTokens: cachedTokens,
+          }),
         }
       : null,
     finishReason: toFinishReason(choice['finish_reason']),
