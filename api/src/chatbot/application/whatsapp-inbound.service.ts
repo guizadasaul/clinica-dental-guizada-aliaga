@@ -1,8 +1,24 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { createHmac } from 'node:crypto';
+import {
+  ConflictException,
+  HttpException,
+  HttpStatus,
+  Inject,
+  Injectable,
+  Logger,
+} from '@nestjs/common';
 import type { InboundWhatsappMessage } from '../domain/WhatsappInbound';
+import { WhatsappSender, WhatsappSendError } from '../domain/WhatsappSender';
+import type { WhatsappSender as IWhatsappSender } from '../domain/WhatsappSender';
+import type { ChatLink } from '../domain/ChatLink';
 import { ActorResolver } from './actor-resolver';
 import type { ChannelSender } from './actor-resolver';
-import { normalizeExternalNumber } from './channel-linking.service';
+import {
+  ChannelLinkingService,
+  normalizeExternalNumber,
+} from './channel-linking.service';
+import { ChatService } from './chat.service';
+import { fallbackReply } from './fallback-reply';
 
 export interface ResolvedInboundMessage {
   message: InboundWhatsappMessage;
@@ -11,34 +27,92 @@ export interface ResolvedInboundMessage {
   sender: ChannelSender;
 }
 
+/** Respuestas fijas del canal (tuteo, igual que el agente). */
+export const WHATSAPP_REPLIES = {
+  nonText:
+    'Por ahora solo puedo leer mensajes de texto. Escríbeme tu consulta, por favor.',
+  linked:
+    'Listo, este número quedó vinculado a tu cuenta. Ya puedes consultarme por tus citas y tu información.',
+  linkFailed:
+    'No pude vincular este número. Revisa el código en la web o pide uno nuevo (vence a los 10 minutos).',
+  limit: 'Alcanzaste el límite de mensajes por hoy. Prueba de nuevo mañana.',
+  busy: 'Todavía estoy respondiendo tu mensaje anterior. Espera un momento.',
+  ambiguousHint:
+    'Este número está registrado en más de una cuenta, así que te atiendo como visitante. Para consultar tus datos, pide un código de vinculación en la web de la clínica.',
+} as const;
+
+const TOO_MANY_REQUESTS: number = HttpStatus.TOO_MANY_REQUESTS;
+/** "VINCULAR 123456" (el código lo valida ChannelLinkingService). */
+const LINK_COMMAND = /^vincular\s+(\S+)$/i;
+/** Ids de mensajes ya recibidos: Meta reintenta si no le llega el 200 a tiempo. */
+const SEEN_MESSAGES_MAX = 1000;
+
 function maskNumber(e164: string): string {
   return `•••• ${e164.slice(-4)}`;
 }
 
+/** WhatsApp no tiene botones como la web: los links van al final, como texto. */
+function withLinks(reply: string, links: ChatLink[]): string {
+  if (links.length === 0) return reply;
+  return [reply, ...links.map((link) => `${link.label}: ${link.url}`)].join(
+    '\n\n',
+  );
+}
+
+/**
+ * Token de la conversación anónima de un número, derivado en el servidor
+ * con el App Secret: estable por número (la conversación continúa entre
+ * mensajes) e imposible de adivinar desde la web.
+ */
+function anonTokenFor(number: string): string {
+  return createHmac('sha256', process.env['WHATSAPP_APP_SECRET'] ?? 'whatsapp')
+    .update(`whatsapp:${number}`)
+    .digest('base64url');
+}
+
 /**
  * Entrada de los mensajes de WhatsApp (CLI-101), separada del controller: el
- * webhook responde 200 enseguida y esto corre después, sin bloquear a Meta.
+ * webhook responde 200 enseguida y esto corre después. Identifica al
+ * remitente (CLI-146), atiende el comando VINCULAR (CLI-100) y el resto lo
+ * pasa al mismo agente de la web (ChatService, channel 'whatsapp'); acá no
+ * hay lógica de agente ni de tools. WHATSAPP_ENABLED distinto de "true"
+ * recibe y audita, pero no responde.
  *
- * Hoy recibe, identifica al remitente (CLI-146: vínculo por código, doctor,
- * paciente o visitante) y deja un evento de auditoría. El paso siguiente de
- * CLI-101 es pasar `resolved` a ChatService.handleMessage (el mismo agente
- * de la web, con channel 'whatsapp') y responder por la Cloud API: no se
- * duplica ninguna lógica del agente acá.
+ * Los ids vistos y la fila por número son en memoria, como el throttler y
+ * el lock de ChatService: alcanza mientras la API corra en un solo proceso.
  */
 @Injectable()
 export class WhatsappInboundService {
   private readonly logger = new Logger(WhatsappInboundService.name);
+  private readonly seen = new Set<string>();
+  private readonly queues = new Map<string, Promise<unknown>>();
 
-  constructor(private readonly actors: ActorResolver) {}
+  constructor(
+    private readonly actors: ActorResolver,
+    private readonly chat: ChatService,
+    private readonly linking: ChannelLinkingService,
+    @Inject(WhatsappSender) private readonly sender: IWhatsappSender,
+  ) {}
 
   /** No espera el procesamiento: el webhook tiene que contestarle rápido a Meta. */
   accept(messages: InboundWhatsappMessage[]): void {
     for (const message of messages) {
-      void this.process(message).catch((error: unknown) => {
-        this.logger.error(
-          `whatsapp.inbound falló id=${message.messageId}`,
-          error,
-        );
+      if (this.alreadySeen(message.messageId)) continue;
+      // En fila por número: dos mensajes seguidos del mismo chat no se cruzan.
+      const previous = this.queues.get(message.from) ?? Promise.resolve();
+      const next = previous
+        .then(() => this.process(message))
+        .catch((error: unknown) => {
+          this.logger.error(
+            `whatsapp.inbound falló id=${message.messageId}`,
+            error,
+          );
+        });
+      this.queues.set(message.from, next);
+      void next.finally(() => {
+        if (this.queues.get(message.from) === next) {
+          this.queues.delete(message.from);
+        }
       });
     }
   }
@@ -67,6 +141,81 @@ export class WhatsappInboundService {
         ts: message.timestamp.toISOString(),
       }),
     );
-    return { message, number, sender };
+    const resolved = { message, number, sender };
+    if (process.env['WHATSAPP_ENABLED'] !== 'true') {
+      return resolved;
+    }
+
+    const reply = await this.replyFor(resolved);
+    try {
+      await this.sender.sendText(number, reply);
+    } catch (error) {
+      if (!(error instanceof WhatsappSendError)) throw error;
+      this.logger.warn(
+        `whatsapp.send falló id=${message.messageId} status=${error.status ?? 'red'} code=${error.providerCode ?? '-'}`,
+      );
+    }
+    return resolved;
+  }
+
+  private async replyFor({
+    message,
+    number,
+    sender,
+  }: ResolvedInboundMessage): Promise<string> {
+    if (message.type !== 'text' || !message.text) {
+      return WHATSAPP_REPLIES.nonText;
+    }
+    const command = LINK_COMMAND.exec(message.text.trim());
+    if (command) {
+      const result = await this.linking.redeem('whatsapp', number, command[1]);
+      return result.status === 'linked'
+        ? WHATSAPP_REPLIES.linked
+        : WHATSAPP_REPLIES.linkFailed;
+    }
+
+    try {
+      const { actor } = sender;
+      const result = await this.chat.handleMessage({
+        actor,
+        channel: 'whatsapp',
+        text: message.text,
+        requestId: message.messageId,
+        ...(actor.kind === 'user'
+          ? { resumeLatestSession: true }
+          : { anonToken: anonTokenFor(number), serverIssuedAnonToken: true }),
+      });
+      const reply = withLinks(result.reply, result.links);
+      return sender.match === 'ambiguous'
+        ? `${WHATSAPP_REPLIES.ambiguousHint}\n\n${reply}`
+        : reply;
+    } catch (error) {
+      return this.replyForError(error);
+    }
+  }
+
+  private replyForError(error: unknown): string {
+    if (error instanceof ConflictException) return WHATSAPP_REPLIES.busy;
+    if (
+      error instanceof HttpException &&
+      error.getStatus() === TOO_MANY_REQUESTS
+    ) {
+      return WHATSAPP_REPLIES.limit;
+    }
+    if (!(error instanceof HttpException)) {
+      this.logger.error('whatsapp.inbound error del agente', error);
+    }
+    return fallbackReply('es');
+  }
+
+  private alreadySeen(messageId: string): boolean {
+    if (this.seen.has(messageId)) return true;
+    this.seen.add(messageId);
+    if (this.seen.size > SEEN_MESSAGES_MAX) {
+      // Set conserva el orden de inserción: el primero es el más viejo.
+      const oldest = this.seen.values().next().value as string | undefined;
+      if (oldest !== undefined) this.seen.delete(oldest);
+    }
+    return false;
   }
 }

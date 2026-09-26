@@ -32,6 +32,8 @@ import { ChannelLinkingController } from './infrastructure/http/channel-linking.
 import { WhatsappWebhookController } from './infrastructure/whatsapp/whatsapp-webhook.controller';
 import { WhatsappSignatureGuard } from './infrastructure/whatsapp/whatsapp-signature.guard';
 import { WhatsappInboundService } from './application/whatsapp-inbound.service';
+import { WhatsappSender } from './domain/WhatsappSender';
+import { WhatsappCloudClient } from './infrastructure/whatsapp/whatsapp-cloud.client';
 import { ChannelLinkingService } from './application/channel-linking.service';
 import { ChannelIdentityRepository } from './domain/ChannelIdentity';
 import { PrismaChannelIdentityRepository } from './infrastructure/persistence/prisma-channel-identity.repository';
@@ -97,6 +99,7 @@ const TOOL_CLASSES = [
     ChannelLinkingService,
     WhatsappInboundService,
     WhatsappSignatureGuard,
+    { provide: WhatsappSender, useClass: WhatsappCloudClient },
     {
       provide: ChannelIdentityRepository,
       useClass: PrismaChannelIdentityRepository,

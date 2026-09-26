@@ -100,6 +100,24 @@ describe('PrismaChatRepository', () => {
     ).resolves.toBeNull();
   });
 
+  it('findLatestSessionForUser trae la conversación más reciente del usuario en ese canal', async () => {
+    chat_sessions.findFirst.mockResolvedValueOnce(
+      sessionRow({ channel: 'whatsapp' }),
+    );
+    chat_sessions.findFirst.mockResolvedValueOnce(null);
+
+    await expect(
+      repo.findLatestSessionForUser('user-1', 'whatsapp'),
+    ).resolves.toMatchObject({ id: 'session-1', channel: 'whatsapp' });
+    await expect(
+      repo.findLatestSessionForUser('user-1', 'whatsapp'),
+    ).resolves.toBeNull();
+    expect(chat_sessions.findFirst).toHaveBeenCalledWith({
+      where: { user_id: 'user-1', channel: 'whatsapp' },
+      orderBy: { last_activity_at: 'desc' },
+    });
+  });
+
   it('findSessionByAnonTokenHash busca por el hash', async () => {
     chat_sessions.findUnique.mockResolvedValueOnce(
       sessionRow({ user_id: null }),

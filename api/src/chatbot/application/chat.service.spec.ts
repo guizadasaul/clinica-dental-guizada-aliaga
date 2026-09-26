@@ -78,6 +78,7 @@ describe('ChatService', () => {
     createSession: jest.fn(),
     findSessionForUser: jest.fn(),
     findSessionByAnonTokenHash: jest.fn(),
+    findLatestSessionForUser: jest.fn(),
     appendMessage: jest.fn(),
     findRecentMessages: jest.fn(),
     countUserMessagesSince: jest.fn(),
@@ -186,6 +187,68 @@ describe('ChatService', () => {
       });
 
       expect(repo.findSessionByAnonTokenHash).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('canales sin sesión propia (WhatsApp, CLI-101)', () => {
+    it('un usuario retoma su última conversación del canal', async () => {
+      repo.findLatestSessionForUser.mockResolvedValue(
+        session({ id: 'wa-session', channel: 'whatsapp' }),
+      );
+
+      const reply = await service.handleMessage({
+        actor: patient,
+        channel: 'whatsapp',
+        text: 'hola',
+        resumeLatestSession: true,
+      });
+
+      expect(repo.findLatestSessionForUser).toHaveBeenCalledWith(
+        'user-1',
+        'whatsapp',
+      );
+      expect(repo.createSession).not.toHaveBeenCalled();
+      expect(reply.sessionId).toBe('wa-session');
+    });
+
+    it('si no tiene conversación en el canal, crea una', async () => {
+      repo.findLatestSessionForUser.mockResolvedValue(null);
+      repo.createSession.mockResolvedValue(session({ id: 'nueva' }));
+
+      await service.handleMessage({
+        actor: patient,
+        channel: 'whatsapp',
+        text: 'hola',
+        resumeLatestSession: true,
+      });
+
+      expect(repo.createSession).toHaveBeenCalledWith({
+        userId: 'user-1',
+        channel: 'whatsapp',
+        anonTokenHash: null,
+      });
+    });
+
+    it('un visitante con token derivado por el servidor conserva ese token al crear la conversación', async () => {
+      repo.findSessionByAnonTokenHash.mockResolvedValue(null);
+      repo.createSession.mockResolvedValue(session({ userId: null }));
+
+      const reply = await service.handleMessage({
+        actor: anonymous,
+        channel: 'whatsapp',
+        text: 'hola',
+        anonToken: 'token-derivado-del-numero-0000000000000',
+        serverIssuedAnonToken: true,
+      });
+
+      expect(reply.anonToken).toBe('token-derivado-del-numero-0000000000000');
+      expect(repo.createSession).toHaveBeenCalledWith(
+        expect.objectContaining({
+          anonTokenHash: hashAnonToken(
+            'token-derivado-del-numero-0000000000000',
+          ),
+        }),
+      );
     });
   });
 

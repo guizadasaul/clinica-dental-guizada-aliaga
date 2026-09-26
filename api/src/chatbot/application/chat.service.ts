@@ -41,6 +41,16 @@ export interface IncomingChatMessage {
   sessionId?: string;
   /** Token opaco de la conversación de un visitante anónimo. */
   anonToken?: string;
+  /**
+   * Canales sin sesión propia (WhatsApp, CLI-101): el usuario sigue en su
+   * última conversación de ese canal en vez de abrir una nueva por mensaje.
+   */
+  resumeLatestSession?: boolean;
+  /**
+   * El anonToken lo derivó el servidor (WhatsApp: del número), no un
+   * cliente: si su conversación no existe, se crea con ese mismo token.
+   */
+  serverIssuedAnonToken?: boolean;
   text: string;
   locale?: ChatLocale;
   /** Correlación de los eventos de auditoría (x-request-id). */
@@ -240,31 +250,48 @@ export class ChatService {
     }
   }
 
+  private async resolveUserSession(
+    message: IncomingChatMessage,
+    userId: string,
+    audit: ChatAuditContext,
+  ): Promise<ResolvedSession> {
+    if (message.sessionId) {
+      const session = await this.chatRepo.findSessionForUser(
+        message.sessionId,
+        userId,
+      );
+      // Misma respuesta para "no existe" y "es de otro usuario": no se
+      // confirma la existencia de conversaciones ajenas.
+      if (!session) {
+        this.audit.security(audit, 'foreign_or_unknown_session');
+        throw new NotFoundException('Conversación no encontrada');
+      }
+      return { session, anonToken: null };
+    }
+    if (message.resumeLatestSession) {
+      const latest = await this.chatRepo.findLatestSessionForUser(
+        userId,
+        message.channel,
+      );
+      if (latest) {
+        return { session: latest, anonToken: null };
+      }
+    }
+    const session = await this.chatRepo.createSession({
+      userId,
+      channel: message.channel,
+      anonTokenHash: null,
+    });
+    return { session, anonToken: null };
+  }
+
   private async resolveSession(
     message: IncomingChatMessage,
     audit: ChatAuditContext,
   ): Promise<ResolvedSession> {
     const { actor } = message;
     if (actor.kind === 'user') {
-      if (message.sessionId) {
-        const session = await this.chatRepo.findSessionForUser(
-          message.sessionId,
-          actor.userId,
-        );
-        // Misma respuesta para "no existe" y "es de otro usuario": no se
-        // confirma la existencia de conversaciones ajenas.
-        if (!session) {
-          this.audit.security(audit, 'foreign_or_unknown_session');
-          throw new NotFoundException('Conversación no encontrada');
-        }
-        return { session, anonToken: null };
-      }
-      const session = await this.chatRepo.createSession({
-        userId: actor.userId,
-        channel: message.channel,
-        anonTokenHash: null,
-      });
-      return { session, anonToken: null };
+      return this.resolveUserSession(message, actor.userId, audit);
     }
 
     if (message.anonToken) {
@@ -276,8 +303,12 @@ export class ChatService {
       }
     }
     // Sin token, o con uno cuya conversación ya no existe (retención): se
-    // emite uno nuevo generado por el servidor, nunca uno elegido por el cliente.
-    const anonToken = randomBytes(32).toString('base64url');
+    // emite uno nuevo generado por el servidor, nunca uno elegido por el
+    // cliente. La excepción es un token que ya derivó el servidor (WhatsApp).
+    const anonToken =
+      message.serverIssuedAnonToken && message.anonToken
+        ? message.anonToken
+        : randomBytes(32).toString('base64url');
     const session = await this.chatRepo.createSession({
       userId: null,
       channel: message.channel,
