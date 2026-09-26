@@ -6,6 +6,7 @@ import type { LlmToolCall } from '../domain/LlmProvider';
 import type { ToolName } from '../domain/toolPermissions';
 import { ClassValidatorToolArgsValidator } from '../infrastructure/tools/class-validator-tool-args.validator';
 import { IsIn } from 'class-validator';
+import { ChatAuditLogger } from './chat-audit.logger';
 import { TOOL_DATA_NOTE, ToolExecutor } from './tool-executor';
 import { ToolRegistry } from './tool-registry';
 import { ToolOutputWithLinks } from '../domain/ChatLink';
@@ -79,6 +80,7 @@ describe('ToolExecutor', () => {
     return new ToolExecutor(
       new ToolRegistry([clinicInfo, myAppointments, financialReport, ...extra]),
       new ClassValidatorToolArgsValidator(),
+      new ChatAuditLogger(),
     );
   }
 
@@ -165,9 +167,11 @@ describe('ToolExecutor', () => {
     expect(parse(result.content)).toEqual({ error: 'not_allowed' });
     expect(financialReport.execute).not.toHaveBeenCalled();
     const logged = warned(warnSpy);
-    expect(logged).toContain('chat.security not_allowed');
-    expect(logged).toContain('user:user-1');
-    expect(logged).toContain('role=patient');
+    expect(logged).toContain('"event":"chat.security"');
+    expect(logged).toContain('"reason":"not_allowed"');
+    expect(logged).toContain('"actor":"user:user-1"');
+    expect(logged).toContain('"role":"patient"');
+    expect(logged).toContain('"tool":"get_clinic_financial_report"');
     // Nunca los argumentos del modelo.
     expect(logged).not.toContain('2026-01-01');
   });
@@ -180,7 +184,7 @@ describe('ToolExecutor', () => {
 
     expect(result.status).toBe('denied');
     expect(myAppointments.execute).not.toHaveBeenCalled();
-    expect(warned(warnSpy)).toContain('actor=anon');
+    expect(warned(warnSpy)).toContain('"actor":"anon:new"');
   });
 
   it.each(['no es json', '[1,2]', 'null', '"texto"'])(
@@ -208,9 +212,7 @@ describe('ToolExecutor', () => {
       fields: ['patientId'],
     });
     expect(myAppointments.execute).not.toHaveBeenCalled();
-    expect(warned(warnSpy)).toContain(
-      'chat.security identity_field_in_arguments',
-    );
+    expect(warned(warnSpy)).toContain('"reason":"identity_field_in_arguments"');
   });
 
   it('un argumento con tipo o valor inválido da invalid_arguments sin evento de seguridad', async () => {

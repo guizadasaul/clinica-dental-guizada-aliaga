@@ -44,6 +44,11 @@ describe('chat controllers', () => {
     anonymous: jest.fn(() => ({ kind: 'anonymous' as const })),
   };
 
+  const callArg = (n: number) =>
+    (chatService.handleMessage.mock.calls as unknown[][])[n][0] as {
+      requestId: string;
+    };
+
   beforeEach(() => jest.clearAllMocks());
 
   describe('ChatController', () => {
@@ -79,7 +84,28 @@ describe('chat controllers', () => {
         sessionId: 'session-1',
         text: 'hola',
         locale: 'es',
+        requestId: expect.any(String) as unknown,
       });
+    });
+
+    it('propaga un x-request-id válido y reemplaza uno inválido', async () => {
+      actorResolver.fromAppUser.mockResolvedValue(patientActor);
+      chatService.handleMessage.mockResolvedValue({
+        sessionId: 's',
+        anonToken: null,
+        reply: 'ok',
+        links: [],
+      });
+
+      await controller.sendMessage(appUser, { message: 'hola' }, 'req-abc-123');
+      await controller.sendMessage(
+        appUser,
+        { message: 'hola' },
+        'con espacios \n',
+      );
+
+      expect(callArg(0).requestId).toBe('req-abc-123');
+      expect(callArg(1).requestId).toMatch(/^[0-9a-f-]{36}$/);
     });
 
     it('borra una conversación propia', async () => {
@@ -88,6 +114,11 @@ describe('chat controllers', () => {
       expect(chatService.deleteSession).toHaveBeenCalledWith(
         'user-1',
         'session-1',
+        {
+          requestId: expect.any(String) as unknown,
+          actor: 'user:user-1',
+          role: 'patient',
+        },
       );
     });
 
@@ -128,6 +159,7 @@ describe('chat controllers', () => {
         anonToken: 'token-viejo',
         text: '¿horarios?',
         locale: undefined,
+        requestId: expect.any(String) as unknown,
       });
     });
 

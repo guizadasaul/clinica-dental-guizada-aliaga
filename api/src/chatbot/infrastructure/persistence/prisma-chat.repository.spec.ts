@@ -25,6 +25,7 @@ function messageRow(overrides: Record<string, unknown> = {}) {
     prompt_tokens: null,
     completion_tokens: null,
     error_code: null,
+    denied_tools: 0,
     created_at: CREATED,
     ...overrides,
   };
@@ -135,6 +136,7 @@ describe('PrismaChatRepository', () => {
       latencyMs: 1800,
       promptTokens: 900,
       completionTokens: 40,
+      deniedTools: 1,
     });
 
     expect(transaction).toHaveBeenCalledTimes(1);
@@ -148,6 +150,7 @@ describe('PrismaChatRepository', () => {
         prompt_tokens: 900,
         completion_tokens: 40,
         error_code: null,
+        denied_tools: 1,
       },
     });
     expect(chat_sessions.update).toHaveBeenCalledWith({
@@ -183,8 +186,72 @@ describe('PrismaChatRepository', () => {
         prompt_tokens: null,
         completion_tokens: null,
         error_code: null,
+        denied_tools: 0,
       },
     });
+  });
+
+  it('findAssistantTurnsBetween trae solo turnos del assistant en el rango, con canal y rol', async () => {
+    const from = new Date('2026-09-01T04:00:00Z');
+    const to = new Date('2026-09-02T04:00:00Z');
+    chat_messages.findMany.mockResolvedValue([
+      {
+        created_at: CREATED,
+        prompt_tokens: 900,
+        completion_tokens: 40,
+        error_code: null,
+        denied_tools: 1,
+        chat_sessions: {
+          id: 'session-1',
+          channel: 'web',
+          user_id: 'user-1',
+          users: { role: 'patient' },
+        },
+      },
+      {
+        created_at: CREATED,
+        prompt_tokens: null,
+        completion_tokens: null,
+        error_code: 'llm_unavailable',
+        denied_tools: 0,
+        chat_sessions: {
+          id: 'session-2',
+          channel: 'web',
+          user_id: null,
+          users: null,
+        },
+      },
+    ]);
+
+    const turns = await repo.findAssistantTurnsBetween(from, to);
+
+    expect(chat_messages.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { role: 'assistant', created_at: { gte: from, lt: to } },
+      }),
+    );
+    expect(turns).toEqual([
+      {
+        createdAt: CREATED,
+        channel: 'web',
+        role: 'patient',
+        actorKey: 'user-1',
+        promptTokens: 900,
+        completionTokens: 40,
+        errorCode: null,
+        deniedTools: 1,
+      },
+      {
+        createdAt: CREATED,
+        channel: 'web',
+        role: 'anonymous',
+        actorKey: 'anon:session-2',
+        promptTokens: 0,
+        completionTokens: 0,
+        errorCode: 'llm_unavailable',
+        deniedTools: 0,
+      },
+    ]);
   });
 
   it('findRecentMessages pide los más nuevos y los devuelve en orden cronológico', async () => {

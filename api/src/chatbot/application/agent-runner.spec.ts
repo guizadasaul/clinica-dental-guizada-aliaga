@@ -103,6 +103,39 @@ describe('AgentRunner', () => {
     expect(tools.definitionsFor).toHaveBeenCalledWith(patient);
   });
 
+  it('le pasa a cada tool la identidad de auditoría y registra su resultado', async () => {
+    const audit = {
+      requestId: 'req-1',
+      actor: 'user:user-1',
+      role: 'patient' as const,
+    };
+    const llm = new FakeLlmProvider([
+      toolCallResponse({ id: 'c1', name: 'get_clinic_financial_report' }),
+      textResponse('No puedo ver eso'),
+    ]);
+    const tools = toolsPort((call) => ({
+      toolName: call.name,
+      status: 'denied',
+      content: '{"error":"not_allowed"}',
+      links: [],
+    }));
+
+    const result = await run(llm, tools, { audit });
+
+    expect(tools.execute).toHaveBeenCalledWith(
+      patient,
+      expect.objectContaining({ name: 'get_clinic_financial_report' }),
+      audit,
+    );
+    expect(result.toolCalls).toEqual([
+      {
+        name: 'get_clinic_financial_report',
+        status: 'denied',
+        ms: expect.any(Number) as unknown,
+      },
+    ]);
+  });
+
   it('ejecuta una tool, le devuelve el resultado al modelo y responde', async () => {
     const llm = new FakeLlmProvider([
       toolCallResponse({ id: 'c1', name: 'get_my_balance' }),
@@ -116,11 +149,18 @@ describe('AgentRunner', () => {
     expect(result.toolNames).toEqual(['get_my_balance']);
     expect(result.iterations).toBe(1);
     expect(result.usage).toEqual({ promptTokens: 200, completionTokens: 20 });
-    expect(tools.execute).toHaveBeenCalledWith(patient, {
-      id: 'c1',
-      name: 'get_my_balance',
-      argumentsJson: '{}',
-    });
+    expect(tools.execute).toHaveBeenCalledWith(
+      patient,
+      { id: 'c1', name: 'get_my_balance', argumentsJson: '{}' },
+      undefined,
+    );
+    expect(result.toolCalls).toEqual([
+      {
+        name: 'get_my_balance',
+        status: 'ok',
+        ms: expect.any(Number) as unknown,
+      },
+    ]);
     expect(llm.requests[1].messages).toEqual([
       ...HISTORY,
       {

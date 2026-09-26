@@ -8,6 +8,7 @@ import { TOOL_NAMES } from '../domain/toolPermissions';
 import type { ToolName } from '../domain/toolPermissions';
 import { ClassValidatorToolArgsValidator } from '../infrastructure/tools/class-validator-tool-args.validator';
 import { AgentRunner } from './agent-runner';
+import { ChatAuditLogger } from './chat-audit.logger';
 import { REDACTED_ID } from './output-guard';
 import { SystemPromptBuilder } from './system-prompt.builder';
 import { ToolExecutor } from './tool-executor';
@@ -71,6 +72,7 @@ function agentWith(llm: FakeLlmProvider, tools: ChatTool[]) {
     new ToolExecutor(
       new ToolRegistry(tools),
       new ClassValidatorToolArgsValidator(),
+      new ChatAuditLogger(),
     ),
   );
 }

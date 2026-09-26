@@ -743,6 +743,8 @@ model chat_messages {
   prompt_tokens     Int?
   completion_tokens Int?
   error_code        String?       @db.VarChar(50)
+  /// Tools que el modelo pidió y el ToolExecutor denegó en el turno (CLI-98).
+  denied_tools      Int           @default(0)
   created_at        DateTime      @default(now()) @db.Timestamptz(6)
   chat_sessions     chat_sessions @relation(fields: [session_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
 

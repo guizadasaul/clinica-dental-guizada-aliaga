@@ -1,5 +1,6 @@
 import {
   HttpException,
+  Logger,
   NotFoundException,
   ServiceUnavailableException,
 } from '@nestjs/common';
@@ -9,6 +10,7 @@ import type { ChatMessage } from '../domain/ChatMessage';
 import type { ChatRepository } from '../domain/ChatRepository';
 import type { ChatSession } from '../domain/ChatSession';
 import type { AgentRunner, AgentRunResult } from './agent-runner';
+import { ChatAuditLogger } from './chat-audit.logger';
 import { ChatService, hashAnonToken } from './chat.service';
 
 const NOW = new Date('2026-09-24T12:00:00Z');
@@ -60,6 +62,7 @@ const AGENT_RESULT: AgentRunResult = {
   reply: 'Tu próxima cita es el martes',
   links: [{ label: 'Reservar', url: 'http://localhost:4200/reservar?x=1' }],
   toolNames: ['get_my_next_appointment'],
+  toolCalls: [{ name: 'get_my_next_appointment', status: 'ok', ms: 12 }],
   usage: { promptTokens: 900, completionTokens: 40 },
   llmLatencyMs: 1500,
   iterations: 1,
@@ -82,10 +85,12 @@ describe('ChatService', () => {
   };
   const agent = { run: jest.fn() };
   const promptBuilder = { build: jest.fn(() => 'SYSTEM') };
+  const audit = new ChatAuditLogger();
   const service = new ChatService(
     repo as unknown as ChatRepository,
     agent as unknown as AgentRunner,
     promptBuilder,
+    audit,
   );
 
   beforeEach(() => {
@@ -96,6 +101,9 @@ describe('ChatService', () => {
     delete process.env['CHAT_DAILY_MESSAGES_USER'];
     delete process.env['CHAT_DAILY_MESSAGES_ANON'];
     process.env['CHATBOT_ENABLED'] = 'true';
+    // Los eventos de auditoría se verifican en su propio describe.
+    jest.spyOn(Logger.prototype, 'log').mockImplementation(() => {});
+    jest.spyOn(Logger.prototype, 'warn').mockImplementation(() => {});
     repo.countUserMessagesSince.mockResolvedValue(0);
     repo.countAnonMessagesSince.mockResolvedValue(0);
     repo.appendMessage.mockResolvedValue(message('user', 'x'));
@@ -105,6 +113,7 @@ describe('ChatService', () => {
 
   afterEach(() => {
     process.env = originalEnv;
+    jest.restoreAllMocks();
   });
 
   describe('usuario autenticado', () => {
@@ -299,6 +308,11 @@ describe('ChatService', () => {
         system: 'SYSTEM',
         history: [{ role: 'user', content: 'hola' }],
         locale: 'pt',
+        audit: {
+          requestId: null,
+          actor: 'user:user-1',
+          role: 'patient',
+        },
       });
     });
 
@@ -526,6 +540,148 @@ describe('ChatService', () => {
       await service.deleteAllSessions('user-1');
 
       expect(repo.deleteAllForUser).toHaveBeenCalledWith('user-1');
+    });
+  });
+
+  describe('auditoría (CLI-98)', () => {
+    const MARKER = 'MARCADOR-UNICO-7f3a9c';
+    let logged: jest.SpyInstance[];
+
+    beforeEach(() => {
+      logged = (['log', 'warn', 'error', 'debug', 'verbose'] as const).map(
+        (level) =>
+          jest.spyOn(Logger.prototype, level).mockImplementation(() => {}),
+      );
+    });
+
+    afterEach(() => jest.restoreAllMocks());
+
+    function allLogs(): string {
+      return logged
+        .flatMap((spy) => spy.mock.calls as unknown[][])
+        .map((args) => args.map(String).join(' '))
+        .join('\n');
+    }
+
+    function events(kind: string): Record<string, unknown>[] {
+      return allLogs()
+        .split('\n')
+        .filter((line) => line.includes(`"event":"${kind}"`))
+        .map((line) => JSON.parse(line) as Record<string, unknown>);
+    }
+
+    it('cada turno emite exactamente un chat.turn, sin el texto del usuario ni la respuesta', async () => {
+      repo.findSessionForUser.mockResolvedValue(session());
+      agent.run.mockResolvedValue({
+        ...AGENT_RESULT,
+        reply: `Respuesta con ${MARKER}`,
+        toolCalls: [
+          { name: 'get_my_balance', status: 'ok', ms: 5 },
+          { name: 'get_clinic_financial_report', status: 'denied', ms: 1 },
+        ],
+      });
+
+      await service.handleMessage({
+        actor: patient,
+        channel: 'web',
+        sessionId: 'session-1',
+        text: `Pregunta con ${MARKER}`,
+        requestId: 'req-1',
+      });
+
+      expect(allLogs()).not.toContain(MARKER);
+      const [turn, ...rest] = events('chat.turn');
+      expect(rest).toHaveLength(0);
+      expect(turn).toMatchObject({
+        requestId: 'req-1',
+        channel: 'web',
+        actor: 'user:user-1',
+        role: 'patient',
+        intent: 'tool',
+        tools: [
+          { name: 'get_my_balance', status: 'ok', ms: 5 },
+          { name: 'get_clinic_financial_report', status: 'denied', ms: 1 },
+        ],
+        llmMs: 1500,
+        promptTokens: 900,
+        completionTokens: 40,
+        iterations: 1,
+        errorCode: null,
+      });
+      expect(repo.appendMessage).toHaveBeenLastCalledWith(
+        'session-1',
+        expect.objectContaining({ deniedTools: 1 }),
+      );
+    });
+
+    it('un visitante nuevo queda identificado por el prefijo del hash de su token', async () => {
+      repo.createSession.mockResolvedValue(session({ userId: null }));
+
+      const reply = await service.handleMessage({
+        actor: anonymous,
+        channel: 'web',
+        text: 'hola',
+      });
+
+      const [turn] = events('chat.turn');
+      expect(turn.actor).toBe(
+        `anon:${hashAnonToken(reply.anonToken!).slice(0, 8)}`,
+      );
+      expect(allLogs()).not.toContain(reply.anonToken!);
+    });
+
+    it('una conversación ajena queda como evento de seguridad', async () => {
+      repo.findSessionForUser.mockResolvedValue(null);
+
+      await expect(
+        service.handleMessage({
+          actor: patient,
+          channel: 'web',
+          sessionId: 'session-de-otro',
+          text: MARKER,
+        }),
+      ).rejects.toBeInstanceOf(NotFoundException);
+
+      expect(events('chat.security')).toEqual([
+        expect.objectContaining({
+          reason: 'foreign_or_unknown_session',
+          actor: 'user:user-1',
+        }),
+      ]);
+      expect(events('chat.turn')).toHaveLength(0);
+      expect(allLogs()).not.toContain(MARKER);
+    });
+
+    it('la cuota excedida queda como evento de seguridad', async () => {
+      repo.countUserMessagesSince.mockResolvedValue(100);
+
+      await expect(
+        service.handleMessage({ actor: patient, channel: 'web', text: 'hola' }),
+      ).rejects.toBeInstanceOf(HttpException);
+
+      expect(events('chat.security')).toEqual([
+        expect.objectContaining({ reason: 'daily_quota_exceeded' }),
+      ]);
+    });
+
+    it('borrar una conversación ajena queda auditado si llega el contexto', async () => {
+      repo.deleteSessionForUser.mockResolvedValue(false);
+      const context = {
+        requestId: 'req-2',
+        actor: 'user:user-1',
+        role: 'patient' as const,
+      };
+
+      await expect(
+        service.deleteSession('user-1', 'session-de-otro', context),
+      ).rejects.toBeInstanceOf(NotFoundException);
+
+      expect(events('chat.security')).toEqual([
+        expect.objectContaining({
+          requestId: 'req-2',
+          reason: 'foreign_or_unknown_session',
+        }),
+      ]);
     });
   });
 });
