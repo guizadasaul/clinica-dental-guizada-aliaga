@@ -660,25 +660,27 @@ model doctor_schedule_blocks {
 
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
 model users {
-  id                     String                   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  auth_user_id           String?                  @unique @db.Uuid
-  email                  String?                  @unique @db.VarChar(255)
-  display_name           String?                  @db.VarChar(255)
-  photo_url              String?
-  phone                  String?                  @db.VarChar(20)
-  is_active              Boolean                  @default(true)
-  created_at             DateTime                 @default(now()) @db.Timestamptz(6)
-  updated_at             DateTime                 @default(now()) @db.Timestamptz(6)
-  role                   UserRole                 @unique(map: "idx_one_admin_user", where: raw("(role = 'admin'::\"UserRole\")")) @default(patient)
-  patients               patients?                @relation("PatientAccount")
-  assigned_patients      patients[]               @relation("PatientAssignedDoctor")
-  appointments           appointments[]
-  doctor_profiles        doctor_profiles?
-  doctor_schedule_blocks doctor_schedule_blocks[]
-  tooth_procedures       tooth_procedures[]
-  dental_exams           dental_exams[]
-  patient_invites        patient_invites[]
-  chat_sessions          chat_sessions[]
+  id                      String                    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  auth_user_id            String?                   @unique @db.Uuid
+  email                   String?                   @unique @db.VarChar(255)
+  display_name            String?                   @db.VarChar(255)
+  photo_url               String?
+  phone                   String?                   @db.VarChar(20)
+  is_active               Boolean                   @default(true)
+  created_at              DateTime                  @default(now()) @db.Timestamptz(6)
+  updated_at              DateTime                  @default(now()) @db.Timestamptz(6)
+  role                    UserRole                  @unique(map: "idx_one_admin_user", where: raw("(role = 'admin'::\"UserRole\")")) @default(patient)
+  patients                patients?                 @relation("PatientAccount")
+  assigned_patients       patients[]                @relation("PatientAssignedDoctor")
+  appointments            appointments[]
+  doctor_profiles         doctor_profiles?
+  doctor_schedule_blocks  doctor_schedule_blocks[]
+  tooth_procedures        tooth_procedures[]
+  dental_exams            dental_exams[]
+  patient_invites         patient_invites[]
+  chat_sessions           chat_sessions[]
+  chat_channel_identities chat_channel_identities[]
+  chat_link_codes         chat_link_codes[]
 }
 
 /// Sin código todavía — CLI-53. Notas para cuando se implemente:
@@ -750,4 +752,50 @@ model chat_messages {
 
   @@index([session_id, created_at], map: "idx_chat_messages_session_created")
   @@index([created_at], map: "idx_chat_messages_created")
+}
+
+/// Un número de un canal externo (WhatsApp) vinculado a una cuenta, con
+/// posesión probada por un código de un solo uso (CLI-100). Nunca se infiere
+/// de users.phone. Un número activo (revoked_at null) pertenece a una sola
+/// cuenta: índice único parcial en la migración.
+model chat_channel_identities {
+  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id     String    @db.Uuid
+  channel     String    @db.VarChar(20)
+  /// E.164, ej. +59171234567
+  external_id String    @db.VarChar(20)
+  verified_at DateTime  @db.Timestamptz(6)
+  revoked_at  DateTime? @db.Timestamptz(6)
+  created_at  DateTime  @default(now()) @db.Timestamptz(6)
+  users       users     @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([user_id], map: "idx_chat_channel_identities_user")
+}
+
+/// Código de 6 dígitos para vincular un número (CLI-100). Solo se guarda el
+/// sha256; vence a los 10 minutos y se usa una sola vez.
+model chat_link_codes {
+  id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id    String    @db.Uuid
+  channel    String    @db.VarChar(20)
+  code_hash  String    @db.VarChar(64)
+  expires_at DateTime  @db.Timestamptz(6)
+  used_at    DateTime? @db.Timestamptz(6)
+  created_at DateTime  @default(now()) @db.Timestamptz(6)
+  users      users     @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([code_hash], map: "idx_chat_link_codes_hash")
+  @@index([user_id], map: "idx_chat_link_codes_user")
+}
+
+/// Intentos de canje por número (CLI-100): límite de intentos fallidos por
+/// hora contra la adivinación de códigos. Se purgan con la retención diaria.
+model chat_link_attempts {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  channel     String   @db.VarChar(20)
+  external_id String   @db.VarChar(20)
+  succeeded   Boolean
+  created_at  DateTime @default(now()) @db.Timestamptz(6)
+
+  @@index([channel, external_id, created_at], map: "idx_chat_link_attempts_number")
 }

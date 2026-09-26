@@ -16,6 +16,11 @@ import { UserMapper } from './user.mapper.js';
 export class PrismaUserRepository implements UserRepository {
   constructor(private readonly prisma: PrismaService) {}
 
+  async findById(id: string): Promise<User | null> {
+    const record = await this.prisma.users.findUnique({ where: { id } });
+    return record ? UserMapper.toDomain(record) : null;
+  }
+
   async findByAuthUserId(authUserId: string): Promise<User | null> {
     const record = await this.prisma.users.findUnique({
       where: { auth_user_id: authUserId },

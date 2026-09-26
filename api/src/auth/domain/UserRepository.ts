@@ -32,6 +32,8 @@ export interface UpdateContactInfoData {
 
 export interface UserRepository {
   findByAuthUserId(authUserId: string): Promise<User | null>;
+  /** Por users.id (ej. el dueño de un número de WhatsApp vinculado, CLI-100). */
+  findById(id: string): Promise<User | null>;
   upsertByAuthUserId(data: UpsertUserData): Promise<User>;
 
   /** Crea un User "placeholder" sin identidad de Supabase (authUserId: null). */

@@ -28,6 +28,10 @@ import { ActorResolver } from './application/actor-resolver';
 import { ChatController } from './infrastructure/http/chat.controller';
 import { PublicChatController } from './infrastructure/http/public-chat.controller';
 import { AdminChatbotUsageController } from './infrastructure/http/admin-chatbot-usage.controller';
+import { ChannelLinkingController } from './infrastructure/http/channel-linking.controller';
+import { ChannelLinkingService } from './application/channel-linking.service';
+import { ChannelIdentityRepository } from './domain/ChannelIdentity';
+import { PrismaChannelIdentityRepository } from './infrastructure/persistence/prisma-channel-identity.repository';
 import { ChatAuditLogger } from './application/chat-audit.logger';
 import { ChatUsageService } from './application/chat-usage.service';
 
@@ -47,7 +51,8 @@ const TOOL_CLASSES = [
  * endpoints web con su resolución de identidad, cuotas y rate limit
  * (CLI-89), el hardening contra prompt injection (CLI-90) y las tools del
  * paciente (CLI-91), del doctor (CLI-92) y del administrador (CLI-93), y la
- * auditoría con métricas de uso (CLI-98).
+ * auditoría con métricas de uso (CLI-98) y la vinculación de WhatsApp con
+ * una cuenta (CLI-100).
  */
 @Module({
   imports: [
@@ -63,6 +68,7 @@ const TOOL_CLASSES = [
     ChatController,
     PublicChatController,
     AdminChatbotUsageController,
+    ChannelLinkingController,
   ],
   providers: [
     { provide: LlmProvider, useClass: GroqLlmProvider },
@@ -84,6 +90,11 @@ const TOOL_CLASSES = [
     ChatRetentionScheduler,
     ChatAuditLogger,
     ChatUsageService,
+    ChannelLinkingService,
+    {
+      provide: ChannelIdentityRepository,
+      useClass: PrismaChannelIdentityRepository,
+    },
   ],
 })
 export class ChatbotModule {}
