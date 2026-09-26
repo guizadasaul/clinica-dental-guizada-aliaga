@@ -57,6 +57,11 @@ function appointment(
     a.doctorId as string,
     a.doctorName as string | null,
     a.doctorColor as string | null,
+    30,
+    'public_web',
+    null,
+    null,
+    null,
   );
 }
 

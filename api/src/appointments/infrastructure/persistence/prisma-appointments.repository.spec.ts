@@ -5,6 +5,7 @@ import {
   GuestEmailBelongsToAccountError,
   GuestPhoneBelongsToAccountError,
   GuestPhoneConflictError,
+  PatientNotFoundError,
   SlotUnavailableError,
 } from '../../domain/AppointmentRepository';
 
@@ -49,6 +50,7 @@ describe('PrismaAppointmentsRepository', () => {
       create: jest.Mock;
     };
     users: { findUnique: jest.Mock; findFirst: jest.Mock };
+    patients: { findUnique: jest.Mock };
     transaction: jest.Mock;
   };
   let repo: PrismaAppointmentsRepository;
@@ -65,6 +67,7 @@ describe('PrismaAppointmentsRepository', () => {
         findUnique: jest.fn().mockResolvedValue(null),
         findFirst: jest.fn().mockResolvedValue(null),
       },
+      patients: { findUnique: jest.fn() },
       transaction: jest.fn((fn: (tx: unknown) => unknown) => fn(prismaMock)),
     };
     repo = new PrismaAppointmentsRepository(
@@ -313,7 +316,93 @@ describe('PrismaAppointmentsRepository', () => {
         doctorId: 'doctor-2',
         doctorName: 'Dra. Marylu',
         doctorColor: '#db2777',
+        durationMinutes: 30,
+        source: 'public_web',
+        treatmentName: null,
       });
+    });
+  });
+
+  // CLI-148
+  describe('createByDoctor', () => {
+    const data = {
+      doctorId: 'doctor-1',
+      patientId: 'patient-1',
+      treatmentId: 'treatment-1',
+      appointmentDatetime: SLOT,
+      durationMinutes: 60,
+      notes: 'control',
+    };
+
+    it('crea la cita confirmada, con source doctor y sin datos de pago ni de invitado', async () => {
+      prismaMock.patients.findUnique.mockResolvedValue({ id: 'patient-1' });
+      prismaMock.appointments.create.mockResolvedValue(
+        fakeAppointmentRecord({
+          status: 'confirmed',
+          source: 'doctor',
+          hold_expires_at: null,
+          patient_id: 'patient-1',
+          treatment_id: 'treatment-1',
+          duration_minutes: 60,
+          notes: 'control',
+          doctor_id: 'doctor-1',
+          patients: {
+            first_name: 'Ana',
+            last_name_paternal: 'Pérez',
+            users: { phone: '+59170000000', email: null },
+          },
+          users: { display_name: 'Dr. Saul', doctor_profiles: null },
+          treatments: { name: 'Control de ortodoncia' },
+        }),
+      );
+
+      const result = await repo.createByDoctor(data);
+
+      expect(prismaMock.appointments.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: {
+            doctor_id: 'doctor-1',
+            patient_id: 'patient-1',
+            treatment_id: 'treatment-1',
+            appointment_datetime: SLOT,
+            duration_minutes: 60,
+            status: 'confirmed',
+            source: 'doctor',
+            notes: 'control',
+          },
+        }),
+      );
+      expect(result).toMatchObject({
+        status: 'confirmed',
+        source: 'doctor',
+        patientFirstName: 'Ana',
+        durationMinutes: 60,
+        treatmentName: 'Control de ortodoncia',
+        notes: 'control',
+      });
+    });
+
+    it('lanza PatientNotFoundError sin crear nada si el paciente no existe', async () => {
+      prismaMock.patients.findUnique.mockResolvedValue(null);
+
+      await expect(repo.createByDoctor(data)).rejects.toBeInstanceOf(
+        PatientNotFoundError,
+      );
+      expect(prismaMock.appointments.create).not.toHaveBeenCalled();
+    });
+
+    it('traduce el choque en el índice único (P2002) a SlotUnavailableError', async () => {
+      prismaMock.patients.findUnique.mockResolvedValue({ id: 'patient-1' });
+      prismaMock.appointments.create.mockRejectedValue(
+        new Prisma.PrismaClientKnownRequestError('unique', {
+          code: 'P2002',
+          clientVersion: 'test',
+        }),
+      );
+
+      await expect(repo.createByDoctor(data)).rejects.toBeInstanceOf(
+        SlotUnavailableError,
+      );
     });
   });
 

@@ -16,6 +16,7 @@ import {
   GuestEmailBelongsToAccountError,
   GuestPhoneBelongsToAccountError,
   GuestPhoneConflictError,
+  PatientNotFoundError,
   SlotUnavailableError,
 } from '../domain/AppointmentRepository.js';
 import type {
@@ -36,7 +37,10 @@ import type { ITreatmentRepository } from '../../treatments/domain/TreatmentRepo
 import { DoctorRepository } from '../../doctors/domain/DoctorRepository.js';
 import type { IDoctorRepository } from '../../doctors/domain/DoctorRepository.js';
 import { DoctorScheduleRepository } from '../../doctors/domain/DoctorScheduleRepository.js';
-import type { IDoctorScheduleRepository } from '../../doctors/domain/DoctorScheduleRepository.js';
+import type {
+  DoctorScheduleBlock,
+  IDoctorScheduleRepository,
+} from '../../doctors/domain/DoctorScheduleRepository.js';
 
 // Bolivia no tiene horario de verano (UTC-4 fijo), así que sumar días de
 // calendario en UTC es seguro para generar el rango de fechas a consultar.
@@ -68,6 +72,20 @@ export interface AvailabilityRangeResult {
   days: number;
   slotsByDate: Record<string, string[]>;
 }
+
+/** CLI-148: datos de una cita que agenda el doctor (el doctorId viaja aparte, sale del token). */
+export interface DoctorAppointmentInput {
+  patientId: string;
+  appointmentDatetime: string;
+  treatmentId?: string;
+  durationMinutes?: number;
+  notes?: string;
+}
+
+// Cuánto hacia atrás buscar citas que todavía podrían estar en curso al
+// empezar la nueva. Holgado a propósito: la duración más larga que se
+// agenda son 4 h, pero una cita vieja puede tener otra congelada (CLI-47).
+const OVERLAP_LOOKBACK_MS = 24 * 60 * 60 * 1000;
 
 export interface HoldResult {
   appointmentId: string;
@@ -286,6 +304,82 @@ export class AppointmentsService {
       throw new GoneException('El horario reservado ya venció');
     }
     return updated;
+  }
+
+  /**
+   * CLI-148: el doctor agenda una cita (típicamente el control siguiente a
+   * un tratamiento) para un paciente con ficha. Nace confirmada y sin pago.
+   * A diferencia de holdSlot, NO exige que caiga dentro de su horario de
+   * atención (la agenda permite emergencias fuera de horario; el front
+   * avisa), pero nunca puede pisar otra cita activa del mismo doctor.
+   */
+  async createByDoctor(
+    doctorId: string,
+    input: DoctorAppointmentInput,
+  ): Promise<AppointmentWithPatient> {
+    const start = new Date(input.appointmentDatetime);
+    const now = new Date();
+    if (start.getTime() <= now.getTime()) {
+      throw new BadRequestException('La cita tiene que ser en el futuro');
+    }
+    if (start.getTime() % (SLOT_MINUTES * 60_000) !== 0) {
+      throw new BadRequestException(
+        `La cita tiene que empezar en un horario de la grilla (cada ${SLOT_MINUTES} min)`,
+      );
+    }
+
+    let durationMinutes = input.durationMinutes ?? SLOT_MINUTES;
+    if (input.treatmentId) {
+      const treatment = await this.treatmentRepo.findById(input.treatmentId);
+      if (!treatment) {
+        throw new NotFoundException(
+          `Tratamiento con id ${input.treatmentId} no encontrado`,
+        );
+      }
+      durationMinutes = input.durationMinutes ?? treatment.estimatedMinutes;
+    }
+
+    const end = new Date(start.getTime() + durationMinutes * 60_000);
+    const active = await this.appointmentRepo.findActiveBetween(
+      new Date(start.getTime() - OVERLAP_LOOKBACK_MS),
+      end,
+      now,
+      doctorId,
+    );
+    const overlaps = active.some(
+      (a) =>
+        a.appointmentDatetime.getTime() + a.durationMinutes * 60_000 >
+        start.getTime(),
+    );
+    if (overlaps) {
+      throw new ConflictException('Ya tenés una cita en ese horario');
+    }
+
+    try {
+      return await this.appointmentRepo.createByDoctor({
+        doctorId,
+        patientId: input.patientId,
+        treatmentId: input.treatmentId ?? null,
+        appointmentDatetime: start,
+        durationMinutes,
+        notes: input.notes?.trim() || null,
+      });
+    } catch (error) {
+      if (error instanceof PatientNotFoundError) {
+        throw new NotFoundException(
+          `Paciente con id ${input.patientId} no encontrado`,
+        );
+      }
+      if (error instanceof SlotUnavailableError) {
+        throw new ConflictException('Ya tenés una cita en ese horario');
+      }
+      throw error;
+    }
+  }
+
+  /** CLI-148: horario de atención del doctor autenticado, para que su agenda marque lo que queda fuera. */
+  getDoctorSchedule(doctorId: string): Promise<DoctorScheduleBlock[]> {
+    return this.doctorScheduleRepo.findBlocksForDoctor(doctorId);
   }
 
   getAgenda(filters: AgendaFilters): Promise<AppointmentWithPatient[]> {

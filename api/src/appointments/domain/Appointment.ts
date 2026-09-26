@@ -11,6 +11,8 @@ export type AppointmentStatus =
 export const AppointmentSource = {
   PUBLIC_WEB: 'public_web',
   WHATSAPP: 'whatsapp',
+  /** CLI-148: cita agendada por el doctor desde su agenda (seguimiento de un paciente con ficha) — nace confirmada, sin pago previo. */
+  DOCTOR: 'doctor',
 } as const;
 export type AppointmentSource =
   (typeof AppointmentSource)[keyof typeof AppointmentSource];

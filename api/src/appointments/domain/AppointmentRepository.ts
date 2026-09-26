@@ -9,6 +9,13 @@ export class SlotUnavailableError extends Error {
   }
 }
 
+export class PatientNotFoundError extends Error {
+  constructor(message = 'Paciente no encontrado') {
+    super(message);
+    this.name = 'PatientNotFoundError';
+  }
+}
+
 export class GuestPhoneConflictError extends Error {
   constructor(
     message = 'Ya existe una cita activa con este número de teléfono',
@@ -48,6 +55,17 @@ export interface CreateHoldData {
   /** Congelada al crear el hold (CLI-47) — snapshot de treatments.estimatedMinutes, o SLOT_MINUTES si no se especificó tratamiento. */
   durationMinutes: number;
   source: string;
+}
+
+/** CLI-148: cita que agenda el doctor para un paciente con ficha. */
+export interface CreateByDoctorData {
+  /** Siempre el doctor autenticado — nunca un dato del body. */
+  doctorId: string;
+  patientId: string;
+  treatmentId: string | null;
+  appointmentDatetime: Date;
+  durationMinutes: number;
+  notes: string | null;
 }
 
 export interface GuestContactData {
@@ -99,6 +117,8 @@ export interface IAppointmentRepository {
   findByQrId(qrId: string): Promise<Appointment | null>;
   /** Atómico: libera holds vencidos de ese slot e intenta tomar el hold. Lanza SlotUnavailableError ante colisión. */
   createHold(data: CreateHoldData): Promise<Appointment>;
+  /** CLI-148: crea una cita ya confirmada (source `doctor`, sin pago). Lanza PatientNotFoundError si el paciente no existe y SlotUnavailableError si otra cita activa del doctor ya empieza a esa hora (índice único). El solapamiento por duración lo valida quien llama. */
+  createByDoctor(data: CreateByDoctorData): Promise<AppointmentWithPatient>;
   /** UPDATE condicional (WHERE id AND status='held' AND hold_expires_at > now). null si el hold ya no está vigente. Lanza GuestPhoneConflictError si el teléfono ya tiene otra cita held/confirmed, o GuestEmailBelongsToAccountError/GuestPhoneBelongsToAccountError si el email/teléfono ya pertenece a una cuenta (users) existente. */
   updateGuestContact(
     id: string,
