@@ -129,6 +129,7 @@ export class ChatService {
       llmMs: result.llmLatencyMs,
       totalMs,
       promptTokens: result.usage.promptTokens,
+      cachedPromptTokens: result.cachedPromptTokens,
       completionTokens: result.usage.completionTokens,
       iterations: result.iterations,
       errorCode: result.errorCode,

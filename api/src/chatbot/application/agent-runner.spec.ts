@@ -107,7 +107,7 @@ describe('AgentRunner', () => {
     const audit = {
       requestId: 'req-1',
       actor: 'user:user-1',
-      role: 'patient' as const,
+      role: UserRole.PATIENT,
     };
     const llm = new FakeLlmProvider([
       toolCallResponse({ id: 'c1', name: 'get_clinic_financial_report' }),
@@ -134,6 +134,34 @@ describe('AgentRunner', () => {
         ms: expect.any(Number) as unknown,
       },
     ]);
+  });
+
+  it('suma los tokens de entrada que el proveedor sirvió desde su caché', async () => {
+    const withCache = <T extends { usage: unknown }>(
+      response: T,
+      cached: number,
+    ) => ({
+      ...response,
+      usage: {
+        promptTokens: 100,
+        completionTokens: 10,
+        cachedPromptTokens: cached,
+      },
+    });
+    const llm = new FakeLlmProvider([
+      withCache(toolCallResponse({ id: 'c1', name: 'get_my_balance' }), 64),
+      withCache(textResponse('Listo'), 96),
+    ]);
+
+    const result = await run(llm);
+
+    expect(result.cachedPromptTokens).toBe(160);
+  });
+
+  it('sin datos de caché, cachedPromptTokens queda en 0', async () => {
+    const result = await run(new FakeLlmProvider([textResponse('ok')]));
+
+    expect(result.cachedPromptTokens).toBe(0);
   });
 
   it('ejecuta una tool, le devuelve el resultado al modelo y responde', async () => {

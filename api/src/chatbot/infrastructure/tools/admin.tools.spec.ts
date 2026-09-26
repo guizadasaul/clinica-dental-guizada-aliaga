@@ -63,7 +63,7 @@ describe('admin tools (CLI-93)', () => {
       (a: ChatActor) => new GetTopTreatmentsTool(reports).execute(a, SEPTEMBER),
     ],
   ])('%s', (_name, run) => {
-    it.each([doctor, { kind: 'anonymous' }])(
+    it.each<ChatActor>([doctor, { kind: 'anonymous' }])(
       'no ejecuta nada para un actor que no es admin (%p), además de la matriz',
       async (actor) => {
         await expect(run(actor)).resolves.toEqual({ error: 'not_admin' });

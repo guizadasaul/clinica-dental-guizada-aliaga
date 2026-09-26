@@ -15,6 +15,7 @@ export interface ChatTurnAudit {
   llmMs: number;
   totalMs: number;
   promptTokens: number;
+  cachedPromptTokens: number;
   completionTokens: number;
   iterations: number;
   errorCode: string | null;
@@ -49,6 +50,7 @@ export class ChatAuditLogger {
         llmMs: turn.llmMs,
         totalMs: turn.totalMs,
         promptTokens: turn.promptTokens,
+        cachedPromptTokens: turn.cachedPromptTokens,
         completionTokens: turn.completionTokens,
         iterations: turn.iterations,
         errorCode: turn.errorCode,

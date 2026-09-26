@@ -36,6 +36,56 @@ describe('ChatbotModule', () => {
     expect(moduleRef.get(ToolExecutionPort)).toBe(moduleRef.get(ToolExecutor));
   });
 
+  // Regresión de costo (CLI-99): las definiciones de tools viajan en cada
+  // llamada al LLM. Medido tras compactarlas: anónimo 1947, paciente 3383,
+  // doctor 2631, admin 3355 caracteres; los topes dejan un 6-8 % de margen. Si
+  // una tool nueva los supera, recortar descripciones antes de subirlos.
+  it.each([
+    ['anónimo', { kind: 'anonymous' as const }, 2100],
+    [
+      'paciente',
+      {
+        kind: 'user' as const,
+        userId: 'u1',
+        role: UserRole.PATIENT,
+        patientId: 'p1',
+      },
+      3600,
+    ],
+    [
+      'odontólogo',
+      {
+        kind: 'user' as const,
+        userId: 'd1',
+        role: UserRole.ODONTOLOGIST,
+        patientId: null,
+      },
+      2850,
+    ],
+    [
+      'admin',
+      {
+        kind: 'user' as const,
+        userId: 'a1',
+        role: UserRole.ADMIN,
+        patientId: null,
+      },
+      3550,
+    ],
+  ])(
+    'las definiciones de tools de un %s no superan su tope de caracteres',
+    async (_role, actor, maxChars) => {
+      const moduleRef = await Test.createTestingModule({
+        imports: [PrismaModule, ChatbotModule],
+      }).compile();
+      const port = moduleRef.get<ToolExecutor>(ToolExecutionPort);
+
+      expect(
+        JSON.stringify(port.definitionsFor(actor)).length,
+      ).toBeLessThanOrEqual(maxChars);
+    },
+  );
+
   it('registra las tools públicas para un visitante anónimo', async () => {
     const moduleRef = await Test.createTestingModule({
       imports: [PrismaModule, ChatbotModule],

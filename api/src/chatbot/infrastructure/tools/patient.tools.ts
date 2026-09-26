@@ -112,7 +112,7 @@ function groupItems(items: QuoteItem[], names: Record<string, string>) {
 export class GetMyNextAppointmentTool implements ChatTool<object> {
   readonly name = 'get_my_next_appointment';
   readonly description =
-    'Próxima cita confirmada del paciente que está chateando: fecha, hora (Bolivia), doctor y tratamiento.';
+    'Próxima cita confirmada del paciente: fecha, hora, doctor y tratamiento.';
   readonly parameters = NO_PARAMETERS;
   readonly argsDto = NO_ARGS;
 
@@ -136,7 +136,7 @@ export class GetMyNextAppointmentTool implements ChatTool<object> {
 export class GetMyAppointmentsTool implements ChatTool<MyAppointmentsArgsDto> {
   readonly name = 'get_my_appointments';
   readonly description =
-    'Citas confirmadas del paciente que está chateando: próximas (upcoming) o anteriores (past).';
+    'Citas confirmadas del paciente: próximas (upcoming) o anteriores (past).';
   readonly parameters: JsonSchema = {
     type: 'object',
     properties: {
@@ -172,7 +172,7 @@ export class GetMyAppointmentsTool implements ChatTool<MyAppointmentsArgsDto> {
 export class GetMyQuotesTool implements ChatTool<object> {
   readonly name = 'get_my_quotes';
   readonly description =
-    'Presupuestos del paciente que está chateando (los 5 más recientes, pagados o no): estado, total, pagado, saldo, tratamientos y pagos con su recibo. Montos en bolivianos.';
+    'Presupuestos del paciente (los 5 más recientes, pagados o no): estado, total, pagado, saldo, tratamientos y pagos con recibo, en Bs.';
   // Sin filtro por estado a propósito: en vivo el modelo pedía status=pending
   // para "lo que me presupuestaron" y dejaba afuera los de pago parcial.
   readonly parameters = NO_PARAMETERS;
@@ -215,7 +215,7 @@ export class GetMyQuotesTool implements ChatTool<object> {
 export class GetMyBalanceTool implements ChatTool<object> {
   readonly name = 'get_my_balance';
   readonly description =
-    'Cuánto debe en total el paciente que está chateando: suma de los saldos de sus presupuestos sin pagar, en bolivianos.';
+    'Cuánto debe en total el paciente: suma de los saldos sin pagar, en Bs.';
   readonly parameters = NO_PARAMETERS;
   readonly argsDto = NO_ARGS;
 
@@ -238,7 +238,7 @@ export class GetMyBalanceTool implements ChatTool<object> {
 export class GetMyTreatmentsTool implements ChatTool<MyTreatmentsArgsDto> {
   readonly name = 'get_my_treatments';
   readonly description =
-    'Tratamientos ya realizados al paciente que está chateando, del más reciente al más antiguo: fecha, tratamiento y piezas.';
+    'Tratamientos ya realizados al paciente, del más reciente al más antiguo: fecha, tratamiento y piezas.';
   readonly parameters: JsonSchema = {
     type: 'object',
     properties: { limit: { type: 'integer', minimum: 1, maximum: 20 } },
@@ -292,7 +292,7 @@ export class GetMyTreatmentsTool implements ChatTool<MyTreatmentsArgsDto> {
 export class GetMyPendingTreatmentsTool implements ChatTool<object> {
   readonly name = 'get_my_pending_treatments';
   readonly description =
-    'Tratamientos presupuestados que el paciente que está chateando todavía no terminó de pagar.';
+    'Tratamientos presupuestados que el paciente todavía no terminó de pagar.';
   readonly parameters = NO_PARAMETERS;
   readonly argsDto = NO_ARGS;
 

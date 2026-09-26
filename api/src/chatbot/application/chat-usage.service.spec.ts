@@ -1,3 +1,4 @@
+import { UserRole } from '../../auth/domain/value-objects/UserRole';
 import { BadRequestException } from '@nestjs/common';
 import type { ChatRepository } from '../domain/ChatRepository';
 import type { ChatTurnRecord } from '../domain/ChatUsage';
@@ -7,7 +8,7 @@ function turn(overrides: Partial<ChatTurnRecord> = {}): ChatTurnRecord {
   return {
     createdAt: new Date('2026-09-10T15:00:00Z'),
     channel: 'web',
-    role: 'patient',
+    role: UserRole.PATIENT,
     actorKey: 'user-1',
     promptTokens: 1000,
     completionTokens: 100,
@@ -61,7 +62,7 @@ describe('ChatUsageService', () => {
       }),
       turn({
         createdAt: new Date('2026-09-11T15:00:00Z'),
-        role: 'admin',
+        role: UserRole.ADMIN,
         actorKey: 'admin-1',
       }),
     ]);

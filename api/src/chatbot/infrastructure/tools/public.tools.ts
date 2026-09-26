@@ -24,8 +24,6 @@ const NO_PARAMETERS: JsonSchema = {
   properties: {},
   additionalProperties: false,
 };
-const DATE_PATTERN = String.raw`^\d{4}-\d{2}-\d{2}$`;
-const TIME_PATTERN = String.raw`^([01]\d|2[0-3]):[0-5]\d$`;
 /**
  * DTO de las tools sin argumentos: Object no tiene propiedades declaradas, así
  * que el validador (forbidNonWhitelisted) rechaza cualquier campo que llegue.
@@ -50,7 +48,7 @@ function truncate(text: string | null, max: number): string | null {
 export class GetClinicInfoTool implements ChatTool<object> {
   readonly name = 'get_clinic_info';
   readonly description =
-    'Datos de contacto de la clínica: dirección, horario general de atención, WhatsApp y correo.';
+    'Dirección, horario general, WhatsApp y correo de la clínica.';
   readonly parameters = NO_PARAMETERS;
   readonly argsDto = NO_ARGS;
 
@@ -63,7 +61,7 @@ export class GetClinicInfoTool implements ChatTool<object> {
 export class GetFaqTool implements ChatTool<GetFaqArgsDto> {
   readonly name = 'get_faq';
   readonly description =
-    'Preguntas frecuentes de la clínica (reservas, pagos, primera consulta, ubicación). Opcionalmente filtradas por tema.';
+    'Preguntas frecuentes: reservas, pagos y seguros, primera consulta, ubicación, niños, contacto y urgencias. Tema opcional.';
   readonly parameters: JsonSchema = {
     type: 'object',
     properties: { topic: { type: 'string', enum: [...FAQ_TOPICS] } },
@@ -85,7 +83,7 @@ export class GetFaqTool implements ChatTool<GetFaqArgsDto> {
 export class ListServicesTool implements ChatTool<ListServicesArgsDto> {
   readonly name = 'list_services';
   readonly description =
-    'Tratamientos que ofrece la clínica con su categoría, descripción y precio base referencial en bolivianos. Opcionalmente filtra por categoría (ej. "Ortodoncia", "Endodoncia").';
+    'Tratamientos de la clínica con categoría, descripción y precio base en Bs. Categoría opcional (ej. "Ortodoncia").';
   readonly parameters: JsonSchema = {
     type: 'object',
     properties: { category: { type: 'string', maxLength: 50 } },
@@ -123,7 +121,7 @@ export class ListServicesTool implements ChatTool<ListServicesArgsDto> {
 export class ListDoctorsTool implements ChatTool<object> {
   readonly name = 'list_doctors';
   readonly description =
-    'Doctores de la clínica que atienden con reserva online, con su especialidad. Devuelve el doctorId necesario para consultar disponibilidad.';
+    'Doctores con reserva online y su especialidad. El doctorId es interno: úsalo para consultar disponibilidad, nunca lo muestres.';
   readonly parameters = NO_PARAMETERS;
   readonly argsDto = NO_ARGS;
 
@@ -145,14 +143,13 @@ export class ListDoctorsTool implements ChatTool<object> {
 export class GetAvailableSlotsTool implements ChatTool<GetAvailableSlotsArgsDto> {
   readonly name = 'get_available_slots';
   readonly description =
-    'Horarios libres reales para reservar, por doctor y por día (hora de Bolivia). Sin doctorId, consulta todos los doctores. Máximo 14 días desde la fecha "from".';
+    'Horarios libres para reservar, por doctor y día (hora de Bolivia). Sin doctorId: todos los doctores. Hasta 14 días desde from.';
   readonly parameters: JsonSchema = {
     type: 'object',
     properties: {
       doctorId: { type: 'string', format: 'uuid' },
       from: {
         type: 'string',
-        pattern: DATE_PATTERN,
         description: 'YYYY-MM-DD',
       },
       days: { type: 'integer', minimum: 1, maximum: 14 },
@@ -212,19 +209,17 @@ export class GetAvailableSlotsTool implements ChatTool<GetAvailableSlotsArgsDto>
 export class GetBookingLinkTool implements ChatTool<GetBookingLinkArgsDto> {
   readonly name = 'get_booking_link';
   readonly description =
-    'Prepara el link de reserva con el doctor y el horario ya elegidos (el pago y la confirmación se hacen ahí). Usa la fecha y la hora exactamente como las devuelve get_available_slots (hora de Bolivia). El link lo agrega el sistema debajo de tu respuesta.';
+    'Link de reserva con el doctor y el horario elegidos (ahí se paga y se confirma). Usa fecha y hora tal como las da get_available_slots. El sistema agrega el link debajo de tu respuesta.';
   readonly parameters: JsonSchema = {
     type: 'object',
     properties: {
       doctorId: { type: 'string', format: 'uuid' },
       date: {
         type: 'string',
-        pattern: DATE_PATTERN,
         description: 'YYYY-MM-DD',
       },
       time: {
         type: 'string',
-        pattern: TIME_PATTERN,
         description: 'HH:mm, hora de Bolivia',
       },
     },

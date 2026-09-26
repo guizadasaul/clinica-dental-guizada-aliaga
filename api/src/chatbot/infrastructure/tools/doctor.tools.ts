@@ -31,7 +31,6 @@ const NO_PARAMETERS: JsonSchema = {
   properties: {},
   additionalProperties: false,
 };
-const DATE_PATTERN = String.raw`^\d{4}-\d{2}-\d{2}$`;
 const MAX_AGENDA_DAYS = 31;
 const MAX_AGENDA_ITEMS = 50;
 const DEFAULT_PATIENTS = 15;
@@ -63,18 +62,16 @@ function agendaView(appointment: AppointmentWithPatient) {
 export class GetMyAgendaTool implements ChatTool<MyAgendaArgsDto> {
   readonly name = 'get_my_agenda';
   readonly description =
-    'Citas confirmadas de la agenda del odontólogo que está chateando entre dos fechas (hora de Bolivia). Sin fechas: la agenda de hoy. Máximo 31 días.';
+    'Citas confirmadas de la agenda de este odontólogo entre dos fechas. Sin fechas: hoy. Hasta 31 días.';
   readonly parameters: JsonSchema = {
     type: 'object',
     properties: {
       from: {
         type: 'string',
-        pattern: DATE_PATTERN,
         description: 'YYYY-MM-DD, por defecto hoy',
       },
       to: {
         type: 'string',
-        pattern: DATE_PATTERN,
         description: 'YYYY-MM-DD inclusive, por defecto igual a from',
       },
     },
@@ -115,7 +112,7 @@ export class GetMyAgendaTool implements ChatTool<MyAgendaArgsDto> {
 export class GetMyNextPatientTool implements ChatTool<object> {
   readonly name = 'get_my_next_patient';
   readonly description =
-    'Próximo paciente del odontólogo que está chateando: la siguiente cita confirmada desde ahora.';
+    'Próximo paciente de este odontólogo: la siguiente cita confirmada desde ahora.';
   readonly parameters = NO_PARAMETERS;
   readonly argsDto = NO_ARGS;
 
@@ -139,7 +136,7 @@ export class GetMyNextPatientTool implements ChatTool<object> {
 export class GetMyPatientsTool implements ChatTool<MyPatientsArgsDto> {
   readonly name = 'get_my_patients';
   readonly description =
-    'Pacientes asignados al odontólogo que está chateando: nombre y teléfono (sin datos clínicos).';
+    'Pacientes asignados a este odontólogo: nombre y teléfono.';
   readonly parameters: JsonSchema = {
     type: 'object',
     properties: { limit: { type: 'integer', minimum: 1, maximum: 30 } },
@@ -172,13 +169,12 @@ export class GetMyPatientsTool implements ChatTool<MyPatientsArgsDto> {
 export class GetMyMonthlyStatsTool implements ChatTool<MyMonthlyStatsArgsDto> {
   readonly name = 'get_my_monthly_stats';
   readonly description =
-    'Números del mes SOLO del odontólogo que está chateando (sus citas y sus pacientes asignados; NO son datos de toda la clínica): citas confirmadas, citas ya atendidas, pacientes nuevos, ocupación, cobrado y pendiente de cobro (Bs.). month en YYYY-MM, por defecto el actual.';
+    'Números del mes SOLO de este odontólogo (sus citas y pacientes asignados, NO toda la clínica): citas confirmadas y ya atendidas, pacientes nuevos, ocupación, cobrado y pendiente (Bs.). Por defecto, el mes actual.';
   readonly parameters: JsonSchema = {
     type: 'object',
     properties: {
       month: {
         type: 'string',
-        pattern: String.raw`^\d{4}-(0[1-9]|1[0-2])$`,
         description: 'YYYY-MM',
       },
     },
