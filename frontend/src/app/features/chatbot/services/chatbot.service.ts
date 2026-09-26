@@ -19,6 +19,12 @@ export const USER_SESSION_KEY = 'cga-chat-user-session';
 /** Token opaco de la conversación anónima (lo emite el backend). */
 export const GUEST_TOKEN_KEY = 'cga-chat-guest-token';
 
+/**
+ * `guest`: siempre como visitante, aunque haya sesión (la landing).
+ * `account`: con la cuenta logueada (los paneles de paciente, doctor y admin).
+ */
+export type ChatMode = 'account' | 'guest';
+
 export interface ChatbotReply {
   reply: string;
   links: ChatLink[];
@@ -76,15 +82,17 @@ export class ChatbotService {
   private readonly storage = new SafeStorage();
   private readonly baseUrl = environment.backendUrl;
 
-  send(message: string, locale?: ChatLocale): Observable<ChatbotReply> {
+  send(message: string, locale?: ChatLocale, mode: ChatMode = 'account'): Observable<ChatbotReply> {
     const uid = this.auth.currentUser()?.uid;
-    return uid ? this.sendAsUser(uid, message, locale) : this.sendAsGuest(message, locale);
+    return uid && mode === 'account'
+      ? this.sendAsUser(uid, message, locale)
+      : this.sendAsGuest(message, locale);
   }
 
   /** Borra la conversación: en el backend si hay sesión, y siempre la referencia local. */
-  clear(): Observable<void> {
+  clear(mode: ChatMode = 'account'): Observable<void> {
     const uid = this.auth.currentUser()?.uid;
-    if (!uid) {
+    if (!uid || mode === 'guest') {
       this.storage.remove(GUEST_TOKEN_KEY);
       return of(undefined);
     }
@@ -124,7 +132,11 @@ export class ChatbotService {
   }
 
   private sendAsGuest(message: string, locale: ChatLocale | undefined): Observable<ChatbotReply> {
-    this.storage.remove(USER_SESSION_KEY);
+    // Sin nadie logueado (logout), se olvida la conversación de la cuenta. Un
+    // usuario logueado chateando como invitado en la landing la conserva.
+    if (!this.auth.currentUser()) {
+      this.storage.remove(USER_SESSION_KEY);
+    }
     const sessionToken = this.storage.get(GUEST_TOKEN_KEY);
     const body: PublicChatMessageRequest = {
       message,
