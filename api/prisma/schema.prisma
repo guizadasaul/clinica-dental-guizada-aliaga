@@ -105,9 +105,14 @@ model appointments {
   baneco_qr_image          String?
   payment_amount           Decimal?    @db.Decimal(10, 2)
   paid_at                  DateTime?   @db.Timestamptz(6)
+  /// CLI-149: cuándo y quién canceló la cita (status = 'cancelled'). Cancelar
+  /// libera el turno: los índices únicos de abajo solo cuentan held/confirmed.
+  cancelled_at             DateTime?   @db.Timestamptz(6)
+  cancelled_by             String?     @db.Uuid
   patients                 patients?   @relation(fields: [patient_id], references: [id], onUpdate: NoAction)
   treatments               treatments? @relation(fields: [treatment_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  users                    users       @relation(fields: [doctor_id], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  users                    users       @relation("AppointmentDoctor", fields: [doctor_id], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  cancelled_by_user        users?      @relation("AppointmentCancelledBy", fields: [cancelled_by], references: [id], onDelete: SetNull, onUpdate: NoAction)
 
   @@unique([doctor_id, appointment_datetime], map: "idx_one_active_appointment_slot", where: raw("(((status)::text = 'held'::text) OR ((status)::text = 'confirmed'::text))"))
   @@index([appointment_datetime], map: "idx_appointments_datetime")
@@ -673,7 +678,8 @@ model users {
   role                    UserRole                  @unique(map: "idx_one_admin_user", where: raw("(role = 'admin'::\"UserRole\")")) @default(patient)
   patients                patients?                 @relation("PatientAccount")
   assigned_patients       patients[]                @relation("PatientAssignedDoctor")
-  appointments            appointments[]
+  appointments            appointments[]            @relation("AppointmentDoctor")
+  cancelled_appointments  appointments[]            @relation("AppointmentCancelledBy")
   doctor_profiles         doctor_profiles?
   doctor_schedule_blocks  doctor_schedule_blocks[]
   tooth_procedures        tooth_procedures[]

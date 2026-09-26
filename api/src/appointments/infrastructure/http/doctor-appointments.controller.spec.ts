@@ -50,6 +50,8 @@ describe('DoctorAppointmentsController', () => {
     getAgenda: jest.fn(),
     createByDoctor: jest.fn(),
     getDoctorSchedule: jest.fn(),
+    rescheduleByDoctor: jest.fn(),
+    cancelByDoctor: jest.fn(),
   };
 
   beforeEach(() => {
@@ -199,6 +201,42 @@ describe('DoctorAppointmentsController', () => {
     it('solo lo pueden usar odontólogos', () => {
       const roles = rolesOf('getMySchedule');
       expect(roles).toEqual([UserRole.ODONTOLOGIST]);
+    });
+  });
+
+  // CLI-149
+  describe('rescheduleByDoctor / cancelByDoctor', () => {
+    it('reprograma dentro de la agenda del doctor autenticado', async () => {
+      const dto = { appointmentDatetime: '2026-10-05T09:00:00-04:00' };
+
+      await controller.rescheduleByDoctor(
+        fakeDoctor('doctor-a'),
+        'appt-1',
+        dto,
+      );
+
+      expect(mockService.rescheduleByDoctor).toHaveBeenCalledWith(
+        'doctor-a',
+        'appt-1',
+        dto,
+      );
+    });
+
+    it('cancela dentro de la agenda del doctor autenticado, con el motivo', async () => {
+      await controller.cancelByDoctor(fakeDoctor('doctor-a'), 'appt-1', {
+        reason: 'no puede venir',
+      });
+
+      expect(mockService.cancelByDoctor).toHaveBeenCalledWith(
+        'doctor-a',
+        'appt-1',
+        'no puede venir',
+      );
+    });
+
+    it('solo los pueden usar odontólogos, no el admin', () => {
+      expect(rolesOf('rescheduleByDoctor')).toEqual([UserRole.ODONTOLOGIST]);
+      expect(rolesOf('cancelByDoctor')).toEqual([UserRole.ODONTOLOGIST]);
     });
   });
 });

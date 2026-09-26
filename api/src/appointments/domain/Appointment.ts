@@ -4,6 +4,8 @@ export const AppointmentStatus = {
   CONFIRMED: 'confirmed',
   ATTENDED: 'attended',
   EXPIRED: 'expired',
+  /** CLI-149: cancelada por el doctor — libera el turno. */
+  CANCELLED: 'cancelled',
 } as const;
 export type AppointmentStatus =
   (typeof AppointmentStatus)[keyof typeof AppointmentStatus];

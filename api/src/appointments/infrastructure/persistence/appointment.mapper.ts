@@ -62,6 +62,7 @@ export class AppointmentMapper {
       record.treatment_id,
       record.treatments?.name ?? null,
       record.notes,
+      record.cancelled_at,
     );
   }
 
