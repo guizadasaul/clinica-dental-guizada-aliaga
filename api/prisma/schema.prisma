@@ -86,6 +86,7 @@ model appointments {
   /// agendas ya reservadas, mismo criterio que los precios de quote_items.
   duration_minutes         Int         @default(30)
   status                   String      @default("scheduled") @db.VarChar(20)
+  /// public_web | whatsapp | doctor (CLI-148: agendada por el doctor desde su agenda, nace confirmada y sin pago).
   source                   String      @db.VarChar(20)
   whatsapp_name            String?     @db.VarChar(200)
   whatsapp_phone           String?     @db.VarChar(20)

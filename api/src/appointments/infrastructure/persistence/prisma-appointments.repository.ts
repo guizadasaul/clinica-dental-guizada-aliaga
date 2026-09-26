@@ -1,10 +1,15 @@
 import { Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../../shared/prisma/prisma.service.js';
-import { Appointment, AppointmentStatus } from '../../domain/Appointment.js';
+import {
+  Appointment,
+  AppointmentSource,
+  AppointmentStatus,
+} from '../../domain/Appointment.js';
 import {
   AgendaFilters,
   AttachQrData,
+  CreateByDoctorData,
   CreateHoldData,
   GuestContactData,
   GuestEmailBelongsToAccountError,
@@ -12,11 +17,21 @@ import {
   GuestPhoneConflictError,
   IAppointmentRepository,
   PatientAppointmentFilters,
+  PatientNotFoundError,
   SlotUnavailableError,
 } from '../../domain/AppointmentRepository.js';
 import type { AppointmentWithPatient } from '../../domain/AppointmentWithPatient.js';
 import type { PatientAppointment } from '../../domain/PatientAppointment.js';
 import { AppointmentMapper } from './appointment.mapper.js';
+
+// Lo que la agenda necesita de cada cita — compartido por findForAgenda y
+// createByDoctor, que devuelve la cita nueva con el mismo shape.
+const AGENDA_INCLUDE = {
+  patients: { include: { users: true } },
+  // El doctor del turno (CLI-110): nombre y color para la agenda común.
+  users: { include: { doctor_profiles: true } },
+  treatments: true,
+} satisfies Prisma.appointmentsInclude;
 
 @Injectable()
 export class PrismaAppointmentsRepository implements IAppointmentRepository {
@@ -40,11 +55,7 @@ export class PrismaAppointmentsRepository implements IAppointmentRepository {
         ...(filters.status && { status: filters.status }),
         ...dateFilter,
       },
-      include: {
-        patients: { include: { users: true } },
-        // El doctor del turno (CLI-110): nombre y color para la agenda común.
-        users: { include: { doctor_profiles: true } },
-      },
+      include: AGENDA_INCLUDE,
       orderBy: { appointment_datetime: 'asc' },
     });
     return records.map((record) =>
@@ -138,6 +149,42 @@ export class PrismaAppointmentsRepository implements IAppointmentRepository {
         });
       });
       return AppointmentMapper.toDomain(record);
+    } catch (error: unknown) {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2002'
+      ) {
+        throw new SlotUnavailableError();
+      }
+      throw error;
+    }
+  }
+
+  async createByDoctor(
+    data: CreateByDoctorData,
+  ): Promise<AppointmentWithPatient> {
+    const patient = await this.prisma.patients.findUnique({
+      where: { id: data.patientId },
+      select: { id: true },
+    });
+    if (!patient) {
+      throw new PatientNotFoundError();
+    }
+    try {
+      const record = await this.prisma.appointments.create({
+        data: {
+          doctor_id: data.doctorId,
+          patient_id: data.patientId,
+          treatment_id: data.treatmentId,
+          appointment_datetime: data.appointmentDatetime,
+          duration_minutes: data.durationMinutes,
+          status: AppointmentStatus.CONFIRMED,
+          source: AppointmentSource.DOCTOR,
+          notes: data.notes,
+        },
+        include: AGENDA_INCLUDE,
+      });
+      return AppointmentMapper.toDomainWithPatient(record);
     } catch (error: unknown) {
       if (
         error instanceof Prisma.PrismaClientKnownRequestError &&

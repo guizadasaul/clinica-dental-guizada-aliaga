@@ -39,6 +39,7 @@ export class AppointmentMapper {
     record: appointments & {
       patients: (patients & { users: users }) | null;
       users: users & { doctor_profiles: doctor_profiles | null };
+      treatments: treatments | null;
     },
   ): AppointmentWithPatient {
     return new AppointmentWithPatient(
@@ -56,6 +57,11 @@ export class AppointmentMapper {
       record.doctor_id,
       record.users.display_name,
       record.users.doctor_profiles?.color ?? null,
+      record.duration_minutes,
+      record.source,
+      record.treatment_id,
+      record.treatments?.name ?? null,
+      record.notes,
     );
   }
 
