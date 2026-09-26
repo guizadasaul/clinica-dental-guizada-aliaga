@@ -68,8 +68,9 @@ function maskNumber(e164: string): string {
 /**
  * Vinculación de un número de WhatsApp con una cuenta (CLI-100). La prueba es
  * doble: el código lo pide un usuario con sesión web (identidad) y se canjea
- * con un mensaje enviado desde el número (posesión). La identidad nunca se
- * deriva de users.phone.
+ * con un mensaje enviado desde el número (posesión). Tiene prioridad sobre el
+ * reconocimiento por el teléfono de la ficha (CLI-146) y es la salida cuando
+ * ese número lo comparten varias cuentas.
  */
 @Injectable()
 export class ChannelLinkingService {
