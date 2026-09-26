@@ -6,8 +6,10 @@ import {
   Injector,
   afterNextRender,
   afterRenderEffect,
+  booleanAttribute,
   computed,
   inject,
+  input,
   signal,
   viewChild,
 } from '@angular/core';
@@ -16,7 +18,7 @@ import { Router } from '@angular/router';
 import { TranslatePipe, TranslateService } from '@ngx-translate/core';
 import { firstValueFrom } from 'rxjs';
 import { AuthService } from '../../../../auth/application/auth.service';
-import { ChatbotService } from '../../services/chatbot.service';
+import { ChatbotService, type ChatMode } from '../../services/chatbot.service';
 import type { ChatLink } from '../../models/chat.model';
 import type { ChatLocale } from '../../models/chat.request';
 
@@ -103,7 +105,14 @@ export class ChatWidgetComponent {
 
   protected readonly canSend = computed(() => this.draft().trim().length > 0 && !this.sending());
 
+  /**
+   * En la landing el chat responde siempre como visitante, aunque haya
+   * sesión: las consultas de la cuenta se hacen desde el panel.
+   */
+  readonly guest = input(false, { transform: booleanAttribute });
+
   protected readonly welcomeKey = computed(() => {
+    if (this.guest()) return 'chatbot.welcome.guest';
     switch (this.auth.currentUser()?.role) {
       case 'patient':
         return 'chatbot.welcome.patient';
@@ -169,7 +178,9 @@ export class ChatWidgetComponent {
     this.draft.set('');
     this.sending.set(true);
     try {
-      const { reply, links } = await firstValueFrom(this.chatbot.send(text, this.locale()));
+      const { reply, links } = await firstValueFrom(
+        this.chatbot.send(text, this.locale(), this.mode()),
+      );
       this.push('assistant', reply, links);
     } catch (error) {
       this.pushError(errorKeyFor(error));
@@ -181,7 +192,7 @@ export class ChatWidgetComponent {
 
   protected async clear(): Promise<void> {
     try {
-      await firstValueFrom(this.chatbot.clear());
+      await firstValueFrom(this.chatbot.clear(this.mode()));
       this.messages.set([]);
     } catch {
       this.pushError('chatbot.errors.clear');
@@ -198,6 +209,10 @@ export class ChatWidgetComponent {
     const target = new URL(url);
     this.close();
     void this.router.navigateByUrl(`${target.pathname}${target.search}${target.hash}`);
+  }
+
+  private mode(): ChatMode {
+    return this.guest() ? 'guest' : 'account';
   }
 
   private locale(): ChatLocale | undefined {

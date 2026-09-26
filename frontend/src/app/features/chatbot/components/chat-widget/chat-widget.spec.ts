@@ -15,7 +15,7 @@ function user(role: UserRole | null): AuthenticatedUser {
   return { uid: 'uid-1', id: 'user-1', email: null, displayName: null, photoURL: null, role };
 }
 
-function setup(currentUser: AuthenticatedUser | null = null) {
+function setup(currentUser: AuthenticatedUser | null = null, guest = false) {
   const chatbot = {
     send: vi.fn().mockReturnValue(of({ reply: 'Respuesta', links: [] })),
     clear: vi.fn().mockReturnValue(of(undefined)),
@@ -30,6 +30,9 @@ function setup(currentUser: AuthenticatedUser | null = null) {
     ],
   });
   const fixture = TestBed.createComponent(ChatWidgetComponent);
+  if (guest) {
+    fixture.componentRef.setInput('guest', true);
+  }
   fixture.detectChanges();
   const root = fixture.nativeElement as HTMLElement;
   const q = <T extends Element>(selector: string) => root.querySelector<T>(selector);
@@ -133,7 +136,7 @@ describe('ChatWidgetComponent', () => {
 
     await sendMessage('  ¿Qué horario tienen?  ');
 
-    expect(chatbot.send).toHaveBeenCalledWith('¿Qué horario tienen?', 'en');
+    expect(chatbot.send).toHaveBeenCalledWith('¿Qué horario tienen?', 'en', 'account');
     const texts = bubbles().map((b) => b.textContent?.trim());
     expect(texts.slice(1)).toEqual(['¿Qué horario tienen?', 'Respuesta']);
     expect(q<HTMLTextAreaElement>('.chat-panel__input')!.value).toBe('');
@@ -152,7 +155,7 @@ describe('ChatWidgetComponent', () => {
     input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' }));
     await render();
     // Sin idioma elegido todavía, el backend usa el suyo por defecto.
-    expect(chatbot.send).toHaveBeenCalledWith('Hola', undefined);
+    expect(chatbot.send).toHaveBeenCalledWith('Hola', undefined, 'account');
   });
 
   it('no envía un mensaje vacío y deshabilita el botón', async () => {
@@ -276,7 +279,7 @@ describe('ChatWidgetComponent', () => {
     clearButton().click();
     await render();
 
-    expect(chatbot.clear).toHaveBeenCalled();
+    expect(chatbot.clear).toHaveBeenCalledWith('account');
     expect(bubbles()).toHaveLength(1);
   });
 
@@ -301,5 +304,20 @@ describe('ChatWidgetComponent', () => {
     await render();
 
     expect(q('.chat-panel')).toBeNull();
+  });
+
+  describe('modo invitado (la landing)', () => {
+    it('con sesión de paciente igual saluda como visitante y chatea como invitado', async () => {
+      const { chatbot, bubbles, openPanel, sendMessage, q, render } = setup(user('patient'), true);
+      await openPanel();
+
+      expect(bubbles()[0].textContent?.trim()).toBe('chatbot.welcome.guest');
+      await sendMessage('¿Horarios?');
+      expect(chatbot.send).toHaveBeenCalledWith('¿Horarios?', undefined, 'guest');
+
+      q<HTMLButtonElement>('.chat-panel__icon-btn')!.click();
+      await render();
+      expect(chatbot.clear).toHaveBeenCalledWith('guest');
+    });
   });
 });

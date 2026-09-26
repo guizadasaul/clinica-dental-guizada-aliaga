@@ -188,6 +188,36 @@ describe('ChatbotService', () => {
     });
   });
 
+  describe('modo invitado (la landing)', () => {
+    it('con sesión iniciada igual usa el endpoint público y conserva la conversación de la cuenta', async () => {
+      localStorage.setItem(USER_SESSION_KEY, JSON.stringify({ uid: 'uid-1', sessionId: 's-1' }));
+      const { service, http } = setup(PATIENT);
+
+      const reply = firstValueFrom(service.send('¿Horarios?', 'es', 'guest'));
+      const req = http.expectOne(`${API}/public/chat/messages`);
+      expect(req.request.body).toEqual({ message: '¿Horarios?', locale: 'es' });
+      req.flush({ sessionToken: 'tok-landing', reply: 'De 9 a 19', links: [] });
+      await reply;
+
+      http.expectNone(`${API}/chat/messages`);
+      expect(JSON.parse(localStorage.getItem(USER_SESSION_KEY)!)).toEqual({
+        uid: 'uid-1',
+        sessionId: 's-1',
+      });
+      expect(localStorage.getItem(GUEST_TOKEN_KEY)).toBe('tok-landing');
+    });
+
+    it('clear() como invitado solo borra el token local, aunque haya sesión', async () => {
+      localStorage.setItem(GUEST_TOKEN_KEY, 'tok-landing');
+      const { service, http } = setup(PATIENT);
+
+      await firstValueFrom(service.clear('guest'));
+
+      expect(localStorage.getItem(GUEST_TOKEN_KEY)).toBeNull();
+      http.expectNone(`${API}/chat/sessions`);
+    });
+  });
+
   it('si localStorage falla, la conversación sigue en memoria', async () => {
     vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
       throw new Error('SecurityError');
