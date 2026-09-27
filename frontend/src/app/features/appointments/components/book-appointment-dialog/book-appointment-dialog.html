@@ -12,7 +12,7 @@
     </button>
 
     <h2 id="book-modal-title" class="book-modal__title">
-      {{ isReschedule() ? 'Reprogramar cita' : 'Agendar cita' }}
+      {{ title() }}
     </h2>
     <p class="book-modal__when">
       <span class="material-symbols-outlined" aria-hidden="true">event</span>
@@ -34,21 +34,30 @@
           }
         </dl>
       } @else {
-        <div class="book-modal__field">
-          <span class="book-modal__label">Paciente <span class="book-modal__req">*</span></span>
-          @if (patientsLoading()) {
-            <p class="book-modal__hint">Cargando pacientes...</p>
-          } @else if (patientsFailed()) {
-            <p class="book-modal__hint">No pudimos cargar los pacientes.</p>
-          } @else {
-            <app-catalog-picker
-              noun="paciente"
-              [items]="patientOptions()"
-              [selectedId]="patientId()"
-              (selectedChange)="onPatientChange($event)"
-            />
-          }
-        </div>
+        @if (followUpOf()) {
+          <dl class="book-modal__summary">
+            <div>
+              <dt>Paciente</dt>
+              <dd>{{ appointmentPatient() }}</dd>
+            </div>
+          </dl>
+        } @else {
+          <div class="book-modal__field">
+            <span class="book-modal__label">Paciente <span class="book-modal__req">*</span></span>
+            @if (patientsLoading()) {
+              <p class="book-modal__hint">Cargando pacientes...</p>
+            } @else if (patientsFailed()) {
+              <p class="book-modal__hint">No pudimos cargar los pacientes.</p>
+            } @else {
+              <app-catalog-picker
+                noun="paciente"
+                [items]="patientOptions()"
+                [selectedId]="patientId()"
+                (selectedChange)="onPatientChange($event)"
+              />
+            }
+          </div>
+        }
 
         <div class="book-modal__field">
           <span class="book-modal__label"

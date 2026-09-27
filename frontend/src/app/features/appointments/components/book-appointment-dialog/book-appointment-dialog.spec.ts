@@ -276,7 +276,9 @@ describe('BookAppointmentDialogComponent (CLI-150)', () => {
       expect(internals(fixture).duration()).toBe(90);
       expect(internals(fixture).canSubmit()).toBe(true);
       // El <select> muestra la duración de la cita, no la primera opción.
-      const select = fixture.nativeElement.querySelector('#book-modal-duration') as HTMLSelectElement;
+      const select = fixture.nativeElement.querySelector(
+        '#book-modal-duration',
+      ) as HTMLSelectElement;
       expect(select.value).toBe('90');
     });
 
@@ -310,5 +312,45 @@ describe('BookAppointmentDialogComponent (CLI-150)', () => {
 
       expect(internals(fixture).duration()).toBe(60);
     });
+  });
+
+  // CLI-152: próxima cita de un paciente recién atendido.
+  it('con followUpOf arranca con el paciente fijo y el tratamiento y la duración de la cita de origen', async () => {
+    const { fixture, appointmentsService } = setup();
+    fixture.componentRef.setInput('followUpOf', {
+      id: 'appt-origin',
+      appointmentDatetime: '2026-09-28T14:00:00.000Z',
+      status: 'confirmed',
+      patientId: 'p-2',
+      patientFirstName: 'Zoe',
+      patientLastNamePaternal: 'Perez',
+      patientPhone: null,
+      patientEmail: null,
+      guestFirstName: null,
+      guestLastNamePaternal: null,
+      guestPhone: null,
+      doctorId: 'doctor-a',
+      doctorName: 'Dr. Saul',
+      doctorColor: null,
+      durationMinutes: 60,
+      source: 'doctor',
+      treatmentId: 't-1',
+      treatmentName: 'Control',
+      notes: null,
+      cancelledAt: null,
+    });
+    fixture.detectChanges();
+
+    const text = fixture.nativeElement.textContent as string;
+    expect(text).toContain('Agendar próxima cita');
+    expect(text).toContain('Zoe Perez');
+    expect(internals(fixture).duration()).toBe(60);
+    expect(internals(fixture).canSubmit()).toBe(true);
+
+    await internals(fixture).onSubmit();
+
+    expect(appointmentsService.createByDoctor).toHaveBeenCalledWith(
+      expect.objectContaining({ patientId: 'p-2', treatmentId: 't-1', durationMinutes: 60 }),
+    );
   });
 });

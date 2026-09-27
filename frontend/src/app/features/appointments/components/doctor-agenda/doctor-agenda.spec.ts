@@ -508,4 +508,127 @@ describe('DoctorAgendaComponent', () => {
       expect(appointmentsService.getAgenda.mock.calls.length).toBe(loads + 1);
     });
   });
+
+  // CLI-152: al terminar de atender, ofrecer agendar la próxima cita.
+  describe('próxima cita al terminar la atención', () => {
+    type Internals = {
+      visibleDates: () => string[];
+      selectedDate: () => string;
+      bookingSlot: () => { date: string; minutes: number } | null;
+      followUpOffer: () => { origin: AppointmentAgendaItem; upcoming: AppointmentAgendaItem | null } | null;
+      followUpPick: () => AppointmentAgendaItem | null;
+      onOpenRecord: (patientId: string) => void;
+      onHistoryComplete: () => void;
+      onHistoryDone: () => void;
+      onAcceptFollowUp: () => void;
+      onDismissFollowUp: () => void;
+    };
+    const internals = (fixture: ComponentFixture<DoctorAgendaComponent>) =>
+      fixture.componentInstance as unknown as Internals;
+
+    // Un turno de hace una hora: siempre "de hoy o anterior", sin importar a qué hora corre el test.
+    const justAttended = () =>
+      fakeAppointment({ appointmentDatetime: new Date(Date.now() - 3_600_000).toISOString() });
+
+    /** Con el detalle de un turno abierto, abre la ficha desde ahí. */
+    async function openRecordFrom(origin: AppointmentAgendaItem) {
+      const ctx = setup([origin]);
+      await settle(ctx.fixture);
+      (
+        ctx.fixture.componentInstance as unknown as { detailAppointment: { set: (a: unknown) => void } }
+      ).detailAppointment.set(origin);
+      internals(ctx.fixture).onOpenRecord('patient-1');
+      return ctx;
+    }
+    const openRecordFromToday = () => openRecordFrom(justAttended());
+
+    it('al completar la ficha desde un turno de hoy, ofrece agendar la próxima cita', async () => {
+      const { fixture } = await openRecordFromToday();
+
+      internals(fixture).onHistoryComplete();
+      await settle(fixture);
+
+      expect(internals(fixture).followUpOffer()?.origin.id).toBe('appt-1');
+      expect(fixture.nativeElement.querySelector('.agenda__followup')?.textContent).toContain(
+        '¿Agendar la próxima cita de Juana Perez?',
+      );
+    });
+
+    it('si se cierra la ficha sin completarla, no ofrece nada', async () => {
+      const { fixture } = await openRecordFromToday();
+
+      internals(fixture).onHistoryDone();
+      await settle(fixture);
+
+      expect(internals(fixture).followUpOffer()).toBeNull();
+    });
+
+    it('desde un turno futuro no ofrece nada', async () => {
+      const { fixture } = await openRecordFrom(
+        fakeAppointment({ appointmentDatetime: new Date(Date.now() + 3 * 86_400_000).toISOString() }),
+      );
+
+      internals(fixture).onHistoryComplete();
+
+      expect(internals(fixture).followUpOffer()).toBeNull();
+    });
+
+    it('avisa si el paciente ya tiene una cita futura, sin bloquear', async () => {
+      const upcoming = fakeAppointment({
+        id: 'appt-next',
+        appointmentDatetime: new Date(Date.now() + 5 * 86_400_000).toISOString(),
+      });
+      const { fixture, appointmentsService } = await openRecordFromToday();
+      appointmentsService.getAgenda.mockReturnValue(of([justAttended(), upcoming]));
+
+      internals(fixture).onHistoryComplete();
+      await settle(fixture);
+
+      expect(internals(fixture).followUpOffer()?.upcoming?.id).toBe('appt-next');
+      expect(fixture.nativeElement.querySelector('.agenda__followup')?.textContent).toContain('Ya tiene cita el');
+    });
+
+    it('"Agendar" lleva a la semana siguiente esperando el click, y el click abre el modal con el paciente fijo', async () => {
+      const origin = justAttended();
+      const { fixture } = await openRecordFrom(origin);
+      // Lunes de la semana del turno (Bolivia), más 7 días.
+      const originDay = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/La_Paz' }).format(
+        new Date(origin.appointmentDatetime),
+      );
+      const weekday = new Date(`${originDay}T12:00:00Z`).getUTCDay();
+      const originMonday = Date.parse(`${originDay}T12:00:00Z`) - ((weekday + 6) % 7) * 86_400_000;
+      internals(fixture).onHistoryComplete();
+      await settle(fixture);
+
+      internals(fixture).onAcceptFollowUp();
+      await settle(fixture);
+
+      expect(internals(fixture).followUpOffer()).toBeNull();
+      expect(internals(fixture).followUpPick()?.id).toBe('appt-1');
+      expect(internals(fixture).selectedDate()).toBe(
+        new Date(originMonday + 7 * 86_400_000).toISOString().slice(0, 10),
+      );
+      expect(fixture.nativeElement.querySelector('.agenda__pick')?.textContent).toContain(
+        'Elegí el horario de la próxima cita de',
+      );
+
+      (fixture.nativeElement.querySelector('button.agenda-cell') as HTMLButtonElement).click();
+      await settle(fixture);
+
+      expect(internals(fixture).bookingSlot()).not.toBeNull();
+      expect(fixture.nativeElement.querySelector('.book-modal__title')?.textContent).toContain(
+        'Agendar próxima cita',
+      );
+    });
+
+    it('"Ahora no" descarta la oferta', async () => {
+      const { fixture } = await openRecordFromToday();
+      internals(fixture).onHistoryComplete();
+
+      internals(fixture).onDismissFollowUp();
+
+      expect(internals(fixture).followUpOffer()).toBeNull();
+      expect(internals(fixture).followUpPick()).toBeNull();
+    });
+  });
 });
