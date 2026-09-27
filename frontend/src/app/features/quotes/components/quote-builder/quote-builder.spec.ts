@@ -1,9 +1,9 @@
 import { Component, forwardRef, input, output } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { By } from '@angular/platform-browser';
-import { DatePipe, DecimalPipe } from '@angular/common';
+import { DecimalPipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { of, throwError } from 'rxjs';
+import { of, throwError, type Observable } from 'rxjs';
 import { QuoteBuilderComponent } from './quote-builder';
 import { QuotesService } from '../../services/quotes.service';
 import { TreatmentsService } from '../../../treatments/services/treatments.service';
@@ -27,6 +27,7 @@ import {
 })
 class ScopePickerStub {
   readonly treatments = input<Treatment[]>([]);
+  readonly frequentIds = input<string[]>([]);
   readonly selectionChange = output<TreatmentScopeSelection | null>();
   readonly reset = vi.fn();
 }
@@ -57,6 +58,7 @@ function item(overrides: Partial<QuoteItem> = {}): QuoteItem {
     id: 'item-1',
     quoteId: 'quote-1',
     treatmentId: 'treatment-1',
+    treatmentName: 'Resina',
     toothNumber: 16,
     applicationGroupId: null,
     unitPrice: 150,
@@ -74,25 +76,31 @@ function quote(overrides: Partial<Quote> = {}): Quote {
     patientId: 'patient-1',
     totalAmount: 0,
     totalPaid: 0,
+    balance: 0,
     status: 'pending',
     notes: null,
     createdAt: '2026-09-24T00:00:00Z',
     updatedAt: '2026-09-24T00:00:00Z',
+    sharedAt: null,
     items: [],
     payments: [],
     ...overrides,
   };
 }
 
-function setup(existing: Quote[] = [quote()]) {
+function setup(
+  existing: Quote[] = [quote()],
+  frequent: Observable<string[]> = of(['treatment-2']),
+) {
   const quotes = {
     getByPatient: vi.fn().mockReturnValue(of(existing)),
     createForPatient: vi.fn().mockReturnValue(of(quote({ id: 'quote-new' }))),
     addItem: vi.fn(),
     removeItem: vi.fn(),
-    addPayment: vi.fn(),
+    share: vi.fn(),
   };
   const treatments = {
+    getFrequentIds: vi.fn().mockReturnValue(frequent),
     getAll: vi
       .fn()
       .mockReturnValue(
@@ -115,7 +123,7 @@ function setup(existing: Quote[] = [quote()]) {
     ],
   });
   TestBed.overrideComponent(QuoteBuilderComponent, {
-    set: { imports: [PageHeaderComponent, DecimalPipe, DatePipe, FormsModule, ScopePickerStub] },
+    set: { imports: [PageHeaderComponent, DecimalPipe, FormsModule, ScopePickerStub] },
   });
   const fixture = TestBed.createComponent(QuoteBuilderComponent);
   fixture.componentRef.setInput('patientId', 'patient-1');
@@ -157,7 +165,7 @@ describe('QuoteBuilderComponent', () => {
       ]);
 
       expect(quotes.createForPatient).not.toHaveBeenCalled();
-      expect(root.textContent).toContain('Este presupuesto todavía no tiene líneas');
+      expect(root.textContent).toContain('Todavía no agregaste tratamientos');
     });
 
     it('si no tiene uno abierto, crea uno nuevo', () => {
@@ -181,7 +189,7 @@ describe('QuoteBuilderComponent', () => {
         imports: [QuoteBuilderComponent],
         providers: [
           { provide: QuotesService, useValue: quotes },
-          { provide: TreatmentsService, useValue: { getAll: () => of([]) } },
+          { provide: TreatmentsService, useValue: { getAll: () => of([]), getFrequentIds: () => of([]) } },
         ],
       });
       const fixture = TestBed.createComponent(QuoteBuilderComponent);
@@ -201,12 +209,17 @@ describe('QuoteBuilderComponent', () => {
           items: [
             item({ id: 'a', toothNumber: 16, applicationGroupId: 'g1', subtotal: 300 }),
             item({ id: 'b', toothNumber: 17, applicationGroupId: 'g1', subtotal: 300 }),
-            item({ id: 'c', toothNumber: null, treatmentId: 'treatment-2' }),
+            item({
+              id: 'c',
+              toothNumber: null,
+              treatmentId: 'treatment-2',
+              treatmentName: 'Blanqueamiento',
+            }),
           ],
         }),
       ]);
 
-      const rows = root.querySelectorAll('.qb__table tbody tr');
+      const rows = root.querySelectorAll('.qb__line');
       expect(rows[0].textContent).toContain('#16');
       expect(rows[0].textContent).toContain('#17');
       expect(rows[0].textContent).toContain('Resina');
@@ -221,10 +234,12 @@ describe('QuoteBuilderComponent', () => {
       expect(root.querySelector('.qb__fx-hint')?.textContent).toContain('100.00');
     });
 
-    it('un tratamiento que ya no existe muestra su id', () => {
-      const { root } = setup([quote({ items: [item({ treatmentId: 'borrado' })] })]);
+    it('el nombre de la línea viene del presupuesto, aunque el tratamiento ya no esté en el catálogo', () => {
+      const { root } = setup([
+        quote({ items: [item({ treatmentId: 'borrado', treatmentName: 'Tratamiento viejo' })] }),
+      ]);
 
-      expect(root.textContent).toContain('borrado');
+      expect(root.querySelector('.qb__line')?.textContent).toContain('Tratamiento viejo');
     });
 
     it('quitar una línea actualiza el presupuesto', async () => {
@@ -235,7 +250,7 @@ describe('QuoteBuilderComponent', () => {
       await settle(fixture);
 
       expect(quotes.removeItem).toHaveBeenCalledWith('quote-1', 'item-1');
-      expect(root.textContent).toContain('Este presupuesto todavía no tiene líneas');
+      expect(root.textContent).toContain('Todavía no agregaste tratamientos');
     });
 
     // Ojo: formError solo se pinta dentro del panel de "agregar línea"; si está cerrado,
@@ -269,7 +284,7 @@ describe('QuoteBuilderComponent', () => {
 
       select(fixture, treatment());
 
-      expect(root.querySelector('section.qb__panel')).not.toBeNull();
+      expect(root.querySelector('.qb__panel')).not.toBeNull();
       expect(root.querySelector('#quantity')).toBeNull();
     });
 
@@ -280,7 +295,7 @@ describe('QuoteBuilderComponent', () => {
       type(root, 'customPrice', '120');
       await settle(fixture);
 
-      button(root, 'Agregar línea').click();
+      button(root, 'Agregar al presupuesto').click();
       await settle(fixture);
 
       expect(quotes.addItem).toHaveBeenCalledWith('quote-1', {
@@ -290,7 +305,7 @@ describe('QuoteBuilderComponent', () => {
         quantity: undefined,
       });
       expect(picker(fixture).reset).toHaveBeenCalled();
-      expect(root.querySelector('section.qb__panel')).toBeNull();
+      expect(root.querySelector('.qb__panel')).toBeNull();
     });
 
     it('un tratamiento sin piezas se cobra por cantidad', async () => {
@@ -300,7 +315,7 @@ describe('QuoteBuilderComponent', () => {
       type(root, 'quantity', '3');
       await settle(fixture);
 
-      button(root, 'Agregar línea').click();
+      button(root, 'Agregar al presupuesto').click();
       await settle(fixture);
 
       expect(quotes.addItem).toHaveBeenCalledWith(
@@ -314,11 +329,11 @@ describe('QuoteBuilderComponent', () => {
       quotes.addItem.mockReturnValue(throwError(() => new Error('400')));
       select(fixture, treatment());
 
-      button(root, 'Agregar línea').click();
+      button(root, 'Agregar al presupuesto').click();
       await settle(fixture);
 
       expect(root.textContent).toContain('No se pudo agregar la línea');
-      expect(root.querySelector('section.qb__panel')).not.toBeNull();
+      expect(root.querySelector('.qb__panel')).not.toBeNull();
     });
 
     it('deseleccionar cierra el panel', () => {
@@ -328,78 +343,64 @@ describe('QuoteBuilderComponent', () => {
       picker(fixture).selectionChange.emit(null);
       fixture.detectChanges();
 
-      expect(root.querySelector('section.qb__panel')).toBeNull();
+      expect(root.querySelector('.qb__panel')).toBeNull();
     });
   });
 
-  describe('pagos', () => {
-    it('registra un pago con método y notas, y limpia el formulario', async () => {
-      const { fixture, root, quotes } = setup([quote({ totalAmount: 300 })]);
-      quotes.addPayment.mockReturnValue(
-        of(
-          quote({
-            totalAmount: 300,
-            totalPaid: 100,
-            payments: [
-              {
-                id: 'pay-1',
-                quoteId: 'quote-1',
-                amount: 100,
-                paymentMethod: 'qr',
-                receiptNumber: 'R-1',
-                paymentDate: '2026-09-24',
-                notes: null,
-                createdAt: '2026-09-24',
-              },
-            ],
-          }),
-        ),
-      );
-      type(root, 'paymentAmount', '100');
-      type(root, 'paymentMethod', '  qr ');
-      await settle(fixture);
+  describe('frecuentes', () => {
+    it('le pasa al catálogo los tratamientos frecuentes del doctor', () => {
+      const { fixture } = setup();
 
-      button(root, 'Registrar pago').click();
-      await settle(fixture);
-
-      expect(quotes.addPayment).toHaveBeenCalledWith('quote-1', {
-        amount: 100,
-        paymentMethod: 'qr',
-        notes: undefined,
-      });
-      expect(root.textContent).toContain('Bs. 100.00');
-      expect(root.querySelector<HTMLInputElement>('#paymentAmount')!.value).toBe('');
+      expect(picker(fixture).frequentIds()).toEqual(['treatment-2']);
     });
 
-    it('sin monto el botón queda deshabilitado', () => {
+    it('si los frecuentes fallan, el catálogo sigue sin esa sección', () => {
+      const { fixture } = setup([quote()], throwError(() => new Error('500')));
+
+      expect(picker(fixture).frequentIds()).toEqual([]);
+    });
+  });
+
+  describe('guardar y compartir (CLI-156)', () => {
+    it('un borrador muestra el badge y el botón; sin líneas no se puede compartir', () => {
       const { root } = setup();
 
-      expect(button(root, 'Registrar pago').disabled).toBe(true);
+      expect(root.querySelector('.qb__badge')?.textContent).toContain('Borrador');
+      expect(button(root, 'Guardar y compartir').disabled).toBe(true);
     });
 
-    it('un monto cero o negativo no se registra', async () => {
-      const { fixture, quotes } = setup();
-      const builder = fixture.componentInstance as unknown as {
-        paymentAmount: { set(v: number): void };
-        onAddPayment(): Promise<void>;
-      };
+    it('compartir marca el presupuesto como visible para el paciente', async () => {
+      const { fixture, root, quotes } = setup([quote({ items: [item()], totalAmount: 150 })]);
+      quotes.share.mockReturnValue(
+        of(quote({ items: [item()], totalAmount: 150, sharedAt: '2026-09-27T00:00:00Z' })),
+      );
 
-      builder.paymentAmount.set(-5);
-      await builder.onAddPayment();
+      button(root, 'Guardar y compartir').click();
+      await settle(fixture);
 
-      expect(quotes.addPayment).not.toHaveBeenCalled();
+      expect(quotes.share).toHaveBeenCalledWith('quote-1');
+      expect(root.querySelector('.qb__badge--shared')).not.toBeNull();
+      expect(button(root, 'Guardar y compartir')).toBeUndefined();
+      expect(root.textContent).toContain('El paciente ve este presupuesto');
     });
 
-    it('si falla, avisa', async () => {
-      const { fixture, root, quotes } = setup();
-      quotes.addPayment.mockReturnValue(throwError(() => new Error('400')));
-      type(root, 'paymentAmount', '50');
+    it('si compartir falla, avisa y sigue como borrador', async () => {
+      const { fixture, root, quotes } = setup([quote({ items: [item()] })]);
+      quotes.share.mockReturnValue(throwError(() => new Error('500')));
+
+      button(root, 'Guardar y compartir').click();
       await settle(fixture);
 
-      button(root, 'Registrar pago').click();
-      await settle(fixture);
+      expect(root.textContent).toContain('No se pudo compartir el presupuesto');
+      expect(root.querySelector('.qb__badge--shared')).toBeNull();
+    });
 
-      expect(root.textContent).toContain('No se pudo registrar el pago');
+    it('con pagos muestra pagado y saldo', () => {
+      const { root } = setup([
+        quote({ items: [item()], totalAmount: 300, totalPaid: 100, balance: 200 }),
+      ]);
+
+      expect(root.querySelector('.qb__totals')?.textContent).toContain('Bs. 200.00');
     });
   });
 

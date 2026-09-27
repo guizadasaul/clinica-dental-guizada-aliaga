@@ -10,7 +10,8 @@ import {
   viewChild,
 } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
-import { DecimalPipe, DatePipe } from '@angular/common';
+import { DecimalPipe } from '@angular/common';
+import { catchError, of } from 'rxjs';
 import { FormsModule } from '@angular/forms';
 import { QuotesService } from '../../services/quotes.service';
 import { TreatmentsService } from '../../../treatments/services/treatments.service';
@@ -28,6 +29,7 @@ interface GroupedItem {
   readonly firstItemId: string;
   readonly toothNumbers: number[];
   readonly treatmentId: string;
+  readonly treatmentName: string;
   /** Siempre en Bs. — quote_items.unit_price ya viene convertido (ver D13 del plan de CLI-16). */
   readonly total: number;
   readonly currency: string;
@@ -38,7 +40,7 @@ interface GroupedItem {
   selector: 'app-quote-builder',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [PageHeaderComponent, DecimalPipe, DatePipe, FormsModule, TreatmentScopePickerComponent],
+  imports: [PageHeaderComponent, DecimalPipe, FormsModule, TreatmentScopePickerComponent],
   templateUrl: './quote-builder.html',
   styleUrl: './quote-builder.scss',
 })
@@ -56,6 +58,12 @@ export class QuoteBuilderComponent {
     { initialValue: [] as Treatment[] },
   );
 
+  /** "Frecuentes" del catálogo (CLI-118); si falla, el catálogo sigue andando sin esa sección. */
+  protected readonly frequentIds = toSignal(
+    this.treatmentsService.getFrequentIds().pipe(catchError(() => of([] as string[]))),
+    { initialValue: [] as string[] },
+  );
+
   protected readonly quote = signal<Quote | null>(null);
   protected readonly loading = signal(true);
   protected readonly loadError = signal(false);
@@ -67,16 +75,8 @@ export class QuoteBuilderComponent {
   protected readonly customPrice = signal<number | null>(null);
   protected readonly quantity = signal(1);
 
-  protected readonly paymentAmount = signal<number | null>(null);
-  protected readonly paymentMethod = signal<string>('');
-  protected readonly paymentNotes = signal<string>('');
-  protected readonly savingPayment = signal(false);
-  protected readonly paymentError = signal<string | null>(null);
-
-  protected readonly balance = computed(() => {
-    const q = this.quote();
-    return q ? q.totalAmount - q.totalPaid : 0;
-  });
+  protected readonly sharing = signal(false);
+  protected readonly shareError = signal<string | null>(null);
 
   protected readonly groupedItems = computed<GroupedItem[]>(() => {
     const items = this.quote()?.items ?? [];
@@ -100,6 +100,7 @@ export class QuoteBuilderComponent {
           .map((r) => r.toothNumber)
           .filter((n): n is number => n !== null),
         treatmentId: first.treatmentId,
+        treatmentName: first.treatmentName,
         // CLI-45: todas las filas de un grupo reportan el mismo subtotal (el
         // del grupo) — ya no hay que sumarlas, alcanza con tomar cualquiera.
         total: first.subtotal,
@@ -153,10 +154,6 @@ export class QuoteBuilderComponent {
     this.formError.set(null);
     this.customPrice.set(null);
     this.quantity.set(1);
-  }
-
-  protected getTreatmentName(treatmentId: string): string {
-    return this.treatments().find((t) => t.id === treatmentId)?.name ?? treatmentId;
   }
 
   /** El monto en USD original de la línea, reconstruido desde el tipo de cambio aplicado — line.total ya está en Bs. (D13). */
@@ -214,31 +211,22 @@ export class QuoteBuilderComponent {
     }
   }
 
-  protected async onAddPayment(): Promise<void> {
-    const amount = this.paymentAmount();
+  /** "Guardar y compartir" (CLI-156): desde acá el paciente lo ve en su panel. */
+  protected async onShare(): Promise<void> {
     const quote = this.quote();
-    if (!amount || amount <= 0 || !quote) { return; }
+    if (!quote) { return; }
 
-    this.savingPayment.set(true);
-    this.paymentError.set(null);
-
+    this.sharing.set(true);
+    this.shareError.set(null);
     try {
       const updated = await new Promise<Quote>((resolve, reject) => {
-        this.quotesService.addPayment(quote.id, {
-          amount,
-          paymentMethod: this.paymentMethod().trim() || undefined,
-          notes: this.paymentNotes().trim() || undefined,
-        }).subscribe({ next: resolve, error: reject });
+        this.quotesService.share(quote.id).subscribe({ next: resolve, error: reject });
       });
-
       this.quote.set(updated);
-      this.paymentAmount.set(null);
-      this.paymentMethod.set('');
-      this.paymentNotes.set('');
     } catch {
-      this.paymentError.set('No se pudo registrar el pago. Verificá los datos e intentá de nuevo.');
+      this.shareError.set('No se pudo compartir el presupuesto. Intentá de nuevo.');
     } finally {
-      this.savingPayment.set(false);
+      this.sharing.set(false);
     }
   }
 

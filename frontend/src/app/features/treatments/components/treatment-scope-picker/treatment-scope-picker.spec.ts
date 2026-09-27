@@ -36,22 +36,44 @@ const TREATMENTS = [
   treatment('arcada', 'upper_arch'),
   treatment('general', 'general'),
   treatment('usd', 'general', { currency: 'USD', basePrice: 50, basePriceBob: 348 }),
+  treatment('extraccion', 'single_tooth', {
+    name: 'Extracción simple',
+    categoryId: 'cirugia',
+    categoryName: 'Cirugía',
+  }),
 ];
 
-function setup(inputs: { entries?: OdontogramEntry[]; treated?: number[] } = {}) {
+function setup(
+  inputs: { entries?: OdontogramEntry[]; treated?: number[]; frequent?: string[] } = {},
+) {
   TestBed.configureTestingModule({ imports: [TreatmentScopePickerComponent] });
   const fixture = TestBed.createComponent(TreatmentScopePickerComponent);
   fixture.componentRef.setInput('treatments', TREATMENTS);
   fixture.componentRef.setInput('odontogramEntries', inputs.entries ?? []);
   fixture.componentRef.setInput('treatedTeeth', inputs.treated ?? []);
+  fixture.componentRef.setInput('frequentIds', inputs.frequent ?? []);
   const emitted: (TreatmentScopeSelection | null)[] = [];
   fixture.componentInstance.selectionChange.subscribe((s) => emitted.push(s));
   fixture.detectChanges();
   const root = fixture.nativeElement as HTMLElement;
   const choose = (id: string) => {
-    const select = root.querySelector<HTMLSelectElement>('#tsp-treatment')!;
-    select.value = id;
-    select.dispatchEvent(new Event('change'));
+    root.querySelector<HTMLButtonElement>(`.tsp__card[data-treatment-id="${id}"]`)!.click();
+    fixture.detectChanges();
+  };
+  const cardIds = (selector = '.tsp__grid') =>
+    [...root.querySelectorAll<HTMLElement>(`${selector} .tsp__card`)].map(
+      (c) => c.dataset['treatmentId'],
+    );
+  const search = (text: string) => {
+    const input = root.querySelector<HTMLInputElement>('#tsp-search')!;
+    input.value = text;
+    input.dispatchEvent(new Event('input'));
+    fixture.detectChanges();
+  };
+  const chip = (label: string) => {
+    [...root.querySelectorAll<HTMLButtonElement>('.tsp__chip')]
+      .find((b) => b.textContent?.trim() === label)!
+      .click();
     fixture.detectChanges();
   };
   const tooth = (n: number) =>
@@ -61,7 +83,7 @@ function setup(inputs: { entries?: OdontogramEntry[]; treated?: number[] } = {})
     fixture.detectChanges();
   };
   const last = () => emitted.at(-1);
-  return { fixture, root, emitted, choose, tooth, click, last };
+  return { fixture, root, emitted, choose, tooth, click, last, cardIds, search, chip };
 }
 
 describe('TreatmentScopePickerComponent', () => {
@@ -69,7 +91,7 @@ describe('TreatmentScopePickerComponent', () => {
     const { root, last } = setup();
 
     expect(last()).toBeNull();
-    expect(root.textContent).toContain('Elegí un tratamiento para continuar');
+    expect(root.textContent).toContain('Elegí un tratamiento del catálogo para continuar');
   });
 
   it('un tratamiento general es válido sin piezas y no muestra el odontograma', () => {
@@ -87,6 +109,69 @@ describe('TreatmentScopePickerComponent', () => {
     choose('usd');
 
     expect(root.querySelector('.tsp__fx-hint')?.textContent).toContain('348.00');
+  });
+
+  describe('catálogo (CLI-157)', () => {
+    it('muestra todos los tratamientos como tarjetas', () => {
+      const { cardIds } = setup();
+
+      expect(cardIds()).toEqual(TREATMENTS.map((t) => t.id));
+    });
+
+    it('buscar filtra por nombre sin importar tildes ni mayúsculas', () => {
+      const { root, search, cardIds } = setup();
+
+      search('EXTRACCION');
+      expect(cardIds()).toEqual(['extraccion']);
+
+      search('no existe');
+      expect(root.textContent).toContain('No hay tratamientos que coincidan');
+    });
+
+    it('buscar también encuentra por categoría', () => {
+      const { search, cardIds } = setup();
+
+      search('cirug');
+
+      expect(cardIds()).toEqual(['extraccion']);
+    });
+
+    it('los chips filtran por categoría y "Todas" vuelve al catálogo completo', () => {
+      const { chip, cardIds } = setup();
+
+      chip('Cirugía');
+      expect(cardIds()).toEqual(['extraccion']);
+
+      chip('Todas');
+      expect(cardIds()).toHaveLength(TREATMENTS.length);
+    });
+
+    it('los frecuentes van arriba y se ocultan al filtrar', () => {
+      const { root, search } = setup({ frequent: ['general', 'borrado', 'uno'] });
+
+      const first = root.querySelector('.tsp__grid')!;
+      expect(
+        [...first.querySelectorAll<HTMLElement>('.tsp__card')].map((c) => c.dataset['treatmentId']),
+      ).toEqual(['general', 'uno']);
+      expect(root.textContent).toContain('Frecuentes');
+
+      search('uno');
+      expect(root.textContent).not.toContain('Frecuentes');
+    });
+
+    it('elegir colapsa el catálogo y "Cambiar" lo vuelve a abrir', () => {
+      const { root, choose, last, fixture } = setup();
+
+      choose('general');
+      expect(root.querySelector('.tsp__catalog')).toBeNull();
+      expect(root.querySelector('.tsp__chosen')?.textContent).toContain('Tratamiento general');
+
+      root.querySelector<HTMLButtonElement>('.tsp__chosen-change')!.click();
+      fixture.detectChanges();
+
+      expect(root.querySelector('.tsp__catalog')).not.toBeNull();
+      expect(last()).toBeNull();
+    });
   });
 
   describe('una pieza', () => {
@@ -124,10 +209,12 @@ describe('TreatmentScopePickerComponent', () => {
     });
 
     it('cambiar de tratamiento borra los dientes elegidos', () => {
-      const { choose, click, last } = setup();
+      const { root, fixture, choose, click, last } = setup();
       choose('varios');
       click(16);
 
+      root.querySelector<HTMLButtonElement>('.tsp__chosen-change')!.click();
+      fixture.detectChanges();
       choose('uno');
 
       expect(last()).toBeNull();
