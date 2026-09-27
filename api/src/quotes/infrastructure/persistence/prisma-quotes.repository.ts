@@ -12,7 +12,12 @@ import { deriveQuoteStatus } from '../../domain/QuoteStatus.js';
 import { QuoteMapper } from './quote.mapper.js';
 
 const QUOTE_INCLUDE = {
-  quote_items: { include: { application_groups: true } },
+  quote_items: {
+    include: {
+      application_groups: true,
+      treatments: { select: { name: true } },
+    },
+  },
   payments: true,
 } as const;
 
@@ -46,6 +51,27 @@ export class PrismaQuotesRepository implements IQuoteRepository {
       orderBy: { created_at: 'desc' },
     });
     return records.map((r) => QuoteMapper.toDomain(r));
+  }
+
+  async findSharedByPatient(patientId: string): Promise<Quote[]> {
+    const records = await this.prisma.quotes.findMany({
+      where: { patient_id: patientId, shared_at: { not: null } },
+      include: QUOTE_INCLUDE,
+      orderBy: { created_at: 'desc' },
+    });
+    return records.map((r) => QuoteMapper.toDomain(r));
+  }
+
+  async share(quoteId: string): Promise<Quote> {
+    await this.prisma.quotes.updateMany({
+      where: { id: quoteId, shared_at: null },
+      data: { shared_at: new Date() },
+    });
+    const record = await this.prisma.quotes.findUniqueOrThrow({
+      where: { id: quoteId },
+      include: QUOTE_INCLUDE,
+    });
+    return QuoteMapper.toDomain(record);
   }
 
   async addItems(quoteId: string, items: NewQuoteItemData[]): Promise<Quote> {

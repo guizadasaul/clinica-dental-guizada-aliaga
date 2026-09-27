@@ -1,6 +1,9 @@
 import { QuotesController } from './quotes.controller';
 import { PatientQuotesController } from './patient-quotes.controller';
+import { MyQuotesController } from './my-quotes.controller';
 import { QuotesService } from '../../application/quotes.service';
+import type { PatientsService } from '../../../patients/application/patients.service';
+import type { AuthenticatedUser } from '../../../auth/domain/AuthenticatedUser';
 
 describe('controllers de presupuestos', () => {
   const service = {
@@ -10,6 +13,8 @@ describe('controllers de presupuestos', () => {
     addPayment: jest.fn(),
     createForPatient: jest.fn(),
     findByPatient: jest.fn(),
+    findSharedByPatient: jest.fn(),
+    share: jest.fn(),
   };
 
   beforeEach(() => jest.clearAllMocks());
@@ -18,6 +23,15 @@ describe('controllers de presupuestos', () => {
     const controller = new QuotesController(
       service as unknown as QuotesService,
     );
+
+    it('share comparte el presupuesto con el paciente', async () => {
+      service.share.mockResolvedValue({ id: 'quote-1' });
+
+      await expect(controller.share('quote-1')).resolves.toEqual({
+        id: 'quote-1',
+      });
+      expect(service.share).toHaveBeenCalledWith('quote-1');
+    });
 
     it('findById devuelve el presupuesto', async () => {
       service.findById.mockResolvedValue({ id: 'quote-1' });
@@ -83,6 +97,26 @@ describe('controllers de presupuestos', () => {
 
       await expect(controller.findByPatient('patient-1')).resolves.toEqual([]);
       expect(service.findByPatient).toHaveBeenCalledWith('patient-1');
+    });
+  });
+
+  describe('MyQuotesController', () => {
+    const patientsService = { findMyPatient: jest.fn() };
+    const controller = new MyQuotesController(
+      patientsService as unknown as PatientsService,
+      service as unknown as QuotesService,
+    );
+
+    it('lista solo los compartidos del paciente de la sesión', async () => {
+      patientsService.findMyPatient.mockResolvedValue({ id: 'patient-1' });
+      service.findSharedByPatient.mockResolvedValue([{ id: 'quote-1' }]);
+
+      await expect(
+        controller.findMine({ uid: 'auth-1' } as AuthenticatedUser),
+      ).resolves.toEqual([{ id: 'quote-1' }]);
+      expect(patientsService.findMyPatient).toHaveBeenCalledWith('auth-1');
+      expect(service.findSharedByPatient).toHaveBeenCalledWith('patient-1');
+      expect(service.findByPatient).not.toHaveBeenCalled();
     });
   });
 });

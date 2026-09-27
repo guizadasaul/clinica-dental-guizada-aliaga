@@ -43,6 +43,11 @@ export class QuotesController {
     });
   }
 
+  @Post(':id/share')
+  share(@Param('id', ParseUUIDPipe) id: string) {
+    return this.quotesService.share(id);
+  }
+
   @Delete(':id/items/:itemId')
   removeItem(
     @Param('id', ParseUUIDPipe) id: string,

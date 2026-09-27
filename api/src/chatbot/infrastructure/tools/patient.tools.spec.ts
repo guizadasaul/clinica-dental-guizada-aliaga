@@ -93,7 +93,7 @@ function procedure(overrides: Partial<ToothProcedure> = {}): ToothProcedure {
 
 describe('patient tools (CLI-91)', () => {
   const appointmentsService = { getPatientAppointments: jest.fn() };
-  const quotesService = { findByPatient: jest.fn() };
+  const quotesService = { findSharedByPatient: jest.fn() };
   const patientsService = { findToothProcedures: jest.fn() };
   const treatmentRepo = {
     findById: jest.fn((id: string) =>
@@ -167,7 +167,7 @@ describe('patient tools (CLI-91)', () => {
         error: 'no_patient_profile',
       });
       expect(appointmentsService.getPatientAppointments).not.toHaveBeenCalled();
-      expect(quotesService.findByPatient).not.toHaveBeenCalled();
+      expect(quotesService.findSharedByPatient).not.toHaveBeenCalled();
       expect(patientsService.findToothProcedures).not.toHaveBeenCalled();
     });
   });
@@ -252,14 +252,16 @@ describe('patient tools (CLI-91)', () => {
 
   describe('get_my_quotes', () => {
     it('devuelve total, pagado, saldo, ítems con nombre y pagos con recibo, sin notas ni ids', async () => {
-      quotesService.findByPatient.mockResolvedValue([quote()]);
+      quotesService.findSharedByPatient.mockResolvedValue([quote()]);
 
       const result = await new GetMyQuotesTool(quotes, treatments).execute(
         patient,
         {},
       );
 
-      expect(quotesService.findByPatient).toHaveBeenCalledWith('patient-1');
+      expect(quotesService.findSharedByPatient).toHaveBeenCalledWith(
+        'patient-1',
+      );
       expect(result).toEqual({
         total: 1,
         quotes: [
@@ -285,7 +287,7 @@ describe('patient tools (CLI-91)', () => {
     });
 
     it('agrupa una aplicación en varias piezas en una sola línea con su precio una vez', async () => {
-      quotesService.findByPatient.mockResolvedValue([
+      quotesService.findSharedByPatient.mockResolvedValue([
         quote({
           items: [
             item({
@@ -321,7 +323,7 @@ describe('patient tools (CLI-91)', () => {
     });
 
     it('devuelve pagados y con pago parcial juntos, como máximo 5 (el bug que se vio en vivo)', async () => {
-      quotesService.findByPatient.mockResolvedValue([
+      quotesService.findSharedByPatient.mockResolvedValue([
         quote({ status: 'partially_paid' }),
         ...Array.from({ length: 5 }, () => quote({ status: 'paid' })),
       ]);
@@ -336,7 +338,7 @@ describe('patient tools (CLI-91)', () => {
     });
 
     it('nombra genérico un tratamiento desconocido', async () => {
-      quotesService.findByPatient.mockResolvedValue([
+      quotesService.findSharedByPatient.mockResolvedValue([
         quote({ items: [item({ treatmentId: 'desconocido' })] }),
       ]);
 
@@ -350,7 +352,7 @@ describe('patient tools (CLI-91)', () => {
     });
 
     it('muestra el estado crudo si no tiene traducción', async () => {
-      quotesService.findByPatient.mockResolvedValue([
+      quotesService.findSharedByPatient.mockResolvedValue([
         quote({ status: 'raro' }),
       ]);
 
@@ -369,7 +371,7 @@ describe('patient tools (CLI-91)', () => {
 
   describe('get_my_balance', () => {
     it('suma los saldos sin pagar y no cuenta sobrepagos como negativos', async () => {
-      quotesService.findByPatient.mockResolvedValue([
+      quotesService.findSharedByPatient.mockResolvedValue([
         quote({ totalAmount: 400, totalPaid: 100 }),
         quote({ totalAmount: 150.555, totalPaid: 0 }),
         quote({ totalAmount: 100, totalPaid: 120, status: 'paid' }),
@@ -460,7 +462,7 @@ describe('patient tools (CLI-91)', () => {
 
   describe('get_my_pending_treatments', () => {
     it('lista los ítems de presupuestos sin pagar por completo, con la aclaración', async () => {
-      quotesService.findByPatient.mockResolvedValue([
+      quotesService.findSharedByPatient.mockResolvedValue([
         quote({ status: 'paid', items: [item({ treatmentId: 't-limpieza' })] }),
         quote({
           status: 'pending',

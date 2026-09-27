@@ -2,6 +2,7 @@ export interface QuoteItem {
   id: string;
   quoteId: string;
   treatmentId: string;
+  treatmentName: string;
   toothNumber: number | null;
   applicationGroupId: string | null;
   unitPrice: number;

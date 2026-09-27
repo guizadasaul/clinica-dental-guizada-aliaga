@@ -192,7 +192,7 @@ export class GetMyQuotesTool implements ChatTool<object> {
   async execute(actor: ChatActor): Promise<unknown> {
     const patientId = patientIdOf(actor);
     if (!patientId) return NO_PROFILE;
-    const all = await this.quotesService.findByPatient(patientId);
+    const all = await this.quotesService.findSharedByPatient(patientId);
     const quotes = all.slice(0, MAX_QUOTES);
     const names = await treatmentNames(
       this.treatmentRepo,
@@ -228,7 +228,9 @@ export class GetMyBalanceTool implements ChatTool<object> {
   async execute(actor: ChatActor): Promise<unknown> {
     const patientId = patientIdOf(actor);
     if (!patientId) return NO_PROFILE;
-    const withBalance = (await this.quotesService.findByPatient(patientId))
+    const withBalance = (
+      await this.quotesService.findSharedByPatient(patientId)
+    )
       .map(balanceOf)
       .filter((balance) => balance > 0);
     return {
@@ -312,9 +314,9 @@ export class GetMyPendingTreatmentsTool implements ChatTool<object> {
   async execute(actor: ChatActor): Promise<unknown> {
     const patientId = patientIdOf(actor);
     if (!patientId) return NO_PROFILE;
-    const unpaid = (await this.quotesService.findByPatient(patientId)).filter(
-      (q) => q.status !== 'paid',
-    );
+    const unpaid = (
+      await this.quotesService.findSharedByPatient(patientId)
+    ).filter((q) => q.status !== 'paid');
     const names = await treatmentNames(
       this.treatmentRepo,
       unpaid.flatMap((q) => q.items.map((i) => i.treatmentId)),
