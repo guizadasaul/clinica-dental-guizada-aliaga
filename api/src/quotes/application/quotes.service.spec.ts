@@ -365,6 +365,12 @@ describe('QuotesService', () => {
   });
 
   describe('addPayment', () => {
+    beforeEach(() => {
+      mockQuoteRepo.findById.mockResolvedValue(
+        fakeQuote({ totalAmount: 300, balance: 300 }),
+      );
+    });
+
     it('throws NotFoundException when the quote does not exist', async () => {
       mockQuoteRepo.findById.mockResolvedValue(null);
 
@@ -372,12 +378,6 @@ describe('QuotesService', () => {
         service.addPayment('missing-quote', { amount: 100 }),
       ).rejects.toThrow(NotFoundException);
       expect(mockQuoteRepo.addPayment).not.toHaveBeenCalled();
-    });
-
-    beforeEach(() => {
-      mockQuoteRepo.findById.mockResolvedValue(
-        fakeQuote({ totalAmount: 300, balance: 300 }),
-      );
     });
 
     it('delegates to the repository with the mapped data', async () => {

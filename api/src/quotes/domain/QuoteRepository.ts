@@ -64,7 +64,7 @@ export interface IQuoteRepository {
   findQrCharge(chargeId: string): Promise<QrCharge | null>;
   /**
    * pending → paid, crea el pago qr_baneco por el monto del cobro y recalcula
-   * total_paid + status, todo en una transacción. El cambio de estado va
+   * total_paid + status, en una sola transacción. El cambio de estado va
    * primero con guarda `status = 'pending'`: si ya no estaba pendiente (otra
    * verificación ganó), no hace nada y devuelve null.
    */
