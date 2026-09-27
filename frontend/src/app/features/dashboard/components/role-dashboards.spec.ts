@@ -1,11 +1,13 @@
 import { Component, input, output, signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { By } from '@angular/platform-browser';
-import { of } from 'rxjs';
+import { NEVER, of, throwError, type Observable } from 'rxjs';
 import { PatientDashboardComponent } from './patient-dashboard/patient-dashboard';
 import { AdminDashboardComponent } from './admin-dashboard/admin-dashboard';
 import { AuthService } from '../../../auth/application/auth.service';
 import { PatientsService } from '../../patients/services/patients.service';
+import { AppointmentsService } from '../../appointments/services/appointments.service';
+import type { PatientAppointment } from '../../appointments/models/appointment.model';
 import { LogoComponent } from '../../../shared/ui/logo/logo';
 
 @Component({ selector: 'app-treatment-history', standalone: true, template: 'historial' })
@@ -27,6 +29,7 @@ describe('PatientDashboardComponent', () => {
     nav: string,
     patient: { id: string } | null = { id: 'patient-1' },
     name: string | null = 'Ana Pérez',
+    upcoming: Observable<PatientAppointment[]> = of([]),
   ) {
     TestBed.configureTestingModule({
       imports: [PatientDashboardComponent],
@@ -36,6 +39,7 @@ describe('PatientDashboardComponent', () => {
           provide: PatientsService,
           useValue: { getMyPatientStatus: () => of({ exists: patient !== null, patient }) },
         },
+        { provide: AppointmentsService, useValue: { getMyUpcoming: () => upcoming } },
       ],
     });
     TestBed.overrideComponent(PatientDashboardComponent, {
@@ -51,6 +55,58 @@ describe('PatientDashboardComponent', () => {
     expect(setup('home').root.textContent).toContain('Ana');
     TestBed.resetTestingModule();
     expect(setup('home', null, null).root.textContent).toContain('Paciente');
+  });
+
+  // CLI-153: la tarjeta "Próxima cita" muestra las citas reales del paciente.
+  describe('próxima cita', () => {
+    const cita = (id: string, iso: string, extra: Partial<PatientAppointment> = {}): PatientAppointment => ({
+      id,
+      appointmentDatetime: iso,
+      durationMinutes: 60,
+      doctorName: 'Saul Guizada',
+      treatmentName: 'Control de ortodoncia',
+      ...extra,
+    });
+
+    it('muestra la más cercana con fecha, hora, doctor y tratamiento, y cuenta las demás', () => {
+      const { root } = setup(
+        'home',
+        undefined,
+        undefined,
+        of([
+          cita('a', '2026-09-29T14:00:00.000Z'),
+          cita('b', '2026-10-06T14:00:00.000Z', { treatmentName: null }),
+        ]),
+      );
+      const text = root.textContent ?? '';
+
+      expect(text).toContain('Martes, 29 de septiembre');
+      expect(text).toContain('10:00');
+      expect(text).toContain('Saul Guizada');
+      expect(text).toContain('Control de ortodoncia');
+      expect(text).toContain('Y 1 más:');
+      expect(root.querySelector('.stat-card__value')?.textContent).toContain('29');
+      expect(root.querySelector('.appointment-empty')).toBeNull();
+    });
+
+    it('sin citas muestra el estado vacío de siempre', () => {
+      const { root } = setup('home');
+
+      expect(root.querySelector('.appointment-empty')?.textContent).toContain('No tenés citas programadas');
+      expect(root.querySelector('.stat-card__value')?.textContent?.trim()).toBe('—');
+    });
+
+    it('si falla la consulta, también muestra el estado vacío', () => {
+      const { root } = setup('home', undefined, undefined, throwError(() => new Error('500')));
+
+      expect(root.querySelector('.appointment-empty')).toBeTruthy();
+    });
+
+    it('mientras carga lo dice', () => {
+      const { root } = setup('home', undefined, undefined, NEVER);
+
+      expect(root.textContent).toContain('Cargando tus citas...');
+    });
   });
 
   it('el acceso a "Mi historial" pide cambiar de sección', () => {

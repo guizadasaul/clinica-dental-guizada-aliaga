@@ -7,6 +7,8 @@ import { AuthModule } from '../auth/auth.module';
 import { TreatmentsModule } from '../treatments/treatments.module';
 import { DiagnosesModule } from '../diagnoses/diagnoses.module';
 import { MedicalConditionsModule } from '../medical-conditions/medical-conditions.module';
+import { AppointmentsModule } from '../appointments/appointments.module';
+import { PatientAppointmentsController } from './infrastructure/http/patient-appointments.controller';
 
 @Module({
   imports: [
@@ -14,8 +16,11 @@ import { MedicalConditionsModule } from '../medical-conditions/medical-condition
     TreatmentsModule,
     DiagnosesModule,
     MedicalConditionsModule,
+    AppointmentsModule,
   ],
-  controllers: [PatientsController],
+  // PatientAppointmentsController va primero: su ruta fija (me/appointments)
+  // no debe competir con las rutas con parámetro de PatientsController.
+  controllers: [PatientAppointmentsController, PatientsController],
   providers: [
     PatientsService,
     { provide: PatientRepository, useClass: PrismaPatientsRepository },
