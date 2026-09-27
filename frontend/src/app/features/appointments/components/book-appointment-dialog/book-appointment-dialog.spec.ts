@@ -37,6 +37,7 @@ function patient(
 function setup(options: { createResult?: unknown } = {}) {
   const appointmentsService = {
     createByDoctor: vi.fn().mockReturnValue(options.createResult ?? of({ id: 'new' })),
+    rescheduleByDoctor: vi.fn().mockReturnValue(options.createResult ?? of({ id: 'moved' })),
   };
   TestBed.configureTestingModule({
     imports: [BookAppointmentDialogComponent],
@@ -235,5 +236,79 @@ describe('BookAppointmentDialogComponent (CLI-150)', () => {
     (fixture.nativeElement.querySelector('.book-modal') as HTMLElement).click();
 
     expect(closed).toHaveBeenCalledTimes(2);
+  });
+
+  // CLI-151: con una cita, el mismo modal la reprograma al horario clickeado.
+  describe('modo reprogramar', () => {
+    const existing = {
+      id: 'appt-1',
+      appointmentDatetime: '2026-10-05T13:00:00.000Z',
+      status: 'confirmed',
+      patientId: 'p-1',
+      patientFirstName: 'Ana',
+      patientLastNamePaternal: 'Perez',
+      patientPhone: null,
+      patientEmail: null,
+      guestFirstName: null,
+      guestLastNamePaternal: null,
+      guestPhone: null,
+      doctorId: 'doctor-a',
+      doctorName: 'Dr. Saul',
+      doctorColor: null,
+      durationMinutes: 90,
+      source: 'doctor',
+      treatmentId: 't-1',
+      treatmentName: 'Control',
+      notes: 'traer radiografía',
+      cancelledAt: null,
+    };
+
+    it('muestra paciente y tratamiento fijos, con la duración y notas de la cita', () => {
+      const { fixture } = setup();
+      fixture.componentRef.setInput('appointment', existing);
+      fixture.detectChanges();
+
+      const text = fixture.nativeElement.textContent as string;
+      expect(text).toContain('Reprogramar cita');
+      expect(text).toContain('Ana Perez');
+      expect(text).toContain('Control');
+      expect(fixture.nativeElement.querySelector('app-catalog-picker')).toBeFalsy();
+      expect(internals(fixture).duration()).toBe(90);
+      expect(internals(fixture).canSubmit()).toBe(true);
+      // El <select> muestra la duración de la cita, no la primera opción.
+      const select = fixture.nativeElement.querySelector('#book-modal-duration') as HTMLSelectElement;
+      expect(select.value).toBe('90');
+    });
+
+    it('reprograma al horario clickeado, mandando duración y notas', async () => {
+      const { fixture, appointmentsService } = setup();
+      fixture.componentRef.setInput('appointment', existing);
+      const booked = vi.fn();
+      fixture.componentInstance.booked.subscribe(booked);
+      fixture.detectChanges();
+      internals(fixture).onNotesInput(eventWith(''));
+
+      await internals(fixture).onSubmit();
+
+      expect(appointmentsService.createByDoctor).not.toHaveBeenCalled();
+      expect(appointmentsService.rescheduleByDoctor).toHaveBeenCalledWith('appt-1', {
+        appointmentDatetime: '2026-10-05T10:00:00-04:00',
+        durationMinutes: 90,
+        notes: '',
+      });
+      expect(booked).toHaveBeenCalledWith({ id: 'moved' });
+    });
+
+    it('una duración fuera de la lista se lleva a la grilla', () => {
+      const { fixture } = setup();
+      fixture.componentRef.setInput('appointment', {
+        ...existing,
+        durationMinutes: 45,
+        notes: null,
+      });
+      fixture.detectChanges();
+
+      expect(internals(fixture).duration()).toBe(60);
+    });
   });
 });

@@ -1,0 +1,113 @@
+<div class="detail-modal" (click)="onBackdropClick($event)" (keydown.escape)="close()">
+  <dialog
+    open
+    #panel
+    tabindex="-1"
+    class="detail-modal__panel"
+    aria-modal="true"
+    aria-labelledby="detail-modal-title"
+  >
+    <button type="button" class="detail-modal__close" (click)="close()" aria-label="Cerrar">
+      <span class="material-symbols-outlined" aria-hidden="true">close</span>
+    </button>
+
+    <h2 id="detail-modal-title" class="detail-modal__title">{{ patient() }}</h2>
+    <p class="detail-modal__when">
+      <span class="material-symbols-outlined" aria-hidden="true">event</span>
+      {{ when() }}
+    </p>
+
+    <dl class="detail-modal__facts">
+      @if (phone(); as tel) {
+        <div>
+          <dt>Teléfono</dt>
+          <dd>{{ tel }}</dd>
+        </div>
+      }
+      @if (appointment().treatmentName) {
+        <div>
+          <dt>Tratamiento</dt>
+          <dd>{{ appointment().treatmentName }}</dd>
+        </div>
+      }
+      <div>
+        <dt>Origen</dt>
+        <dd>{{ origin() }}</dd>
+      </div>
+      @if (appointment().notes) {
+        <div class="detail-modal__notes">
+          <dt>Notas</dt>
+          <dd>{{ appointment().notes }}</dd>
+        </div>
+      }
+    </dl>
+
+    @if (confirmingCancel()) {
+      <fieldset class="detail-modal__confirm">
+        <legend class="detail-modal__confirm-title">
+          ¿Cancelar esta cita? El horario queda libre.
+        </legend>
+        <label class="detail-modal__label" for="detail-modal-reason">
+          Motivo <span class="detail-modal__optional">(opcional)</span>
+        </label>
+        <textarea
+          id="detail-modal-reason"
+          class="detail-modal__input"
+          rows="2"
+          maxlength="200"
+          placeholder="Ej. el paciente no puede venir"
+          [value]="reason()"
+          (input)="onReasonInput($event)"
+        ></textarea>
+        @if (error()) {
+          <p class="detail-modal__error" role="alert">{{ error() }}</p>
+        }
+        <div class="detail-modal__actions">
+          <button
+            type="button"
+            class="detail-modal__btn detail-modal__btn--ghost"
+            (click)="keepAppointment()"
+          >
+            Volver
+          </button>
+          <button
+            type="button"
+            class="detail-modal__btn detail-modal__btn--danger"
+            [disabled]="cancelling()"
+            (click)="confirmCancel()"
+          >
+            {{ cancelling() ? 'Cancelando...' : 'Sí, cancelar cita' }}
+          </button>
+        </div>
+      </fieldset>
+    } @else {
+      <div class="detail-modal__actions">
+        @if (editable()) {
+          <button
+            type="button"
+            class="detail-modal__btn detail-modal__btn--danger-ghost"
+            (click)="askCancel()"
+          >
+            Cancelar cita
+          </button>
+          <button
+            type="button"
+            class="detail-modal__btn detail-modal__btn--ghost"
+            (click)="onReschedule()"
+          >
+            Reprogramar
+          </button>
+        }
+        @if (appointment().patientId) {
+          <button
+            type="button"
+            class="detail-modal__btn detail-modal__btn--primary"
+            (click)="onOpenRecord()"
+          >
+            Abrir ficha
+          </button>
+        }
+      </div>
+    }
+  </dialog>
+</div>
