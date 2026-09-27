@@ -34,6 +34,10 @@ export interface IQuoteRepository {
   findById(id: string): Promise<Quote | null>;
   /** Con sus líneas, más recientes primero. */
   findByPatient(patientId: string): Promise<Quote[]>;
+  /** Solo los compartidos (shared_at NOT NULL) — lo único que ve el paciente. */
+  findSharedByPatient(patientId: string): Promise<Quote[]>;
+  /** Setea shared_at si todavía era NULL (idempotente: no pisa la fecha original). */
+  share(quoteId: string): Promise<Quote>;
   /** Inserta filas sueltas (single_tooth/general, cada una con su propio precio) y recalcula total_amount. */
   addItems(quoteId: string, items: NewQuoteItemData[]): Promise<Quote>;
   /** Crea el application_groups (precio del grupo) + una fila de quote_items por diente, sin precio propio, y recalcula total_amount. */

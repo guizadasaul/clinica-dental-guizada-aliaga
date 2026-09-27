@@ -160,6 +160,27 @@ export class QuotesService {
     });
   }
 
+  /** Lo que ve el paciente: solo presupuestos compartidos (CLI-156). */
+  async findSharedByPatient(patientId: string): Promise<Quote[]> {
+    return this.quoteRepo.findSharedByPatient(patientId);
+  }
+
+  /** "Guardar y compartir" (CLI-156): desde acá el paciente lo ve. */
+  async share(quoteId: string): Promise<Quote> {
+    const quote = await this.quoteRepo.findById(quoteId);
+    if (!quote) {
+      throw new NotFoundException(
+        `Presupuesto con id ${quoteId} no encontrado`,
+      );
+    }
+    if (quote.items.length === 0) {
+      throw new BadRequestException(
+        'No se puede compartir un presupuesto sin tratamientos',
+      );
+    }
+    return this.quoteRepo.share(quoteId);
+  }
+
   async removeItem(quoteId: string, itemId: string): Promise<Quote> {
     const quote = await this.quoteRepo.removeItemGroup(quoteId, itemId);
     if (!quote) {

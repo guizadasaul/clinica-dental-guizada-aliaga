@@ -247,7 +247,13 @@ describe('PrismaQuotesRepository — altas, lecturas y pagos', () => {
     quotes: { findUniqueOrThrow: jest.fn(), update: jest.fn() },
   };
   const prisma = {
-    quotes: { create: jest.fn(), findUnique: jest.fn(), findMany: jest.fn() },
+    quotes: {
+      create: jest.fn(),
+      findUnique: jest.fn(),
+      findMany: jest.fn(),
+      updateMany: jest.fn(),
+      findUniqueOrThrow: jest.fn(),
+    },
     transaction: jest.fn((fn: (t: unknown) => unknown) => fn(tx)),
   };
   const repo = new PrismaQuotesRepository(prisma as unknown as PrismaService);
@@ -294,6 +300,31 @@ describe('PrismaQuotesRepository — altas, lecturas y pagos', () => {
         orderBy: { created_at: 'desc' },
       }),
     );
+  });
+
+  it('findSharedByPatient trae solo los compartidos', async () => {
+    prisma.quotes.findMany.mockResolvedValue([{ id: 'q1' }]);
+
+    await expect(repo.findSharedByPatient('patient-1')).resolves.toEqual([
+      'mapped',
+    ]);
+    expect(prisma.quotes.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { patient_id: 'patient-1', shared_at: { not: null } },
+        orderBy: { created_at: 'desc' },
+      }),
+    );
+  });
+
+  it('share setea shared_at solo si era null (no pisa la fecha original)', async () => {
+    prisma.quotes.findUniqueOrThrow.mockResolvedValue({ id: 'quote-1' });
+
+    await expect(repo.share('quote-1')).resolves.toBe('mapped');
+    const [[args]] = prisma.quotes.updateMany.mock.calls as [
+      [{ where: unknown; data: { shared_at: unknown } }],
+    ];
+    expect(args.where).toEqual({ id: 'quote-1', shared_at: null });
+    expect(args.data.shared_at).toBeInstanceOf(Date);
   });
 
   describe('addPayment', () => {
