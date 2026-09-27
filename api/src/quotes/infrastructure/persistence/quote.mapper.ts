@@ -3,10 +3,12 @@ import type {
   quote_items,
   application_groups,
   payments,
+  quote_qr_charges,
 } from '@prisma/client';
 import type { Quote } from '../../domain/Quote';
 import type { QuoteItem } from '../../domain/QuoteItem';
 import type { Payment } from '../../domain/Payment';
+import type { QrCharge, QrChargeStatus } from '../../domain/QrCharge';
 
 type QuoteItemRecordWithGroup = quote_items & {
   application_groups: application_groups | null;
@@ -69,6 +71,20 @@ export class QuoteMapper {
       receiptNumber: record.receipt_number,
       paymentDate: record.payment_date,
       notes: record.notes ?? null,
+      createdAt: record.created_at,
+    };
+  }
+
+  static qrChargeToDomain(record: quote_qr_charges): QrCharge {
+    return {
+      id: record.id,
+      quoteId: record.quote_id,
+      amount: Number(record.amount),
+      qrId: record.baneco_qr_id,
+      transactionId: record.baneco_transaction_id,
+      qrImageBase64: record.qr_image,
+      status: record.status as QrChargeStatus,
+      paymentId: record.payment_id,
       createdAt: record.created_at,
     };
   }

@@ -60,6 +60,9 @@ export class PrismaService implements OnModuleInit, OnModuleDestroy {
   get payments() {
     return this._client.payments;
   }
+  get quote_qr_charges() {
+    return this._client.quote_qr_charges;
+  }
   get xray_documents() {
     return this._client.xray_documents;
   }
