@@ -124,10 +124,10 @@
     }
 
     @if (notice()) {
-      <p class="agenda__notice" role="status">
+      <output class="agenda__notice">
         <span class="material-symbols-outlined" aria-hidden="true">check_circle</span>
         {{ notice() }}
-      </p>
+      </output>
     }
 
     @if (canBook()) {

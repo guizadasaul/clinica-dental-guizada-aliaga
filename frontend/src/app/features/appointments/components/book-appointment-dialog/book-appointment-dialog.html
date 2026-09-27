@@ -85,9 +85,9 @@
           duración más corta.
         </p>
       } @else if (outsideSchedule()) {
-        <p class="book-modal__alert book-modal__alert--warning" role="status">
+        <output class="book-modal__alert book-modal__alert--warning">
           Este horario está fuera de tu horario de atención. Podés agendarla igual.
-        </p>
+        </output>
       }
 
       @if (error()) {
