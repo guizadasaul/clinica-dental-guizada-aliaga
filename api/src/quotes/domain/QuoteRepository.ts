@@ -1,4 +1,5 @@
 import type { Quote } from './Quote';
+import type { QrCharge } from './QrCharge';
 
 export interface NewQuoteItemData {
   treatmentId: string;
@@ -29,6 +30,14 @@ export interface NewPaymentData {
   notes?: string | null;
 }
 
+export interface NewQrChargeData {
+  quoteId: string;
+  amount: number;
+  qrId: string;
+  transactionId: string;
+  qrImageBase64: string;
+}
+
 export interface IQuoteRepository {
   createForPatient(patientId: string, notes: string | null): Promise<Quote>;
   findById(id: string): Promise<Quote | null>;
@@ -51,6 +60,17 @@ export interface IQuoteRepository {
   removeItemGroup(quoteId: string, itemId: string): Promise<Quote | null>;
   /** Inserta el pago y recalcula total_paid + status en la misma transacción. */
   addPayment(quoteId: string, data: NewPaymentData): Promise<Quote>;
+  createQrCharge(data: NewQrChargeData): Promise<QrCharge>;
+  findQrCharge(chargeId: string): Promise<QrCharge | null>;
+  /**
+   * pending → paid, crea el pago qr_baneco por el monto del cobro y recalcula
+   * total_paid + status, todo en una transacción. El cambio de estado va
+   * primero con guarda `status = 'pending'`: si ya no estaba pendiente (otra
+   * verificación ganó), no hace nada y devuelve null.
+   */
+  settleQrCharge(chargeId: string): Promise<Quote | null>;
+  /** pending → cancelled. false si ya no estaba pendiente. */
+  cancelQrCharge(chargeId: string): Promise<boolean>;
 }
 
 export const QuoteRepository = Symbol('IQuoteRepository');

@@ -6,7 +6,11 @@ import type {
   NewQuoteItemData,
   NewQuoteItemGroupData,
   NewPaymentData,
+  NewQrChargeData,
 } from '../../domain/QuoteRepository.js';
+import type { QrCharge } from '../../domain/QrCharge.js';
+import { QrChargeStatus } from '../../domain/QrCharge.js';
+import { PaymentMethod } from '../../domain/PaymentMethod.js';
 import type { Quote } from '../../domain/Quote.js';
 import { deriveQuoteStatus } from '../../domain/QuoteStatus.js';
 import { QuoteMapper } from './quote.mapper.js';
@@ -188,6 +192,64 @@ export class PrismaQuotesRepository implements IQuoteRepository {
       });
       return this.recalculatePaymentsAndReturn(tx, quoteId);
     });
+  }
+
+  async createQrCharge(data: NewQrChargeData): Promise<QrCharge> {
+    const record = await this.prisma.quote_qr_charges.create({
+      data: {
+        quote_id: data.quoteId,
+        amount: data.amount,
+        baneco_qr_id: data.qrId,
+        baneco_transaction_id: data.transactionId,
+        qr_image: data.qrImageBase64,
+      },
+    });
+    return QuoteMapper.qrChargeToDomain(record);
+  }
+
+  async findQrCharge(chargeId: string): Promise<QrCharge | null> {
+    const record = await this.prisma.quote_qr_charges.findUnique({
+      where: { id: chargeId },
+    });
+    return record ? QuoteMapper.qrChargeToDomain(record) : null;
+  }
+
+  async settleQrCharge(chargeId: string): Promise<Quote | null> {
+    return this.prisma.transaction(async (tx) => {
+      // Primero el cambio de estado, con guarda: si dos verificaciones llegan
+      // juntas, la segunda espera el lock de la fila y ve count 0.
+      const claimed = await tx.quote_qr_charges.updateMany({
+        where: { id: chargeId, status: QrChargeStatus.PENDING },
+        data: { status: QrChargeStatus.PAID, updated_at: new Date() },
+      });
+      if (claimed.count === 0) {
+        return null;
+      }
+      const charge = await tx.quote_qr_charges.findUniqueOrThrow({
+        where: { id: chargeId },
+      });
+      const payment = await tx.payments.create({
+        data: {
+          quote_id: charge.quote_id,
+          amount: charge.amount,
+          payment_method: PaymentMethod.QR_BANECO,
+          notes: `QR BANECO ${charge.baneco_qr_id}`,
+        },
+      });
+      await tx.quote_qr_charges.update({
+        where: { id: chargeId },
+        data: { payment_id: payment.id },
+      });
+      return this.recalculatePaymentsAndReturn(tx, charge.quote_id);
+    });
+  }
+
+  async cancelQrCharge(chargeId: string): Promise<boolean> {
+    const result = await this.prisma.quote_qr_charges.updateMany({
+      where: { id: chargeId, status: QrChargeStatus.PENDING },
+      data: { status: QrChargeStatus.CANCELLED, updated_at: new Date() },
+    });
+    return result.count > 0;
   }
 
   private async recalculatePaymentsAndReturn(

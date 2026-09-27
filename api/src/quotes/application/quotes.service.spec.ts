@@ -374,34 +374,55 @@ describe('QuotesService', () => {
       expect(mockQuoteRepo.addPayment).not.toHaveBeenCalled();
     });
 
+    beforeEach(() => {
+      mockQuoteRepo.findById.mockResolvedValue(
+        fakeQuote({ totalAmount: 300, balance: 300 }),
+      );
+    });
+
     it('delegates to the repository with the mapped data', async () => {
       const updated = fakeQuote({ totalPaid: 100 });
       mockQuoteRepo.addPayment.mockResolvedValue(updated);
 
       const result = await service.addPayment('quote-1', {
         amount: 100,
-        paymentMethod: 'efectivo',
+        paymentMethod: 'cash',
         notes: 'primer pago',
       });
 
       expect(mockQuoteRepo.addPayment).toHaveBeenCalledWith('quote-1', {
         amount: 100,
-        paymentMethod: 'efectivo',
+        paymentMethod: 'cash',
         notes: 'primer pago',
       });
       expect(result).toEqual(updated);
     });
 
-    it('defaults paymentMethod and notes to null when not provided', async () => {
+    it('sin método es efectivo, y sin notas null (CLI-159)', async () => {
       mockQuoteRepo.addPayment.mockResolvedValue(fakeQuote());
 
       await service.addPayment('quote-1', { amount: 50 });
 
       expect(mockQuoteRepo.addPayment).toHaveBeenCalledWith('quote-1', {
         amount: 50,
-        paymentMethod: null,
+        paymentMethod: 'cash',
         notes: null,
       });
+    });
+
+    it('cobrar exactamente el saldo está permitido', async () => {
+      mockQuoteRepo.addPayment.mockResolvedValue(fakeQuote());
+
+      await service.addPayment('quote-1', { amount: 300 });
+
+      expect(mockQuoteRepo.addPayment).toHaveBeenCalled();
+    });
+
+    it('400 si el monto supera el saldo pendiente (CLI-159)', async () => {
+      await expect(
+        service.addPayment('quote-1', { amount: 300.01 }),
+      ).rejects.toThrow(BadRequestException);
+      expect(mockQuoteRepo.addPayment).not.toHaveBeenCalled();
     });
   });
 

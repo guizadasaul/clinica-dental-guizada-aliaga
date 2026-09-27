@@ -11,6 +11,7 @@ import type {
   NewQuoteItemData,
 } from '../domain/QuoteRepository';
 import type { Quote } from '../domain/Quote';
+import { PaymentMethod } from '../domain/PaymentMethod';
 import { TreatmentRepository } from '../../treatments/domain/TreatmentRepository';
 import type { ITreatmentRepository } from '../../treatments/domain/TreatmentRepository';
 import {
@@ -42,6 +43,15 @@ interface AddPaymentInput {
 
 function round2(amount: number): number {
   return Math.round(amount * 100) / 100;
+}
+
+/** No se cobra más que el saldo pendiente (CLI-159) — vale para efectivo y QR. */
+export function assertWithinBalance(quote: Quote, amount: number): void {
+  if (amount > quote.balance) {
+    throw new BadRequestException(
+      `El monto (Bs. ${amount.toFixed(2)}) supera el saldo pendiente (Bs. ${quote.balance.toFixed(2)})`,
+    );
+  }
 }
 
 @Injectable()
@@ -153,9 +163,10 @@ export class QuotesService {
         `Presupuesto con id ${quoteId} no encontrado`,
       );
     }
+    assertWithinBalance(quote, data.amount);
     return this.quoteRepo.addPayment(quoteId, {
       amount: data.amount,
-      paymentMethod: data.paymentMethod ?? null,
+      paymentMethod: data.paymentMethod ?? PaymentMethod.CASH,
       notes: data.notes ?? null,
     });
   }

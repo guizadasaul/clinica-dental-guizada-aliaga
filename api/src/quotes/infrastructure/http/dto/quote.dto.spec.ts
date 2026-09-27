@@ -58,10 +58,19 @@ describe('AddPaymentDto', () => {
     await expect(
       invalidFields(AddPaymentDto, {
         amount: 50.5,
-        paymentMethod: 'efectivo',
+        paymentMethod: 'cash',
         notes: 'saldo',
       }),
     ).resolves.toEqual([]);
+  });
+
+  it('a mano solo se registra efectivo: el QR BANECO se confirma contra el banco (CLI-159)', async () => {
+    await expect(
+      invalidFields(AddPaymentDto, { amount: 50, paymentMethod: 'qr_baneco' }),
+    ).resolves.toEqual(['paymentMethod']);
+    await expect(
+      invalidFields(AddPaymentDto, { amount: 50, paymentMethod: 'efectivo' }),
+    ).resolves.toEqual(['paymentMethod']);
   });
 
   it.each([

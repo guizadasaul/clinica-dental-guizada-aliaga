@@ -150,4 +150,31 @@ describe('QuoteMapper', () => {
       exchangeRate: null,
     });
   });
+
+  it('qrChargeToDomain convierte el monto y renombra los campos de BANECO', () => {
+    expect(
+      QuoteMapper.qrChargeToDomain({
+        id: 'c1',
+        quote_id: 'quote-1',
+        amount: '150.50',
+        baneco_qr_id: 'qr-1',
+        baneco_transaction_id: 'tx-1',
+        qr_image: 'img',
+        status: 'pending',
+        payment_id: null,
+        created_at: CREATED,
+        updated_at: CREATED,
+      } as unknown as Parameters<typeof QuoteMapper.qrChargeToDomain>[0]),
+    ).toEqual({
+      id: 'c1',
+      quoteId: 'quote-1',
+      amount: 150.5,
+      qrId: 'qr-1',
+      transactionId: 'tx-1',
+      qrImageBase64: 'img',
+      status: 'pending',
+      paymentId: null,
+      createdAt: CREATED,
+    });
+  });
 });

@@ -245,6 +245,11 @@ describe('PrismaQuotesRepository — altas, lecturas y pagos', () => {
   const tx = {
     payments: { create: jest.fn(), aggregate: jest.fn() },
     quotes: { findUniqueOrThrow: jest.fn(), update: jest.fn() },
+    quote_qr_charges: {
+      updateMany: jest.fn(),
+      findUniqueOrThrow: jest.fn(),
+      update: jest.fn(),
+    },
   };
   const prisma = {
     quotes: {
@@ -254,6 +259,11 @@ describe('PrismaQuotesRepository — altas, lecturas y pagos', () => {
       updateMany: jest.fn(),
       findUniqueOrThrow: jest.fn(),
     },
+    quote_qr_charges: {
+      create: jest.fn(),
+      findUnique: jest.fn(),
+      updateMany: jest.fn(),
+    },
     transaction: jest.fn((fn: (t: unknown) => unknown) => fn(tx)),
   };
   const repo = new PrismaQuotesRepository(prisma as unknown as PrismaService);
@@ -261,6 +271,9 @@ describe('PrismaQuotesRepository — altas, lecturas y pagos', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     jest.spyOn(QuoteMapper, 'toDomain').mockReturnValue('mapped' as never);
+    jest
+      .spyOn(QuoteMapper, 'qrChargeToDomain')
+      .mockReturnValue('charge' as never);
   });
 
   afterAll(() => jest.restoreAllMocks());
@@ -383,6 +396,100 @@ describe('PrismaQuotesRepository — altas, lecturas y pagos', () => {
           }) as object,
         }),
       );
+    });
+  });
+
+  describe('cobros con QR (CLI-159)', () => {
+    it('createQrCharge guarda el QR generado', async () => {
+      prisma.quote_qr_charges.create.mockResolvedValue({ id: 'c1' });
+
+      await expect(
+        repo.createQrCharge({
+          quoteId: 'quote-1',
+          amount: 150,
+          qrId: 'qr-1',
+          transactionId: 'tx-1',
+          qrImageBase64: 'img',
+        }),
+      ).resolves.toBe('charge');
+      expect(prisma.quote_qr_charges.create).toHaveBeenCalledWith({
+        data: {
+          quote_id: 'quote-1',
+          amount: 150,
+          baneco_qr_id: 'qr-1',
+          baneco_transaction_id: 'tx-1',
+          qr_image: 'img',
+        },
+      });
+    });
+
+    it('findQrCharge mapea el cobro o devuelve null', async () => {
+      prisma.quote_qr_charges.findUnique
+        .mockResolvedValueOnce({ id: 'c1' })
+        .mockResolvedValueOnce(null);
+
+      await expect(repo.findQrCharge('c1')).resolves.toBe('charge');
+      await expect(repo.findQrCharge('missing')).resolves.toBeNull();
+    });
+
+    it('settleQrCharge marca pagado, crea el pago qr_baneco y recalcula', async () => {
+      tx.quote_qr_charges.updateMany.mockResolvedValue({ count: 1 });
+      tx.quote_qr_charges.findUniqueOrThrow.mockResolvedValue({
+        quote_id: 'quote-1',
+        amount: '150',
+        baneco_qr_id: 'qr-1',
+      });
+      tx.payments.create.mockResolvedValue({ id: 'pay-1' });
+      tx.payments.aggregate.mockResolvedValue({ _sum: { amount: '150' } });
+      tx.quotes.findUniqueOrThrow.mockResolvedValue({ total_amount: '300' });
+      tx.quotes.update.mockResolvedValue({ id: 'quote-1' });
+
+      await expect(repo.settleQrCharge('c1')).resolves.toBe('mapped');
+
+      expect(tx.quote_qr_charges.updateMany).toHaveBeenCalledWith({
+        where: { id: 'c1', status: 'pending' },
+        data: expect.objectContaining({ status: 'paid' }) as object,
+      });
+      expect(tx.payments.create).toHaveBeenCalledWith({
+        data: {
+          quote_id: 'quote-1',
+          amount: '150',
+          payment_method: 'qr_baneco',
+          notes: 'QR BANECO qr-1',
+        },
+      });
+      expect(tx.quote_qr_charges.update).toHaveBeenCalledWith({
+        where: { id: 'c1' },
+        data: { payment_id: 'pay-1' },
+      });
+      expect(tx.quotes.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            total_paid: 150,
+            status: 'partially_paid',
+          }) as object,
+        }),
+      );
+    });
+
+    it('settleQrCharge no hace nada si ya no estaba pendiente', async () => {
+      tx.quote_qr_charges.updateMany.mockResolvedValue({ count: 0 });
+
+      await expect(repo.settleQrCharge('c1')).resolves.toBeNull();
+      expect(tx.payments.create).not.toHaveBeenCalled();
+    });
+
+    it('cancelQrCharge solo anula los pendientes', async () => {
+      prisma.quote_qr_charges.updateMany
+        .mockResolvedValueOnce({ count: 1 })
+        .mockResolvedValueOnce({ count: 0 });
+
+      await expect(repo.cancelQrCharge('c1')).resolves.toBe(true);
+      await expect(repo.cancelQrCharge('c1')).resolves.toBe(false);
+      expect(prisma.quote_qr_charges.updateMany).toHaveBeenCalledWith({
+        where: { id: 'c1', status: 'pending' },
+        data: expect.objectContaining({ status: 'cancelled' }) as object,
+      });
     });
   });
 });
