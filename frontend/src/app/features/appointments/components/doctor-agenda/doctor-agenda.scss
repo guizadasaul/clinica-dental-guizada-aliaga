@@ -114,6 +114,65 @@
     }
   }
 
+  // CLI-152: oferta de agendar la próxima cita — flotante y no bloqueante.
+  &__followup {
+    position: fixed;
+    right: var(--space-6);
+    // Por encima del botón flotante del chat, que ocupa la esquina.
+    bottom: calc(var(--space-6) + 4.5rem);
+    z-index: 50;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+    max-width: 22rem;
+    padding: var(--space-4);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-xl);
+    background: var(--color-surface);
+    box-shadow: var(--shadow-xl);
+  }
+
+  &__followup-text {
+    margin: 0;
+    font-size: 0.9375rem;
+    color: var(--color-text);
+  }
+
+  &__followup-hint {
+    display: block;
+    margin-top: var(--space-1);
+    font-size: 0.8125rem;
+    color: var(--color-text-muted);
+  }
+
+  &__followup-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: var(--space-2);
+  }
+
+  &__followup-btn {
+    padding: var(--space-2) var(--space-4);
+    border: 1px solid var(--color-gray-300);
+    border-radius: var(--radius-full);
+    background: transparent;
+    font-family: var(--font-body);
+    font-size: var(--font-size-sm);
+    font-weight: 600;
+    color: var(--color-text);
+    cursor: pointer;
+
+    &--primary {
+      border-color: transparent;
+      background: var(--color-primary);
+    }
+
+    &:focus-visible {
+      outline: 3px solid var(--color-primary);
+      outline-offset: 2px;
+    }
+  }
+
   // Flotante: si empujara la grilla, al desaparecer la movería bajo el cursor.
   &__notice {
     position: fixed;

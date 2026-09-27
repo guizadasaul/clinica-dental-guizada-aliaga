@@ -82,6 +82,7 @@
       [schedule]="schedule()"
       [nextBusyMinutes]="nextBusyMinutes()"
       [appointment]="rescheduling()"
+      [followUpOf]="followUpPick()"
       (booked)="onBooked($event)"
       (closed)="onBookingClosed()"
     />
@@ -97,19 +98,43 @@
     />
   }
 
-  @if (rescheduling(); as moving) {
+  @if (picking(); as picked) {
     <output class="agenda__pick">
       <span class="material-symbols-outlined" aria-hidden="true">event_repeat</span>
-      <span>Elegí el nuevo horario para la cita de <strong>{{ patientLabel(moving) }}</strong></span>
-      <button type="button" class="agenda__pick-cancel" (click)="onStopReschedule()">Cancelar</button>
+      <span>
+        {{ rescheduling() ? 'Elegí el nuevo horario para la cita de' : 'Elegí el horario de la próxima cita de' }}
+        <strong>{{ patientLabel(picked) }}</strong>
+      </span>
+      <button type="button" class="agenda__pick-cancel" (click)="onStopPicking()">Cancelar</button>
     </output>
+  }
+
+  @if (followUpOffer(); as offer) {
+    <aside class="agenda__followup" aria-label="Próxima cita">
+      <p class="agenda__followup-text">
+        ¿Agendar la próxima cita de <strong>{{ patientLabel(offer.origin) }}</strong>?
+        @if (offer.upcoming; as upcoming) {
+          <span class="agenda__followup-hint">Ya tiene cita el {{ upcomingLabel(upcoming) }}.</span>
+        }
+      </p>
+      <div class="agenda__followup-actions">
+        <button type="button" class="agenda__followup-btn" (click)="onDismissFollowUp()">Ahora no</button>
+        <button
+          type="button"
+          class="agenda__followup-btn agenda__followup-btn--primary"
+          (click)="onAcceptFollowUp()"
+        >
+          Agendar
+        </button>
+      </div>
+    </aside>
   }
 
   @if (historyPatientId(); as patientId) {
     <app-patient-wizard
       [existingPatientId]="patientId"
       [startStep]="2"
-      (wizardComplete)="onHistoryDone()"
+      (wizardComplete)="onHistoryComplete()"
       (cancelled)="onHistoryDone()"
     />
   } @else {
@@ -153,7 +178,7 @@
     <!-- Siempre el mismo alto: si el texto apareciera o desapareciera, movería la grilla bajo el cursor. -->
     @if (canBook()) {
       <p class="agenda__hint agenda__hint--inline">
-        {{ rescheduling() ? 'Hacé click en el nuevo horario.' : 'Hacé click en un horario libre para agendar una cita.' }}
+        {{ picking() ? 'Hacé click en el horario que elija el paciente.' : 'Hacé click en un horario libre para agendar una cita.' }}
       </p>
     }
 

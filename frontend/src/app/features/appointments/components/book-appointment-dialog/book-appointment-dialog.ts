@@ -50,6 +50,11 @@ function durationForTreatment(estimatedMinutes: number): number {
   return Math.min(MAX_DURATION, Math.max(30, Math.ceil(estimatedMinutes / 30) * 30));
 }
 
+/** Una duración que ya existe en la lista queda igual; otra se lleva a la grilla. */
+function gridDuration(minutes: number): number {
+  return DURATIONS.includes(minutes) ? minutes : durationForTreatment(minutes);
+}
+
 /** `message` del cuerpo de un error HTTP (string o string[] de class-validator), si trae algo usable. */
 function backendMessage(err: unknown): string | null {
   const body = (err as { error?: { message?: unknown } } | null)?.error;
@@ -94,6 +99,11 @@ export class BookAppointmentDialogComponent implements OnInit {
    * notas arrancan con las de la cita.
    */
   readonly appointment = input<AppointmentAgendaItem | null>(null);
+  /**
+   * CLI-152: la próxima cita de un paciente recién atendido — arranca con su
+   * paciente fijo y el tratamiento y la duración de la cita de origen.
+   */
+  readonly followUpOf = input<AppointmentAgendaItem | null>(null);
 
   readonly booked = output<AppointmentAgendaItem>();
   readonly closed = output<void>();
@@ -179,8 +189,14 @@ export class BookAppointmentDialogComponent implements OnInit {
 
   protected readonly isReschedule = computed(() => this.appointment() !== null);
   protected readonly appointmentPatient = computed(() => {
-    const appointment = this.appointment();
+    const appointment = this.appointment() ?? this.followUpOf();
     return appointment ? appointmentPatientLabel(appointment) : '';
+  });
+  protected readonly title = computed(() => {
+    if (this.isReschedule()) {
+      return 'Reprogramar cita';
+    }
+    return this.followUpOf() ? 'Agendar próxima cita' : 'Agendar cita';
   });
 
   protected readonly canSubmit = computed(
@@ -196,12 +212,15 @@ export class BookAppointmentDialogComponent implements OnInit {
   ngOnInit(): void {
     const appointment = this.appointment();
     if (appointment) {
-      this.duration.set(
-        DURATIONS.includes(appointment.durationMinutes)
-          ? appointment.durationMinutes
-          : durationForTreatment(appointment.durationMinutes),
-      );
+      this.duration.set(gridDuration(appointment.durationMinutes));
       this.notes.set(appointment.notes ?? '');
+      return;
+    }
+    const origin = this.followUpOf();
+    if (origin) {
+      this.patientId.set(origin.patientId);
+      this.treatmentId.set(origin.treatmentId);
+      this.duration.set(gridDuration(origin.durationMinutes));
     }
   }
 

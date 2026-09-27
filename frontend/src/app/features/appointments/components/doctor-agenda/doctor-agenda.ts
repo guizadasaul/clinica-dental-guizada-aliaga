@@ -307,6 +307,17 @@ export class DoctorAgendaComponent {
   protected readonly detailAppointment = signal<AppointmentAgendaItem | null>(null);
   /** CLI-151: cita que se está reprogramando — la agenda espera el click en el horario nuevo. */
   protected readonly rescheduling = signal<AppointmentAgendaItem | null>(null);
+  /** CLI-152: turno desde el que se abrió la ficha — al completarla se ofrece agendar la próxima cita. */
+  private readonly historyOrigin = signal<AppointmentAgendaItem | null>(null);
+  /** CLI-152: oferta "¿Agendar la próxima cita?", con la cita futura que el paciente ya tenga, si hay. */
+  protected readonly followUpOffer = signal<{
+    origin: AppointmentAgendaItem;
+    upcoming: AppointmentAgendaItem | null;
+  } | null>(null);
+  /** CLI-152: próxima cita en curso — la agenda espera el click en el horario, con el paciente fijo. */
+  protected readonly followUpPick = signal<AppointmentAgendaItem | null>(null);
+  /** Esperando el click en un horario: para reprogramar o para la próxima cita. */
+  protected readonly picking = computed(() => this.rescheduling() ?? this.followUpPick());
   /** Confirmación breve después de agendar. */
   protected readonly notice = signal<string | null>(null);
   private noticeTimer: ReturnType<typeof setTimeout> | undefined;
@@ -529,7 +540,7 @@ export class DoctorAgendaComponent {
   protected onBooked(saved: AppointmentAgendaItem): void {
     const verb = this.rescheduling() ? 'reprogramada' : 'agendada';
     this.bookingSlot.set(null);
-    this.rescheduling.set(null);
+    this.onStopPicking();
     this.showNotice(
       `Cita ${verb}: ${this.patientLabel(saved)} · ${this.dayLabelOf(saved.appointmentDatetime)} ${this.formatDatetime(saved.appointmentDatetime)}`,
     );
@@ -545,6 +556,7 @@ export class DoctorAgendaComponent {
   }
 
   protected onOpenRecord(patientId: string): void {
+    this.historyOrigin.set(this.detailAppointment());
     this.detailAppointment.set(null);
     this.historyPatientId.set(patientId);
   }
@@ -556,8 +568,9 @@ export class DoctorAgendaComponent {
     this.rescheduling.set(appointment);
   }
 
-  protected onStopReschedule(): void {
+  protected onStopPicking(): void {
     this.rescheduling.set(null);
+    this.followUpPick.set(null);
   }
 
   protected onCancelled(cancelled: AppointmentAgendaItem): void {
@@ -569,8 +582,8 @@ export class DoctorAgendaComponent {
   /** Esc sale del modo "elegí el nuevo horario" (con un modal abierto, Esc cierra el modal). */
   @HostListener('document:keydown.escape')
   protected onEscape(): void {
-    if (this.rescheduling() && !this.bookingSlot() && !this.detailAppointment()) {
-      this.rescheduling.set(null);
+    if (this.picking() && !this.bookingSlot() && !this.detailAppointment()) {
+      this.onStopPicking();
     }
   }
 
@@ -642,7 +655,7 @@ export class DoctorAgendaComponent {
 
   /** Solo se abre el detalle de un turno propio — en la agenda común, los ajenos son de consulta. */
   protected canOpen(a: AppointmentAgendaItem): boolean {
-    if (this.readOnly() || this.rescheduling()) {
+    if (this.readOnly() || this.picking()) {
       return false;
     }
     return this.effectiveScope() !== 'all' || a.doctorId === this.authService.currentUser()?.id;
@@ -702,6 +715,71 @@ export class DoctorAgendaComponent {
 
   protected onHistoryDone(): void {
     this.historyPatientId.set(null);
+    this.historyOrigin.set(null);
     void this.load();
+  }
+
+  /**
+   * CLI-152: terminó de cargar la ficha desde un turno de hoy o anterior —
+   * con el paciente todavía en el consultorio, se ofrece agendar el control.
+   */
+  protected onHistoryComplete(): void {
+    const origin = this.historyOrigin();
+    this.onHistoryDone();
+    const today = laPazDateString(new Date());
+    if (!origin?.patientId || laPazDateString(new Date(origin.appointmentDatetime)) > today) {
+      return;
+    }
+    this.followUpOffer.set({ origin, upcoming: null });
+    void this.loadUpcomingFor(origin, today);
+  }
+
+  /** La próxima cita que el paciente ya tiene con este doctor, para avisarla en la oferta (no bloquea). */
+  private async loadUpcomingFor(origin: AppointmentAgendaItem, today: string): Promise<void> {
+    try {
+      const upcoming = await firstValueFrom(
+        this.appointmentsService.getAgenda({
+          status: 'confirmed',
+          from: today,
+          to: addDaysToDateString(today, 365),
+        }),
+      );
+      const now = Date.now();
+      const next =
+        upcoming.find(
+          (a) =>
+            a.patientId === origin.patientId &&
+            a.id !== origin.id &&
+            new Date(a.appointmentDatetime).getTime() > now,
+        ) ?? null;
+      if (next && this.followUpOffer()?.origin.id === origin.id) {
+        this.followUpOffer.set({ origin, upcoming: next });
+      }
+    } catch {
+      // Sin el dato, la oferta sigue igual — es solo un aviso.
+    }
+  }
+
+  protected upcomingLabel(a: AppointmentAgendaItem): string {
+    return `${this.dayLabelOf(a.appointmentDatetime)} a las ${this.formatDatetime(a.appointmentDatetime)}`;
+  }
+
+  /** "Agendar": la semana siguiente a la del turno, esperando el click en el horario. */
+  protected onAcceptFollowUp(): void {
+    const offer = this.followUpOffer();
+    if (!offer) {
+      return;
+    }
+    this.followUpOffer.set(null);
+    this.scope.set('mine');
+    this.followUpPick.set(offer.origin);
+    this.selectedDate.set(
+      addDaysToDateString(mondayOf(laPazDateString(new Date(offer.origin.appointmentDatetime))), 7),
+    );
+    void this.load();
+  }
+
+  protected onDismissFollowUp(): void {
+    this.followUpOffer.set(null);
   }
 }
