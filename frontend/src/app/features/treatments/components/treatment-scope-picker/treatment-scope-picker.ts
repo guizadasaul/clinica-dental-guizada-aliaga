@@ -7,7 +7,7 @@ import {
   computed,
   effect,
 } from '@angular/core';
-import { DecimalPipe } from '@angular/common';
+import { DecimalPipe, NgTemplateOutlet } from '@angular/common';
 import type { Treatment, TreatmentApplicationType } from '../../models/treatment.model';
 import type { OdontogramEntry } from '../../../patients/models/patient.model';
 import {
@@ -17,6 +17,17 @@ import {
   applicationTypeImpliesTeeth,
 } from '../../../../shared/constants/dental-chart.constants';
 import type { ToothDef } from '../../../../shared/constants/dental-chart.constants';
+
+interface CategoryChip {
+  readonly id: string;
+  readonly name: string;
+  readonly color: string;
+}
+
+/** Minúsculas y sin tildes: "extraccion" encuentra "Extracción". */
+function normalize(text: string): string {
+  return text.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+}
 
 export interface TreatmentScopeSelection {
   readonly treatment: Treatment;
@@ -53,6 +64,11 @@ const DIAGNOSIS_OPTIONS: { value: string; label: string; color: string }[] = [
  * `single_tooth` el clic ya confirmaba antes de este cambio, y en
  * `multiple_teeth` marcar 1 diente ya es la confirmación.
  *
+ * El tratamiento se elige de un catálogo con buscador, chips de categoría y
+ * "Frecuentes" del doctor (CLI-157) — antes era un <select> con todo el
+ * catálogo. Una vez elegido, el catálogo se colapsa en una tarjeta con
+ * "Cambiar" para que el odontograma quede a la vista.
+ *
  * NOTA (CLI-41): register-treatment ya no usa este componente — pasó a un
  * odontograma SVG interactivo (register-treatment-odontogram/), igual que
  * el flujo de diagnóstico. Este picker queda vivo solo para quote-builder.
@@ -61,7 +77,7 @@ const DIAGNOSIS_OPTIONS: { value: string; label: string; color: string }[] = [
   selector: 'app-treatment-scope-picker',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [DecimalPipe],
+  imports: [DecimalPipe, NgTemplateOutlet],
   templateUrl: './treatment-scope-picker.html',
   styleUrl: './treatment-scope-picker.scss',
 })
@@ -69,11 +85,47 @@ export class TreatmentScopePickerComponent {
   readonly treatments = input.required<Treatment[]>();
   readonly odontogramEntries = input<OdontogramEntry[]>([]);
   readonly treatedTeeth = input<number[]>([]);
+  /** Ids de los tratamientos más usados por el doctor, el más usado primero (CLI-118). */
+  readonly frequentIds = input<string[]>([]);
   readonly selectionChange = output<TreatmentScopeSelection | null>();
 
   protected readonly upperTeeth = UPPER_TEETH;
   protected readonly lowerTeeth = LOWER_TEETH;
   protected readonly diagnosisOptions = DIAGNOSIS_OPTIONS;
+
+  protected readonly search = signal('');
+  /** categoryId elegido en los chips; '' = todas. */
+  protected readonly category = signal('');
+
+  protected readonly categories = computed<CategoryChip[]>(() => {
+    const seen = new Map<string, CategoryChip>();
+    for (const t of this.treatments()) {
+      if (!seen.has(t.categoryId)) {
+        seen.set(t.categoryId, { id: t.categoryId, name: t.categoryName, color: t.categoryColor });
+      }
+    }
+    return [...seen.values()];
+  });
+
+  protected readonly filtered = computed<Treatment[]>(() => {
+    const query = normalize(this.search());
+    const category = this.category();
+    return this.treatments().filter(
+      (t) =>
+        (category === '' || t.categoryId === category) &&
+        (query === '' || normalize(`${t.name} ${t.categoryName}`).includes(query)),
+    );
+  });
+
+  /** Solo sin filtros activos — con búsqueda o categoría manda la lista filtrada. */
+  protected readonly frequent = computed<Treatment[]>(() => {
+    if (this.search().trim() !== '' || this.category() !== '') { return []; }
+    const byId = new Map(this.treatments().map((t) => [t.id, t]));
+    return this.frequentIds()
+      .map((id) => byId.get(id))
+      .filter((t): t is Treatment => t !== undefined)
+      .slice(0, 6);
+  });
 
   protected readonly selectedTreatmentId = signal('');
   protected readonly selectedTeeth = signal<number[]>([]);
@@ -154,6 +206,7 @@ export class TreatmentScopePickerComponent {
   reset(): void {
     this.selectedTreatmentId.set('');
     this.selectedTeeth.set([]);
+    this.search.set('');
   }
 
   protected onTreatmentChange(id: string): void {

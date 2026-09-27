@@ -1,27 +1,96 @@
 <div class="tsp">
 
-  <div class="tsp__field">
-    <label class="tsp__label" for="tsp-treatment">
-      Tratamiento <span class="tsp__req">*</span>
-    </label>
-    <select
-      id="tsp-treatment"
-      class="tsp__input"
-      [value]="selectedTreatmentId()"
-      (change)="onTreatmentChange($any($event.target).value)"
-    >
-      <option value="">-- Seleccioná un tratamiento --</option>
-      @for (t of treatments(); track t.id) {
-        <option [value]="t.id">{{ t.name }} ({{ t.currency === 'USD' ? '$' : 'Bs.' }} {{ t.basePrice }})</option>
+  @if (selectedTreatment(); as t) {
+    <div class="tsp__chosen">
+      <span class="tsp__chosen-dot" [style.background]="t.categoryColor"></span>
+      <div class="tsp__chosen-text">
+        <span class="tsp__chosen-name">{{ t.name }}</span>
+        <span class="tsp__chosen-meta">
+          {{ t.categoryName }} · {{ t.currency === 'USD' ? '$' : 'Bs.' }} {{ t.basePrice | number:'1.2-2' }}
+          @if (t.currency === 'USD' && t.basePriceBob !== null) {
+            <small class="tsp__fx-hint">(aprox. Bs {{ t.basePriceBob | number:'1.2-2' }} al tipo de cambio del día)</small>
+          }
+        </span>
+      </div>
+      <button type="button" class="tsp__chosen-change" (click)="onTreatmentChange('')">
+        <span class="material-symbols-outlined">swap_horiz</span>
+        Cambiar
+      </button>
+    </div>
+  } @else {
+    <div class="tsp__catalog">
+      <div class="tsp__search">
+        <span class="material-symbols-outlined" aria-hidden="true">search</span>
+        <input
+          id="tsp-search"
+          type="search"
+          class="tsp__search-input"
+          placeholder="Buscar tratamiento..."
+          aria-label="Buscar tratamiento"
+          [value]="search()"
+          (input)="search.set($any($event.target).value)"
+        />
+      </div>
+
+      <div class="tsp__chips" role="group" aria-label="Filtrar por categoría">
+        <button
+          type="button"
+          class="tsp__chip"
+          [class.tsp__chip--active]="category() === ''"
+          [attr.aria-pressed]="category() === ''"
+          (click)="category.set('')"
+        >Todas</button>
+        @for (c of categories(); track c.id) {
+          <button
+            type="button"
+            class="tsp__chip"
+            [class.tsp__chip--active]="category() === c.id"
+            [attr.aria-pressed]="category() === c.id"
+            (click)="category.set(c.id)"
+          >
+            <span class="tsp__chip-dot" [style.background]="c.color"></span>
+            {{ c.name }}
+          </button>
+        }
+      </div>
+
+      @if (frequent().length > 0) {
+        <p class="tsp__section-title">Frecuentes</p>
+        <div class="tsp__grid">
+          @for (t of frequent(); track t.id) {
+            <ng-container [ngTemplateOutlet]="card" [ngTemplateOutletContext]="{ $implicit: t }" />
+          }
+        </div>
+        <p class="tsp__section-title">Todos</p>
       }
-    </select>
-    @if (selectedTreatment()?.currency === 'USD' && selectedTreatment()?.basePriceBob !== null) {
-      <small class="tsp__fx-hint">aprox. Bs {{ selectedTreatment()!.basePriceBob | number:'1.2-2' }} al tipo de cambio del día</small>
-    }
-  </div>
+
+      @if (filtered().length > 0) {
+        <div class="tsp__grid">
+          @for (t of filtered(); track t.id) {
+            <ng-container [ngTemplateOutlet]="card" [ngTemplateOutletContext]="{ $implicit: t }" />
+          }
+        </div>
+      } @else {
+        <p class="tsp__hint">No hay tratamientos que coincidan con la búsqueda.</p>
+      }
+    </div>
+
+    <ng-template #card let-t>
+      <button
+        type="button"
+        class="tsp__card"
+        [attr.data-treatment-id]="t.id"
+        (click)="onTreatmentChange(t.id)"
+      >
+        <span class="tsp__card-bar" [style.background]="t.categoryColor"></span>
+        <span class="tsp__card-name">{{ t.name }}</span>
+        <span class="tsp__card-price">{{ t.currency === 'USD' ? '$' : 'Bs.' }} {{ t.basePrice | number:'1.2-2' }}</span>
+      </button>
+    </ng-template>
+  }
 
   @if (!selectedTreatment()) {
-    <p class="tsp__hint">Elegí un tratamiento para continuar.</p>
+    <p class="tsp__hint">Elegí un tratamiento del catálogo para continuar.</p>
   } @else if (!showOdontogram()) {
     <p class="tsp__hint">Este tratamiento no requiere seleccionar un diente.</p>
   } @else {

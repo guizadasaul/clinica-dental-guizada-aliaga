@@ -35,6 +35,11 @@ export class QuotesService {
     return this.http.delete<Quote>(`${this.quotesBase}/${quoteId}/items/${itemId}`);
   }
 
+  /** "Guardar y compartir" (CLI-156): desde acá el paciente lo ve en su panel. */
+  share(quoteId: string): Observable<Quote> {
+    return this.http.post<Quote>(`${this.quotesBase}/${quoteId}/share`, {});
+  }
+
   addPayment(quoteId: string, data: AddPaymentRequest): Observable<Quote> {
     return this.http.post<Quote>(`${this.quotesBase}/${quoteId}/payments`, data);
   }
