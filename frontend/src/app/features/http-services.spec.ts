@@ -5,6 +5,7 @@ import type { Observable } from 'rxjs';
 import { PatientsService } from './patients/services/patients.service';
 import { ReportsService } from './reports/services/reports.service';
 import { QuotesService } from './quotes/services/quotes.service';
+import { FinancesService } from './finances/services/finances.service';
 import { PatientInvitesService } from './patient-invites/services/patient-invites.service';
 import { AppointmentsService } from './appointments/services/appointments.service';
 import { BookingService } from './booking/services/booking.service';
@@ -26,6 +27,7 @@ function services() {
     patients: TestBed.inject(PatientsService),
     reports: TestBed.inject(ReportsService),
     quotes: TestBed.inject(QuotesService),
+    finances: TestBed.inject(FinancesService),
     invites: TestBed.inject(PatientInvitesService),
     appointments: TestBed.inject(AppointmentsService),
     booking: TestBed.inject(BookingService),
@@ -221,6 +223,39 @@ function cases(s: ReturnType<typeof services>): Case[] {
       call: () => s.quotes.getMine(),
       method: 'GET',
       url: `${API}/patients/me/quotes`,
+    },
+    {
+      name: 'finanzas: pacientes con saldo',
+      call: () => s.finances.listPatients(),
+      method: 'GET',
+      url: `${API}/finances/patients`,
+    },
+    {
+      name: 'finanzas: detalle del paciente',
+      call: () => s.finances.getPatientDetail('p1'),
+      method: 'GET',
+      url: `${API}/finances/patients/p1`,
+    },
+    {
+      name: 'finanzas: generar QR',
+      call: () => s.finances.createQrCharge('q1', 150),
+      method: 'POST',
+      url: `${API}/finances/quotes/q1/qr-charges`,
+      body: { amount: 150 },
+    },
+    {
+      name: 'finanzas: verificar QR',
+      call: () => s.finances.verifyQrCharge('c1'),
+      method: 'POST',
+      url: `${API}/finances/qr-charges/c1/verify`,
+      body: {},
+    },
+    {
+      name: 'finanzas: anular QR',
+      call: () => s.finances.cancelQrCharge('c1'),
+      method: 'POST',
+      url: `${API}/finances/qr-charges/c1/cancel`,
+      body: {},
     },
     {
       name: 'invitaciones: enviar',
