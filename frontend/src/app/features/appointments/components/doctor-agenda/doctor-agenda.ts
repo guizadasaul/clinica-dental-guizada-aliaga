@@ -7,6 +7,7 @@ import {
   computed,
   effect,
   untracked,
+  DestroyRef,
 } from '@angular/core';
 import { NgTemplateOutlet } from '@angular/common';
 import { firstValueFrom } from 'rxjs';
@@ -14,7 +15,12 @@ import { AppointmentsService } from '../../services/appointments.service';
 import { AuthService } from '../../../../auth/application/auth.service';
 import { FALLBACK_DOCTOR_COLOR } from '../../../../shared/constants/doctor-colors';
 import { PatientWizardComponent } from '../../../patients/components/patient-wizard/patient-wizard';
-import type { AppointmentAgendaItem } from '../../models/appointment.model';
+import type { AppointmentAgendaItem, DoctorScheduleBlock } from '../../models/appointment.model';
+import { isWithinSchedule, minutesToHhmm } from '../../models/clinic-schedule.util';
+import {
+  BookAppointmentDialogComponent,
+  type AgendaSlot,
+} from '../book-appointment-dialog/book-appointment-dialog';
 import { appointmentPatientLabel } from '../../models/appointment-patient-label';
 import { PageHeaderComponent } from '../../../../shared/ui/page-header/page-header';
 
@@ -133,6 +139,16 @@ interface SlotLane {
   readonly lanes: number;
 }
 
+/** Franja de 30 min de un día: clickeable para agendar si está libre y es futura (CLI-150). */
+interface AgendaCell {
+  readonly minutes: number;
+  readonly offset: number;
+  /** Fuera del horario de atención del doctor — se sombrea. */
+  readonly offHours: boolean;
+  readonly bookable: boolean;
+  readonly label: string;
+}
+
 interface DoctorLegendItem {
   readonly id: string;
   readonly name: string;
@@ -145,8 +161,7 @@ interface DoctorLegendItem {
  * solapamiento usan el mismo ancho (el del grupo más ancho).
  */
 function assignLanes(
-  starts: readonly { id: string; start: number }[],
-  durationMinutes: number,
+  starts: readonly { id: string; start: number; duration: number }[],
 ): Map<string, SlotLane> {
   const sorted = [...starts].sort((a, b) => a.start - b.start || a.id.localeCompare(b.id));
   const result = new Map<string, SlotLane>();
@@ -171,8 +186,8 @@ function assignLanes(
       lane = laneEnds.length;
       laneEnds.push(0);
     }
-    laneEnds[lane] = s.start + durationMinutes;
-    groupEnd = Math.max(groupEnd, s.start + durationMinutes);
+    laneEnds[lane] = s.start + s.duration;
+    groupEnd = Math.max(groupEnd, s.start + s.duration);
     group.push({ id: s.id, lane });
   }
   flush();
@@ -183,7 +198,12 @@ function assignLanes(
   selector: 'app-doctor-agenda',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [PageHeaderComponent, PatientWizardComponent, NgTemplateOutlet],
+  imports: [
+    PageHeaderComponent,
+    PatientWizardComponent,
+    BookAppointmentDialogComponent,
+    NgTemplateOutlet,
+  ],
   templateUrl: './doctor-agenda.html',
   styleUrl: './doctor-agenda.scss',
 })
@@ -264,6 +284,25 @@ export class DoctorAgendaComponent {
   protected readonly error = signal<string | null>(null);
 
   protected readonly historyPatientId = signal<string | null>(null);
+
+  /**
+   * CLI-150: solo en la agenda propia del doctor (ni en la común, ni en la
+   * vista de solo lectura del admin) se agenda haciendo click en un horario.
+   */
+  protected readonly canBook = computed(
+    () =>
+      this.effectiveScope() === 'mine' &&
+      !this.readOnly() &&
+      !this.allDoctors() &&
+      !this.doctorId(),
+  );
+  /** Horario de atención del doctor — sombrea lo que queda fuera. */
+  protected readonly schedule = signal<DoctorScheduleBlock[]>([]);
+  /** Horario clickeado: con valor, el modal de "Agendar cita" está abierto. */
+  protected readonly bookingSlot = signal<AgendaSlot | null>(null);
+  /** Confirmación breve después de agendar. */
+  protected readonly notice = signal<string | null>(null);
+  private noticeTimer: ReturnType<typeof setTimeout> | undefined;
 
   // Semana completa (lunes a domingo), siempre — nunca arranca en el día
   // actual. Sábado y domingo comparten una sexta columna del mismo ancho
@@ -354,13 +393,61 @@ export class DoctorAgendaComponent {
     for (const appts of this.appointmentsByDate().values()) {
       const starts = appts.map((a) => {
         const { hour, minute } = laPazHourMinute(a.appointmentDatetime);
-        return { id: a.id, start: hour * 60 + minute };
+        return { id: a.id, start: hour * 60 + minute, duration: this.durationOf(a) };
       });
-      for (const [id, lane] of assignLanes(starts, this.SLOT_MINUTES)) {
+      for (const [id, lane] of assignLanes(starts)) {
         lanes.set(id, lane);
       }
     }
     return lanes;
+  });
+
+  /** Franjas de cada día visible, con qué está libre para agendar y qué cae fuera de horario. */
+  protected readonly cellsByDate = computed(() => {
+    const cells = new Map<string, AgendaCell[]>();
+    if (!this.canBook()) {
+      return cells;
+    }
+    const now = Date.now();
+    const schedule = this.schedule();
+    for (const date of this.visibleDates()) {
+      const busy = this.appointmentsFor(date).map((a) => {
+        const { hour, minute } = laPazHourMinute(a.appointmentDatetime);
+        const start = hour * 60 + minute;
+        return { start, end: start + this.durationOf(a) };
+      });
+      const dayCells: AgendaCell[] = [];
+      for (let i = 0; i < this.totalSlots; i++) {
+        const minutes = this.GRID_START_HOUR * 60 + i * this.SLOT_MINUTES;
+        const occupied = busy.some((b) => b.start < minutes + this.SLOT_MINUTES && minutes < b.end);
+        const past = new Date(`${date}T${minutesToHhmm(minutes)}:00-04:00`).getTime() <= now;
+        dayCells.push({
+          minutes,
+          offset: i * this.ROW_HEIGHT_PX,
+          offHours:
+            schedule.length > 0 && !isWithinSchedule(schedule, date, minutes, this.SLOT_MINUTES),
+          bookable: !occupied && !past,
+          label: `Agendar el ${this.dayLabel(date)} a las ${minutesToHhmm(minutes)}`,
+        });
+      }
+      cells.set(date, dayCells);
+    }
+    return cells;
+  });
+
+  /** Minutos en que empieza la próxima cita del día después del horario elegido (el modal avisa si la duración la pisa). */
+  protected readonly nextBusyMinutes = computed(() => {
+    const slot = this.bookingSlot();
+    if (!slot) {
+      return null;
+    }
+    const starts = this.appointmentsFor(slot.date)
+      .map((a) => {
+        const { hour, minute } = laPazHourMinute(a.appointmentDatetime);
+        return hour * 60 + minute;
+      })
+      .filter((start) => start > slot.minutes);
+    return starts.length > 0 ? Math.min(...starts) : null;
   });
 
   constructor() {
@@ -375,6 +462,70 @@ export class DoctorAgendaComponent {
       },
       { allowSignalWrites: true },
     );
+    inject(DestroyRef).onDestroy(() => clearTimeout(this.noticeTimer));
+    effect(
+      () => {
+        if (this.canBook()) {
+          untracked(() => void this.loadSchedule());
+        }
+      },
+      { allowSignalWrites: true },
+    );
+  }
+
+  /** Sin horario cargado solo no se sombrea nada — agendar sigue funcionando. */
+  private async loadSchedule(): Promise<void> {
+    if (this.schedule().length > 0) {
+      return;
+    }
+    try {
+      this.schedule.set(await firstValueFrom(this.appointmentsService.getMySchedule()));
+    } catch {
+      this.schedule.set([]);
+    }
+  }
+
+  private dayLabel(date: string): string {
+    const { weekday, dayNum } = this.dayHeaderParts(date);
+    return `${weekday.toLowerCase()} ${dayNum}`;
+  }
+
+  /** Duración real del turno — una cita vieja sin el dato ocupa una franja. */
+  protected durationOf(a: AppointmentAgendaItem): number {
+    return a.durationMinutes > 0 ? a.durationMinutes : this.SLOT_MINUTES;
+  }
+
+  protected apptHeightPx(a: AppointmentAgendaItem): number {
+    return (this.durationOf(a) / this.SLOT_MINUTES) * this.ROW_HEIGHT_PX;
+  }
+
+  protected cellsFor(date: string): AgendaCell[] {
+    return this.cellsByDate().get(date) ?? [];
+  }
+
+  protected onBookSlot(date: string, cell: AgendaCell): void {
+    if (!this.canBook() || !cell.bookable) {
+      return;
+    }
+    this.bookingSlot.set({ date, minutes: cell.minutes });
+  }
+
+  protected onBookingClosed(): void {
+    this.bookingSlot.set(null);
+  }
+
+  protected onBooked(created: AppointmentAgendaItem): void {
+    this.bookingSlot.set(null);
+    this.showNotice(
+      `Cita agendada: ${this.patientLabel(created)} · ${this.formatDatetime(created.appointmentDatetime)}`,
+    );
+    void this.load();
+  }
+
+  private showNotice(text: string): void {
+    this.notice.set(text);
+    clearTimeout(this.noticeTimer);
+    this.noticeTimer = setTimeout(() => this.notice.set(null), 5000);
   }
 
   private dayHeaderParts(dateStr: string): { weekday: string; dayNum: string } {
@@ -451,6 +602,12 @@ export class DoctorAgendaComponent {
       this.patientLabel(a),
       this.patientPhone(a),
     ];
+    if (a.treatmentName) {
+      parts.push(a.treatmentName);
+    }
+    if (a.source === 'doctor') {
+      parts.push('Agendada por el doctor');
+    }
     if (this.effectiveScope() === 'all') {
       parts.unshift(a.doctorName ?? 'Doctor');
     }

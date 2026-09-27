@@ -102,6 +102,12 @@ function agendaItem(overrides: Partial<AppointmentAgendaItem> = {}): Appointment
     doctorId: 'doctor-1',
     doctorName: null,
     doctorColor: null,
+    durationMinutes: 30,
+    source: 'public_web',
+    treatmentId: null,
+    treatmentName: null,
+    notes: null,
+    cancelledAt: null,
     ...overrides,
   };
 }

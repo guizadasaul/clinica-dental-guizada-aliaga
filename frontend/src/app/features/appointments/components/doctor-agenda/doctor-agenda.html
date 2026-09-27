@@ -33,16 +33,57 @@
       [class.agenda-slot--readonly]="!canOpen(appt)"
       [style.--slot-color]="slotColor(appt)"
       [style.top.px]="apptTopPx(appt)"
-      [style.height.px]="ROW_HEIGHT_PX"
+      [style.height.px]="apptHeightPx(appt)"
       [style.left]="slotLeft(appt)"
       [style.width]="slotWidth(appt)"
       [attr.title]="slotTitle(appt)"
       (click)="onOpenHistory(appt)"
     >
-      <span class="agenda-slot__time">{{ formatDatetime(appt.appointmentDatetime) }}</span>
+      <span class="agenda-slot__time">
+        {{ formatDatetime(appt.appointmentDatetime) }}
+        @if (appt.source === 'doctor') {
+          <span class="material-symbols-outlined agenda-slot__source" aria-hidden="true">event_repeat</span>
+        }
+      </span>
       <span class="agenda-slot__patient">{{ patientLabel(appt) }}</span>
     </button>
   </ng-template>
+
+  <!-- CLI-150: franjas de un día — las libres y futuras se clickean para agendar. -->
+  <ng-template #cellsTpl let-date>
+    @for (cell of cellsFor(date); track cell.minutes) {
+      @if (cell.bookable) {
+        <button
+          type="button"
+          class="agenda-cell"
+          [class.agenda-cell--off]="cell.offHours"
+          [style.top.px]="cell.offset"
+          [style.height.px]="ROW_HEIGHT_PX"
+          [attr.aria-label]="cell.label"
+          [attr.title]="cell.label"
+          (click)="onBookSlot(date, cell)"
+        >
+          <span class="material-symbols-outlined agenda-cell__plus" aria-hidden="true">add</span>
+        </button>
+      } @else if (cell.offHours) {
+        <div
+          class="agenda-cell agenda-cell--off agenda-cell--static"
+          [style.top.px]="cell.offset"
+          [style.height.px]="ROW_HEIGHT_PX"
+        ></div>
+      }
+    }
+  </ng-template>
+
+  @if (bookingSlot(); as slot) {
+    <app-book-appointment-dialog
+      [slot]="slot"
+      [schedule]="schedule()"
+      [nextBusyMinutes]="nextBusyMinutes()"
+      (booked)="onBooked($event)"
+      (closed)="onBookingClosed()"
+    />
+  }
 
   @if (historyPatientId(); as patientId) {
     <app-patient-wizard
@@ -80,6 +121,17 @@
 
     @if (error()) {
       <p class="agenda__error" role="alert">{{ error() }}</p>
+    }
+
+    @if (notice()) {
+      <output class="agenda__notice">
+        <span class="material-symbols-outlined" aria-hidden="true">check_circle</span>
+        {{ notice() }}
+      </output>
+    }
+
+    @if (canBook()) {
+      <p class="agenda__hint agenda__hint--inline">Hacé click en un horario libre para agendar una cita.</p>
     }
 
     @if (loading()) {
@@ -120,6 +172,7 @@
                         }
                       </div>
                     }
+                    <ng-container *ngTemplateOutlet="cellsTpl; context: { $implicit: day.date }" />
                     @for (appt of appointmentsFor(day.date); track appt.id) {
                       <ng-container *ngTemplateOutlet="slotTpl; context: { $implicit: appt }" />
                     }
@@ -145,6 +198,7 @@
                         }
                       </div>
                     }
+                    <ng-container *ngTemplateOutlet="cellsTpl; context: { $implicit: day.weekendSecond!.date }" />
                     @for (appt of appointmentsFor(day.weekendSecond!.date); track appt.id) {
                       <ng-container *ngTemplateOutlet="slotTpl; context: { $implicit: appt }" />
                     }
@@ -164,6 +218,7 @@
                     [style.top.px]="line.offset"
                   ></div>
                 }
+                <ng-container *ngTemplateOutlet="cellsTpl; context: { $implicit: day.date }" />
                 @for (appt of appointmentsFor(day.date); track appt.id) {
                   <ng-container *ngTemplateOutlet="slotTpl; context: { $implicit: appt }" />
                 }

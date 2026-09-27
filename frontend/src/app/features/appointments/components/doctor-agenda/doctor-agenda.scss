@@ -68,6 +68,35 @@
   &__hint {
     color: var(--color-text-muted);
     font-size: 0.875rem;
+
+    &--inline {
+      margin: 0;
+    }
+  }
+
+  // Flotante: si empujara la grilla, al desaparecer la movería bajo el cursor.
+  &__notice {
+    position: fixed;
+    bottom: var(--space-6);
+    left: 50%;
+    z-index: 50;
+    transform: translateX(-50%);
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    margin: 0;
+    box-shadow: var(--shadow-md);
+    padding: 0.625rem 0.875rem;
+    border: 1px solid #86efac;
+    border-radius: 0.5rem;
+    background: var(--color-success-light);
+    color: #166534;
+    font-size: 0.875rem;
+    font-weight: 600;
+
+    .material-symbols-outlined {
+      font-size: 1.125rem;
+    }
   }
 
   &__nav {
@@ -123,7 +152,6 @@
       color: #fff;
     }
   }
-
 }
 
 // ─── Time grid ────────────────────────────────────────────────────────────────
@@ -243,6 +271,9 @@
     right: 0;
     border-top: 1px solid var(--color-surface-dim);
     padding-left: 0.25rem;
+    // Las etiquetas de hora quedan por encima de las franjas para agendar (CLI-150).
+    z-index: 1;
+    pointer-events: none;
 
     &--hour {
       border-top-color: var(--color-border);
@@ -295,6 +326,7 @@
   --slot-color: var(--color-tertiary);
 
   position: absolute;
+  z-index: 2;
   display: flex;
   flex-direction: column;
   justify-content: center;
@@ -334,4 +366,62 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.agenda-slot__source {
+  font-size: 0.75rem;
+  vertical-align: -0.125rem;
+  margin-left: 0.125rem;
+}
+
+// CLI-150: franjas de 30 min detrás de los turnos. Las libres se clickean
+// para agendar; las que caen fuera del horario de atención se sombrean.
+.agenda-cell {
+  position: absolute;
+  left: 0;
+  right: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+
+  &--off {
+    background: repeating-linear-gradient(
+      -45deg,
+      var(--color-surface-dim),
+      var(--color-surface-dim) 4px,
+      transparent 4px,
+      transparent 8px
+    );
+  }
+
+  &--static {
+    pointer-events: none;
+    cursor: default;
+  }
+
+  &:hover,
+  &:focus-visible {
+    background: color-mix(in srgb, var(--color-primary) 18%, transparent);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: -2px;
+  }
+}
+
+.agenda-cell__plus {
+  font-size: 1.125rem;
+  color: var(--color-text-muted);
+  opacity: 0;
+  transition: opacity var(--transition-fast);
+
+  .agenda-cell:hover &,
+  .agenda-cell:focus-visible & {
+    opacity: 1;
+  }
 }

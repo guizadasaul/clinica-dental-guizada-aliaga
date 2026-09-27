@@ -250,6 +250,19 @@ function cases(s: ReturnType<typeof services>): Case[] {
       },
     },
     {
+      name: 'agenda: el doctor agenda una cita (CLI-148)',
+      call: () => s.appointments.createByDoctor(body),
+      method: 'POST',
+      url: `${API}/appointments/doctor`,
+      body,
+    },
+    {
+      name: 'agenda: horario propio del doctor (CLI-148)',
+      call: () => s.appointments.getMySchedule(),
+      method: 'GET',
+      url: `${API}/appointments/my-schedule`,
+    },
+    {
       name: 'reserva: doctores',
       call: () => s.booking.getDoctors(),
       method: 'GET',
