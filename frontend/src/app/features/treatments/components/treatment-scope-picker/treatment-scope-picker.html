@@ -32,7 +32,8 @@
         />
       </div>
 
-      <div class="tsp__chips" role="group" aria-label="Filtrar por categoría">
+      <fieldset class="tsp__chips">
+        <legend class="tsp__sr-only">Filtrar por categoría</legend>
         <button
           type="button"
           class="tsp__chip"
@@ -52,7 +53,7 @@
             {{ c.name }}
           </button>
         }
-      </div>
+      </fieldset>
 
       @if (frequent().length > 0) {
         <p class="tsp__section-title">Frecuentes</p>

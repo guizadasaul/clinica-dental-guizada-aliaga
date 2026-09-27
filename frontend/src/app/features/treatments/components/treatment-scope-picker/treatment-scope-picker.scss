@@ -71,11 +71,23 @@
     color: var(--color-gray-900);
   }
 
+  &__sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
   &__chips {
+    min-width: 0;
+    margin: 0;
+    padding: 0 0 0.25rem;
+    border: none;
     display: flex;
     gap: 0.375rem;
     overflow-x: auto;
-    padding-bottom: 0.25rem;
     scrollbar-width: thin;
   }
 

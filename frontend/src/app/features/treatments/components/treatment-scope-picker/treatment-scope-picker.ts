@@ -65,8 +65,8 @@ const DIAGNOSIS_OPTIONS: { value: string; label: string; color: string }[] = [
  * `multiple_teeth` marcar 1 diente ya es la confirmación.
  *
  * El tratamiento se elige de un catálogo con buscador, chips de categoría y
- * "Frecuentes" del doctor (CLI-157) — antes era un <select> con todo el
- * catálogo. Una vez elegido, el catálogo se colapsa en una tarjeta con
+ * "Frecuentes" del doctor (CLI-157) — antes era un <select> con el catálogo
+ * completo. Una vez elegido, el catálogo se colapsa en una tarjeta con
  * "Cambiar" para que el odontograma quede a la vista.
  *
  * NOTA (CLI-41): register-treatment ya no usa este componente — pasó a un
