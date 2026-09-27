@@ -257,6 +257,27 @@ function cases(s: ReturnType<typeof services>): Case[] {
       body,
     },
     {
+      name: 'agenda: reprogramar una cita propia (CLI-149)',
+      call: () => s.appointments.rescheduleByDoctor('appt-1', body),
+      method: 'PATCH',
+      url: `${API}/appointments/doctor/appt-1`,
+      body,
+    },
+    {
+      name: 'agenda: cancelar con motivo (CLI-149)',
+      call: () => s.appointments.cancelByDoctor('appt-1', 'no puede venir'),
+      method: 'POST',
+      url: `${API}/appointments/doctor/appt-1/cancel`,
+      body: { reason: 'no puede venir' },
+    },
+    {
+      name: 'agenda: cancelar sin motivo (CLI-149)',
+      call: () => s.appointments.cancelByDoctor('appt-1'),
+      method: 'POST',
+      url: `${API}/appointments/doctor/appt-1/cancel`,
+      body: {},
+    },
+    {
       name: 'agenda: horario propio del doctor (CLI-148)',
       call: () => s.appointments.getMySchedule(),
       method: 'GET',

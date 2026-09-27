@@ -8,6 +8,7 @@ import {
   inject,
   input,
   output,
+  type OnInit,
   signal,
   viewChild,
 } from '@angular/core';
@@ -23,6 +24,7 @@ import {
   type CatalogPickerItem,
 } from '../../../../shared/ui/catalog-picker/catalog-picker';
 import type { AppointmentAgendaItem, DoctorScheduleBlock } from '../../models/appointment.model';
+import { appointmentPatientLabel } from '../../models/appointment-patient-label';
 import { clinicSlotIso, isWithinSchedule, minutesToHhmm } from '../../models/clinic-schedule.util';
 
 /** Horario clickeado en la grilla: día de Bolivia + minutos desde la medianoche. */
@@ -34,6 +36,7 @@ export interface AgendaSlot {
 /** Duraciones que acepta el backend (CLI-148): múltiplos de 30 min, hasta 4 h. */
 const DURATIONS = [30, 60, 90, 120, 150, 180, 210, 240];
 const MAX_DURATION = DURATIONS.at(-1)!;
+const SLOT_TAKEN = 'Ya tenés una cita en ese horario. Elegí otro horario u otra duración.';
 
 const LONG_DATE_FORMATTER = new Intl.DateTimeFormat('es-BO', {
   timeZone: 'America/La_Paz',
@@ -73,7 +76,7 @@ function backendMessage(err: unknown): string | null {
   templateUrl: './book-appointment-dialog.html',
   styleUrl: './book-appointment-dialog.scss',
 })
-export class BookAppointmentDialogComponent {
+export class BookAppointmentDialogComponent implements OnInit {
   private readonly appointmentsService = inject(AppointmentsService);
   private readonly patientsService = inject(PatientsService);
   private readonly treatmentsService = inject(TreatmentsService);
@@ -85,6 +88,12 @@ export class BookAppointmentDialogComponent {
   readonly schedule = input<readonly DoctorScheduleBlock[]>([]);
   /** Minutos del día en que empieza la próxima cita del doctor, si hay — una duración más larga la pisaría. */
   readonly nextBusyMinutes = input<number | null>(null);
+  /**
+   * CLI-151: con una cita, el modal la reprograma al horario clickeado en vez
+   * de crear una nueva — paciente y tratamiento quedan fijos, duración y
+   * notas arrancan con las de la cita.
+   */
+  readonly appointment = input<AppointmentAgendaItem | null>(null);
 
   readonly booked = output<AppointmentAgendaItem>();
   readonly closed = output<void>();
@@ -168,14 +177,32 @@ export class BookAppointmentDialogComponent {
     return next === null ? '' : minutesToHhmm(next);
   });
 
+  protected readonly isReschedule = computed(() => this.appointment() !== null);
+  protected readonly appointmentPatient = computed(() => {
+    const appointment = this.appointment();
+    return appointment ? appointmentPatientLabel(appointment) : '';
+  });
+
   protected readonly canSubmit = computed(
-    () => !!this.patientId() && !this.overlapsNext() && !this.submitting(),
+    () => (this.isReschedule() || !!this.patientId()) && !this.overlapsNext() && !this.submitting(),
   );
 
   constructor() {
     this.scrollLock.lock();
     inject(DestroyRef).onDestroy(() => this.scrollLock.unlock());
     afterNextRender(() => this.panel()?.nativeElement.focus());
+  }
+
+  ngOnInit(): void {
+    const appointment = this.appointment();
+    if (appointment) {
+      this.duration.set(
+        DURATIONS.includes(appointment.durationMinutes)
+          ? appointment.durationMinutes
+          : durationForTreatment(appointment.durationMinutes),
+      );
+      this.notes.set(appointment.notes ?? '');
+    }
   }
 
   protected onPatientChange(id: string): void {
@@ -200,34 +227,44 @@ export class BookAppointmentDialogComponent {
   }
 
   protected async onSubmit(): Promise<void> {
-    const patientId = this.patientId();
-    if (!patientId || !this.canSubmit()) {
+    if (!this.canSubmit()) {
       return;
     }
     this.submitting.set(true);
     this.error.set(null);
-    const { date, minutes } = this.slot();
     try {
-      const created = await firstValueFrom(
-        this.appointmentsService.createByDoctor({
-          patientId,
-          appointmentDatetime: clinicSlotIso(date, minutes),
-          treatmentId: this.treatmentId() ?? undefined,
-          durationMinutes: this.duration(),
-          notes: this.notes().trim() || undefined,
-        }),
-      );
-      this.booked.emit(created);
+      this.booked.emit(await firstValueFrom(this.save()));
     } catch (err) {
       const status = (err as { status?: number } | null)?.status;
       this.error.set(
         status === 409
-          ? 'Ya tenés una cita en ese horario. Elegí otro horario u otra duración.'
-          : (backendMessage(err) ?? 'No pudimos agendar la cita. Probá de nuevo.'),
+          ? (backendMessage(err) ?? SLOT_TAKEN)
+          : (backendMessage(err) ?? 'No pudimos guardar la cita. Probá de nuevo.'),
       );
     } finally {
       this.submitting.set(false);
     }
+  }
+
+  /** Crea la cita nueva, o mueve la existente al horario clickeado (CLI-151). */
+  private save() {
+    const { date, minutes } = this.slot();
+    const appointmentDatetime = clinicSlotIso(date, minutes);
+    const appointment = this.appointment();
+    if (appointment) {
+      return this.appointmentsService.rescheduleByDoctor(appointment.id, {
+        appointmentDatetime,
+        durationMinutes: this.duration(),
+        notes: this.notes().trim(),
+      });
+    }
+    return this.appointmentsService.createByDoctor({
+      patientId: this.patientId()!,
+      appointmentDatetime,
+      treatmentId: this.treatmentId() ?? undefined,
+      durationMinutes: this.duration(),
+      notes: this.notes().trim() || undefined,
+    });
   }
 
   protected close(): void {

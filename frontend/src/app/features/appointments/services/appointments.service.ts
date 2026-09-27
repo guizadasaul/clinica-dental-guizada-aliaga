@@ -3,7 +3,10 @@ import { HttpClient } from '@angular/common/http';
 import type { Observable } from 'rxjs';
 import { environment } from '../../../../environments/environment';
 import type { AppointmentAgendaItem, DoctorScheduleBlock } from '../models/appointment.model';
-import type { CreateDoctorAppointmentRequest } from '../models/appointment.request';
+import type {
+  CreateDoctorAppointmentRequest,
+  RescheduleDoctorAppointmentRequest,
+} from '../models/appointment.request';
 
 export interface AgendaFilters {
   status?: string;
@@ -43,6 +46,22 @@ export class AppointmentsService {
   /** CLI-148: el doctor agenda una cita para un paciente con ficha. */
   createByDoctor(request: CreateDoctorAppointmentRequest): Observable<AppointmentAgendaItem> {
     return this.http.post<AppointmentAgendaItem>(`${this.base}/doctor`, request);
+  }
+
+  /** CLI-149: mueve una cita confirmada propia a otro horario. */
+  rescheduleByDoctor(
+    id: string,
+    request: RescheduleDoctorAppointmentRequest,
+  ): Observable<AppointmentAgendaItem> {
+    return this.http.patch<AppointmentAgendaItem>(`${this.base}/doctor/${id}`, request);
+  }
+
+  /** CLI-149: cancela una cita confirmada propia (idempotente). */
+  cancelByDoctor(id: string, reason?: string): Observable<AppointmentAgendaItem> {
+    return this.http.post<AppointmentAgendaItem>(
+      `${this.base}/doctor/${id}/cancel`,
+      reason ? { reason } : {},
+    );
   }
 
   /** CLI-148: horario de atención del doctor logueado. */

@@ -74,6 +74,46 @@
     }
   }
 
+  // CLI-151: flotante arriba — si empujara la grilla, el click en el horario
+  // nuevo caería en otra franja.
+  &__pick {
+    position: fixed;
+    top: var(--space-4);
+    left: 50%;
+    z-index: 50;
+    transform: translateX(-50%);
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    padding: 0.625rem 0.875rem 0.625rem 1rem;
+    border-radius: var(--radius-full);
+    background: var(--color-text);
+    color: var(--color-cream);
+    font-size: 0.875rem;
+    box-shadow: var(--shadow-md);
+
+    .material-symbols-outlined {
+      font-size: 1.125rem;
+    }
+  }
+
+  &__pick-cancel {
+    padding: 0.25rem 0.75rem;
+    border: 1px solid rgb(255 255 255 / 0.4);
+    border-radius: var(--radius-full);
+    background: transparent;
+    color: var(--color-cream);
+    font-family: inherit;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    cursor: pointer;
+
+    &:focus-visible {
+      outline: 2px solid var(--color-primary);
+      outline-offset: 2px;
+    }
+  }
+
   // Flotante: si empujara la grilla, al desaparecer la movería bajo el cursor.
   &__notice {
     position: fixed;
@@ -347,6 +387,13 @@
 
   &--readonly {
     cursor: default;
+  }
+
+  // CLI-151: la cita que se está reprogramando deja libres sus franjas.
+  &--moving {
+    opacity: 0.45;
+    pointer-events: none;
+    border-left-style: dashed;
   }
 }
 

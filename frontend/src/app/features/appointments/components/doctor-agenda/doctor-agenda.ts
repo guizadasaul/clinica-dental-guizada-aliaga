@@ -8,6 +8,7 @@ import {
   effect,
   untracked,
   DestroyRef,
+  HostListener,
 } from '@angular/core';
 import { NgTemplateOutlet } from '@angular/common';
 import { firstValueFrom } from 'rxjs';
@@ -21,6 +22,7 @@ import {
   BookAppointmentDialogComponent,
   type AgendaSlot,
 } from '../book-appointment-dialog/book-appointment-dialog';
+import { AppointmentDetailDialogComponent } from '../appointment-detail-dialog/appointment-detail-dialog';
 import { appointmentPatientLabel } from '../../models/appointment-patient-label';
 import { PageHeaderComponent } from '../../../../shared/ui/page-header/page-header';
 
@@ -202,6 +204,7 @@ function assignLanes(
     PageHeaderComponent,
     PatientWizardComponent,
     BookAppointmentDialogComponent,
+    AppointmentDetailDialogComponent,
     NgTemplateOutlet,
   ],
   templateUrl: './doctor-agenda.html',
@@ -300,6 +303,10 @@ export class DoctorAgendaComponent {
   protected readonly schedule = signal<DoctorScheduleBlock[]>([]);
   /** Horario clickeado: con valor, el modal de "Agendar cita" está abierto. */
   protected readonly bookingSlot = signal<AgendaSlot | null>(null);
+  /** CLI-151: turno propio clickeado — con valor, el detalle está abierto. */
+  protected readonly detailAppointment = signal<AppointmentAgendaItem | null>(null);
+  /** CLI-151: cita que se está reprogramando — la agenda espera el click en el horario nuevo. */
+  protected readonly rescheduling = signal<AppointmentAgendaItem | null>(null);
   /** Confirmación breve después de agendar. */
   protected readonly notice = signal<string | null>(null);
   private noticeTimer: ReturnType<typeof setTimeout> | undefined;
@@ -411,7 +418,10 @@ export class DoctorAgendaComponent {
     const now = Date.now();
     const schedule = this.schedule();
     for (const date of this.visibleDates()) {
-      const busy = this.appointmentsFor(date).map((a) => {
+      const movingId = this.rescheduling()?.id;
+      const busy = this.appointmentsFor(date)
+        .filter((a) => a.id !== movingId)
+        .map((a) => {
         const { hour, minute } = laPazHourMinute(a.appointmentDatetime);
         const start = hour * 60 + minute;
         return { start, end: start + this.durationOf(a) };
@@ -441,7 +451,9 @@ export class DoctorAgendaComponent {
     if (!slot) {
       return null;
     }
+    const movingId = this.rescheduling()?.id;
     const starts = this.appointmentsFor(slot.date)
+      .filter((a) => a.id !== movingId)
       .map((a) => {
         const { hour, minute } = laPazHourMinute(a.appointmentDatetime);
         return hour * 60 + minute;
@@ -514,12 +526,52 @@ export class DoctorAgendaComponent {
     this.bookingSlot.set(null);
   }
 
-  protected onBooked(created: AppointmentAgendaItem): void {
+  protected onBooked(saved: AppointmentAgendaItem): void {
+    const verb = this.rescheduling() ? 'reprogramada' : 'agendada';
     this.bookingSlot.set(null);
+    this.rescheduling.set(null);
     this.showNotice(
-      `Cita agendada: ${this.patientLabel(created)} · ${this.formatDatetime(created.appointmentDatetime)}`,
+      `Cita ${verb}: ${this.patientLabel(saved)} · ${this.dayLabelOf(saved.appointmentDatetime)} ${this.formatDatetime(saved.appointmentDatetime)}`,
     );
     void this.load();
+  }
+
+  private dayLabelOf(iso: string): string {
+    return this.dayLabel(laPazDateString(new Date(iso)));
+  }
+
+  protected onDetailClosed(): void {
+    this.detailAppointment.set(null);
+  }
+
+  protected onOpenRecord(patientId: string): void {
+    this.detailAppointment.set(null);
+    this.historyPatientId.set(patientId);
+  }
+
+  /** "Reprogramar": la agenda propia pasa a esperar el click en el horario nuevo. */
+  protected onStartReschedule(appointment: AppointmentAgendaItem): void {
+    this.detailAppointment.set(null);
+    this.scope.set('mine');
+    this.rescheduling.set(appointment);
+  }
+
+  protected onStopReschedule(): void {
+    this.rescheduling.set(null);
+  }
+
+  protected onCancelled(cancelled: AppointmentAgendaItem): void {
+    this.detailAppointment.set(null);
+    this.showNotice(`Cita cancelada: ${this.patientLabel(cancelled)}`);
+    void this.load();
+  }
+
+  /** Esc sale del modo "elegí el nuevo horario" (con un modal abierto, Esc cierra el modal). */
+  @HostListener('document:keydown.escape')
+  protected onEscape(): void {
+    if (this.rescheduling() && !this.bookingSlot() && !this.detailAppointment()) {
+      this.rescheduling.set(null);
+    }
   }
 
   private showNotice(text: string): void {
@@ -588,9 +640,9 @@ export class DoctorAgendaComponent {
     return `calc((100% - 8px) / ${lanes} - ${lanes > 1 ? 2 : 0}px)`;
   }
 
-  /** Solo se abre la ficha de un turno propio — en la agenda común, los ajenos son de consulta. */
+  /** Solo se abre el detalle de un turno propio — en la agenda común, los ajenos son de consulta. */
   protected canOpen(a: AppointmentAgendaItem): boolean {
-    if (this.readOnly() || !a.patientId) {
+    if (this.readOnly() || this.rescheduling()) {
       return false;
     }
     return this.effectiveScope() !== 'all' || a.doctorId === this.authService.currentUser()?.id;
@@ -641,11 +693,11 @@ export class DoctorAgendaComponent {
     void this.load();
   }
 
-  protected onOpenHistory(a: AppointmentAgendaItem): void {
-    if (!this.canOpen(a) || !a.patientId) {
+  protected onOpenDetail(a: AppointmentAgendaItem): void {
+    if (!this.canOpen(a)) {
       return;
     }
-    this.historyPatientId.set(a.patientId);
+    this.detailAppointment.set(a);
   }
 
   protected onHistoryDone(): void {

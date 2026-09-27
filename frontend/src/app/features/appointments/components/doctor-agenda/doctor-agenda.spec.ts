@@ -107,7 +107,8 @@ describe('DoctorAgendaComponent', () => {
     );
   });
 
-  it('opens the patient history from a slot when not read-only', async () => {
+  // CLI-151: el click abre el detalle del turno; la ficha se abre desde ahí.
+  it('opens the appointment detail from a slot, and the patient history from it', async () => {
     const { fixture } = setup();
     await settle(fixture);
 
@@ -115,7 +116,15 @@ describe('DoctorAgendaComponent', () => {
     expect(slot).toBeTruthy();
     slot.click();
     await settle(fixture);
+    expect(fixture.nativeElement.querySelector('app-appointment-detail-dialog')).toBeTruthy();
 
+    const openRecord = [
+      ...(fixture.nativeElement as HTMLElement).querySelectorAll<HTMLButtonElement>('.detail-modal__btn'),
+    ].find((b) => b.textContent?.includes('Abrir ficha'))!;
+    openRecord.click();
+    await settle(fixture);
+
+    expect(fixture.nativeElement.querySelector('app-appointment-detail-dialog')).toBeFalsy();
     expect(fixture.nativeElement.querySelector('app-patient-wizard')).toBeTruthy();
   });
 
@@ -130,6 +139,7 @@ describe('DoctorAgendaComponent', () => {
     await settle(fixture);
 
     expect(fixture.nativeElement.querySelector('app-patient-wizard')).toBeFalsy();
+    expect(fixture.nativeElement.querySelector('app-appointment-detail-dialog')).toBeFalsy();
   });
 
   it('shows a generic "Agenda" title in read-only mode instead of "Mi agenda"', async () => {
@@ -224,6 +234,7 @@ describe('DoctorAgendaComponent', () => {
       await settle(fixture);
 
       expect(fixture.nativeElement.querySelector('app-patient-wizard')).toBeFalsy();
+      expect(fixture.nativeElement.querySelector('app-appointment-detail-dialog')).toBeFalsy();
     });
 
     it('con allDoctors (panel de admin) usa la agenda común sin mostrar el toggle', async () => {
@@ -373,6 +384,127 @@ describe('DoctorAgendaComponent', () => {
 
       expect(internals(fixture).bookingSlot()).toBeNull();
       expect(internals(fixture).notice()).toContain('Cita agendada: Juana Perez');
+      expect(appointmentsService.getAgenda.mock.calls.length).toBe(loads + 1);
+    });
+  });
+
+  // CLI-151: reprogramar y cancelar desde el detalle.
+  describe('reprogramar y cancelar', () => {
+    type Internals = {
+      visibleDates: () => string[];
+      cellsFor: (date: string) => { minutes: number; bookable: boolean }[];
+      bookingSlot: () => { date: string; minutes: number } | null;
+      rescheduling: () => AppointmentAgendaItem | null;
+      detailAppointment: () => AppointmentAgendaItem | null;
+      notice: () => string | null;
+      scope: () => string;
+      onStartReschedule: (a: AppointmentAgendaItem) => void;
+      onBooked: (a: AppointmentAgendaItem) => void;
+      onCancelled: (a: AppointmentAgendaItem) => void;
+      onEscape: () => void;
+    };
+    const internals = (fixture: ComponentFixture<DoctorAgendaComponent>) =>
+      fixture.componentInstance as unknown as Internals;
+
+    function nextMondayOf(monday: string): string {
+      return new Date(Date.parse(`${monday}T12:00:00Z`) + 7 * 86_400_000).toISOString().slice(0, 10);
+    }
+
+    async function withAppointmentNextWeek(durationMinutes = 60) {
+      const ctx = setup([]);
+      await settle(ctx.fixture);
+      const nextMonday = nextMondayOf(internals(ctx.fixture).visibleDates()[0]);
+      const appt = fakeAppointment({
+        appointmentDatetime: new Date(`${nextMonday}T10:00:00-04:00`).toISOString(),
+        durationMinutes,
+      });
+      ctx.appointmentsService.getAgenda.mockReturnValue(of([appt]));
+      (ctx.fixture.nativeElement.querySelector('[aria-label="Página siguiente"]') as HTMLButtonElement).click();
+      await settle(ctx.fixture);
+      return { ...ctx, appt, nextMonday };
+    }
+
+    it('al reprogramar, las franjas de la propia cita quedan libres y el click abre el modal de reprogramar', async () => {
+      const { fixture, appt, nextMonday } = await withAppointmentNextWeek();
+      const at = (m: number) => internals(fixture).cellsFor(nextMonday).find((c) => c.minutes === m)!;
+      expect(at(10 * 60 + 30).bookable).toBe(false);
+
+      internals(fixture).onStartReschedule(appt);
+      await settle(fixture);
+
+      expect(at(10 * 60 + 30).bookable).toBe(true);
+      expect(fixture.nativeElement.querySelector('.agenda__pick')?.textContent).toContain('Juana Perez');
+      expect(fixture.nativeElement.querySelector('.agenda-slot--moving')).toBeTruthy();
+
+      const cell = [
+        ...(fixture.nativeElement as HTMLElement).querySelectorAll<HTMLButtonElement>('button.agenda-cell'),
+      ].find((b) => b.getAttribute('aria-label')?.includes('a las 10:30'))!;
+      cell.click();
+      await settle(fixture);
+
+      expect(internals(fixture).bookingSlot()).toEqual({ date: nextMonday, minutes: 10 * 60 + 30 });
+      expect(fixture.nativeElement.querySelector('.book-modal__title')?.textContent).toContain(
+        'Reprogramar cita',
+      );
+    });
+
+    it('reprogramar desde la agenda común vuelve a la agenda propia', async () => {
+      const { fixture, appt } = await withAppointmentNextWeek();
+      [...(fixture.nativeElement as HTMLElement).querySelectorAll<HTMLButtonElement>('.agenda__scope-btn')]
+        .find((b) => b.textContent?.includes('Agenda común'))!
+        .click();
+      await settle(fixture);
+
+      internals(fixture).onStartReschedule(appt);
+
+      expect(internals(fixture).scope()).toBe('mine');
+    });
+
+    it('en modo reprogramar los turnos no abren el detalle', async () => {
+      const { fixture } = await withAppointmentNextWeek(30);
+      internals(fixture).onStartReschedule(fakeAppointment({ id: 'other' }));
+      await settle(fixture);
+
+      (fixture.nativeElement.querySelector('.agenda-slot') as HTMLButtonElement).click();
+      await settle(fixture);
+
+      expect(internals(fixture).detailAppointment()).toBeNull();
+    });
+
+    it('Esc y el botón Cancelar salen del modo reprogramar', async () => {
+      const { fixture, appt } = await withAppointmentNextWeek();
+      internals(fixture).onStartReschedule(appt);
+      internals(fixture).onEscape();
+      expect(internals(fixture).rescheduling()).toBeNull();
+
+      internals(fixture).onStartReschedule(appt);
+      await settle(fixture);
+      (fixture.nativeElement.querySelector('.agenda__pick-cancel') as HTMLButtonElement).click();
+      expect(internals(fixture).rescheduling()).toBeNull();
+    });
+
+    it('al guardar la reprogramación sale del modo, avisa y recarga', async () => {
+      const { fixture, appt, appointmentsService } = await withAppointmentNextWeek();
+      internals(fixture).onStartReschedule(appt);
+      const loads = appointmentsService.getAgenda.mock.calls.length;
+
+      internals(fixture).onBooked(appt);
+
+      expect(internals(fixture).rescheduling()).toBeNull();
+      expect(internals(fixture).notice()).toContain('Cita reprogramada: Juana Perez');
+      expect(appointmentsService.getAgenda.mock.calls.length).toBe(loads + 1);
+    });
+
+    it('al cancelar cierra el detalle, avisa y recarga', async () => {
+      const { fixture, appt, appointmentsService } = await withAppointmentNextWeek();
+      (fixture.nativeElement.querySelector('.agenda-slot') as HTMLButtonElement).click();
+      await settle(fixture);
+      const loads = appointmentsService.getAgenda.mock.calls.length;
+
+      internals(fixture).onCancelled({ ...appt, status: 'cancelled' });
+
+      expect(internals(fixture).detailAppointment()).toBeNull();
+      expect(internals(fixture).notice()).toBe('Cita cancelada: Juana Perez');
       expect(appointmentsService.getAgenda.mock.calls.length).toBe(loads + 1);
     });
   });

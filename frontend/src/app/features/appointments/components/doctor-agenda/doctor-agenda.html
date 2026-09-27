@@ -31,13 +31,14 @@
       type="button"
       class="agenda-slot"
       [class.agenda-slot--readonly]="!canOpen(appt)"
+      [class.agenda-slot--moving]="rescheduling()?.id === appt.id"
       [style.--slot-color]="slotColor(appt)"
       [style.top.px]="apptTopPx(appt)"
       [style.height.px]="apptHeightPx(appt)"
       [style.left]="slotLeft(appt)"
       [style.width]="slotWidth(appt)"
       [attr.title]="slotTitle(appt)"
-      (click)="onOpenHistory(appt)"
+      (click)="onOpenDetail(appt)"
     >
       <span class="agenda-slot__time">
         {{ formatDatetime(appt.appointmentDatetime) }}
@@ -80,9 +81,28 @@
       [slot]="slot"
       [schedule]="schedule()"
       [nextBusyMinutes]="nextBusyMinutes()"
+      [appointment]="rescheduling()"
       (booked)="onBooked($event)"
       (closed)="onBookingClosed()"
     />
+  }
+
+  @if (detailAppointment(); as appt) {
+    <app-appointment-detail-dialog
+      [appointment]="appt"
+      (openRecord)="onOpenRecord($event)"
+      (reschedule)="onStartReschedule($event)"
+      (cancelled)="onCancelled($event)"
+      (closed)="onDetailClosed()"
+    />
+  }
+
+  @if (rescheduling(); as moving) {
+    <output class="agenda__pick">
+      <span class="material-symbols-outlined" aria-hidden="true">event_repeat</span>
+      <span>Elegí el nuevo horario para la cita de <strong>{{ patientLabel(moving) }}</strong></span>
+      <button type="button" class="agenda__pick-cancel" (click)="onStopReschedule()">Cancelar</button>
+    </output>
   }
 
   @if (historyPatientId(); as patientId) {
@@ -130,8 +150,11 @@
       </output>
     }
 
+    <!-- Siempre el mismo alto: si el texto apareciera o desapareciera, movería la grilla bajo el cursor. -->
     @if (canBook()) {
-      <p class="agenda__hint agenda__hint--inline">Hacé click en un horario libre para agendar una cita.</p>
+      <p class="agenda__hint agenda__hint--inline">
+        {{ rescheduling() ? 'Hacé click en el nuevo horario.' : 'Hacé click en un horario libre para agendar una cita.' }}
+      </p>
     }
 
     @if (loading()) {

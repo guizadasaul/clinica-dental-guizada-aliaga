@@ -1,4 +1,4 @@
-.book-modal {
+.detail-modal {
   position: fixed;
   inset: 0;
   z-index: 100;
@@ -9,7 +9,7 @@
   background: rgb(0 0 0 / 0.5);
 }
 
-.book-modal__panel {
+.detail-modal__panel {
   // <dialog open> (no modal): sin el margen, borde y alto que pone el navegador.
   margin: 0;
   border: 0;
@@ -17,7 +17,7 @@
   height: auto;
   position: relative;
   width: 100%;
-  max-width: 34rem;
+  max-width: 30rem;
   max-height: 90vh;
   overflow-y: auto;
   padding: var(--space-6);
@@ -28,13 +28,9 @@
   &:focus {
     outline: none;
   }
-
-  @media (max-width: 640px) {
-    padding: var(--space-5);
-  }
 }
 
-.book-modal__close {
+.detail-modal__close {
   position: absolute;
   top: var(--space-4);
   right: var(--space-4);
@@ -59,18 +55,18 @@
   }
 }
 
-.book-modal__title {
+.detail-modal__title {
   margin: 0 var(--space-10) var(--space-2) 0;
   font-family: var(--font-headline);
   font-size: var(--font-size-xl);
   color: var(--color-text);
 }
 
-.book-modal__when {
+.detail-modal__when {
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  margin: 0 0 var(--space-5);
+  margin: 0 0 var(--space-4);
   font-weight: 600;
   color: var(--color-text);
 
@@ -80,38 +76,11 @@
   }
 }
 
-.book-modal__form {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-4);
-}
-
-.book-modal__field {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-}
-
-.book-modal__label {
-  font-size: var(--font-size-sm);
-  font-weight: 600;
-  color: var(--color-text);
-}
-
-.book-modal__req {
-  color: var(--color-error);
-}
-
-.book-modal__optional {
-  font-weight: 400;
-  color: var(--color-text-muted);
-}
-
-.book-modal__summary {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-3) var(--space-6);
-  margin: 0;
+.detail-modal__facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
+  gap: var(--space-3) var(--space-5);
+  margin: 0 0 var(--space-5);
 
   dt {
     font-size: var(--font-size-xs);
@@ -123,18 +92,48 @@
 
   dd {
     margin: 0;
-    font-weight: 600;
     color: var(--color-text);
+    white-space: pre-line;
   }
 }
 
-.book-modal__hint {
+.detail-modal__notes {
+  grid-column: 1 / -1;
+}
+
+.detail-modal__confirm {
+  min-width: 0;
   margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-4);
+  border: 1px solid #fecaca;
+  border-radius: var(--radius-lg);
+  background: #fef2f2;
+}
+
+.detail-modal__confirm-title {
+  float: left;
+  width: 100%;
+  padding: 0;
+  margin: 0 0 var(--space-1);
+  font-weight: 600;
+  color: #991b1b;
+}
+
+.detail-modal__label {
   font-size: var(--font-size-sm);
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.detail-modal__optional {
+  font-weight: 400;
   color: var(--color-text-muted);
 }
 
-.book-modal__input {
+.detail-modal__input {
   width: 100%;
   padding: var(--space-2) var(--space-3);
   border: 1px solid var(--color-gray-300);
@@ -143,6 +142,7 @@
   font-family: var(--font-body);
   font-size: var(--font-size-sm);
   color: var(--color-text);
+  resize: vertical;
 
   &:focus-visible {
     outline: 2px solid var(--color-primary);
@@ -150,39 +150,21 @@
   }
 }
 
-.book-modal__textarea {
-  resize: vertical;
-}
-
-.book-modal__alert {
-  // También se usa en un <output> (inline por defecto).
-  display: block;
+.detail-modal__error {
   margin: 0;
-  padding: var(--space-2) var(--space-3);
-  border-radius: var(--radius-md);
   font-size: var(--font-size-sm);
-
-  &--warning {
-    color: #92400e;
-    background: var(--color-warning-light);
-    border: 1px solid #fcd34d;
-  }
-
-  &--error {
-    color: #b91c1c;
-    background: #fef2f2;
-    border: 1px solid #fecaca;
-  }
+  color: #b91c1c;
 }
 
-.book-modal__actions {
+.detail-modal__actions {
   display: flex;
+  flex-wrap: wrap;
   justify-content: flex-end;
   gap: var(--space-3);
   margin-top: var(--space-2);
 }
 
-.book-modal__btn {
+.detail-modal__btn {
   padding: var(--space-2) var(--space-5);
   border-radius: var(--radius-full);
   font-family: var(--font-body);
@@ -195,6 +177,11 @@
     outline-offset: 2px;
   }
 
+  &:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+  }
+
   &--ghost {
     border: 1px solid var(--color-gray-300);
     background: transparent;
@@ -205,10 +192,18 @@
     border: none;
     background: var(--color-primary);
     color: var(--color-text);
+  }
 
-    &:disabled {
-      opacity: 0.55;
-      cursor: not-allowed;
-    }
+  &--danger-ghost {
+    margin-right: auto;
+    border: 1px solid #fecaca;
+    background: transparent;
+    color: #b91c1c;
+  }
+
+  &--danger {
+    border: none;
+    background: #b91c1c;
+    color: #fff;
   }
 }
