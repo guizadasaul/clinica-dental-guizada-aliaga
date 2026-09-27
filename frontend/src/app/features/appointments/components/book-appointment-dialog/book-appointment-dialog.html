@@ -1,0 +1,111 @@
+<div class="book-modal" (click)="onBackdropClick($event)" (keydown.escape)="close()">
+  <dialog
+    open
+    #panel
+    tabindex="-1"
+    class="book-modal__panel"
+    aria-modal="true"
+    aria-labelledby="book-modal-title"
+  >
+    <button type="button" class="book-modal__close" (click)="close()" aria-label="Cerrar">
+      <span class="material-symbols-outlined" aria-hidden="true">close</span>
+    </button>
+
+    <h2 id="book-modal-title" class="book-modal__title">Agendar cita</h2>
+    <p class="book-modal__when">
+      <span class="material-symbols-outlined" aria-hidden="true">event</span>
+      {{ whenLabel() }}
+    </p>
+
+    <form class="book-modal__form" (submit)="$event.preventDefault(); onSubmit()">
+      <div class="book-modal__field">
+        <span class="book-modal__label">Paciente <span class="book-modal__req">*</span></span>
+        @if (patientsLoading()) {
+          <p class="book-modal__hint">Cargando pacientes...</p>
+        } @else if (patientsFailed()) {
+          <p class="book-modal__hint">No pudimos cargar los pacientes.</p>
+        } @else {
+          <app-catalog-picker
+            noun="paciente"
+            [items]="patientOptions()"
+            [selectedId]="patientId()"
+            (selectedChange)="onPatientChange($event)"
+          />
+        }
+      </div>
+
+      <div class="book-modal__field">
+        <span class="book-modal__label"
+          >Tratamiento <span class="book-modal__optional">(opcional)</span></span
+        >
+        @if (treatmentsLoading()) {
+          <p class="book-modal__hint">Cargando tratamientos...</p>
+        } @else {
+          <app-catalog-picker
+            noun="tratamiento"
+            [items]="treatmentOptions()"
+            [selectedId]="treatmentId()"
+            (selectedChange)="onTreatmentChange($event)"
+          />
+        }
+      </div>
+
+      <div class="book-modal__field">
+        <label class="book-modal__label" for="book-modal-duration">Duración</label>
+        <select
+          id="book-modal-duration"
+          class="book-modal__input"
+          [value]="duration()"
+          (change)="onDurationChange($event)"
+        >
+          @for (d of durations; track d) {
+            <option [value]="d">{{ d }} min</option>
+          }
+        </select>
+      </div>
+
+      <div class="book-modal__field">
+        <label class="book-modal__label" for="book-modal-notes">
+          Notas <span class="book-modal__optional">(opcional)</span>
+        </label>
+        <textarea
+          id="book-modal-notes"
+          class="book-modal__input book-modal__textarea"
+          rows="2"
+          maxlength="500"
+          placeholder="Ej. control de brackets"
+          [value]="notes()"
+          (input)="onNotesInput($event)"
+        ></textarea>
+      </div>
+
+      @if (overlapsNext()) {
+        <p class="book-modal__alert book-modal__alert--error" role="alert">
+          Con {{ duration() }} min se pisa con tu cita de las {{ nextBusyLabel() }}. Elegí una
+          duración más corta.
+        </p>
+      } @else if (outsideSchedule()) {
+        <p class="book-modal__alert book-modal__alert--warning" role="status">
+          Este horario está fuera de tu horario de atención. Podés agendarla igual.
+        </p>
+      }
+
+      @if (error()) {
+        <p class="book-modal__alert book-modal__alert--error" role="alert">{{ error() }}</p>
+      }
+
+      <div class="book-modal__actions">
+        <button type="button" class="book-modal__btn book-modal__btn--ghost" (click)="close()">
+          Cancelar
+        </button>
+        <button
+          type="submit"
+          class="book-modal__btn book-modal__btn--primary"
+          [disabled]="!canSubmit()"
+        >
+          {{ submitting() ? 'Agendando...' : 'Agendar cita' }}
+        </button>
+      </div>
+    </form>
+  </dialog>
+</div>

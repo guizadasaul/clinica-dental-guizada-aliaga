@@ -2,7 +2,8 @@ import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import type { Observable } from 'rxjs';
 import { environment } from '../../../../environments/environment';
-import type { AppointmentAgendaItem } from '../models/appointment.model';
+import type { AppointmentAgendaItem, DoctorScheduleBlock } from '../models/appointment.model';
+import type { CreateDoctorAppointmentRequest } from '../models/appointment.request';
 
 export interface AgendaFilters {
   status?: string;
@@ -37,5 +38,15 @@ export class AppointmentsService {
       params['scope'] = filters.scope;
     }
     return this.http.get<AppointmentAgendaItem[]>(this.base, { params });
+  }
+
+  /** CLI-148: el doctor agenda una cita para un paciente con ficha. */
+  createByDoctor(request: CreateDoctorAppointmentRequest): Observable<AppointmentAgendaItem> {
+    return this.http.post<AppointmentAgendaItem>(`${this.base}/doctor`, request);
+  }
+
+  /** CLI-148: horario de atención del doctor logueado. */
+  getMySchedule(): Observable<DoctorScheduleBlock[]> {
+    return this.http.get<DoctorScheduleBlock[]>(`${this.base}/my-schedule`);
   }
 }
