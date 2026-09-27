@@ -33,3 +33,12 @@ export interface DoctorScheduleBlock {
   start: string;
   end: string;
 }
+
+/** Cita vista por el propio paciente (CLI-153, GET /patients/me/appointments): sin pagos ni datos de otros. */
+export interface PatientAppointment {
+  id: string;
+  appointmentDatetime: string;
+  durationMinutes: number;
+  doctorName: string | null;
+  treatmentName: string | null;
+}

@@ -278,6 +278,12 @@ function cases(s: ReturnType<typeof services>): Case[] {
       body: {},
     },
     {
+      name: 'paciente: mis próximas citas (CLI-153)',
+      call: () => s.appointments.getMyUpcoming(),
+      method: 'GET',
+      url: `${API}/patients/me/appointments`,
+    },
+    {
       name: 'agenda: horario propio del doctor (CLI-148)',
       call: () => s.appointments.getMySchedule(),
       method: 'GET',

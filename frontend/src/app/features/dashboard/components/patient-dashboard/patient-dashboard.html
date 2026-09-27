@@ -27,7 +27,7 @@
       <div class="stat-card">
         <span class="material-symbols-outlined stat-card__icon stat-card__icon--primary">calendar_clock</span>
         <div>
-          <p class="stat-card__value">—</p>
+          <p class="stat-card__value">{{ nextShortLabel() }}</p>
           <p class="stat-card__label">Próxima cita</p>
         </div>
       </div>
@@ -53,6 +53,43 @@
         <span class="material-symbols-outlined" aria-hidden="true">event</span>
         Próxima cita
       </h2>
+      @if (nextAppointment(); as next) {
+        <div class="appointment-next">
+          <div class="appointment-next__when">
+            <span class="material-symbols-outlined" aria-hidden="true">calendar_month</span>
+            <div>
+              <p class="appointment-next__date">{{ longDate(next) }}</p>
+              <p class="appointment-next__time">{{ time(next) }} · {{ next.durationMinutes }} min</p>
+            </div>
+          </div>
+          <dl class="appointment-next__facts">
+            @if (next.doctorName) {
+              <div>
+                <dt>Doctor</dt>
+                <dd>{{ next.doctorName }}</dd>
+              </div>
+            }
+            @if (next.treatmentName) {
+              <div>
+                <dt>Tratamiento</dt>
+                <dd>{{ next.treatmentName }}</dd>
+              </div>
+            }
+          </dl>
+          @if (laterAppointments().length > 0) {
+            <div class="appointment-next__later">
+              <p class="appointment-next__later-title">Y {{ laterAppointments().length }} más:</p>
+              <ul>
+                @for (later of laterAppointments(); track later.id) {
+                  <li>{{ longDate(later) }} · {{ time(later) }}</li>
+                }
+              </ul>
+            </div>
+          }
+        </div>
+      } @else if (upcoming() === null) {
+        <p class="appointment-next__loading">Cargando tus citas...</p>
+      } @else {
       <div class="appointment-empty">
         <div class="appointment-empty__icon" aria-hidden="true">
           <span class="material-symbols-outlined">calendar_add_on</span>
@@ -64,6 +101,7 @@
           Solicitar cita
         </button>
       </div>
+      }
     </section>
 
     <!-- Quick actions -->

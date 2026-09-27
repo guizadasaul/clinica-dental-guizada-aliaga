@@ -2,7 +2,11 @@ import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import type { Observable } from 'rxjs';
 import { environment } from '../../../../environments/environment';
-import type { AppointmentAgendaItem, DoctorScheduleBlock } from '../models/appointment.model';
+import type {
+  AppointmentAgendaItem,
+  DoctorScheduleBlock,
+  PatientAppointment,
+} from '../models/appointment.model';
 import type {
   CreateDoctorAppointmentRequest,
   RescheduleDoctorAppointmentRequest,
@@ -61,6 +65,13 @@ export class AppointmentsService {
     return this.http.post<AppointmentAgendaItem>(
       `${this.base}/doctor/${id}/cancel`,
       reason ? { reason } : {},
+    );
+  }
+
+  /** CLI-153: próximas citas confirmadas del paciente logueado, la más cercana primero. */
+  getMyUpcoming(): Observable<PatientAppointment[]> {
+    return this.http.get<PatientAppointment[]>(
+      `${environment.backendUrl}/patients/me/appointments`,
     );
   }
 
