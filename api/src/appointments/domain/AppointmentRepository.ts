@@ -68,6 +68,14 @@ export interface CreateByDoctorData {
   notes: string | null;
 }
 
+/** CLI-149: nuevo horario de una cita confirmada. */
+export interface RescheduleData {
+  appointmentDatetime: Date;
+  durationMinutes: number;
+  /** undefined = no tocar las notas. */
+  notes?: string | null;
+}
+
 export interface GuestContactData {
   firstName: string;
   lastNamePaternal: string;
@@ -106,7 +114,7 @@ export interface IAppointmentRepository {
     patientId: string,
     filters: PatientAppointmentFilters,
   ): Promise<PatientAppointment[]>;
-  /** Citas activas (confirmed, o held vigente) de ESE doctor que se solapan con el rango dado — CLI-56: cada doctor tiene su propia agenda. */
+  /** Citas activas (confirmed, o held vigente) de ESE doctor que empiezan dentro del rango dado — CLI-56: cada doctor tiene su propia agenda. */
   findActiveBetween(
     from: Date,
     to: Date,
@@ -119,6 +127,24 @@ export interface IAppointmentRepository {
   createHold(data: CreateHoldData): Promise<Appointment>;
   /** CLI-148: crea una cita ya confirmada (source `doctor`, sin pago). Lanza PatientNotFoundError si el paciente no existe y SlotUnavailableError si otra cita activa del doctor ya empieza a esa hora (índice único). El solapamiento por duración lo valida quien llama. */
   createByDoctor(data: CreateByDoctorData): Promise<AppointmentWithPatient>;
+  /** CLI-149: una cita de ESE doctor, con el shape de la agenda. null si no existe o es de otro doctor (no se distingue, para no filtrar existencia). */
+  findForDoctor(
+    id: string,
+    doctorId: string,
+  ): Promise<AppointmentWithPatient | null>;
+  /** CLI-149: UPDATE condicional (WHERE id AND doctor_id AND status='confirmed'). null si ya no está confirmada. Lanza SlotUnavailableError ante choque en el índice único. */
+  reschedule(
+    id: string,
+    doctorId: string,
+    data: RescheduleData,
+  ): Promise<AppointmentWithPatient | null>;
+  /** CLI-149: UPDATE condicional (WHERE id AND doctor_id AND status='confirmed') → 'cancelled', con quién/cuándo y el motivo agregado a las notas. null si ya no estaba confirmada. */
+  cancel(
+    id: string,
+    doctorId: string,
+    cancelledBy: string,
+    reason: string | null,
+  ): Promise<AppointmentWithPatient | null>;
   /** UPDATE condicional (WHERE id AND status='held' AND hold_expires_at > now). null si el hold ya no está vigente. Lanza GuestPhoneConflictError si el teléfono ya tiene otra cita held/confirmed, o GuestEmailBelongsToAccountError/GuestPhoneBelongsToAccountError si el email/teléfono ya pertenece a una cuenta (users) existente. */
   updateGuestContact(
     id: string,

@@ -18,6 +18,7 @@ import {
   IAppointmentRepository,
   PatientAppointmentFilters,
   PatientNotFoundError,
+  RescheduleData,
   SlotUnavailableError,
 } from '../../domain/AppointmentRepository.js';
 import type { AppointmentWithPatient } from '../../domain/AppointmentWithPatient.js';
@@ -194,6 +195,74 @@ export class PrismaAppointmentsRepository implements IAppointmentRepository {
       }
       throw error;
     }
+  }
+
+  async findForDoctor(
+    id: string,
+    doctorId: string,
+  ): Promise<AppointmentWithPatient | null> {
+    const record = await this.prisma.appointments.findFirst({
+      where: { id, doctor_id: doctorId },
+      include: AGENDA_INCLUDE,
+    });
+    return record ? AppointmentMapper.toDomainWithPatient(record) : null;
+  }
+
+  async reschedule(
+    id: string,
+    doctorId: string,
+    data: RescheduleData,
+  ): Promise<AppointmentWithPatient | null> {
+    try {
+      const { count } = await this.prisma.appointments.updateMany({
+        where: { id, doctor_id: doctorId, status: AppointmentStatus.CONFIRMED },
+        data: {
+          appointment_datetime: data.appointmentDatetime,
+          duration_minutes: data.durationMinutes,
+          ...(data.notes !== undefined && { notes: data.notes }),
+        },
+      });
+      return count === 0 ? null : this.findForDoctor(id, doctorId);
+    } catch (error: unknown) {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2002'
+      ) {
+        throw new SlotUnavailableError();
+      }
+      throw error;
+    }
+  }
+
+  async cancel(
+    id: string,
+    doctorId: string,
+    cancelledBy: string,
+    reason: string | null,
+  ): Promise<AppointmentWithPatient | null> {
+    const count = await this.prisma.transaction(async (tx) => {
+      const current = await tx.appointments.findFirst({
+        where: { id, doctor_id: doctorId, status: AppointmentStatus.CONFIRMED },
+        select: { notes: true },
+      });
+      if (!current) {
+        return 0;
+      }
+      const reasonLine = reason ? `Cancelada: ${reason}` : null;
+      const notes =
+        [current.notes, reasonLine].filter(Boolean).join('\n') || null;
+      const result = await tx.appointments.updateMany({
+        where: { id, doctor_id: doctorId, status: AppointmentStatus.CONFIRMED },
+        data: {
+          status: AppointmentStatus.CANCELLED,
+          cancelled_at: new Date(),
+          cancelled_by: cancelledBy,
+          notes,
+        },
+      });
+      return result.count;
+    });
+    return count === 0 ? null : this.findForDoctor(id, doctorId);
   }
 
   async updateGuestContact(

@@ -1,4 +1,15 @@
-import { Body, Controller, Get, Post, Query, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  HttpCode,
+  Param,
+  ParseUUIDPipe,
+  Patch,
+  Post,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
 import { AppointmentsService } from '../../application/appointments.service.js';
 import { AppointmentWithPatient } from '../../domain/AppointmentWithPatient.js';
 import { SupabaseAuthGuard } from '../../../auth/infrastructure/SupabaseAuthGuard.js';
@@ -10,6 +21,8 @@ import type { User } from '../../../auth/domain/User.js';
 import type { DoctorScheduleBlock } from '../../../doctors/domain/DoctorScheduleRepository.js';
 import { ListAppointmentsQueryDto } from './dto/list-appointments-query.dto.js';
 import { CreateDoctorAppointmentDto } from './dto/create-doctor-appointment.dto.js';
+import { RescheduleDoctorAppointmentDto } from './dto/reschedule-doctor-appointment.dto.js';
+import { CancelDoctorAppointmentDto } from './dto/cancel-doctor-appointment.dto.js';
 import { CLINIC_UTC_OFFSET } from '../../domain/ClinicSchedule.js';
 
 // Las fechas del query son días de la clínica (Bolivia), no de UTC: con
@@ -62,6 +75,29 @@ export class DoctorAppointmentsController {
     @Body() dto: CreateDoctorAppointmentDto,
   ): Promise<AppointmentWithPatient> {
     return this.appointmentsService.createByDoctor(appUser.id, dto);
+  }
+
+  // CLI-149: reprogramar/cancelar solo citas propias — una de otro doctor
+  // da 404, igual que una inexistente.
+  @Patch('doctor/:id')
+  @Roles(UserRole.ODONTOLOGIST)
+  rescheduleByDoctor(
+    @CurrentAppUser() appUser: User,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: RescheduleDoctorAppointmentDto,
+  ): Promise<AppointmentWithPatient> {
+    return this.appointmentsService.rescheduleByDoctor(appUser.id, id, dto);
+  }
+
+  @Post('doctor/:id/cancel')
+  @HttpCode(200)
+  @Roles(UserRole.ODONTOLOGIST)
+  cancelByDoctor(
+    @CurrentAppUser() appUser: User,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: CancelDoctorAppointmentDto,
+  ): Promise<AppointmentWithPatient> {
+    return this.appointmentsService.cancelByDoctor(appUser.id, id, dto.reason);
   }
 
   /** CLI-148: horario de atención propio, para marcar en la agenda lo que queda fuera. */

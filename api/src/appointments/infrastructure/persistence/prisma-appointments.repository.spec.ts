@@ -46,6 +46,7 @@ describe('PrismaAppointmentsRepository', () => {
     appointments: {
       findMany: jest.Mock;
       findUnique: jest.Mock;
+      findFirst: jest.Mock;
       updateMany: jest.Mock;
       create: jest.Mock;
     };
@@ -60,6 +61,7 @@ describe('PrismaAppointmentsRepository', () => {
       appointments: {
         findMany: jest.fn(),
         findUnique: jest.fn(),
+        findFirst: jest.fn(),
         updateMany: jest.fn(),
         create: jest.fn(),
       },
@@ -406,6 +408,162 @@ describe('PrismaAppointmentsRepository', () => {
     });
   });
 
+  // CLI-149
+  describe('findForDoctor', () => {
+    it('busca la cita solo dentro de la agenda de ese doctor', async () => {
+      prismaMock.appointments.findFirst.mockResolvedValue(null);
+
+      await expect(
+        repo.findForDoctor('appt-1', 'doctor-1'),
+      ).resolves.toBeNull();
+      expect(prismaMock.appointments.findFirst).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: 'appt-1', doctor_id: 'doctor-1' },
+        }),
+      );
+    });
+  });
+
+  describe('reschedule', () => {
+    const agendaRecord = () =>
+      fakeAppointmentRecord({
+        status: 'confirmed',
+        doctor_id: 'doctor-1',
+        patients: null,
+        users: { display_name: 'Dr. Saul', doctor_profiles: null },
+        treatments: null,
+      });
+
+    it('actualiza solo si sigue confirmada y es de ese doctor, sin tocar notas si no vienen', async () => {
+      prismaMock.appointments.updateMany.mockResolvedValue({ count: 1 });
+      prismaMock.appointments.findFirst.mockResolvedValue(agendaRecord());
+
+      const result = await repo.reschedule('appt-1', 'doctor-1', {
+        appointmentDatetime: SLOT,
+        durationMinutes: 60,
+      });
+
+      expect(prismaMock.appointments.updateMany).toHaveBeenCalledWith({
+        where: { id: 'appt-1', doctor_id: 'doctor-1', status: 'confirmed' },
+        data: { appointment_datetime: SLOT, duration_minutes: 60 },
+      });
+      expect(result).toMatchObject({ id: 'appt-1', status: 'confirmed' });
+    });
+
+    it('escribe las notas cuando vienen (null las borra)', async () => {
+      prismaMock.appointments.updateMany.mockResolvedValue({ count: 1 });
+      prismaMock.appointments.findFirst.mockResolvedValue(agendaRecord());
+
+      await repo.reschedule('appt-1', 'doctor-1', {
+        appointmentDatetime: SLOT,
+        durationMinutes: 30,
+        notes: null,
+      });
+
+      expect(prismaMock.appointments.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ notes: null }) as unknown,
+        }),
+      );
+    });
+
+    it('devuelve null sin releer si ya no estaba confirmada', async () => {
+      prismaMock.appointments.updateMany.mockResolvedValue({ count: 0 });
+
+      await expect(
+        repo.reschedule('appt-1', 'doctor-1', {
+          appointmentDatetime: SLOT,
+          durationMinutes: 30,
+        }),
+      ).resolves.toBeNull();
+      expect(prismaMock.appointments.findFirst).not.toHaveBeenCalled();
+    });
+
+    it('traduce P2002 a SlotUnavailableError', async () => {
+      prismaMock.appointments.updateMany.mockRejectedValue(
+        new Prisma.PrismaClientKnownRequestError('unique', {
+          code: 'P2002',
+          clientVersion: 'test',
+        }),
+      );
+
+      await expect(
+        repo.reschedule('appt-1', 'doctor-1', {
+          appointmentDatetime: SLOT,
+          durationMinutes: 30,
+        }),
+      ).rejects.toBeInstanceOf(SlotUnavailableError);
+    });
+  });
+
+  describe('cancel', () => {
+    it('pasa a cancelled con quién y cuándo, agregando el motivo a las notas', async () => {
+      prismaMock.appointments.findFirst
+        .mockResolvedValueOnce({ notes: 'control' })
+        .mockResolvedValueOnce(
+          fakeAppointmentRecord({
+            status: 'cancelled',
+            cancelled_at: NOW,
+            doctor_id: 'doctor-1',
+            patients: null,
+            users: { display_name: 'Dr. Saul', doctor_profiles: null },
+            treatments: null,
+          }),
+        );
+      prismaMock.appointments.updateMany.mockResolvedValue({ count: 1 });
+
+      const result = await repo.cancel(
+        'appt-1',
+        'doctor-1',
+        'doctor-1',
+        'no puede venir',
+      );
+
+      const call = (
+        prismaMock.appointments.updateMany.mock.calls as unknown[][]
+      )[0][0] as {
+        where: unknown;
+        data: Record<string, unknown>;
+      };
+      expect(call.where).toEqual({
+        id: 'appt-1',
+        doctor_id: 'doctor-1',
+        status: 'confirmed',
+      });
+      expect(call.data).toMatchObject({
+        status: 'cancelled',
+        cancelled_by: 'doctor-1',
+        notes: 'control\nCancelada: no puede venir',
+      });
+      expect(call.data.cancelled_at).toBeInstanceOf(Date);
+      expect(result).toMatchObject({ status: 'cancelled', cancelledAt: NOW });
+    });
+
+    it('sin motivo ni notas previas deja las notas en null', async () => {
+      prismaMock.appointments.findFirst
+        .mockResolvedValueOnce({ notes: null })
+        .mockResolvedValueOnce(null);
+      prismaMock.appointments.updateMany.mockResolvedValue({ count: 1 });
+
+      await repo.cancel('appt-1', 'doctor-1', 'doctor-1', null);
+
+      expect(prismaMock.appointments.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ notes: null }) as unknown,
+        }),
+      );
+    });
+
+    it('devuelve null sin escribir si ya no estaba confirmada', async () => {
+      prismaMock.appointments.findFirst.mockResolvedValue(null);
+
+      await expect(
+        repo.cancel('appt-1', 'doctor-1', 'doctor-1', null),
+      ).resolves.toBeNull();
+      expect(prismaMock.appointments.updateMany).not.toHaveBeenCalled();
+    });
+  });
+
   describe('findActiveBetween', () => {
     it('scopes the query to the given doctorId', async () => {
       prismaMock.appointments.findMany.mockResolvedValue([]);
@@ -421,6 +579,22 @@ describe('PrismaAppointmentsRepository', () => {
           }) as Record<string, unknown>,
         }),
       );
+    });
+
+    // CLI-149: una cita cancelada libera el turno para la reserva pública y
+    // para agendar — solo cuentan confirmed y held vigentes.
+    it('solo cuenta citas confirmadas y holds vigentes (no canceladas)', async () => {
+      prismaMock.appointments.findMany.mockResolvedValue([]);
+
+      await repo.findActiveBetween(SLOT, SLOT, NOW, 'doctor-1');
+
+      const { where } = (
+        prismaMock.appointments.findMany.mock.calls as unknown[][]
+      )[0][0] as { where: { OR: unknown } };
+      expect(where.OR).toEqual([
+        { status: 'confirmed' },
+        { status: 'held', hold_expires_at: { gt: NOW } },
+      ]);
     });
   });
 
