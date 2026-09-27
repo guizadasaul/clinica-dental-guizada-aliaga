@@ -142,7 +142,7 @@ describe('admin tools (CLI-93)', () => {
             // CLI-145: etiquetas en castellano, para que no llame
             // "cancelaciones" a las vencidas.
             appointmentsByStatus: {
-              'confirmadas (pagadas)': 5,
+              confirmadas: 5,
               'vencidas sin pagar (no son cancelaciones)': 1,
             },
           },
@@ -150,14 +150,15 @@ describe('admin tools (CLI-93)', () => {
             doctor: 'Marylu Aliaga',
             occupancyPercent: 4,
             appointmentsByStatus: {
-              'confirmadas (pagadas)': 2,
+              confirmadas: 2,
               'reservas en curso (sin pagar todavía)': 1,
               raro: 1,
             },
           },
         ],
       });
-      expect(JSON.stringify(result)).toContain('no registra cancelaciones');
+      expect(JSON.stringify(result)).toContain('no suman al total');
+      expect(JSON.stringify(result)).not.toContain('no registra cancelaciones');
       expect(JSON.stringify(result)).not.toContain('d1');
     });
   });

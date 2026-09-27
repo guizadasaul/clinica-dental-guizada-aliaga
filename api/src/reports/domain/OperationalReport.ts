@@ -11,7 +11,8 @@ export interface ReportParams {
 
 /**
  * Conteo de turnos por estado en el rango. Los estados reales que hoy puede
- * tener una fila de `appointments` son `held`/`confirmed`/`expired` — no
+ * tener una fila de `appointments` son `held`/`confirmed`/`expired` y, desde
+ * CLI-149, `cancelled` (cancelada por el doctor) — no
  * existe ningún flujo que transicione una cita a `attended` (no hay
  * check-in), así que ese estado no aparece nunca poblado hoy. No se inventa
  * ese flujo acá: si en el futuro existiera, este mapa lo reflejaría solo.
@@ -23,6 +24,7 @@ export interface DoctorOperationalRow {
   doctorId: string;
   doctorName: string | null;
   appointmentsByStatus: AppointmentStatusCounts;
+  /** Todos los estados salvo `cancelled` (CLI-154): una cita cancelada no ocupó la agenda. */
   totalAppointments: number;
   /** Pacientes cuyo assigned_doctor_id es este doctor y se crearon en el rango. */
   newPatients: number;

@@ -23,7 +23,7 @@ const OPERATIONAL_REPORT: OperationalReport = {
     {
       doctorId: 'doctor-1',
       doctorName: 'Juan Perez',
-      appointmentsByStatus: { confirmed: 3, held: 1, expired: 2 },
+      appointmentsByStatus: { confirmed: 3, held: 1, expired: 2, cancelled: 2 },
       totalAppointments: 6,
       newPatients: 4,
       theoreticalSlots: 10,
@@ -110,6 +110,21 @@ describe('ReportsPageComponent', () => {
     const table = el(fixture, '.reports-page__table');
     expect(table.textContent).toContain('Juan Perez');
     expect(table.textContent).toContain('30%'); // ocupación
+  });
+
+  // CLI-154: las canceladas tienen columna propia y no suman al total.
+  it('muestra las canceladas en su propia columna, fuera del total', async () => {
+    const { fixture } = setup();
+    await settleAllLoads(fixture);
+
+    const table = el(fixture, '.reports-page__table');
+    const headers = [...table.querySelectorAll('th')].map((th) => th.textContent?.trim());
+    const cells = [...table.querySelectorAll('tbody tr td')].map((td) => td.textContent?.trim());
+    const col = (name: string) => cells[headers.indexOf(name)];
+
+    expect(col('Canceladas')).toBe('2');
+    expect(col('Total turnos')).toBe('6');
+    expect(fixture.nativeElement.textContent).toContain('no suman a "Total turnos"');
   });
 
   it('switches to the financial tab and shows the unassigned-doctor row', async () => {

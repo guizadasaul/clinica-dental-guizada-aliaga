@@ -7,6 +7,7 @@ import {
   CLINIC_TIMEZONE,
 } from '../../../appointments/domain/ClinicSchedule.js';
 import type { WeeklyScheduleBlock } from '../../../appointments/domain/ClinicSchedule.js';
+import { AppointmentStatus } from '../../../appointments/domain/Appointment.js';
 import type {
   AppointmentStatusCounts,
   DoctorOperationalRow,
@@ -85,7 +86,8 @@ export class PrismaReportsRepository implements IReportsRepository {
         _count: { _all: true },
       }),
       // CLI-65: "atendidos" se reporta con los estados reales que existen
-      // hoy en appointments (held/confirmed/expired) — no hay ningún flujo
+      // hoy en appointments (held/confirmed/expired, y cancelled desde
+      // CLI-149) — no hay ningún flujo
       // que transicione una cita a 'attended' (no existe check-in), así que
       // ese estado nunca aparece poblado. No se inventa ese flujo acá.
       this.prisma.patients.groupBy({
@@ -131,8 +133,11 @@ export class PrismaReportsRepository implements IReportsRepository {
 
     const rows: DoctorOperationalRow[] = doctors.map((doctor) => {
       const appointmentsByStatus = statusByDoctor.get(doctor.id) ?? {};
-      const totalAppointments = Object.values(appointmentsByStatus).reduce(
-        (sum, count) => sum + count,
+      // CLI-154: una cita cancelada no ocupó la agenda — se informa en
+      // appointmentsByStatus.cancelled pero no suma al total.
+      const totalAppointments = Object.entries(appointmentsByStatus).reduce(
+        (sum, [status, count]) =>
+          status === AppointmentStatus.CANCELLED ? sum : sum + count,
         0,
       );
       const confirmedAppointments = appointmentsByStatus['confirmed'] ?? 0;
