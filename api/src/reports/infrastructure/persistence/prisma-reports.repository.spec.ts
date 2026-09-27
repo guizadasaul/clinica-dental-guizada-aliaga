@@ -106,6 +106,30 @@ describe('PrismaReportsRepository', () => {
       });
     });
 
+    // CLI-154: una cita cancelada no ocupó la agenda.
+    it('informa las canceladas por separado, sin sumarlas al total', async () => {
+      prismaMock.users.findMany.mockResolvedValue([
+        { id: 'doctor-1', display_name: 'Juan Perez' },
+      ]);
+      prismaMock.appointments.groupBy.mockResolvedValue([
+        { doctor_id: 'doctor-1', status: 'confirmed', _count: { _all: 3 } },
+        { doctor_id: 'doctor-1', status: 'expired', _count: { _all: 1 } },
+        { doctor_id: 'doctor-1', status: 'cancelled', _count: { _all: 2 } },
+      ]);
+      prismaMock.patients.groupBy.mockResolvedValue([]);
+      prismaMock.doctor_schedule_blocks.findMany.mockResolvedValue([]);
+
+      const [row] = (await repo.getOperationalReport(RANGE_ONE_DAY)).doctors;
+
+      expect(row.appointmentsByStatus).toEqual({
+        confirmed: 3,
+        expired: 1,
+        cancelled: 2,
+      });
+      expect(row.totalAppointments).toBe(4);
+      expect(row.confirmedAppointments).toBe(3);
+    });
+
     it('reports zeroed rows (occupancyRate 0) for a doctor with no schedule blocks, avoiding division by zero', async () => {
       prismaMock.users.findMany.mockResolvedValue([
         { id: 'doctor-2', display_name: 'Sin Horario' },

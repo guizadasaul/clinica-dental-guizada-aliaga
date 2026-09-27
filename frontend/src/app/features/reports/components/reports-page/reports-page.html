@@ -79,6 +79,7 @@
               <th>En espera</th>
               <th>Vencidos</th>
               <th>Atendidos</th>
+              <th>Canceladas</th>
               <th>Total turnos</th>
               <th>Pacientes nuevos</th>
               <th>Ocupación</th>
@@ -92,6 +93,7 @@
                 <td>{{ statusCount(row, 'held') }}</td>
                 <td>{{ statusCount(row, 'expired') }}</td>
                 <td>{{ statusCount(row, 'attended') }}</td>
+                <td>{{ statusCount(row, 'cancelled') }}</td>
                 <td>{{ row.totalAppointments }}</td>
                 <td>{{ row.newPatients }}</td>
                 <td>{{ occupancyPercent(row) }}%</td>
@@ -103,6 +105,9 @@
           "Ocupación" compara los turnos confirmados contra la capacidad teórica de slots del horario del doctor en el
           rango elegido. "Atendidos" refleja el estado tal cual está guardado — hoy no existe un flujo de check-in
           propio que transicione un turno a ese estado.
+        </p>
+        <p class="reports-page__note">
+          "Canceladas" son las citas que el doctor canceló desde su agenda: se informan aparte y no suman a "Total turnos".
         </p>
       }
     </div>

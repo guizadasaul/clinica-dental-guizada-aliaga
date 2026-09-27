@@ -56,9 +56,12 @@ const REPORT_PARAMETERS: JsonSchema = {
 // Etiquetas en castellano: con las claves crudas el modelo presentaba las
 // "expired" como cancelaciones (CLI-145).
 const STATUS_LABEL: Record<string, string> = {
-  confirmed: 'confirmadas (pagadas)',
+  // Desde CLI-148 una confirmada también puede ser una cita que agendó el
+  // doctor, sin pago previo.
+  confirmed: 'confirmadas',
   held: 'reservas en curso (sin pagar todavía)',
   expired: 'vencidas sin pagar (no son cancelaciones)',
+  cancelled: 'canceladas por el doctor (no suman al total)',
 };
 
 function labelStatuses(byStatus: Record<string, number>) {
@@ -125,7 +128,9 @@ export class GetClinicOperationalReportTool implements ChatTool<ClinicReportArgs
       },
       doctors,
       notes: [
-        'Las vencidas son reservas que no se pagaron a tiempo, no cancelaciones: el sistema no registra cancelaciones ni asistencia.',
+        'Las vencidas son reservas que no se pagaron a tiempo, no cancelaciones.',
+        // CLI-149/154: las cancelaciones las registra el doctor desde su agenda.
+        'Las canceladas por el doctor se informan aparte y no suman al total de turnos. El sistema no registra asistencia.',
       ],
     };
   }
