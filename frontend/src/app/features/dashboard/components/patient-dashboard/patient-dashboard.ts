@@ -14,6 +14,7 @@ import { AppointmentsService } from '../../../appointments/services/appointments
 import type { PatientAppointment } from '../../../appointments/models/appointment.model';
 import { TreatmentHistoryComponent } from '../../../treatments/components/treatment-history/treatment-history';
 import { LogoComponent } from '../../../../shared/ui/logo/logo';
+import { MyQuoteComponent } from '../../../quotes/components/my-quote/my-quote';
 
 // Las citas se muestran siempre en hora de Bolivia, esté donde esté el paciente.
 const SHORT_DATE_FORMATTER = new Intl.DateTimeFormat('es-BO', {
@@ -38,7 +39,7 @@ const TIME_FORMATTER = new Intl.DateTimeFormat('es-BO', {
   selector: 'app-patient-dashboard',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [TreatmentHistoryComponent, LogoComponent],
+  imports: [TreatmentHistoryComponent, LogoComponent, MyQuoteComponent],
   templateUrl: './patient-dashboard.html',
   styleUrl: './patient-dashboard.scss',
 })

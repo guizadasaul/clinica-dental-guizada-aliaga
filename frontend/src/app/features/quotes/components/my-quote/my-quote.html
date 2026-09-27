@@ -1,0 +1,99 @@
+<section class="mq" aria-labelledby="mq-title">
+  <header class="mq__header">
+    <h1 id="mq-title" class="mq__title">Mi presupuesto</h1>
+    <p class="mq__subtitle">Los tratamientos que tu doctor planificó para vos y lo que llevás pagado.</p>
+  </header>
+
+  @switch (state().status) {
+    @case ('loading') {
+      <div class="mq__state">
+        <span class="mq__spinner"></span>
+        <p>Cargando tu presupuesto...</p>
+      </div>
+    }
+    @case ('error') {
+      <div class="mq__state mq__state--error">
+        <span class="material-symbols-outlined">error</span>
+        <p>No pudimos cargar tu presupuesto. Intentá de nuevo en un rato.</p>
+      </div>
+    }
+    @default {
+      @for (view of views(); track view.quote.id) {
+        <article class="mq__card">
+          <div class="mq__card-head">
+            <span class="mq__date">{{ view.quote.createdAt | date: 'dd/MM/yyyy' }}</span>
+            @if (view.quote.status === 'paid') {
+              <span class="mq__status mq__status--paid">Pagado</span>
+            } @else if (view.quote.totalPaid > 0) {
+              <span class="mq__status mq__status--partial">Pago parcial</span>
+            } @else {
+              <span class="mq__status">Pendiente de pago</span>
+            }
+          </div>
+
+          <div class="mq__summary">
+            <div class="mq__figure">
+              <span class="mq__figure-label">Total</span>
+              <span class="mq__figure-value">Bs. {{ view.quote.totalAmount | number: '1.2-2' }}</span>
+            </div>
+            <div class="mq__figure">
+              <span class="mq__figure-label">Pagado</span>
+              <span class="mq__figure-value">Bs. {{ view.quote.totalPaid | number: '1.2-2' }}</span>
+            </div>
+            <div class="mq__figure mq__figure--balance">
+              <span class="mq__figure-label">Saldo pendiente</span>
+              <span class="mq__figure-value">Bs. {{ view.quote.balance | number: '1.2-2' }}</span>
+            </div>
+          </div>
+
+          <progress
+            class="mq__progress"
+            max="100"
+            aria-label="Porcentaje pagado"
+            [value]="view.paidPercent"
+          >{{ view.paidPercent }}%</progress>
+          <p class="mq__progress-label">{{ view.paidPercent }}% pagado</p>
+
+          <h2 class="mq__section-title">Tratamientos</h2>
+          <ul class="mq__lines">
+            @for (line of view.lines; track line.key) {
+              <li class="mq__line">
+                <div class="mq__line-main">
+                  <span class="mq__line-name">{{ line.treatmentName }}</span>
+                  @if (line.toothNumbers.length > 0) {
+                    <span class="mq__line-teeth">
+                      Pieza{{ line.toothNumbers.length === 1 ? '' : 's' }}
+                      @for (n of line.toothNumbers; track n) {
+                        <span class="mq__tooth">{{ n }}</span>
+                      }
+                    </span>
+                  }
+                </div>
+                <span class="mq__line-price">Bs. {{ line.total | number: '1.2-2' }}</span>
+              </li>
+            }
+          </ul>
+
+          @if (view.quote.payments.length > 0) {
+            <h2 class="mq__section-title">Pagos</h2>
+            <ul class="mq__payments">
+              @for (p of view.quote.payments; track p.id) {
+                <li class="mq__payment">
+                  <span>{{ p.paymentDate | date: 'dd/MM/yyyy' }}</span>
+                  <span class="mq__payment-method">{{ methodLabel(p.paymentMethod) }}</span>
+                  <span class="mq__payment-receipt">{{ p.receiptNumber }}</span>
+                  <strong>Bs. {{ p.amount | number: '1.2-2' }}</strong>
+                </li>
+              }
+            </ul>
+          }
+        </article>
+      } @empty {
+        <div class="mq__state">
+          <span class="material-symbols-outlined">request_quote</span>
+          <p>Tu doctor todavía no compartió un presupuesto.</p>
+        </div>
+      }
+    }
+  }
+</section>
