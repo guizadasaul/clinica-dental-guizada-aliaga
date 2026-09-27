@@ -210,6 +210,19 @@ function cases(s: ReturnType<typeof services>): Case[] {
       body,
     },
     {
+      name: 'presupuestos: compartir con el paciente',
+      call: () => s.quotes.share('q1'),
+      method: 'POST',
+      url: `${API}/quotes/q1/share`,
+      body: {},
+    },
+    {
+      name: 'presupuestos: los míos (paciente)',
+      call: () => s.quotes.getMine(),
+      method: 'GET',
+      url: `${API}/patients/me/quotes`,
+    },
+    {
       name: 'invitaciones: enviar',
       call: () => s.invites.createInvite('p1', 'whatsapp'),
       method: 'POST',

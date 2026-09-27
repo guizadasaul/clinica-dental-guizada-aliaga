@@ -23,6 +23,11 @@ export class QuotesService {
     return this.http.get<Quote[]>(`${this.patientsBase}/${patientId}/quotes`);
   }
 
+  /** Los presupuestos que el doctor ya compartió con el paciente logueado (CLI-156). */
+  getMine(): Observable<Quote[]> {
+    return this.http.get<Quote[]>(`${this.patientsBase}/me/quotes`);
+  }
+
   getById(quoteId: string): Observable<Quote> {
     return this.http.get<Quote>(`${this.quotesBase}/${quoteId}`);
   }

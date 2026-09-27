@@ -1,4 +1,6 @@
-@if (activeNav() === 'history') {
+@if (activeNav() === 'quote') {
+  <app-my-quote />
+} @else if (activeNav() === 'history') {
   @if (patientId()) {
     <app-treatment-history
       [patientId]="patientId()!"
