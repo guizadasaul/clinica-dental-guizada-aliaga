@@ -1,0 +1,105 @@
+<section class="rp" aria-labelledby="rp-title">
+  <div class="rp__head">
+    <h3 id="rp-title" class="rp__title">Registrar pago</h3>
+    <button type="button" class="rp__close" aria-label="Cerrar" (click)="onClose()">
+      <span class="material-symbols-outlined">close</span>
+    </button>
+  </div>
+
+  <div class="rp__modes">
+    <button
+      type="button"
+      class="rp__mode"
+      [class.rp__mode--active]="mode() === 'cash'"
+      [attr.aria-pressed]="mode() === 'cash'"
+      [disabled]="charge() !== null"
+      (click)="setMode('cash')"
+    >
+      <span class="material-symbols-outlined">payments</span>
+      Efectivo
+    </button>
+    <button
+      type="button"
+      class="rp__mode"
+      [class.rp__mode--active]="mode() === 'qr'"
+      [attr.aria-pressed]="mode() === 'qr'"
+      [disabled]="charge() !== null"
+      (click)="setMode('qr')"
+    >
+      <span class="material-symbols-outlined">qr_code_2</span>
+      QR BANECO
+    </button>
+  </div>
+
+  @if (charge(); as c) {
+    <div class="rp__qr">
+      <img class="rp__qr-img" [src]="'data:image/png;base64,' + c.qrImageBase64" alt="QR de cobro BANECO" />
+      <p class="rp__qr-amount">Bs. {{ c.amount | number: '1.2-2' }}</p>
+      <p class="rp__hint">Mostrale el QR al paciente. Cuando pague desde su app, apretá "Verificar pago".</p>
+
+      @if (notice()) {
+        <p class="rp__notice">{{ notice() }}</p>
+      }
+      @if (error()) {
+        <p class="rp__error">{{ error() }}</p>
+      }
+
+      <button type="button" class="rp__btn rp__btn--primary" [disabled]="busy()" (click)="onVerify()">
+        <span class="material-symbols-outlined">verified</span>
+        {{ busy() ? 'Consultando...' : 'Verificar pago' }}
+      </button>
+      <button type="button" class="rp__btn rp__btn--ghost" [disabled]="busy()" (click)="onCancelQr()">
+        Anular QR
+      </button>
+    </div>
+  } @else {
+    <div class="rp__form">
+      <div class="rp__field">
+        <label class="rp__label" for="rp-amount">Monto (Bs.)</label>
+        <input
+          id="rp-amount"
+          type="number"
+          min="0.01"
+          step="0.01"
+          class="rp__input"
+          [ngModel]="amount()"
+          (ngModelChange)="amount.set($event)"
+        />
+        <small class="rp__hint">Saldo pendiente: Bs. {{ balance() | number: '1.2-2' }}</small>
+      </div>
+
+      @if (mode() === 'cash') {
+        <div class="rp__field">
+          <label class="rp__label" for="rp-notes">Notas (opcional)</label>
+          <input
+            id="rp-notes"
+            type="text"
+            maxlength="500"
+            class="rp__input"
+            [ngModel]="notes()"
+            (ngModelChange)="notes.set($event)"
+          />
+        </div>
+      }
+
+      @if (notice()) {
+        <p class="rp__notice">{{ notice() }}</p>
+      }
+      @if (error()) {
+        <p class="rp__error">{{ error() }}</p>
+      }
+
+      @if (mode() === 'cash') {
+        <button type="button" class="rp__btn rp__btn--primary" [disabled]="busy()" (click)="onRegisterCash()">
+          <span class="material-symbols-outlined">check</span>
+          {{ busy() ? 'Registrando...' : 'Registrar pago en efectivo' }}
+        </button>
+      } @else {
+        <button type="button" class="rp__btn rp__btn--primary" [disabled]="busy()" (click)="onGenerateQr()">
+          <span class="material-symbols-outlined">qr_code_2</span>
+          {{ busy() ? 'Generando...' : 'Generar QR' }}
+        </button>
+      }
+    </div>
+  }
+</section>
