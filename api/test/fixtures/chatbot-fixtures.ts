@@ -167,13 +167,19 @@ export async function createChatbotFixtures(
       total_amount: A_QUOTE.total,
       total_paid: A_QUOTE.paid,
       status: 'partially_paid',
+      // Compartido: el paciente (y su chatbot) solo ven esos (CLI-156).
+      shared_at: new Date(),
     },
   });
   await prisma.payments.create({
     data: { quote_id: quoteA.id, amount: A_QUOTE.paid, payment_method: 'cash' },
   });
   await prisma.quotes.create({
-    data: { patient_id: patientB.id, total_amount: B_QUOTE.total },
+    data: {
+      patient_id: patientB.id,
+      total_amount: B_QUOTE.total,
+      shared_at: new Date(),
+    },
   });
 
   return {
