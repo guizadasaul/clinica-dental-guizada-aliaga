@@ -19,7 +19,8 @@ const PATIENT: Patient = {
   zona: null,
   ciudad: null,
   phone: null,
-  emergencyContactName: null,
+  emergencyContactFirstName: null,
+  emergencyContactLastName: null,
   emergencyContactPhone: null,
   emergencyContactRelationship: null,
   consultationReason: null,
@@ -28,6 +29,7 @@ const PATIENT: Patient = {
   familyHistory: null,
   documentType: null,
   dni: null,
+  documentExtension: null,
   createdAt: '2026-01-01T00:00:00.000Z',
   updatedAt: '2026-01-01T00:00:00.000Z',
   assignedDoctorId: null,
@@ -226,6 +228,7 @@ describe('ClinicalRecordViewComponent — ficha', () => {
     [{ dni: 'AB123', documentType: 'pasaporte' }, 'Pasaporte AB123'],
     [{ dni: '99', documentType: 'otro' }, 'otro 99'],
     [{ dni: '1234567', documentType: null }, '1234567'],
+    [{ dni: '1234567', documentType: 'ci', documentExtension: 'LP' }, 'CI 1234567 LP'],
   ] as const)('documento %o se muestra como "%s"', async (patient, label) => {
     const fixture = setupRecord({ patient: patient as Partial<Patient> });
     await text(fixture);

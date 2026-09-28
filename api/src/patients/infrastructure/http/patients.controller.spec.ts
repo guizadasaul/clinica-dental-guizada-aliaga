@@ -105,7 +105,8 @@ describe('PatientsController', () => {
       zona: 'Sopocachi',
       ciudad: 'La Paz',
       phone: '+59170000000',
-      emergencyContactName: 'Luis',
+      emergencyContactFirstName: 'Luis',
+      emergencyContactLastName: 'Rojas',
       emergencyContactPhone: '+59171111111',
       emergencyContactRelationship: 'Hermano',
       consultationReason: 'Control',
@@ -114,6 +115,7 @@ describe('PatientsController', () => {
       familyHistory: 'Diabetes',
       documentType: 'ci',
       dni: '1234567',
+      documentExtension: 'LP',
     } as CreatePatientDto;
 
     it('convierte las fechas y pasa el resto de los campos tal cual', async () => {
@@ -134,7 +136,8 @@ describe('PatientsController', () => {
           zona: 'Sopocachi',
           ciudad: 'La Paz',
           phone: '+59170000000',
-          emergencyContactName: 'Luis',
+          emergencyContactFirstName: 'Luis',
+          emergencyContactLastName: 'Rojas',
           emergencyContactPhone: '+59171111111',
           emergencyContactRelationship: 'Hermano',
           consultationReason: 'Control',
@@ -143,6 +146,7 @@ describe('PatientsController', () => {
           familyHistory: 'Diabetes',
           documentType: 'ci',
           dni: '1234567',
+          documentExtension: 'LP',
         },
       );
     });

@@ -8,13 +8,14 @@ import { AuthService } from '../../../../auth/application/auth.service';
 import { PatientsService } from '../../../patients/services/patients.service';
 import { TreatmentsService } from '../../../treatments/services/treatments.service';
 
-// 14:00 UTC = 10:00 en La Paz (UTC-4) — dentro de la grilla (9:00–24:00) y,
-// salvo que el test corra entre las 00:00 y 03:59 UTC, mismo día calendario
-// que "hoy" en La Paz, así que siempre cae dentro de la semana visible.
+// 14:00 UTC = 10:00 en La Paz (UTC-4) — dentro de la grilla (9:00–24:00).
+// El día calendario se toma de "hoy" en La Paz (now - 4h), no de "hoy" en
+// UTC: entre las 00:00 y 03:59 UTC la fecha UTC ya es mañana en La Paz, y un
+// domingo eso cae en la semana siguiente, fuera de la vista.
 function todayAtLaPazMorning(): string {
-  const now = new Date();
+  const laPazNow = new Date(Date.now() - 4 * 60 * 60 * 1000);
   return new Date(
-    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 14, 0, 0),
+    Date.UTC(laPazNow.getUTCFullYear(), laPazNow.getUTCMonth(), laPazNow.getUTCDate(), 14, 0, 0),
   ).toISOString();
 }
 
