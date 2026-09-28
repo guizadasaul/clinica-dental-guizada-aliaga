@@ -36,7 +36,7 @@
         <div class="record__field"><dt>Dirección</dt><dd>{{ patient().address || '—' }}</dd></div>
         <div class="record__field"><dt>Zona</dt><dd>{{ patient().zona || '—' }}</dd></div>
         <div class="record__field"><dt>Ciudad</dt><dd>{{ patient().ciudad || '—' }}</dd></div>
-        <div class="record__field"><dt>Contacto de emergencia</dt><dd>{{ patient().emergencyContactName || '—' }}</dd></div>
+        <div class="record__field"><dt>Contacto de emergencia</dt><dd>{{ emergencyContactLabel(patient()) }}</dd></div>
         <div class="record__field"><dt>Teléfono de emergencia</dt><dd>{{ patient().emergencyContactPhone || '—' }}</dd></div>
         <div class="record__field"><dt>Parentesco</dt><dd>{{ patient().emergencyContactRelationship || '—' }}</dd></div>
         <div class="record__field record__field--full"><dt>Motivo de consulta</dt><dd>{{ patient().consultationReason || '—' }}</dd></div>

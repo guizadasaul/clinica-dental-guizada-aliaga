@@ -543,7 +543,8 @@ describe('PrismaPatientsRepository.updatePatient', () => {
       address: 'Av. Siempre Viva 742',
       zona: 'Sopocachi',
       ciudad: 'La Paz',
-      emergencyContactName: 'Luis Pérez',
+      emergencyContactFirstName: 'Luis',
+      emergencyContactLastName: 'Pérez',
       emergencyContactPhone: '+59170000000',
       emergencyContactRelationship: 'Hermano',
       consultationReason: 'Control',
@@ -552,6 +553,7 @@ describe('PrismaPatientsRepository.updatePatient', () => {
       familyHistory: 'Diabetes',
       documentType: 'ci',
       dni: '1234567',
+      documentExtension: 'LP',
     });
 
     expect(update).toHaveBeenCalledWith(
@@ -568,7 +570,8 @@ describe('PrismaPatientsRepository.updatePatient', () => {
       address: 'Av. Siempre Viva 742',
       zona: 'Sopocachi',
       ciudad: 'La Paz',
-      emergency_contact_name: 'Luis Pérez',
+      emergency_contact_first_name: 'Luis',
+      emergency_contact_last_name: 'Pérez',
       emergency_contact_phone: '+59170000000',
       emergency_contact_relationship: 'Hermano',
       consultation_reason: 'Control',
@@ -577,6 +580,7 @@ describe('PrismaPatientsRepository.updatePatient', () => {
       family_history: 'Diabetes',
       document_type: 'ci',
       dni: '1234567',
+      document_extension: 'LP',
       updated_at: expect.any(Date) as Date,
     });
   });

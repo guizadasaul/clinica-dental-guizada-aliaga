@@ -67,7 +67,8 @@ const PATIENT_COLUMN_BY_FIELD = {
   address: 'address',
   zona: 'zona',
   ciudad: 'ciudad',
-  emergencyContactName: 'emergency_contact_name',
+  emergencyContactFirstName: 'emergency_contact_first_name',
+  emergencyContactLastName: 'emergency_contact_last_name',
   emergencyContactPhone: 'emergency_contact_phone',
   emergencyContactRelationship: 'emergency_contact_relationship',
   consultationReason: 'consultation_reason',
@@ -76,6 +77,7 @@ const PATIENT_COLUMN_BY_FIELD = {
   familyHistory: 'family_history',
   documentType: 'document_type',
   dni: 'dni',
+  documentExtension: 'document_extension',
 } as const satisfies Record<
   Exclude<keyof UpdatePatientData, 'phone'>,
   keyof Prisma.patientsUpdateInput
@@ -149,7 +151,8 @@ export class PrismaPatientsRepository implements IPatientRepository {
         address: data.address ?? null,
         zona: data.zona ?? null,
         ciudad: data.ciudad ?? null,
-        emergency_contact_name: data.emergencyContactName ?? null,
+        emergency_contact_first_name: data.emergencyContactFirstName ?? null,
+        emergency_contact_last_name: data.emergencyContactLastName ?? null,
         emergency_contact_phone: data.emergencyContactPhone ?? null,
         emergency_contact_relationship:
           data.emergencyContactRelationship ?? null,
@@ -159,6 +162,7 @@ export class PrismaPatientsRepository implements IPatientRepository {
         family_history: data.familyHistory ?? null,
         document_type: data.documentType ?? null,
         dni: data.dni ?? null,
+        document_extension: data.documentExtension ?? null,
         assigned_doctor_id: data.assignedDoctorId ?? null,
       },
       include: { users: true },

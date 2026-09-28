@@ -343,7 +343,9 @@ model patients {
   address                        String?
   zona                           String?                      @db.VarChar(100)
   ciudad                         String?                      @db.VarChar(100)
-  emergency_contact_name         String?                      @db.VarChar(200)
+  /// Nombres y apellidos del contacto de emergencia por separado (antes un solo emergency_contact_name).
+  emergency_contact_first_name   String?                      @db.VarChar(100)
+  emergency_contact_last_name    String?                      @db.VarChar(100)
   emergency_contact_phone        String?                      @db.VarChar(20)
   emergency_contact_relationship String?                      @db.VarChar(100)
   consultation_reason            String?
@@ -353,6 +355,8 @@ model patients {
   /// CI/pasaporte/nit (CLI-54, ver DOCUMENT_TYPES) — null solo si dni también es null. La unicidad real es (document_type, dni), no dni solo: un pasaporte y una CI pueden coincidir en número sin ser la misma persona.
   document_type                  String?                      @db.VarChar(20)
   dni                            String?                      @db.VarChar(20)
+  /// Extensión/complemento de la CI boliviana (ej. "LP", "1A") — solo con document_type = 'ci'. No entra en la unicidad: (document_type, dni) sigue siendo la clave.
+  document_extension             String?                      @db.VarChar(12)
   /// Doctor asignado (CLI-61) — informativo, no restringe acceso: cualquier
   /// odontólogo logueado sigue viendo y editando cualquier paciente (decisión
   /// de alcance de la épica). Nullable porque un paciente puede no tener

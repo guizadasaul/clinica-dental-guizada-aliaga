@@ -68,7 +68,8 @@ export class PatientsController {
       zona: dto.zona,
       ciudad: dto.ciudad,
       phone: dto.phone,
-      emergencyContactName: dto.emergencyContactName,
+      emergencyContactFirstName: dto.emergencyContactFirstName,
+      emergencyContactLastName: dto.emergencyContactLastName,
       emergencyContactPhone: dto.emergencyContactPhone,
       emergencyContactRelationship: dto.emergencyContactRelationship,
       consultationReason: dto.consultationReason,
@@ -79,6 +80,7 @@ export class PatientsController {
       familyHistory: dto.familyHistory,
       documentType: dto.documentType,
       dni: dto.dni,
+      documentExtension: dto.documentExtension,
     });
   }
 
@@ -100,7 +102,8 @@ export class PatientsController {
       zona: dto.zona,
       ciudad: dto.ciudad,
       phone: dto.phone,
-      emergencyContactName: dto.emergencyContactName,
+      emergencyContactFirstName: dto.emergencyContactFirstName,
+      emergencyContactLastName: dto.emergencyContactLastName,
       emergencyContactPhone: dto.emergencyContactPhone,
       emergencyContactRelationship: dto.emergencyContactRelationship,
       consultationReason: dto.consultationReason,
@@ -111,6 +114,7 @@ export class PatientsController {
       familyHistory: dto.familyHistory,
       documentType: dto.documentType,
       dni: dto.dni,
+      documentExtension: dto.documentExtension,
       email: dto.email,
     });
   }

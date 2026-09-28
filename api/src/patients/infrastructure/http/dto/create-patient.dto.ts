@@ -15,7 +15,11 @@ import {
   Trim,
 } from '../../../../shared/validators/transforms.js';
 import { IsPersonName } from '../../../../shared/validators/full-name.validator.js';
-import { IsDni } from '../../../../shared/validators/dni.validator.js';
+import {
+  IsDni,
+  IsDocumentExtension,
+  IsOnlyForCi,
+} from '../../../../shared/validators/dni.validator.js';
 import { IsE164Phone } from '../../../../shared/validators/phone.validator.js';
 import { NoHtml } from '../../../../shared/validators/text-safety.validator.js';
 import {
@@ -133,15 +137,24 @@ export class CreatePatientDto {
   @MaxLength(20)
   phone?: string;
 
-  // Obligatorio: el contacto de emergencia completo (nombre, teléfono,
-  // parentesco) pasa a exigirse junto con los demás campos de la ficha.
+  // Obligatorio: el contacto de emergencia completo (nombres, apellidos,
+  // teléfono, parentesco) pasa a exigirse junto con los demás campos de la
+  // ficha. Mismas reglas que el nombre y el apellido del propio paciente.
   @EmptyToUndefined()
   @IsString()
   @NormalizeName()
   @IsPersonName()
   @MinLength(3)
-  @MaxLength(200)
-  emergencyContactName: string;
+  @MaxLength(100)
+  emergencyContactFirstName: string;
+
+  @EmptyToUndefined()
+  @IsString()
+  @NormalizeName()
+  @IsPersonName()
+  @MinLength(3)
+  @MaxLength(100)
+  emergencyContactLastName: string;
 
   @EmptyToUndefined()
   @Trim()
@@ -218,4 +231,14 @@ export class CreatePatientDto {
   @IsDni()
   @MaxLength(20)
   dni: string;
+
+  // Extensión/complemento de la CI boliviana (ej. "LP", "1A"). Opcional; null
+  // la borra en un update. Misma normalización que el dni.
+  @IsOptional()
+  @EmptyToUndefined()
+  @NormalizeDni()
+  @IsDocumentExtension()
+  @IsOnlyForCi()
+  @MaxLength(12)
+  documentExtension?: string | null;
 }

@@ -12,19 +12,19 @@ import { field, allValid, touchAll } from '../../../../../../shared/validation/f
 import {
   normalizeFullName,
   validatePersonName,
-  PERSON_NAME_RE,
   PERSON_NAME_MAX_LENGTH,
 } from '../../../../../../shared/validation/full-name.validator';
-import { normalizeDni, isValidDni } from '../../../../../../shared/validation/dni.validator';
+import {
+  normalizeDni,
+  isValidDni,
+  isValidDocumentExtension,
+  DOCUMENT_EXTENSION_MAX_LENGTH,
+} from '../../../../../../shared/validation/dni.validator';
 import { normalizeText, optionalTextError } from '../../../../../../shared/validation/text.validator';
 import { isNotFutureDate, isAgeWithin, isNotBefore } from '../../../../../../shared/validation/date.validator';
 import type { Patient } from '../../../../models/patient.model';
 import type { CreatePatientRequest } from '../../../../models/patient.request';
 import { DOCUMENT_TYPES } from '../../../../../../shared/validation/clinical-options';
-
-// MaxLength(200) del DTO — más laxo que PERSON_NAME_MAX_LENGTH (100), así que
-// para este campo puntual no reusamos el tope interno de validatePersonName.
-const EMERGENCY_CONTACT_NAME_MAX_LENGTH = 200;
 
 // Mínimo general de texto libre del wizard — una sola letra o un solo
 // número no alcanzan como respuesta real en ningún campo.
@@ -52,21 +52,6 @@ function optionalPersonNameError(value: string, label: string): string | null {
   return null;
 }
 
-// Contacto de emergencia — nombre obligatorio (antes era opcional).
-function emergencyContactNameError(value: string): string | null {
-  const trimmed = value.trim();
-  if (!trimmed) return 'El nombre del contacto de emergencia es obligatorio.';
-  const normalized = normalizeFullName(trimmed);
-  if (!PERSON_NAME_RE.test(normalized)) return 'El nombre solo puede tener letras.';
-  if (normalized.length < MIN_TEXT_LENGTH) {
-    return `El nombre tiene que tener al menos ${MIN_TEXT_LENGTH} caracteres.`;
-  }
-  if (normalized.length > EMERGENCY_CONTACT_NAME_MAX_LENGTH) {
-    return `El nombre no puede superar los ${EMERGENCY_CONTACT_NAME_MAX_LENGTH} caracteres.`;
-  }
-  return null;
-}
-
 function birthDateError(value: string): string | null {
   if (!value) return 'La fecha de nacimiento es obligatoria.';
   if (!isNotFutureDate(value)) return 'La fecha no puede ser futura.';
@@ -77,6 +62,14 @@ function birthDateError(value: string): string | null {
 function dniFieldError(value: string): string | null {
   if (!value.trim()) return 'El DNI es obligatorio.';
   if (!isValidDni(value)) return 'El DNI solo puede tener letras y números (5 a 15 caracteres).';
+  return null;
+}
+
+function documentExtensionError(value: string): string | null {
+  if (!value.trim()) return null;
+  if (!isValidDocumentExtension(value)) {
+    return `La extensión solo puede tener letras y números (hasta ${DOCUMENT_EXTENSION_MAX_LENGTH} caracteres).`;
+  }
   return null;
 }
 
@@ -111,7 +104,8 @@ export class StepPatientDataComponent {
   readonly existingPatient = input<Patient | null>(null);
   readonly submitStep = output<Omit<CreatePatientRequest, 'userId'>>();
 
-  protected readonly emergencyContactNameMaxLength = EMERGENCY_CONTACT_NAME_MAX_LENGTH;
+  protected readonly personNameMaxLength = PERSON_NAME_MAX_LENGTH;
+  protected readonly documentExtensionMaxLength = DOCUMENT_EXTENSION_MAX_LENGTH;
   protected readonly documentTypes = DOCUMENT_TYPES;
 
   protected readonly firstName = field<string>('', (v: string) => requiredPersonNameError(v, 'El nombre'));
@@ -129,10 +123,17 @@ export class StepPatientDataComponent {
   protected readonly occupation = field<string>('', (v: string) => requiredTextFieldError(v, 150, 'La ocupación'));
   protected readonly documentType = field<string>('', (v: string) => (v ? null : 'El tipo de documento es obligatorio.'));
   protected readonly dni = field<string>('', dniFieldError);
+  // Solo aplica a CI — con otro tipo de documento el campo se oculta y no se envía.
+  protected readonly documentExtension = field<string>('', documentExtensionError);
   protected readonly address = field<string>('', (v: string) => requiredTextFieldError(v, 300, 'La dirección'));
   protected readonly zona = field<string>('', (v: string) => requiredTextFieldError(v, 100, 'La zona'));
   protected readonly ciudad = field<string>('', (v: string) => requiredTextFieldError(v, 100, 'La ciudad'));
-  protected readonly emergencyContactName = field<string>('', emergencyContactNameError);
+  protected readonly emergencyContactFirstName = field<string>('', (v: string) =>
+    requiredPersonNameError(v, 'El nombre del contacto'),
+  );
+  protected readonly emergencyContactLastName = field<string>('', (v: string) =>
+    requiredPersonNameError(v, 'El apellido del contacto'),
+  );
   protected readonly emergencyContactRelationship = field<string>('', (v: string) =>
     requiredTextFieldError(v, 100, 'El parentesco'),
   );
@@ -174,7 +175,8 @@ export class StepPatientDataComponent {
     this.address,
     this.zona,
     this.ciudad,
-    this.emergencyContactName,
+    this.emergencyContactFirstName,
+    this.emergencyContactLastName,
     this.emergencyContactRelationship,
     this.consultationReason,
     this.lastDentistVisit,
@@ -201,10 +203,12 @@ export class StepPatientDataComponent {
         this.occupation.reset(patient.occupation ?? '');
         this.documentType.reset(patient.documentType ?? '');
         this.dni.reset(patient.dni ?? '');
+        this.documentExtension.reset(patient.documentExtension ?? '');
         this.address.reset(patient.address ?? '');
         this.zona.reset(patient.zona ?? '');
         this.ciudad.reset(patient.ciudad ?? '');
-        this.emergencyContactName.reset(patient.emergencyContactName ?? '');
+        this.emergencyContactFirstName.reset(patient.emergencyContactFirstName ?? '');
+        this.emergencyContactLastName.reset(patient.emergencyContactLastName ?? '');
         this.emergencyContactRelationship.reset(patient.emergencyContactRelationship ?? '');
         this.consultationReason.reset(patient.consultationReason ?? '');
         this.lastDentistVisit.reset(patient.lastDentistVisit ? patient.lastDentistVisit.slice(0, 10) : '');
@@ -236,10 +240,15 @@ export class StepPatientDataComponent {
     this.emergencyContactPhoneOk.set(event.valid);
   }
 
+  protected isCi(): boolean {
+    return this.documentType.value() === 'ci';
+  }
+
   protected onSubmit(): void {
-    touchAll(...this.fields);
+    const fields = this.isCi() ? [...this.fields, this.documentExtension] : this.fields;
+    touchAll(...fields);
     this.submitted.set(true);
-    if (!allValid(...this.fields) || !this.phoneOk() || !this.emergencyContactPhoneOk()) {
+    if (!allValid(...fields) || !this.phoneOk() || !this.emergencyContactPhoneOk()) {
       this.formError.set('Revisá los campos marcados en rojo.');
       return;
     }
@@ -260,7 +269,9 @@ export class StepPatientDataComponent {
       phone: isBareCallingCode(this.phoneE164()) ? undefined : this.phoneE164(),
       documentType: this.documentType.value(),
       dni: normalizeDni(this.dni.value()),
-      emergencyContactName: normalizeFullName(this.emergencyContactName.value()),
+      documentExtension: (this.isCi() && normalizeDni(this.documentExtension.value())) || null,
+      emergencyContactFirstName: normalizeFullName(this.emergencyContactFirstName.value()),
+      emergencyContactLastName: normalizeFullName(this.emergencyContactLastName.value()),
       emergencyContactPhone: this.emergencyContactPhoneE164(),
       emergencyContactRelationship: normalizeText(this.emergencyContactRelationship.value()),
       consultationReason: normalizeText(this.consultationReason.value()) || undefined,

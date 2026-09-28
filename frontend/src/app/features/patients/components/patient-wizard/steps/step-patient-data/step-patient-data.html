@@ -175,6 +175,27 @@
           <p class="step-form__field-error" id="dni-err" role="alert">{{ dni.error() }}</p>
         }
       </div>
+      @if (isCi()) {
+        <div class="step-form__field">
+          <label class="step-form__label" for="documentExtension">Extensión</label>
+          <input
+            id="documentExtension"
+            class="step-form__input"
+            [class.step-form__input--invalid]="documentExtension.showError()"
+            type="text"
+            [value]="documentExtension.value()"
+            (input)="documentExtension.set($any($event.target).value)"
+            (blur)="documentExtension.markTouched()"
+            [attr.maxlength]="documentExtensionMaxLength"
+            placeholder="Ej: LP o 1A"
+            [attr.aria-invalid]="documentExtension.showError() || null"
+            [attr.aria-describedby]="documentExtension.showError() ? 'documentExtension-err' : null"
+          />
+          @if (documentExtension.showError()) {
+            <p class="step-form__field-error" id="documentExtension-err" role="alert">{{ documentExtension.error() }}</p>
+          }
+        </div>
+      }
       <div class="step-form__field">
         <span class="step-form__label">Teléfono</span>
         <app-phone-input [value]="phoneE164()" [disabled]="loading()" (changed)="onPhoneChanged($event)" />
@@ -241,24 +262,43 @@
 
   <div class="step-form__section">
     <h3 class="step-form__section-title">Contacto de emergencia</h3>
-    <div class="step-form__grid step-form__grid--3">
+    <div class="step-form__grid step-form__grid--2">
       <div class="step-form__field">
-        <label class="step-form__label" for="emergencyContactName">Nombre completo <span class="step-form__req">*</span></label>
+        <label class="step-form__label" for="emergencyContactFirstName">Nombres <span class="step-form__req">*</span></label>
         <input
-          id="emergencyContactName"
+          id="emergencyContactFirstName"
           class="step-form__input"
-          [class.step-form__input--invalid]="emergencyContactName.showError()"
+          [class.step-form__input--invalid]="emergencyContactFirstName.showError()"
           type="text"
-          [value]="emergencyContactName.value()"
-          (input)="emergencyContactName.set($any($event.target).value)"
-          (blur)="emergencyContactName.markTouched()"
-          [attr.maxlength]="emergencyContactNameMaxLength"
-          placeholder="Ej: Carlos García"
-          [attr.aria-invalid]="emergencyContactName.showError() || null"
-          [attr.aria-describedby]="emergencyContactName.showError() ? 'emergencyContactName-err' : null"
+          [value]="emergencyContactFirstName.value()"
+          (input)="emergencyContactFirstName.set($any($event.target).value)"
+          (blur)="emergencyContactFirstName.markTouched()"
+          [attr.maxlength]="personNameMaxLength"
+          placeholder="Ej: Carlos Andrés"
+          [attr.aria-invalid]="emergencyContactFirstName.showError() || null"
+          [attr.aria-describedby]="emergencyContactFirstName.showError() ? 'emergencyContactFirstName-err' : null"
         />
-        @if (emergencyContactName.showError()) {
-          <p class="step-form__field-error" id="emergencyContactName-err" role="alert">{{ emergencyContactName.error() }}</p>
+        @if (emergencyContactFirstName.showError()) {
+          <p class="step-form__field-error" id="emergencyContactFirstName-err" role="alert">{{ emergencyContactFirstName.error() }}</p>
+        }
+      </div>
+      <div class="step-form__field">
+        <label class="step-form__label" for="emergencyContactLastName">Apellidos <span class="step-form__req">*</span></label>
+        <input
+          id="emergencyContactLastName"
+          class="step-form__input"
+          [class.step-form__input--invalid]="emergencyContactLastName.showError()"
+          type="text"
+          [value]="emergencyContactLastName.value()"
+          (input)="emergencyContactLastName.set($any($event.target).value)"
+          (blur)="emergencyContactLastName.markTouched()"
+          [attr.maxlength]="personNameMaxLength"
+          placeholder="Ej: García López"
+          [attr.aria-invalid]="emergencyContactLastName.showError() || null"
+          [attr.aria-describedby]="emergencyContactLastName.showError() ? 'emergencyContactLastName-err' : null"
+        />
+        @if (emergencyContactLastName.showError()) {
+          <p class="step-form__field-error" id="emergencyContactLastName-err" role="alert">{{ emergencyContactLastName.error() }}</p>
         }
       </div>
       <div class="step-form__field">

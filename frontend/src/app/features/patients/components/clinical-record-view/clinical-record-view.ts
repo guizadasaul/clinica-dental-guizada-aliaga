@@ -111,7 +111,13 @@ export class ClinicalRecordViewComponent {
     const typeLabel = p.documentType
       ? (ClinicalRecordViewComponent.DOCUMENT_TYPE_LABELS[p.documentType] ?? p.documentType)
       : null;
-    return typeLabel ? `${typeLabel} ${p.dni}` : p.dni;
+    const number = p.documentExtension ? `${p.dni} ${p.documentExtension}` : p.dni;
+    return typeLabel ? `${typeLabel} ${number}` : number;
+  }
+
+  protected emergencyContactLabel(p: Patient): string {
+    const name = [p.emergencyContactFirstName, p.emergencyContactLastName].filter(Boolean).join(' ');
+    return name || '—';
   }
 
   protected brushingFrequencyLabel(value: string | null): string {
