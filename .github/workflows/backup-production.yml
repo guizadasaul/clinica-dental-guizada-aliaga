@@ -1,0 +1,110 @@
+name: Backup production
+
+# Backup nocturno de la base de producción (Supabase Free no tiene backups
+# propios: esta es la copia). 03:30 hora de La Paz = 07:30 UTC.
+#   1. pg_dump del schema `public` (datos de la app) y, si el rol lo permite,
+#      de auth.users / auth.identities (las cuentas de login)
+#   2. cifrado con age (clave pública en deploy/backup/age-recipient.txt; la
+#      privada solo en el gestor de contraseñas)
+#   3. subida a Cloudflare R2: <bucket>/production/AAAA/MM/clinica-<fecha>.tar.age
+# La retención (30 días) la aplica una regla de ciclo de vida del bucket.
+# Si falla, GitHub avisa por correo. Restaurar: deploy/backup/restore.sh
+# (runbook en deploy/README.md → Backups).
+#
+# Environment `backup` (sin reviewers, corre solo): secrets DATABASE_URL,
+# R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY; variables R2_ACCOUNT_ID, R2_BUCKET.
+
+on:
+  schedule:
+    - cron: "30 7 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backup-production
+  cancel-in-progress: false
+
+jobs:
+  backup:
+    # Las corridas nocturnas arrancan recién cuando la variable de repo
+    # BACKUP_ENABLED vale "true" (se prende al terminar de configurar R2 y la
+    # clave de age): antes fallarían todas las noches. A mano corre siempre.
+    if: github.event_name == 'workflow_dispatch' || vars.BACKUP_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    environment: backup
+    env:
+      # libpq sí verifica bien la CA con verify-full (a diferencia del motor
+      # de Prisma): el pooler de Supabase presenta un cert de su propia CA.
+      PGSSLMODE: verify-full
+      PGSSLROOTCERT: ${{ github.workspace }}/api/certs/supabase-root-2021.crt
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      R2_ACCOUNT_ID: ${{ vars.R2_ACCOUNT_ID }}
+      R2_BUCKET: ${{ vars.R2_BUCKET }}
+      AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+      AWS_DEFAULT_REGION: auto
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validar configuración
+        run: |
+          for name in DATABASE_URL R2_ACCOUNT_ID R2_BUCKET AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY; do
+            if [ -z "${!name}" ]; then
+              echo "::error::Falta $name en el Environment backup (ver deploy/README.md → Backups)"
+              exit 1
+            fi
+          done
+          if ! grep -q '^age1' deploy/backup/age-recipient.txt; then
+            echo "::error::deploy/backup/age-recipient.txt no tiene la clave pública de age"
+            exit 1
+          fi
+
+      - name: Instalar pg_dump 17 y age
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq postgresql-common age >/dev/null
+          sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y >/dev/null
+          sudo apt-get install -y -qq postgresql-client-17 >/dev/null
+          echo "/usr/lib/postgresql/17/bin" >> "$GITHUB_PATH"
+
+      - name: Volcar la base
+        run: |
+          server=$(psql "$DATABASE_URL" -Atc 'show server_version_num')
+          echo "Postgres del servidor: $server"
+          if [ "$server" -ge 180000 ]; then
+            echo "::error::El servidor es Postgres ${server:0:2}: hay que subir el cliente de pg_dump en este workflow"
+            exit 1
+          fi
+          mkdir -p backup
+          # Datos de la app: tiene que salir sí o sí.
+          pg_dump "$DATABASE_URL" --format=custom --no-owner --no-privileges \
+            --schema=public --file=backup/public.dump
+          pg_restore --list backup/public.dump > /dev/null
+          # Cuentas de login (Supabase Auth): best effort, depende de los
+          # permisos del rol en el schema auth.
+          if pg_dump "$DATABASE_URL" --format=custom --data-only --no-owner \
+               --table=auth.users --table=auth.identities --file=backup/auth.dump 2> auth.err; then
+            pg_restore --list backup/auth.dump > /dev/null
+          else
+            echo "::warning::No se pudo volcar auth.users/auth.identities: $(head -c 300 auth.err)"
+            rm -f backup/auth.dump
+          fi
+          ls -l backup
+
+      - name: Cifrar y subir a R2
+        run: |
+          stamp=$(date -u +%Y%m%dT%H%MZ)
+          key="production/$(date -u +%Y/%m)/clinica-$stamp.tar.age"
+          tar -C backup -cf - . | age -R deploy/backup/age-recipient.txt -o backup.tar.age
+          aws s3 cp backup.tar.age "s3://$R2_BUCKET/$key" \
+            --endpoint-url "https://$R2_ACCOUNT_ID.r2.cloudflarestorage.com" --only-show-errors
+          size=$(aws s3api head-object --bucket "$R2_BUCKET" --key "$key" \
+            --endpoint-url "https://$R2_ACCOUNT_ID.r2.cloudflarestorage.com" --query ContentLength --output text)
+          echo "✓ $key ($size bytes)"
+          [ "$size" -gt 0 ]
+
+      - name: Borrar copias locales
+        if: always()
+        run: rm -rf backup backup.tar.age auth.err

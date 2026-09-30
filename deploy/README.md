@@ -44,6 +44,8 @@ Supabase del frontend es la publicable (anon); la `service_role` vive solo en el
 | `BANECO_API_URL`, `BANECO_USERNAME`, `BANECO_PASSWORD`, `BANECO_AES_KEY`, `BANECO_ACCOUNT`, `BANECO_BRANCH_CODE` | secretas | ⚠️ staging usa las credenciales reales: un QR de staging es un cobro real |
 | `GROQ_API_KEY` | secreta | una key por ambiente |
 | `GROQ_*`, `CHATBOT_ENABLED`, `CHAT_*` | privadas | pueden diferir |
+| `WHATSAPP_TOKEN`, `WHATSAPP_APP_SECRET`, `WHATSAPP_VERIFY_TOKEN` | secretas | distintas (un número de WhatsApp apunta a un solo webhook) |
+| `WHATSAPP_PHONE_NUMBER_ID`, `WHATSAPP_ENABLED`, `WHATSAPP_*` | privadas | distintas / opcionales |
 | `FRONTEND_URL`, `CORS_ORIGINS` | públicas | distintas (el origen de su propio frontend, nada más) |
 | `TRUST_PROXY_HOPS` | privada | `1` en los dos |
 | `THROTTLE_*_PER_HOUR` | privadas | defaults |
@@ -279,6 +281,49 @@ de Supabase) y el código ya es público, así que el paquete puede ser **públi
 La primera vez que el pipeline la publica, GitHub la crea privada: Profile → Packages → `clinic-api` →
 Package settings → Change visibility → Public. (Alternativa: dejarla privada y hacer `docker login ghcr.io`
 en el VPS con un token de solo lectura.)
+
+## Backups (producción)
+
+Producción usa **Supabase Free, que no tiene backups propios**: esta es la copia.
+
+| Qué | Dónde |
+|---|---|
+| Workflow | `.github/workflows/backup-production.yml`, todas las noches 03:30 (La Paz) y a mano (*Run workflow*) |
+| Qué guarda | `pg_dump` del schema `public` (datos de la app) + `auth.users`/`auth.identities` si el rol lo permite |
+| Cifrado | `age`, con la clave pública de [`deploy/backup/age-recipient.txt`](backup/age-recipient.txt). La privada vive **solo** en el gestor de contraseñas: sin ella no se restaura nada |
+| Destino | Cloudflare R2, bucket `clinica-backups`, `production/AAAA/MM/clinica-<fecha>.tar.age` |
+| Retención | 30 días, con una regla de ciclo de vida del bucket (R2 → bucket → Settings → Object lifecycle rules) |
+| Aviso de falla | GitHub manda un correo si falla un workflow programado |
+| Encendido | Las corridas nocturnas se saltean hasta que la variable de repo `BACKUP_ENABLED` valga `true` (Settings → Secrets and variables → Actions → Variables). A mano corre siempre |
+| TLS | `verify-full` contra la CA de Supabase (`api/certs/`) |
+
+Environment `backup` (sin reviewers, para que corra solo): secrets `DATABASE_URL` (Session pooler de producción),
+`R2_ACCESS_KEY_ID` y `R2_SECRET_ACCESS_KEY` (token de R2 con Object Read & Write solo sobre el bucket); variables
+`R2_ACCOUNT_ID` y `R2_BUCKET`.
+
+### Restaurar (runbook)
+
+1. Bajar el backup desde Cloudflare → R2 → `clinica-backups` → `production/…` → el `.tar.age` que corresponda.
+2. Sacar la clave privada de age del gestor de contraseñas a un archivo temporal (y borrarlo al terminar).
+3. **Probar primero en local**, en una base vacía del Postgres de desarrollo:
+   ```bash
+   docker exec cga-db psql -U postgres -c "CREATE DATABASE clinica_restore"
+   deploy/backup/restore.sh clinica-<fecha>.tar.age clave.age \
+     "postgresql://postgres:postgres@localhost:5433/clinica_restore"
+   ```
+   Levantar la API contra esa base (`DATABASE_URL`) y revisar que los datos estén. Después
+   `docker exec cga-db psql -U postgres -c "DROP DATABASE clinica_restore"`.
+4. **Desastre real** (se perdió el proyecto de Supabase): crear un proyecto nuevo (no hace falta correr *DB migrate*:
+   el backup trae el schema) y restaurar con `--with-auth` para recuperar también las cuentas de login:
+   ```bash
+   deploy/backup/restore.sh clinica-<fecha>.tar.age clave.age "<Session pooler del proyecto nuevo>" --with-auth
+   ```
+   El script pide escribir el host para confirmar que se va a pisar una base de Supabase. Después: actualizar
+   `DATABASE_URL`/`SUPABASE_URL`/keys en el servidor, en GitHub y en `environment.production.ts`.
+
+`restore.sh` hace `pg_restore --clean` en una sola transacción: si algo falla, no deja la base a medias. Se probó
+de punta a punta (volcado → cifrado → restauración en una base vacía → la imagen de producción levanta y lee los
+datos, conteos idénticos, RLS intacto, dos restauraciones seguidas sin errores).
 
 ## Cloudflare
 
