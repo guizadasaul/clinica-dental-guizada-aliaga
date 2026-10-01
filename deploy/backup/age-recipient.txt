@@ -1,5 +1,4 @@
 # Clave PÚBLICA de age con la que se cifran los backups de producción.
 # La privada (age-keygen) vive solo en el gestor de contraseñas: sin ella no se
-# puede restaurar nada, y nadie más la tiene. Reemplazar la línea de abajo por
-# la "Public key: age1..." que imprime `age-keygen` (sin el prefijo).
-PENDIENTE
+# puede restaurar nada, y nadie más la tiene. Generada el 2026-10-01.
+age1yq0gdxhn00gq5ue98n6wzdvnk7yw7406u3p32a4m6wnx9qxe2scq7mu4rs
