@@ -3,16 +3,11 @@
 // `ng build`) vía fileReplacements en angular.json. Cada valor de este
 // archivo es público: termina en el bundle que baja cualquier navegador. La key de
 // Supabase es la publicable (anon), nunca la service_role.
-//
-// PENDIENTE (fase 10 del plan de despliegue): el proyecto Supabase de
-// producción todavía no existe. Hasta completar `supabase`, vercel.json no
-// construye la rama main — un build con estos valores vacíos rompería el
-// login apenas carga la app.
 export const environment = {
   production: true,
   backendUrl: 'https://api.guizadaaliaga.com',
   supabase: {
-    url: '',
-    anonKey: '',
+    url: 'https://vmeigxwssmsaagqgaysl.supabase.co',
+    anonKey: 'sb_publishable_j_OmcZPFaE1q_la0sMZA9Q_PIvG2EX9',
   },
 };
