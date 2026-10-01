@@ -305,6 +305,8 @@ Environment `backup` (sin reviewers, para que corra solo): secrets `DATABASE_URL
 ### Restaurar (runbook)
 
 1. Bajar el backup desde Cloudflare → R2 → `clinica-backups` → `production/…` → el `.tar.age` que corresponda.
+   R2 lo descarga con la carpeta en el nombre: `production/2026/10/clinica-20261001T1400Z.tar.age` llega como
+   `production_2026_10_clinica-20261001T1400Z.tar.age`. Revisar que pese lo mismo que en R2.
 2. Sacar la clave privada de age del gestor de contraseñas a un archivo temporal (y borrarlo al terminar).
 3. **Probar primero en local**, en una base vacía del Postgres de desarrollo:
    ```bash
@@ -325,6 +327,10 @@ Environment `backup` (sin reviewers, para que corra solo): secrets `DATABASE_URL
 `restore.sh` hace `pg_restore --clean` en una sola transacción: si algo falla, no deja la base a medias. Se probó
 de punta a punta (volcado → cifrado → restauración en una base vacía → la imagen de producción levanta y lee los
 datos, conteos idénticos, RLS intacto, dos restauraciones seguidas sin errores).
+
+**Primer backup real de producción (2026-10-01):** `production/2026/10/clinica-20261001T1400Z.tar.age` (133 KB,
+`public` + `auth`), bajado de R2, descifrado con la clave privada y restaurado en una base local: 47 migraciones,
+36/36 tablas con RLS, catálogos idénticos a producción. `BACKUP_ENABLED=true` desde ese día.
 
 ## Cloudflare
 
