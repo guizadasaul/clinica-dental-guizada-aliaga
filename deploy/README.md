@@ -137,8 +137,9 @@ de **Production**. Con un proyecto por ambiente, cada uno sirve su dominio como 
 staging y producción no comparten configuración.
 
 - `buildCommand`: `main` → `ng build --configuration production`; cualquier otra rama → `--configuration staging`.
-- `ignoreCommand`: **por ahora solo construye `develop`**. `environment.production.ts` todavía no tiene el
-  proyecto Supabase de producción; habilitar `main` es parte de CLI-138.
+- `ignoreCommand`: cada proyecto construye **solo su rama**, según la variable de entorno de Vercel
+  `DEPLOY_BRANCH` (Project Settings → Environment Variables): el de staging no la define (default `develop`);
+  el de producción la define como `main`. Las demás ramas no se construyen en ninguno.
 - `staging.guizadaaliaga.com` responde con `X-Robots-Tag: noindex, nofollow`: que Google no lo indexe (tiene
   BANECO real — un QR de staging es un cobro real).
 - Cada deploy tiene además una URL única `*.vercel.app`: queda detrás del login de Vercel y no está en el
