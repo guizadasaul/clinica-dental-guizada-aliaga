@@ -243,6 +243,12 @@ El deploy de producción no corre el seed de catálogos: si un PR cambia el cat�
 `ci.yml` tiene además el check `main-source-branch` (obligatorio en `main`): un PR a `main` solo puede venir de
 `develop` o de `hotfix/*`.
 
+El Environment `Production` está **restringido a la rama `main`** (Settings → Environments → Production →
+Deployment branches): un workflow corrido desde otra rama no puede ni pedir sus secretos. Por eso, para correr
+*DB migrate* a mano contra producción, en *Run workflow* hay que elegir **Use workflow from: `main`**. Vercel no
+se ve afectado: registra sus deploys en GitHub con un nombre propio por proyecto (p. ej.
+`Production – clinica-dental-guizada-aliaga-staging`), no con este Environment.
+
 ### Secrets del GitHub Environment `staging`
 
 Settings → Environments → `staging`. Mismos nombres en `production` (con valores de producción).
