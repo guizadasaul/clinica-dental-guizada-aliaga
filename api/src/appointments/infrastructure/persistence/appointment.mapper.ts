@@ -2,10 +2,12 @@ import type {
   appointments,
   doctor_profiles,
   patients,
+  treatments,
   users,
 } from '@prisma/client';
 import { Appointment } from '../../domain/Appointment.js';
 import { AppointmentWithPatient } from '../../domain/AppointmentWithPatient.js';
+import type { PatientAppointment } from '../../domain/PatientAppointment.js';
 
 export class AppointmentMapper {
   static toDomain(record: appointments): Appointment {
@@ -37,6 +39,7 @@ export class AppointmentMapper {
     record: appointments & {
       patients: (patients & { users: users }) | null;
       users: users & { doctor_profiles: doctor_profiles | null };
+      treatments: treatments | null;
     },
   ): AppointmentWithPatient {
     return new AppointmentWithPatient(
@@ -54,6 +57,24 @@ export class AppointmentMapper {
       record.doctor_id,
       record.users.display_name,
       record.users.doctor_profiles?.color ?? null,
+      record.duration_minutes,
+      record.source,
+      record.treatment_id,
+      record.treatments?.name ?? null,
+      record.notes,
+      record.cancelled_at,
     );
+  }
+
+  static toPatientAppointment(
+    record: appointments & { users: users; treatments: treatments | null },
+  ): PatientAppointment {
+    return {
+      id: record.id,
+      appointmentDatetime: record.appointment_datetime,
+      durationMinutes: record.duration_minutes,
+      doctorName: record.users.display_name,
+      treatmentName: record.treatments?.name ?? null,
+    };
   }
 }

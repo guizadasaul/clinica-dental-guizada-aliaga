@@ -110,7 +110,7 @@ export class PrismaPatientInviteRepository implements IPatientInviteRepository {
       select: {
         used_at: true,
         expires_at: true,
-        users: { select: { role: true } },
+        users: { select: { role: true, phone: true } },
       },
     });
     if (!record) {
@@ -122,6 +122,7 @@ export class PrismaPatientInviteRepository implements IPatientInviteRepository {
       // Solo el paciente ve la landing de paciente; cualquier otro rol
       // (odontólogo, y el admin que se invita con el mismo mecanismo) entra al equipo.
       kind: record.users.role === 'patient' ? 'patient' : 'doctor',
+      phone: record.users.phone,
     };
   }
 }

@@ -5,6 +5,7 @@ import type { Observable } from 'rxjs';
 import { PatientsService } from './patients/services/patients.service';
 import { ReportsService } from './reports/services/reports.service';
 import { QuotesService } from './quotes/services/quotes.service';
+import { FinancesService } from './finances/services/finances.service';
 import { PatientInvitesService } from './patient-invites/services/patient-invites.service';
 import { AppointmentsService } from './appointments/services/appointments.service';
 import { BookingService } from './booking/services/booking.service';
@@ -26,6 +27,7 @@ function services() {
     patients: TestBed.inject(PatientsService),
     reports: TestBed.inject(ReportsService),
     quotes: TestBed.inject(QuotesService),
+    finances: TestBed.inject(FinancesService),
     invites: TestBed.inject(PatientInvitesService),
     appointments: TestBed.inject(AppointmentsService),
     booking: TestBed.inject(BookingService),
@@ -210,6 +212,52 @@ function cases(s: ReturnType<typeof services>): Case[] {
       body,
     },
     {
+      name: 'presupuestos: compartir con el paciente',
+      call: () => s.quotes.share('q1'),
+      method: 'POST',
+      url: `${API}/quotes/q1/share`,
+      body: {},
+    },
+    {
+      name: 'presupuestos: los míos (paciente)',
+      call: () => s.quotes.getMine(),
+      method: 'GET',
+      url: `${API}/patients/me/quotes`,
+    },
+    {
+      name: 'finanzas: pacientes con saldo',
+      call: () => s.finances.listPatients(),
+      method: 'GET',
+      url: `${API}/finances/patients`,
+    },
+    {
+      name: 'finanzas: detalle del paciente',
+      call: () => s.finances.getPatientDetail('p1'),
+      method: 'GET',
+      url: `${API}/finances/patients/p1`,
+    },
+    {
+      name: 'finanzas: generar QR',
+      call: () => s.finances.createQrCharge('q1', 150),
+      method: 'POST',
+      url: `${API}/finances/quotes/q1/qr-charges`,
+      body: { amount: 150 },
+    },
+    {
+      name: 'finanzas: verificar QR',
+      call: () => s.finances.verifyQrCharge('c1'),
+      method: 'POST',
+      url: `${API}/finances/qr-charges/c1/verify`,
+      body: {},
+    },
+    {
+      name: 'finanzas: anular QR',
+      call: () => s.finances.cancelQrCharge('c1'),
+      method: 'POST',
+      url: `${API}/finances/qr-charges/c1/cancel`,
+      body: {},
+    },
+    {
       name: 'invitaciones: enviar',
       call: () => s.invites.createInvite('p1', 'whatsapp'),
       method: 'POST',
@@ -248,6 +296,46 @@ function cases(s: ReturnType<typeof services>): Case[] {
         doctorId: 'doctor-1',
         scope: 'all',
       },
+    },
+    {
+      name: 'agenda: el doctor agenda una cita (CLI-148)',
+      call: () => s.appointments.createByDoctor(body),
+      method: 'POST',
+      url: `${API}/appointments/doctor`,
+      body,
+    },
+    {
+      name: 'agenda: reprogramar una cita propia (CLI-149)',
+      call: () => s.appointments.rescheduleByDoctor('appt-1', body),
+      method: 'PATCH',
+      url: `${API}/appointments/doctor/appt-1`,
+      body,
+    },
+    {
+      name: 'agenda: cancelar con motivo (CLI-149)',
+      call: () => s.appointments.cancelByDoctor('appt-1', 'no puede venir'),
+      method: 'POST',
+      url: `${API}/appointments/doctor/appt-1/cancel`,
+      body: { reason: 'no puede venir' },
+    },
+    {
+      name: 'agenda: cancelar sin motivo (CLI-149)',
+      call: () => s.appointments.cancelByDoctor('appt-1'),
+      method: 'POST',
+      url: `${API}/appointments/doctor/appt-1/cancel`,
+      body: {},
+    },
+    {
+      name: 'paciente: mis próximas citas (CLI-153)',
+      call: () => s.appointments.getMyUpcoming(),
+      method: 'GET',
+      url: `${API}/patients/me/appointments`,
+    },
+    {
+      name: 'agenda: horario propio del doctor (CLI-148)',
+      call: () => s.appointments.getMySchedule(),
+      method: 'GET',
+      url: `${API}/appointments/my-schedule`,
     },
     {
       name: 'reserva: doctores',

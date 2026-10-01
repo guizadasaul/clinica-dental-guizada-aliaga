@@ -3,6 +3,7 @@ import { AppointmentsService } from '../../application/appointments.service';
 import { User } from '../../../auth/domain/User';
 import { UserRole } from '../../../auth/domain/value-objects/UserRole';
 import { ListAppointmentsQueryDto } from './dto/list-appointments-query.dto';
+import { ROLES_KEY } from '../../../auth/infrastructure/roles.decorator';
 
 function fakeDoctor(id: string): User {
   return new User(
@@ -34,9 +35,24 @@ function fakeAdmin(id: string): User {
   );
 }
 
+/** Roles exigidos por el @Roles() de un método del controller. */
+function rolesOf(method: keyof DoctorAppointmentsController): UserRole[] {
+  const handler = Object.getOwnPropertyDescriptor(
+    DoctorAppointmentsController.prototype,
+    method,
+  )?.value as object;
+  return Reflect.getMetadata(ROLES_KEY, handler) as UserRole[];
+}
+
 describe('DoctorAppointmentsController', () => {
   let controller: DoctorAppointmentsController;
-  const mockService = { getAgenda: jest.fn() };
+  const mockService = {
+    getAgenda: jest.fn(),
+    createByDoctor: jest.fn(),
+    getDoctorSchedule: jest.fn(),
+    rescheduleByDoctor: jest.fn(),
+    cancelByDoctor: jest.fn(),
+  };
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -138,5 +154,89 @@ describe('DoctorAppointmentsController', () => {
     expect(mockService.getAgenda).toHaveBeenCalledWith(
       expect.objectContaining({ doctorId: 'doctor-a' }),
     );
+  });
+
+  // CLI-148: los días del query son días de Bolivia — si no, la semana
+  // lunes→lunes perdía las citas del domingo de 20:00 a 24:00.
+  it('interprets from/to as clinic (La Paz) midnights, not UTC', async () => {
+    await controller.findForAgenda(fakeDoctor('doctor-a'), {
+      from: '2026-09-28',
+      to: '2026-10-05',
+    });
+
+    expect(mockService.getAgenda).toHaveBeenCalledWith(
+      expect.objectContaining({
+        from: new Date('2026-09-28T04:00:00.000Z'),
+        to: new Date('2026-10-05T04:00:00.000Z'),
+      }),
+    );
+  });
+
+  // CLI-148
+  describe('createByDoctor', () => {
+    it('agenda en la agenda del doctor autenticado', async () => {
+      const dto = {
+        patientId: 'patient-1',
+        appointmentDatetime: '2026-10-05T09:00:00-04:00',
+      };
+
+      await controller.createByDoctor(fakeDoctor('doctor-a'), dto);
+
+      expect(mockService.createByDoctor).toHaveBeenCalledWith('doctor-a', dto);
+    });
+
+    it('solo lo pueden usar odontólogos, no el admin', () => {
+      const roles = rolesOf('createByDoctor');
+      expect(roles).toEqual([UserRole.ODONTOLOGIST]);
+    });
+  });
+
+  describe('getMySchedule', () => {
+    it('devuelve el horario del doctor autenticado', async () => {
+      await controller.getMySchedule(fakeDoctor('doctor-a'));
+
+      expect(mockService.getDoctorSchedule).toHaveBeenCalledWith('doctor-a');
+    });
+
+    it('solo lo pueden usar odontólogos', () => {
+      const roles = rolesOf('getMySchedule');
+      expect(roles).toEqual([UserRole.ODONTOLOGIST]);
+    });
+  });
+
+  // CLI-149
+  describe('rescheduleByDoctor / cancelByDoctor', () => {
+    it('reprograma dentro de la agenda del doctor autenticado', async () => {
+      const dto = { appointmentDatetime: '2026-10-05T09:00:00-04:00' };
+
+      await controller.rescheduleByDoctor(
+        fakeDoctor('doctor-a'),
+        'appt-1',
+        dto,
+      );
+
+      expect(mockService.rescheduleByDoctor).toHaveBeenCalledWith(
+        'doctor-a',
+        'appt-1',
+        dto,
+      );
+    });
+
+    it('cancela dentro de la agenda del doctor autenticado, con el motivo', async () => {
+      await controller.cancelByDoctor(fakeDoctor('doctor-a'), 'appt-1', {
+        reason: 'no puede venir',
+      });
+
+      expect(mockService.cancelByDoctor).toHaveBeenCalledWith(
+        'doctor-a',
+        'appt-1',
+        'no puede venir',
+      );
+    });
+
+    it('solo los pueden usar odontólogos, no el admin', () => {
+      expect(rolesOf('rescheduleByDoctor')).toEqual([UserRole.ODONTOLOGIST]);
+      expect(rolesOf('cancelByDoctor')).toEqual([UserRole.ODONTOLOGIST]);
+    });
   });
 });

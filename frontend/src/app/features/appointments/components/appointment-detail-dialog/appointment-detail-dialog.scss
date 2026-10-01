@@ -1,0 +1,209 @@
+.detail-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-4);
+  background: rgb(0 0 0 / 0.5);
+}
+
+.detail-modal__panel {
+  // <dialog open> (no modal): sin el margen, borde y alto que pone el navegador.
+  margin: 0;
+  border: 0;
+  color: inherit;
+  height: auto;
+  position: relative;
+  width: 100%;
+  max-width: 30rem;
+  max-height: 90vh;
+  overflow-y: auto;
+  padding: var(--space-6);
+  border-radius: var(--radius-xl);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-xl);
+
+  &:focus {
+    outline: none;
+  }
+}
+
+.detail-modal__close {
+  position: absolute;
+  top: var(--space-4);
+  right: var(--space-4);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  border: none;
+  border-radius: var(--radius-full);
+  background: transparent;
+  color: var(--color-text-muted);
+  cursor: pointer;
+
+  &:hover {
+    background: var(--color-surface-var);
+  }
+
+  &:focus-visible {
+    outline: 3px solid var(--color-primary);
+    outline-offset: 2px;
+  }
+}
+
+.detail-modal__title {
+  margin: 0 var(--space-10) var(--space-2) 0;
+  font-family: var(--font-headline);
+  font-size: var(--font-size-xl);
+  color: var(--color-text);
+}
+
+.detail-modal__when {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0 0 var(--space-4);
+  font-weight: 600;
+  color: var(--color-text);
+
+  .material-symbols-outlined {
+    font-size: 1.25rem;
+    color: var(--color-tertiary);
+  }
+}
+
+.detail-modal__facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
+  gap: var(--space-3) var(--space-5);
+  margin: 0 0 var(--space-5);
+
+  dt {
+    font-size: var(--font-size-xs);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--color-text-muted);
+  }
+
+  dd {
+    margin: 0;
+    color: var(--color-text);
+    white-space: pre-line;
+  }
+}
+
+.detail-modal__notes {
+  grid-column: 1 / -1;
+}
+
+.detail-modal__confirm {
+  min-width: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-4);
+  border: 1px solid #fecaca;
+  border-radius: var(--radius-lg);
+  background: #fef2f2;
+}
+
+.detail-modal__confirm-title {
+  float: left;
+  width: 100%;
+  padding: 0;
+  margin: 0 0 var(--space-1);
+  font-weight: 600;
+  color: #991b1b;
+}
+
+.detail-modal__label {
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.detail-modal__optional {
+  font-weight: 400;
+  color: var(--color-text-muted);
+}
+
+.detail-modal__input {
+  width: 100%;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-gray-300);
+  border-radius: var(--radius-md);
+  background: #fff;
+  font-family: var(--font-body);
+  font-size: var(--font-size-sm);
+  color: var(--color-text);
+  resize: vertical;
+
+  &:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 1px;
+  }
+}
+
+.detail-modal__error {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  color: #b91c1c;
+}
+
+.detail-modal__actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: var(--space-3);
+  margin-top: var(--space-2);
+}
+
+.detail-modal__btn {
+  padding: var(--space-2) var(--space-5);
+  border-radius: var(--radius-full);
+  font-family: var(--font-body);
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  cursor: pointer;
+
+  &:focus-visible {
+    outline: 3px solid var(--color-primary);
+    outline-offset: 2px;
+  }
+
+  &:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+  }
+
+  &--ghost {
+    border: 1px solid var(--color-gray-300);
+    background: transparent;
+    color: var(--color-text);
+  }
+
+  &--primary {
+    border: none;
+    background: var(--color-primary);
+    color: var(--color-text);
+  }
+
+  &--danger-ghost {
+    margin-right: auto;
+    border: 1px solid #fecaca;
+    background: transparent;
+    color: #b91c1c;
+  }
+
+  &--danger {
+    border: none;
+    background: #b91c1c;
+    color: #fff;
+  }
+}

@@ -13,6 +13,7 @@ import { ExchangeRateModule } from '../exchange-rate/exchange-rate.module';
     TreatmentsService,
     { provide: TreatmentRepository, useClass: PrismaTreatmentsRepository },
   ],
-  exports: [TreatmentRepository],
+  // TreatmentsService lo usa la tool list_services del chatbot (CLI-88).
+  exports: [TreatmentRepository, TreatmentsService],
 })
 export class TreatmentsModule {}

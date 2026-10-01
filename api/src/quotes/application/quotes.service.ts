@@ -11,6 +11,7 @@ import type {
   NewQuoteItemData,
 } from '../domain/QuoteRepository';
 import type { Quote } from '../domain/Quote';
+import { PaymentMethod } from '../domain/PaymentMethod';
 import { TreatmentRepository } from '../../treatments/domain/TreatmentRepository';
 import type { ITreatmentRepository } from '../../treatments/domain/TreatmentRepository';
 import {
@@ -42,6 +43,15 @@ interface AddPaymentInput {
 
 function round2(amount: number): number {
   return Math.round(amount * 100) / 100;
+}
+
+/** No se cobra más que el saldo pendiente (CLI-159) — vale para efectivo y QR. */
+export function assertWithinBalance(quote: Quote, amount: number): void {
+  if (amount > quote.balance) {
+    throw new BadRequestException(
+      `El monto (Bs. ${amount.toFixed(2)}) supera el saldo pendiente (Bs. ${quote.balance.toFixed(2)})`,
+    );
+  }
 }
 
 @Injectable()
@@ -153,11 +163,33 @@ export class QuotesService {
         `Presupuesto con id ${quoteId} no encontrado`,
       );
     }
+    assertWithinBalance(quote, data.amount);
     return this.quoteRepo.addPayment(quoteId, {
       amount: data.amount,
-      paymentMethod: data.paymentMethod ?? null,
+      paymentMethod: data.paymentMethod ?? PaymentMethod.CASH,
       notes: data.notes ?? null,
     });
+  }
+
+  /** Lo que ve el paciente: solo presupuestos compartidos (CLI-156). */
+  async findSharedByPatient(patientId: string): Promise<Quote[]> {
+    return this.quoteRepo.findSharedByPatient(patientId);
+  }
+
+  /** "Guardar y compartir" (CLI-156): desde acá el paciente lo ve. */
+  async share(quoteId: string): Promise<Quote> {
+    const quote = await this.quoteRepo.findById(quoteId);
+    if (!quote) {
+      throw new NotFoundException(
+        `Presupuesto con id ${quoteId} no encontrado`,
+      );
+    }
+    if (quote.items.length === 0) {
+      throw new BadRequestException(
+        'No se puede compartir un presupuesto sin tratamientos',
+      );
+    }
+    return this.quoteRepo.share(quoteId);
   }
 
   async removeItem(quoteId: string, itemId: string): Promise<Quote> {

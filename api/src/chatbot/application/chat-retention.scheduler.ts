@@ -2,6 +2,8 @@ import { Inject, Injectable, Logger } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
 import { ChatRepository } from '../domain/ChatRepository';
 import type { ChatRepository as IChatRepository } from '../domain/ChatRepository';
+import { ChannelIdentityRepository } from '../domain/ChannelIdentity';
+import type { ChannelIdentityRepository as IChannelIdentityRepository } from '../domain/ChannelIdentity';
 import { readEnvInt } from '../../shared/env.util';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -19,6 +21,8 @@ export class ChatRetentionScheduler {
 
   constructor(
     @Inject(ChatRepository) private readonly chatRepo: IChatRepository,
+    @Inject(ChannelIdentityRepository)
+    private readonly identityRepo: IChannelIdentityRepository,
   ) {}
 
   @Cron('0 30 3 * * *', { timeZone: 'America/La_Paz' })
@@ -31,6 +35,11 @@ export class ChatRetentionScheduler {
         `Retención del chatbot: ${deleted} conversación(es) borrada(s)`,
       );
     }
+    // Códigos e intentos de vinculación (CLI-100): solo sirven unos minutos
+    // (código) o una hora (límite de intentos); se guardan un día.
+    await this.identityRepo.purgeLinkDataBefore(
+      new Date(now.getTime() - DAY_MS),
+    );
     return deleted;
   }
 }

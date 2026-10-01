@@ -68,6 +68,134 @@
   &__hint {
     color: var(--color-text-muted);
     font-size: 0.875rem;
+
+    &--inline {
+      margin: 0;
+    }
+  }
+
+  // CLI-151: flotante arriba — si empujara la grilla, el click en el horario
+  // nuevo caería en otra franja.
+  &__pick {
+    position: fixed;
+    top: var(--space-4);
+    left: 50%;
+    z-index: 50;
+    transform: translateX(-50%);
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    padding: 0.625rem 0.875rem 0.625rem 1rem;
+    border-radius: var(--radius-full);
+    background: var(--color-text);
+    color: var(--color-cream);
+    font-size: 0.875rem;
+    box-shadow: var(--shadow-md);
+
+    .material-symbols-outlined {
+      font-size: 1.125rem;
+    }
+  }
+
+  &__pick-cancel {
+    padding: 0.25rem 0.75rem;
+    border: 1px solid rgb(255 255 255 / 0.4);
+    border-radius: var(--radius-full);
+    background: transparent;
+    color: var(--color-cream);
+    font-family: inherit;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    cursor: pointer;
+
+    &:focus-visible {
+      outline: 2px solid var(--color-primary);
+      outline-offset: 2px;
+    }
+  }
+
+  // CLI-152: oferta de agendar la próxima cita — flotante y no bloqueante.
+  &__followup {
+    position: fixed;
+    right: var(--space-6);
+    // Por encima del botón flotante del chat, que ocupa la esquina.
+    bottom: calc(var(--space-6) + 4.5rem);
+    z-index: 50;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+    max-width: 22rem;
+    padding: var(--space-4);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-xl);
+    background: var(--color-surface);
+    box-shadow: var(--shadow-xl);
+  }
+
+  &__followup-text {
+    margin: 0;
+    font-size: 0.9375rem;
+    color: var(--color-text);
+  }
+
+  &__followup-hint {
+    display: block;
+    margin-top: var(--space-1);
+    font-size: 0.8125rem;
+    color: var(--color-text-muted);
+  }
+
+  &__followup-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: var(--space-2);
+  }
+
+  &__followup-btn {
+    padding: var(--space-2) var(--space-4);
+    border: 1px solid var(--color-gray-300);
+    border-radius: var(--radius-full);
+    background: transparent;
+    font-family: var(--font-body);
+    font-size: var(--font-size-sm);
+    font-weight: 600;
+    color: var(--color-text);
+    cursor: pointer;
+
+    &--primary {
+      border-color: transparent;
+      background: var(--color-primary);
+    }
+
+    &:focus-visible {
+      outline: 3px solid var(--color-primary);
+      outline-offset: 2px;
+    }
+  }
+
+  // Flotante: si empujara la grilla, al desaparecer la movería bajo el cursor.
+  &__notice {
+    position: fixed;
+    bottom: var(--space-6);
+    left: 50%;
+    z-index: 50;
+    transform: translateX(-50%);
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    margin: 0;
+    box-shadow: var(--shadow-md);
+    padding: 0.625rem 0.875rem;
+    border: 1px solid #86efac;
+    border-radius: 0.5rem;
+    background: var(--color-success-light);
+    color: #166534;
+    font-size: 0.875rem;
+    font-weight: 600;
+
+    .material-symbols-outlined {
+      font-size: 1.125rem;
+    }
   }
 
   &__nav {
@@ -123,7 +251,6 @@
       color: #fff;
     }
   }
-
 }
 
 // ─── Time grid ────────────────────────────────────────────────────────────────
@@ -243,6 +370,9 @@
     right: 0;
     border-top: 1px solid var(--color-surface-dim);
     padding-left: 0.25rem;
+    // Las etiquetas de hora quedan por encima de las franjas para agendar (CLI-150).
+    z-index: 1;
+    pointer-events: none;
 
     &--hour {
       border-top-color: var(--color-border);
@@ -295,6 +425,7 @@
   --slot-color: var(--color-tertiary);
 
   position: absolute;
+  z-index: 2;
   display: flex;
   flex-direction: column;
   justify-content: center;
@@ -316,6 +447,13 @@
   &--readonly {
     cursor: default;
   }
+
+  // CLI-151: la cita que se está reprogramando deja libres sus franjas.
+  &--moving {
+    opacity: 0.45;
+    pointer-events: none;
+    border-left-style: dashed;
+  }
 }
 
 .agenda-slot__time {
@@ -334,4 +472,62 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.agenda-slot__source {
+  font-size: 0.75rem;
+  vertical-align: -0.125rem;
+  margin-left: 0.125rem;
+}
+
+// CLI-150: franjas de 30 min detrás de los turnos. Las libres se clickean
+// para agendar; las que caen fuera del horario de atención se sombrean.
+.agenda-cell {
+  position: absolute;
+  left: 0;
+  right: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+
+  &--off {
+    background: repeating-linear-gradient(
+      -45deg,
+      var(--color-surface-dim),
+      var(--color-surface-dim) 4px,
+      transparent 4px,
+      transparent 8px
+    );
+  }
+
+  &--static {
+    pointer-events: none;
+    cursor: default;
+  }
+
+  &:hover,
+  &:focus-visible {
+    background: color-mix(in srgb, var(--color-primary) 18%, transparent);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: -2px;
+  }
+}
+
+.agenda-cell__plus {
+  font-size: 1.125rem;
+  color: var(--color-text-muted);
+  opacity: 0;
+  transition: opacity var(--transition-fast);
+
+  .agenda-cell:hover &,
+  .agenda-cell:focus-visible & {
+    opacity: 1;
+  }
 }

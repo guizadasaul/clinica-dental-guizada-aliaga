@@ -5,8 +5,10 @@ import type {
   CreateChatSessionData,
   NewChatMessageData,
 } from '../../domain/ChatRepository.js';
+import type { ChatChannel } from '../../domain/ChatChannel.js';
 import type { ChatMessage } from '../../domain/ChatMessage.js';
 import type { ChatSession } from '../../domain/ChatSession.js';
+import type { ChatTurnRecord } from '../../domain/ChatUsage.js';
 import { ChatMapper } from './chat.mapper.js';
 
 @Injectable()
@@ -30,6 +32,17 @@ export class PrismaChatRepository implements ChatRepository {
   ): Promise<ChatSession | null> {
     const record = await this.prisma.chat_sessions.findFirst({
       where: { id: sessionId, user_id: userId },
+    });
+    return record ? ChatMapper.toSession(record) : null;
+  }
+
+  async findLatestSessionForUser(
+    userId: string,
+    channel: ChatChannel,
+  ): Promise<ChatSession | null> {
+    const record = await this.prisma.chat_sessions.findFirst({
+      where: { user_id: userId, channel },
+      orderBy: { last_activity_at: 'desc' },
     });
     return record ? ChatMapper.toSession(record) : null;
   }
@@ -58,6 +71,7 @@ export class PrismaChatRepository implements ChatRepository {
           prompt_tokens: data.promptTokens ?? null,
           completion_tokens: data.completionTokens ?? null,
           error_code: data.errorCode ?? null,
+          denied_tools: data.deniedTools ?? 0,
         },
       });
       await tx.chat_sessions.update({
@@ -116,6 +130,31 @@ export class PrismaChatRepository implements ChatRepository {
       where: { user_id: userId },
     });
     return count;
+  }
+
+  async findAssistantTurnsBetween(
+    from: Date,
+    to: Date,
+  ): Promise<ChatTurnRecord[]> {
+    const records = await this.prisma.chat_messages.findMany({
+      where: { role: 'assistant', created_at: { gte: from, lt: to } },
+      select: {
+        created_at: true,
+        prompt_tokens: true,
+        completion_tokens: true,
+        error_code: true,
+        denied_tools: true,
+        chat_sessions: {
+          select: {
+            id: true,
+            channel: true,
+            user_id: true,
+            users: { select: { role: true } },
+          },
+        },
+      },
+    });
+    return records.map((record) => ChatMapper.toTurnRecord(record));
   }
 
   async deleteInactiveSince(date: Date): Promise<number> {

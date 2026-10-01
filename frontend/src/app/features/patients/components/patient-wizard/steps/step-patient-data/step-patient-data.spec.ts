@@ -50,7 +50,9 @@ const DNI = '#dni';
 const ADDRESS = '#address';
 const ZONA = '#zona';
 const CIUDAD = '#ciudad';
-const EMERGENCY_CONTACT_NAME = '#emergencyContactName';
+const DOCUMENT_EXTENSION = '#documentExtension';
+const EMERGENCY_CONTACT_FIRST_NAME = '#emergencyContactFirstName';
+const EMERGENCY_CONTACT_LAST_NAME = '#emergencyContactLastName';
 const EMERGENCY_CONTACT_RELATIONSHIP = '#emergencyContactRelationship';
 // Hay dos <app-phone-input> en el formulario: teléfono del paciente primero,
 // teléfono del contacto de emergencia después — mismo orden que en el DOM.
@@ -81,7 +83,8 @@ function fillRequiredFields(fixture: ReturnType<typeof setup>): void {
   type(el(fixture, ADDRESS), 'Av. Siempre Viva 123');
   type(el(fixture, ZONA), 'Zona Norte');
   type(el(fixture, CIUDAD), 'Cochabamba');
-  type(el(fixture, EMERGENCY_CONTACT_NAME), 'Maria Perez');
+  type(el(fixture, EMERGENCY_CONTACT_FIRST_NAME), 'Maria');
+  type(el(fixture, EMERGENCY_CONTACT_LAST_NAME), 'Perez');
   type(el(fixture, EMERGENCY_CONTACT_RELATIONSHIP), 'Madre');
   const [, emergencyPhoneNational] = elAll<HTMLInputElement>(fixture, PHONE_NATIONAL_INPUTS);
   type(emergencyPhoneNational, '77777777');
@@ -109,7 +112,8 @@ describe('StepPatientDataComponent', () => {
     expect(el(fixture, `${ADDRESS}.step-form__input--invalid`)).toBeTruthy();
     expect(el(fixture, `${ZONA}.step-form__input--invalid`)).toBeTruthy();
     expect(el(fixture, `${CIUDAD}.step-form__input--invalid`)).toBeTruthy();
-    expect(el(fixture, `${EMERGENCY_CONTACT_NAME}.step-form__input--invalid`)).toBeTruthy();
+    expect(el(fixture, `${EMERGENCY_CONTACT_FIRST_NAME}.step-form__input--invalid`)).toBeTruthy();
+    expect(el(fixture, `${EMERGENCY_CONTACT_LAST_NAME}.step-form__input--invalid`)).toBeTruthy();
     expect(el(fixture, `${EMERGENCY_CONTACT_RELATIONSHIP}.step-form__input--invalid`)).toBeTruthy();
     expect(el(fixture, '#firstName-err')?.textContent).toContain('El nombre es obligatorio.');
     expect(el(fixture, '#dni-err')?.textContent).toContain('El DNI es obligatorio.');
@@ -223,13 +227,80 @@ describe('StepPatientDataComponent', () => {
       phone: undefined,
       documentType: 'ci',
       dni: '12345678',
-      emergencyContactName: 'Maria Perez',
+      documentExtension: null,
+      emergencyContactFirstName: 'Maria',
+      emergencyContactLastName: 'Perez',
       emergencyContactPhone: '+59177777777',
       emergencyContactRelationship: 'Madre',
       consultationReason: undefined,
       lastDentistVisit: undefined,
       lastVisitTreatment: undefined,
       familyHistory: undefined,
+    });
+  });
+
+  describe('extensión del CI', () => {
+    it('solo aparece cuando el tipo de documento es CI', async () => {
+      const fixture = setup();
+      await settle(fixture);
+      expect(el(fixture, DOCUMENT_EXTENSION)).toBeNull();
+
+      select(el<HTMLSelectElement>(fixture, DOCUMENT_TYPE), 'ci');
+      await settle(fixture);
+      expect(el(fixture, DOCUMENT_EXTENSION)).toBeTruthy();
+
+      select(el<HTMLSelectElement>(fixture, DOCUMENT_TYPE), 'pasaporte');
+      await settle(fixture);
+      expect(el(fixture, DOCUMENT_EXTENSION)).toBeNull();
+    });
+
+    it('emite la extensión normalizada', async () => {
+      const fixture = setup();
+      await settle(fixture);
+      const emitted: Omit<CreatePatientRequest, 'userId'>[] = [];
+      fixture.componentInstance.submitStep.subscribe((value) => emitted.push(value));
+
+      fillRequiredFields(fixture);
+      await settle(fixture);
+      type(el(fixture, DOCUMENT_EXTENSION), ' 1-a ');
+      submitForm(fixture);
+      await settle(fixture);
+
+      expect(emitted).toHaveLength(1);
+      expect(emitted[0].documentExtension).toBe('1A');
+    });
+
+    it('bloquea el envío con caracteres inválidos', async () => {
+      const fixture = setup();
+      await settle(fixture);
+      const emitted: unknown[] = [];
+      fixture.componentInstance.submitStep.subscribe((value) => emitted.push(value));
+
+      fillRequiredFields(fixture);
+      await settle(fixture);
+      type(el(fixture, DOCUMENT_EXTENSION), 'L/P');
+      submitForm(fixture);
+      await settle(fixture);
+
+      expect(emitted).toHaveLength(0);
+      expect(el(fixture, '#documentExtension-err')?.textContent).toContain('solo puede tener letras y números');
+    });
+
+    it('no envía la extensión si el documento no es CI', async () => {
+      const fixture = setup();
+      await settle(fixture);
+      const emitted: Omit<CreatePatientRequest, 'userId'>[] = [];
+      fixture.componentInstance.submitStep.subscribe((value) => emitted.push(value));
+
+      fillRequiredFields(fixture);
+      await settle(fixture);
+      type(el(fixture, DOCUMENT_EXTENSION), 'LP');
+      select(el<HTMLSelectElement>(fixture, DOCUMENT_TYPE), 'pasaporte');
+      submitForm(fixture);
+      await settle(fixture);
+
+      expect(emitted).toHaveLength(1);
+      expect(emitted[0].documentExtension).toBeNull();
     });
   });
 
@@ -249,7 +320,8 @@ describe('StepPatientDataComponent', () => {
       zona: null,
       ciudad: null,
       phone: '+59177001122',
-      emergencyContactName: null,
+      emergencyContactFirstName: null,
+      emergencyContactLastName: null,
       emergencyContactPhone: null,
       emergencyContactRelationship: null,
       consultationReason: null,
@@ -258,6 +330,7 @@ describe('StepPatientDataComponent', () => {
       familyHistory: null,
       documentType: null,
       dni: '87654321',
+      documentExtension: null,
       createdAt: '2020-01-01T00:00:00.000Z',
       updatedAt: '2020-01-01T00:00:00.000Z',
       assignedDoctorId: null,
@@ -289,7 +362,8 @@ describe('StepPatientDataComponent', () => {
       zona: 'Zona Sur',
       ciudad: 'La Paz',
       phone: null,
-      emergencyContactName: 'Pedro Lopez',
+      emergencyContactFirstName: 'Pedro',
+      emergencyContactLastName: 'Lopez',
       emergencyContactPhone: '+59177001122',
       emergencyContactRelationship: 'Padre',
       consultationReason: null,
@@ -298,6 +372,7 @@ describe('StepPatientDataComponent', () => {
       familyHistory: null,
       documentType: 'ci',
       dni: '87654321',
+      documentExtension: null,
       createdAt: '2020-01-01T00:00:00.000Z',
       updatedAt: '2020-01-01T00:00:00.000Z',
       assignedDoctorId: null,

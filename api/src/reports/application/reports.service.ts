@@ -3,6 +3,7 @@ import { ReportsRepository } from '../domain/ReportsRepository';
 import type { IReportsRepository } from '../domain/ReportsRepository';
 import type { OperationalReport } from '../domain/OperationalReport';
 import type { FinancialReport } from '../domain/FinancialReport';
+import type { TopTreatmentsReport } from '../domain/TopTreatmentsReport';
 import { CLINIC_UTC_OFFSET } from '../../appointments/domain/ClinicSchedule';
 
 export interface ReportQuery {
@@ -39,6 +40,13 @@ export class ReportsService {
   async getFinancialReport(query: ReportQuery): Promise<FinancialReport> {
     const params = this.parseRange(query);
     return this.reportsRepo.getFinancialReport(params);
+  }
+
+  async getTopTreatments(
+    query: ReportQuery & { limit: number },
+  ): Promise<TopTreatmentsReport> {
+    const params = this.parseRange(query);
+    return this.reportsRepo.getTopTreatments({ ...params, limit: query.limit });
   }
 
   /**

@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { QuotesController } from './infrastructure/http/quotes.controller';
 import { PatientQuotesController } from './infrastructure/http/patient-quotes.controller';
+import { MyQuotesController } from './infrastructure/http/my-quotes.controller';
 import { QuotesService } from './application/quotes.service';
 import { QuoteRepository } from './domain/QuoteRepository';
 import { PrismaQuotesRepository } from './infrastructure/persistence/prisma-quotes.repository';
@@ -11,10 +12,16 @@ import { ExchangeRateModule } from '../exchange-rate/exchange-rate.module';
 
 @Module({
   imports: [AuthModule, TreatmentsModule, PatientsModule, ExchangeRateModule],
-  controllers: [QuotesController, PatientQuotesController],
+  // MyQuotesController va antes que PatientQuotesController: si no,
+  // patients/me/quotes matchea patients/:patientId/quotes y 'me' falla el
+  // ParseUUIDPipe con 400.
+  controllers: [MyQuotesController, QuotesController, PatientQuotesController],
   providers: [
     QuotesService,
     { provide: QuoteRepository, useClass: PrismaQuotesRepository },
   ],
+  // QuotesService lo usan las tools del paciente del chatbot (CLI-91).
+  // QuoteRepository lo usa FinancesService para los cobros con QR (CLI-159).
+  exports: [QuotesService, QuoteRepository],
 })
 export class QuotesModule {}

@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [main, develop]
   pull_request:
 
 concurrency:
@@ -10,8 +10,40 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # Nada de `migrate reset`/`db push`/`supabase db reset` en workflows ni en
+  # scripts de deploy (ver scripts/check-no-destructive-db-commands.sh).
+  # Runner de GitHub: no necesita nada de la máquina del runner propio.
+  db-safety:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: scripts/check-no-destructive-db-commands.sh
+
+  # A main (producción) solo llega lo que ya pasó por staging: PRs desde
+  # develop, o un hotfix/* que sale de main. Es check obligatorio de main.
+  main-source-branch:
+    if: github.event_name == 'pull_request' && github.base_ref == 'main'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validar la rama de origen
+        env:
+          HEAD_REF: ${{ github.head_ref }}
+        run: |
+          case "$HEAD_REF" in
+            develop | hotfix/*) echo "✓ $HEAD_REF → main" ;;
+            *)
+              echo "::error::A main solo se mergea desde develop o hotfix/* (este PR viene de $HEAD_REF)"
+              exit 1
+              ;;
+          esac
+
   api:
     runs-on: self-hosted
+    # Corre en el runner propio (la Mac de desarrollo): nunca con código de un
+    # fork. En un PR desde un fork este job se saltea; solo corre en PRs de
+    # ramas del propio repo y en push a develop/main. Además, Settings →
+    # Actions exige aprobación manual para cualquier contribuidor externo.
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     env:
       SONAR_HOST_URL: ${{ vars.SONAR_HOST_URL }}
       SONAR_TOKEN: ${{ secrets.SONAR_TOKEN_API }}
@@ -35,6 +67,11 @@ jobs:
 
   frontend:
     runs-on: self-hosted
+    # Corre en el runner propio (la Mac de desarrollo): nunca con código de un
+    # fork. En un PR desde un fork este job se saltea; solo corre en PRs de
+    # ramas del propio repo y en push a develop/main. Además, Settings →
+    # Actions exige aprobación manual para cualquier contribuidor externo.
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     env:
       SONAR_HOST_URL: ${{ vars.SONAR_HOST_URL }}
       SONAR_TOKEN: ${{ secrets.SONAR_TOKEN_FRONTEND }}
@@ -56,6 +93,11 @@ jobs:
 
   e2e:
     runs-on: self-hosted
+    # Corre en el runner propio (la Mac de desarrollo): nunca con código de un
+    # fork. En un PR desde un fork este job se saltea; solo corre en PRs de
+    # ramas del propio repo y en push a develop/main. Además, Settings →
+    # Actions exige aprobación manual para cualquier contribuidor externo.
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     env:
       DATABASE_URL: postgresql://postgres:postgres@localhost:5444/cga_e2e_ci?schema=public
       # Placeholder, no un proyecto real de Supabase — SupabaseJwtVerifier

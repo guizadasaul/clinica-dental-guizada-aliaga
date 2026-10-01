@@ -23,7 +23,8 @@ export interface CreatePatientData {
   zona?: string;
   ciudad?: string;
   phone?: string;
-  emergencyContactName?: string;
+  emergencyContactFirstName?: string;
+  emergencyContactLastName?: string;
   emergencyContactPhone?: string;
   emergencyContactRelationship?: string;
   consultationReason?: string;
@@ -32,6 +33,8 @@ export interface CreatePatientData {
   familyHistory?: string;
   documentType?: string;
   dni?: string;
+  /** null borra la extensión (ej. al pasar de CI a pasaporte). */
+  documentExtension?: string | null;
   /** CLI-58: el doctor que hace el alta manual, si quien crea la ficha es odontólogo. */
   assignedDoctorId?: string;
 }
@@ -48,7 +51,8 @@ export interface UpdatePatientData {
   zona?: string;
   ciudad?: string;
   phone?: string;
-  emergencyContactName?: string;
+  emergencyContactFirstName?: string;
+  emergencyContactLastName?: string;
   emergencyContactPhone?: string;
   emergencyContactRelationship?: string;
   consultationReason?: string;
@@ -57,6 +61,8 @@ export interface UpdatePatientData {
   familyHistory?: string;
   documentType?: string;
   dni?: string;
+  /** null borra la extensión (ej. al pasar de CI a pasaporte). */
+  documentExtension?: string | null;
 }
 
 /** Ya resuelta contra el catálogo (medicalConditionId, no el code) — el service hace esa resolución. */

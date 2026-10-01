@@ -18,6 +18,7 @@ function item(overrides: Partial<ItemRecord> = {}): ItemRecord {
     currency: 'BOB',
     exchange_rate: null,
     application_groups: null,
+    treatments: { name: 'Resina' },
     ...overrides,
   } as unknown as ItemRecord;
 }
@@ -51,8 +52,10 @@ describe('QuoteMapper', () => {
     expect(quote).toMatchObject({
       totalAmount: 300.5,
       totalPaid: 100,
+      balance: 200.5,
       status: 'partial',
       notes: null,
+      sharedAt: null,
     });
     expect(quote.items).toHaveLength(1);
     expect(quote.payments).toEqual([
@@ -69,11 +72,31 @@ describe('QuoteMapper', () => {
     ]);
   });
 
+  it('balance nunca es negativo y sharedAt se mapea', () => {
+    const quote = QuoteMapper.toDomain({
+      id: 'quote-1',
+      patient_id: 'patient-1',
+      total_amount: '100',
+      total_paid: '150',
+      status: 'paid',
+      notes: null,
+      created_at: CREATED,
+      updated_at: CREATED,
+      shared_at: CREATED,
+      quote_items: [],
+      payments: [],
+    } as unknown as QuoteRecord);
+
+    expect(quote.balance).toBe(0);
+    expect(quote.sharedAt).toBe(CREATED);
+  });
+
   it('un ítem suelto usa su propio precio', () => {
     expect(QuoteMapper.itemToDomain(item())).toEqual({
       id: 'item-1',
       quoteId: 'quote-1',
       treatmentId: 'treatment-1',
+      treatmentName: 'Resina',
       toothNumber: 16,
       applicationGroupId: null,
       unitPrice: 100,
@@ -125,6 +148,33 @@ describe('QuoteMapper', () => {
       subtotal: 0,
       currency: 'BOB',
       exchangeRate: null,
+    });
+  });
+
+  it('qrChargeToDomain convierte el monto y renombra los campos de BANECO', () => {
+    expect(
+      QuoteMapper.qrChargeToDomain({
+        id: 'c1',
+        quote_id: 'quote-1',
+        amount: '150.50',
+        baneco_qr_id: 'qr-1',
+        baneco_transaction_id: 'tx-1',
+        qr_image: 'img',
+        status: 'pending',
+        payment_id: null,
+        created_at: CREATED,
+        updated_at: CREATED,
+      } as unknown as Parameters<typeof QuoteMapper.qrChargeToDomain>[0]),
+    ).toEqual({
+      id: 'c1',
+      quoteId: 'quote-1',
+      amount: 150.5,
+      qrId: 'qr-1',
+      transactionId: 'tx-1',
+      qrImageBase64: 'img',
+      status: 'pending',
+      paymentId: null,
+      createdAt: CREATED,
     });
   });
 });

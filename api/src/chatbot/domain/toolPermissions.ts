@@ -32,6 +32,7 @@ export const TOOL_PERMISSIONS = {
   get_my_quotes: PATIENT_ONLY,
   get_my_balance: PATIENT_ONLY,
   get_my_treatments: PATIENT_ONLY,
+  get_my_pending_treatments: PATIENT_ONLY,
 
   get_my_agenda: ODONTOLOGIST_ONLY,
   get_my_next_patient: ODONTOLOGIST_ONLY,

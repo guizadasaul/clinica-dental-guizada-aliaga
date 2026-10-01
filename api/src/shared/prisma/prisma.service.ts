@@ -1,15 +1,14 @@
 import { Injectable, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
 import { Prisma, PrismaClient } from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
+import { pgConnectionConfig } from './pg-connection';
 
 @Injectable()
 export class PrismaService implements OnModuleInit, OnModuleDestroy {
   private readonly _client: PrismaClient;
 
   constructor() {
-    const adapter = new PrismaPg({
-      connectionString: process.env['DATABASE_URL'],
-    });
+    const adapter = new PrismaPg(pgConnectionConfig());
     this._client = new PrismaClient({ adapter });
   }
 
@@ -61,6 +60,9 @@ export class PrismaService implements OnModuleInit, OnModuleDestroy {
   get payments() {
     return this._client.payments;
   }
+  get quote_qr_charges() {
+    return this._client.quote_qr_charges;
+  }
   get xray_documents() {
     return this._client.xray_documents;
   }
@@ -93,6 +95,20 @@ export class PrismaService implements OnModuleInit, OnModuleDestroy {
   }
   get chat_messages() {
     return this._client.chat_messages;
+  }
+  get chat_channel_identities() {
+    return this._client.chat_channel_identities;
+  }
+  get chat_link_codes() {
+    return this._client.chat_link_codes;
+  }
+  get chat_link_attempts() {
+    return this._client.chat_link_attempts;
+  }
+
+  /** `SELECT 1` — para el readiness check (`GET /health/ready`). */
+  async ping(): Promise<void> {
+    await this._client.$queryRaw`SELECT 1`;
   }
 
   transaction<T>(fn: (tx: Prisma.TransactionClient) => Promise<T>): Promise<T> {

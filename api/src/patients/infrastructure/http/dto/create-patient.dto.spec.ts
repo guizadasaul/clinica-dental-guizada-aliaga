@@ -18,7 +18,7 @@ function isoDaysFromNow(days: number): string {
 // Campos obligatorios: nombre, apellido paterno, fecha de nacimiento, lugar
 // de nacimiento, sexo, ocupación, tipo+número de documento (CLI-54),
 // dirección + zona + ciudad (CLI-54) y contacto de emergencia completo
-// (nombre, teléfono, parentesco). El resto sigue opcional.
+// (nombres, apellidos, teléfono, parentesco). El resto sigue opcional.
 const VALID_PATIENT = {
   firstName: 'Juan',
   lastNamePaternal: 'Claros',
@@ -31,7 +31,8 @@ const VALID_PATIENT = {
   address: 'Av. Siempre Viva 123',
   zona: 'Zona Norte',
   ciudad: 'Cochabamba',
-  emergencyContactName: 'Maria Claros',
+  emergencyContactFirstName: 'Maria',
+  emergencyContactLastName: 'Claros',
   emergencyContactPhone: '+59177777777',
   emergencyContactRelationship: 'Madre',
 };
@@ -109,10 +110,13 @@ describe('CreatePatientDto', () => {
   });
 
   // CLI-54: (documentType, dni) es el par único real, no dni solo.
-  it.each(['ci', 'pasaporte', 'nit'])('acepta documentType %s', async (value) => {
-    const errors = await validatePatient({ documentType: value });
-    expect(errors).toHaveLength(0);
-  });
+  it.each(['ci', 'pasaporte', 'nit'])(
+    'acepta documentType %s',
+    async (value) => {
+      const errors = await validatePatient({ documentType: value });
+      expect(errors).toHaveLength(0);
+    },
+  );
 
   it('rechaza un documentType fuera del enum cerrado', async () => {
     const errors = await validatePatient({ documentType: 'licencia' });
@@ -187,7 +191,8 @@ describe('CreatePatientDto', () => {
     'occupation',
     'dni',
     'address',
-    'emergencyContactName',
+    'emergencyContactFirstName',
+    'emergencyContactLastName',
     'emergencyContactPhone',
     'emergencyContactRelationship',
   ])('%s es obligatorio', (property) => {
@@ -219,11 +224,56 @@ describe('CreatePatientDto', () => {
     });
   });
 
-  it('rechaza emergencyContactName de una sola letra', async () => {
-    const errors = await validatePatient({ emergencyContactName: 'A' });
-    expect(errors.some((e) => e.property === 'emergencyContactName')).toBe(
-      true,
-    );
+  it.each(['emergencyContactFirstName', 'emergencyContactLastName'])(
+    'rechaza %s de una sola letra',
+    async (property) => {
+      const errors = await validatePatient({ [property]: 'A' });
+      expect(errors.some((e) => e.property === property)).toBe(true);
+    },
+  );
+
+  describe('documentExtension', () => {
+    it('es opcional', async () => {
+      expect(
+        await validatePatient({ documentExtension: undefined }),
+      ).toHaveLength(0);
+      expect(await validatePatient({ documentExtension: null })).toHaveLength(
+        0,
+      );
+      expect(await validatePatient({ documentExtension: '' })).toHaveLength(0);
+    });
+
+    it('normaliza a mayúsculas sin espacios ni guiones', async () => {
+      const dto = plainToInstance(CreatePatientDto, {
+        ...VALID_PATIENT,
+        documentExtension: ' 1-a ',
+      });
+      expect(await validate(dto)).toHaveLength(0);
+      expect(dto.documentExtension).toBe('1A');
+    });
+
+    it('acepta hasta 12 caracteres y rechaza 13', async () => {
+      expect(
+        await validatePatient({ documentExtension: 'A'.repeat(12) }),
+      ).toHaveLength(0);
+      const errors = await validatePatient({
+        documentExtension: 'A'.repeat(13),
+      });
+      expect(errors.some((e) => e.property === 'documentExtension')).toBe(true);
+    });
+
+    it('rechaza caracteres que no sean letras ni números', async () => {
+      const errors = await validatePatient({ documentExtension: 'L/P' });
+      expect(errors.some((e) => e.property === 'documentExtension')).toBe(true);
+    });
+
+    it('solo se acepta para una CI', async () => {
+      const errors = await validatePatient({
+        documentType: 'pasaporte',
+        documentExtension: 'LP',
+      });
+      expect(errors.some((e) => e.property === 'documentExtension')).toBe(true);
+    });
   });
 
   // "admin'--" es, carácter por carácter, letras + apostrofo + guiones — la

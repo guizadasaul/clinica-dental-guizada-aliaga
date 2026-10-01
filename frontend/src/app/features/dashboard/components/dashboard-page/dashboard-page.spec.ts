@@ -22,6 +22,9 @@ class AdminDashboardStub {
   readonly navChange = output<string>();
 }
 
+@Component({ selector: 'app-chat-widget', standalone: true, template: 'asistente' })
+class ChatWidgetStub {}
+
 type Role = 'patient' | 'odontologist' | 'admin';
 
 function setup(user: { role: Role; displayName?: string | null; photoURL?: string | null } | null) {
@@ -36,7 +39,13 @@ function setup(user: { role: Role; displayName?: string | null; photoURL?: strin
   });
   TestBed.overrideComponent(DashboardPageComponent, {
     set: {
-      imports: [PatientDashboardStub, DoctorDashboardStub, AdminDashboardStub, LogoComponent],
+      imports: [
+        PatientDashboardStub,
+        DoctorDashboardStub,
+        AdminDashboardStub,
+        LogoComponent,
+        ChatWidgetStub,
+      ],
     },
   });
   const fixture = TestBed.createComponent(DashboardPageComponent);
@@ -71,6 +80,12 @@ describe('DashboardPageComponent', () => {
       expect(navLabels().join(' ')).toContain(navItem);
     },
   );
+
+  it('monta el asistente virtual en el panel', () => {
+    const { root } = setup({ role: 'patient' });
+
+    expect(root.querySelector('app-chat-widget')).not.toBeNull();
+  });
 
   it('elegir una sección del menú la marca activa, se la pasa al panel y cierra el menú mobile', () => {
     const { fixture, root } = setup({ role: 'odontologist' });

@@ -91,6 +91,10 @@
   <div class="page"><app-doctor-agenda /></div>
 }
 
+@if (activeNav() === 'finances') {
+  <div class="page"><app-finances-page /></div>
+}
+
 @if (activeNav() === 'testimonials') {
   <div class="page"><app-testimonial-review /></div>
 }

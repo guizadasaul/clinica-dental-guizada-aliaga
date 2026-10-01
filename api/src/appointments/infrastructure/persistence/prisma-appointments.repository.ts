@@ -1,20 +1,38 @@
 import { Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../../shared/prisma/prisma.service.js';
-import { Appointment, AppointmentStatus } from '../../domain/Appointment.js';
+import {
+  Appointment,
+  AppointmentSource,
+  AppointmentStatus,
+} from '../../domain/Appointment.js';
 import {
   AgendaFilters,
   AttachQrData,
+  CreateByDoctorData,
   CreateHoldData,
   GuestContactData,
   GuestEmailBelongsToAccountError,
   GuestPhoneBelongsToAccountError,
   GuestPhoneConflictError,
   IAppointmentRepository,
+  PatientAppointmentFilters,
+  PatientNotFoundError,
+  RescheduleData,
   SlotUnavailableError,
 } from '../../domain/AppointmentRepository.js';
 import type { AppointmentWithPatient } from '../../domain/AppointmentWithPatient.js';
+import type { PatientAppointment } from '../../domain/PatientAppointment.js';
 import { AppointmentMapper } from './appointment.mapper.js';
+
+// Lo que la agenda necesita de cada cita — compartido por findForAgenda y
+// createByDoctor, que devuelve la cita nueva con el mismo shape.
+const AGENDA_INCLUDE = {
+  patients: { include: { users: true } },
+  // El doctor del turno (CLI-110): nombre y color para la agenda común.
+  users: { include: { doctor_profiles: true } },
+  treatments: true,
+} satisfies Prisma.appointmentsInclude;
 
 @Injectable()
 export class PrismaAppointmentsRepository implements IAppointmentRepository {
@@ -38,15 +56,35 @@ export class PrismaAppointmentsRepository implements IAppointmentRepository {
         ...(filters.status && { status: filters.status }),
         ...dateFilter,
       },
-      include: {
-        patients: { include: { users: true } },
-        // El doctor del turno (CLI-110): nombre y color para la agenda común.
-        users: { include: { doctor_profiles: true } },
-      },
+      include: AGENDA_INCLUDE,
       orderBy: { appointment_datetime: 'asc' },
     });
     return records.map((record) =>
       AppointmentMapper.toDomainWithPatient(record),
+    );
+  }
+
+  async findForPatient(
+    patientId: string,
+    filters: PatientAppointmentFilters,
+  ): Promise<PatientAppointment[]> {
+    const records = await this.prisma.appointments.findMany({
+      where: {
+        patient_id: patientId,
+        status: AppointmentStatus.CONFIRMED,
+        ...((filters.from || filters.to) && {
+          appointment_datetime: {
+            ...(filters.from && { gte: filters.from }),
+            ...(filters.to && { lt: filters.to }),
+          },
+        }),
+      },
+      include: { users: true, treatments: true },
+      orderBy: { appointment_datetime: filters.order },
+      take: filters.limit,
+    });
+    return records.map((record) =>
+      AppointmentMapper.toPatientAppointment(record),
     );
   }
 
@@ -121,6 +159,110 @@ export class PrismaAppointmentsRepository implements IAppointmentRepository {
       }
       throw error;
     }
+  }
+
+  async createByDoctor(
+    data: CreateByDoctorData,
+  ): Promise<AppointmentWithPatient> {
+    const patient = await this.prisma.patients.findUnique({
+      where: { id: data.patientId },
+      select: { id: true },
+    });
+    if (!patient) {
+      throw new PatientNotFoundError();
+    }
+    try {
+      const record = await this.prisma.appointments.create({
+        data: {
+          doctor_id: data.doctorId,
+          patient_id: data.patientId,
+          treatment_id: data.treatmentId,
+          appointment_datetime: data.appointmentDatetime,
+          duration_minutes: data.durationMinutes,
+          status: AppointmentStatus.CONFIRMED,
+          source: AppointmentSource.DOCTOR,
+          notes: data.notes,
+        },
+        include: AGENDA_INCLUDE,
+      });
+      return AppointmentMapper.toDomainWithPatient(record);
+    } catch (error: unknown) {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2002'
+      ) {
+        throw new SlotUnavailableError();
+      }
+      throw error;
+    }
+  }
+
+  async findForDoctor(
+    id: string,
+    doctorId: string,
+  ): Promise<AppointmentWithPatient | null> {
+    const record = await this.prisma.appointments.findFirst({
+      where: { id, doctor_id: doctorId },
+      include: AGENDA_INCLUDE,
+    });
+    return record ? AppointmentMapper.toDomainWithPatient(record) : null;
+  }
+
+  async reschedule(
+    id: string,
+    doctorId: string,
+    data: RescheduleData,
+  ): Promise<AppointmentWithPatient | null> {
+    try {
+      const { count } = await this.prisma.appointments.updateMany({
+        where: { id, doctor_id: doctorId, status: AppointmentStatus.CONFIRMED },
+        data: {
+          appointment_datetime: data.appointmentDatetime,
+          duration_minutes: data.durationMinutes,
+          ...(data.notes !== undefined && { notes: data.notes }),
+        },
+      });
+      return count === 0 ? null : this.findForDoctor(id, doctorId);
+    } catch (error: unknown) {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2002'
+      ) {
+        throw new SlotUnavailableError();
+      }
+      throw error;
+    }
+  }
+
+  async cancel(
+    id: string,
+    doctorId: string,
+    cancelledBy: string,
+    reason: string | null,
+  ): Promise<AppointmentWithPatient | null> {
+    const count = await this.prisma.transaction(async (tx) => {
+      const current = await tx.appointments.findFirst({
+        where: { id, doctor_id: doctorId, status: AppointmentStatus.CONFIRMED },
+        select: { notes: true },
+      });
+      if (!current) {
+        return 0;
+      }
+      const reasonLine = reason ? `Cancelada: ${reason}` : null;
+      const notes =
+        [current.notes, reasonLine].filter(Boolean).join('\n') || null;
+      const result = await tx.appointments.updateMany({
+        where: { id, doctor_id: doctorId, status: AppointmentStatus.CONFIRMED },
+        data: {
+          status: AppointmentStatus.CANCELLED,
+          cancelled_at: new Date(),
+          cancelled_by: cancelledBy,
+          notes,
+        },
+      });
+      return result.count;
+    });
+    return count === 0 ? null : this.findForDoctor(id, doctorId);
   }
 
   async updateGuestContact(

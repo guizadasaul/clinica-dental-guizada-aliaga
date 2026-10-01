@@ -7,3 +7,9 @@ CLAUDE.md
 
 # macOS
 .DS_Store
+
+# Secretos y estado de los servidores (deploy/): los .env reales, los tags
+# desplegados y el certificado de origen viven solo en el VPS.
+deploy/**/.env
+deploy/**/current.env
+deploy/**/previous.env

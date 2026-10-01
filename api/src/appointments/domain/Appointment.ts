@@ -4,6 +4,8 @@ export const AppointmentStatus = {
   CONFIRMED: 'confirmed',
   ATTENDED: 'attended',
   EXPIRED: 'expired',
+  /** CLI-149: cancelada por el doctor — libera el turno. */
+  CANCELLED: 'cancelled',
 } as const;
 export type AppointmentStatus =
   (typeof AppointmentStatus)[keyof typeof AppointmentStatus];
@@ -11,6 +13,8 @@ export type AppointmentStatus =
 export const AppointmentSource = {
   PUBLIC_WEB: 'public_web',
   WHATSAPP: 'whatsapp',
+  /** CLI-148: cita agendada por el doctor desde su agenda (seguimiento de un paciente con ficha) — nace confirmada, sin pago previo. */
+  DOCTOR: 'doctor',
 } as const;
 export type AppointmentSource =
   (typeof AppointmentSource)[keyof typeof AppointmentSource];

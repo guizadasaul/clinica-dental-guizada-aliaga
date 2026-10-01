@@ -1,10 +1,18 @@
 import type { Appointment } from './Appointment';
 import type { AppointmentWithPatient } from './AppointmentWithPatient';
+import type { PatientAppointment } from './PatientAppointment';
 
 export class SlotUnavailableError extends Error {
   constructor(message = 'El horario ya no está disponible') {
     super(message);
     this.name = 'SlotUnavailableError';
+  }
+}
+
+export class PatientNotFoundError extends Error {
+  constructor(message = 'Paciente no encontrado') {
+    super(message);
+    this.name = 'PatientNotFoundError';
   }
 }
 
@@ -49,6 +57,25 @@ export interface CreateHoldData {
   source: string;
 }
 
+/** CLI-148: cita que agenda el doctor para un paciente con ficha. */
+export interface CreateByDoctorData {
+  /** Siempre el doctor autenticado — nunca un dato del body. */
+  doctorId: string;
+  patientId: string;
+  treatmentId: string | null;
+  appointmentDatetime: Date;
+  durationMinutes: number;
+  notes: string | null;
+}
+
+/** CLI-149: nuevo horario de una cita confirmada. */
+export interface RescheduleData {
+  appointmentDatetime: Date;
+  durationMinutes: number;
+  /** undefined = no tocar las notas. */
+  notes?: string | null;
+}
+
 export interface GuestContactData {
   firstName: string;
   lastNamePaternal: string;
@@ -71,10 +98,23 @@ export interface AgendaFilters {
   to?: Date;
 }
 
+/** Filtros de las citas de un paciente (CLI-91). `to` es exclusivo. */
+export interface PatientAppointmentFilters {
+  from?: Date;
+  to?: Date;
+  order: 'asc' | 'desc';
+  limit: number;
+}
+
 export interface IAppointmentRepository {
   /** Agenda del doctor — citas con datos básicos del paciente embebidos. */
   findForAgenda(filters: AgendaFilters): Promise<AppointmentWithPatient[]>;
-  /** Citas activas (confirmed, o held vigente) de ESE doctor que se solapan con el rango dado — CLI-56: cada doctor tiene su propia agenda. */
+  /** Citas CONFIRMADAS de un paciente (CLI-91): el patientId sale siempre de la identidad autenticada, nunca de un parámetro del usuario. */
+  findForPatient(
+    patientId: string,
+    filters: PatientAppointmentFilters,
+  ): Promise<PatientAppointment[]>;
+  /** Citas activas (confirmed, o held vigente) de ESE doctor que empiezan dentro del rango dado — CLI-56: cada doctor tiene su propia agenda. */
   findActiveBetween(
     from: Date,
     to: Date,
@@ -85,6 +125,26 @@ export interface IAppointmentRepository {
   findByQrId(qrId: string): Promise<Appointment | null>;
   /** Atómico: libera holds vencidos de ese slot e intenta tomar el hold. Lanza SlotUnavailableError ante colisión. */
   createHold(data: CreateHoldData): Promise<Appointment>;
+  /** CLI-148: crea una cita ya confirmada (source `doctor`, sin pago). Lanza PatientNotFoundError si el paciente no existe y SlotUnavailableError si otra cita activa del doctor ya empieza a esa hora (índice único). El solapamiento por duración lo valida quien llama. */
+  createByDoctor(data: CreateByDoctorData): Promise<AppointmentWithPatient>;
+  /** CLI-149: una cita de ESE doctor, con el shape de la agenda. null si no existe o es de otro doctor (no se distingue, para no filtrar existencia). */
+  findForDoctor(
+    id: string,
+    doctorId: string,
+  ): Promise<AppointmentWithPatient | null>;
+  /** CLI-149: UPDATE condicional (WHERE id AND doctor_id AND status='confirmed'). null si ya no está confirmada. Lanza SlotUnavailableError ante choque en el índice único. */
+  reschedule(
+    id: string,
+    doctorId: string,
+    data: RescheduleData,
+  ): Promise<AppointmentWithPatient | null>;
+  /** CLI-149: UPDATE condicional (WHERE id AND doctor_id AND status='confirmed') → 'cancelled', con quién/cuándo y el motivo agregado a las notas. null si ya no estaba confirmada. */
+  cancel(
+    id: string,
+    doctorId: string,
+    cancelledBy: string,
+    reason: string | null,
+  ): Promise<AppointmentWithPatient | null>;
   /** UPDATE condicional (WHERE id AND status='held' AND hold_expires_at > now). null si el hold ya no está vigente. Lanza GuestPhoneConflictError si el teléfono ya tiene otra cita held/confirmed, o GuestEmailBelongsToAccountError/GuestPhoneBelongsToAccountError si el email/teléfono ya pertenece a una cuenta (users) existente. */
   updateGuestContact(
     id: string,

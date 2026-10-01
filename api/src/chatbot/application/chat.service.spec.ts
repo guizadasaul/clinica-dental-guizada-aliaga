@@ -1,10 +1,17 @@
-import { NotFoundException } from '@nestjs/common';
+import {
+  ConflictException,
+  HttpException,
+  Logger,
+  NotFoundException,
+  ServiceUnavailableException,
+} from '@nestjs/common';
 import { UserRole } from '../../auth/domain/value-objects/UserRole';
 import type { ChatActor } from '../domain/ChatActor';
 import type { ChatMessage } from '../domain/ChatMessage';
 import type { ChatRepository } from '../domain/ChatRepository';
 import type { ChatSession } from '../domain/ChatSession';
 import type { AgentRunner, AgentRunResult } from './agent-runner';
+import { ChatAuditLogger } from './chat-audit.logger';
 import { ChatService, hashAnonToken } from './chat.service';
 
 const NOW = new Date('2026-09-24T12:00:00Z');
@@ -54,11 +61,15 @@ function message(
 
 const AGENT_RESULT: AgentRunResult = {
   reply: 'Tu próxima cita es el martes',
+  links: [{ label: 'Reservar', url: 'http://localhost:4200/reservar?x=1' }],
   toolNames: ['get_my_next_appointment'],
+  toolCalls: [{ name: 'get_my_next_appointment', status: 'ok', ms: 12 }],
   usage: { promptTokens: 900, completionTokens: 40 },
+  cachedPromptTokens: 512,
   llmLatencyMs: 1500,
   iterations: 1,
   errorCode: null,
+  guardAction: 'none',
 };
 
 describe('ChatService', () => {
@@ -67,15 +78,22 @@ describe('ChatService', () => {
     createSession: jest.fn(),
     findSessionForUser: jest.fn(),
     findSessionByAnonTokenHash: jest.fn(),
+    findLatestSessionForUser: jest.fn(),
     appendMessage: jest.fn(),
     findRecentMessages: jest.fn(),
+    countUserMessagesSince: jest.fn(),
+    countAnonMessagesSince: jest.fn(),
+    deleteSessionForUser: jest.fn(),
+    deleteAllForUser: jest.fn(),
   };
   const agent = { run: jest.fn() };
   const promptBuilder = { build: jest.fn(() => 'SYSTEM') };
+  const audit = new ChatAuditLogger();
   const service = new ChatService(
     repo as unknown as ChatRepository,
     agent as unknown as AgentRunner,
     promptBuilder,
+    audit,
   );
 
   beforeEach(() => {
@@ -83,6 +101,14 @@ describe('ChatService', () => {
     process.env = { ...originalEnv };
     delete process.env['CHAT_CONTEXT_MESSAGES'];
     delete process.env['CHAT_CONTEXT_MAX_CHARS'];
+    delete process.env['CHAT_DAILY_MESSAGES_USER'];
+    delete process.env['CHAT_DAILY_MESSAGES_ANON'];
+    process.env['CHATBOT_ENABLED'] = 'true';
+    // Los eventos de auditoría se verifican en su propio describe.
+    jest.spyOn(Logger.prototype, 'log').mockImplementation(() => {});
+    jest.spyOn(Logger.prototype, 'warn').mockImplementation(() => {});
+    repo.countUserMessagesSince.mockResolvedValue(0);
+    repo.countAnonMessagesSince.mockResolvedValue(0);
     repo.appendMessage.mockResolvedValue(message('user', 'x'));
     repo.findRecentMessages.mockResolvedValue([message('user', 'hola')]);
     agent.run.mockResolvedValue(AGENT_RESULT);
@@ -90,6 +116,7 @@ describe('ChatService', () => {
 
   afterEach(() => {
     process.env = originalEnv;
+    jest.restoreAllMocks();
   });
 
   describe('usuario autenticado', () => {
@@ -111,6 +138,9 @@ describe('ChatService', () => {
         sessionId: 'session-1',
         anonToken: null,
         reply: 'Tu próxima cita es el martes',
+        links: [
+          { label: 'Reservar', url: 'http://localhost:4200/reservar?x=1' },
+        ],
       });
     });
 
@@ -157,6 +187,68 @@ describe('ChatService', () => {
       });
 
       expect(repo.findSessionByAnonTokenHash).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('canales sin sesión propia (WhatsApp, CLI-101)', () => {
+    it('un usuario retoma su última conversación del canal', async () => {
+      repo.findLatestSessionForUser.mockResolvedValue(
+        session({ id: 'wa-session', channel: 'whatsapp' }),
+      );
+
+      const reply = await service.handleMessage({
+        actor: patient,
+        channel: 'whatsapp',
+        text: 'hola',
+        resumeLatestSession: true,
+      });
+
+      expect(repo.findLatestSessionForUser).toHaveBeenCalledWith(
+        'user-1',
+        'whatsapp',
+      );
+      expect(repo.createSession).not.toHaveBeenCalled();
+      expect(reply.sessionId).toBe('wa-session');
+    });
+
+    it('si no tiene conversación en el canal, crea una', async () => {
+      repo.findLatestSessionForUser.mockResolvedValue(null);
+      repo.createSession.mockResolvedValue(session({ id: 'nueva' }));
+
+      await service.handleMessage({
+        actor: patient,
+        channel: 'whatsapp',
+        text: 'hola',
+        resumeLatestSession: true,
+      });
+
+      expect(repo.createSession).toHaveBeenCalledWith({
+        userId: 'user-1',
+        channel: 'whatsapp',
+        anonTokenHash: null,
+      });
+    });
+
+    it('un visitante con token derivado por el servidor conserva ese token al crear la conversación', async () => {
+      repo.findSessionByAnonTokenHash.mockResolvedValue(null);
+      repo.createSession.mockResolvedValue(session({ userId: null }));
+
+      const reply = await service.handleMessage({
+        actor: anonymous,
+        channel: 'whatsapp',
+        text: 'hola',
+        anonToken: 'token-derivado-del-numero-0000000000000',
+        serverIssuedAnonToken: true,
+      });
+
+      expect(reply.anonToken).toBe('token-derivado-del-numero-0000000000000');
+      expect(repo.createSession).toHaveBeenCalledWith(
+        expect.objectContaining({
+          anonTokenHash: hashAnonToken(
+            'token-derivado-del-numero-0000000000000',
+          ),
+        }),
+      );
     });
   });
 
@@ -281,6 +373,11 @@ describe('ChatService', () => {
         system: 'SYSTEM',
         history: [{ role: 'user', content: 'hola' }],
         locale: 'pt',
+        audit: {
+          requestId: null,
+          actor: 'user:user-1',
+          role: 'patient',
+        },
       });
     });
 
@@ -367,6 +464,390 @@ describe('ChatService', () => {
 
       await expect(historySent()).resolves.toEqual([
         { role: 'user', content: 'un mensaje largo' },
+      ]);
+    });
+  });
+  describe('CLI-145', () => {
+    it('no le reenvía al modelo las respuestas de fallback (turnos con error)', async () => {
+      repo.findSessionForUser.mockResolvedValue(session());
+      repo.findRecentMessages.mockResolvedValue([
+        message('user', '¿cuánto debo?'),
+        {
+          ...message('assistant', 'En este momento no puedo responder'),
+          errorCode: 'llm_rate_limited',
+        },
+        message('user', '¿cuánto debo?', 'u2'),
+      ]);
+
+      await service.handleMessage({
+        actor: patient,
+        channel: 'web',
+        sessionId: 'session-1',
+        text: '¿cuánto debo?',
+      });
+
+      expect(callArg<{ history: unknown }>(agent.run, 0, 0).history).toEqual([
+        { role: 'user', content: '¿cuánto debo?' },
+        { role: 'user', content: '¿cuánto debo?' },
+      ]);
+    });
+
+    it('rechaza con 409 un segundo mensaje mientras la conversación tiene un turno en curso', async () => {
+      repo.findSessionForUser.mockResolvedValue(session());
+      let finishFirst!: (value: AgentRunResult) => void;
+      agent.run.mockReturnValueOnce(
+        new Promise<AgentRunResult>((resolve) => {
+          finishFirst = resolve;
+        }),
+      );
+      const turn = {
+        actor: patient,
+        channel: 'web' as const,
+        sessionId: 'session-1',
+        text: 'hola',
+      };
+
+      const first = service.handleMessage(turn);
+      await new Promise((resolve) => setImmediate(resolve));
+      await expect(service.handleMessage(turn)).rejects.toBeInstanceOf(
+        ConflictException,
+      );
+
+      finishFirst(AGENT_RESULT);
+      await expect(first).resolves.toMatchObject({ sessionId: 'session-1' });
+      // Terminado el turno, la conversación vuelve a aceptar mensajes.
+      await expect(service.handleMessage(turn)).resolves.toMatchObject({
+        sessionId: 'session-1',
+      });
+    });
+
+    it('libera la conversación aunque el turno falle', async () => {
+      repo.findSessionForUser.mockResolvedValue(session());
+      agent.run.mockRejectedValueOnce(new Error('boom'));
+      const turn = {
+        actor: patient,
+        channel: 'web' as const,
+        sessionId: 'session-1',
+        text: 'hola',
+      };
+
+      await expect(service.handleMessage(turn)).rejects.toThrow('boom');
+      await expect(service.handleMessage(turn)).resolves.toMatchObject({
+        sessionId: 'session-1',
+      });
+    });
+
+    it('conversaciones distintas no se bloquean entre sí', async () => {
+      repo.findSessionForUser.mockImplementation((id: string) =>
+        Promise.resolve(session({ id })),
+      );
+      let finishFirst!: (value: AgentRunResult) => void;
+      agent.run.mockReturnValueOnce(
+        new Promise<AgentRunResult>((resolve) => {
+          finishFirst = resolve;
+        }),
+      );
+
+      const first = service.handleMessage({
+        actor: patient,
+        channel: 'web',
+        sessionId: 'session-1',
+        text: 'a',
+      });
+      await new Promise((resolve) => setImmediate(resolve));
+      await expect(
+        service.handleMessage({
+          actor: patient,
+          channel: 'web',
+          sessionId: 'session-2',
+          text: 'b',
+        }),
+      ).resolves.toMatchObject({ sessionId: 'session-2' });
+      finishFirst(AGENT_RESULT);
+      await first;
+    });
+  });
+
+  describe('kill switch', () => {
+    it.each([undefined, 'false', 'TRUE', '1'])(
+      'con CHATBOT_ENABLED=%p responde 503 sin tocar la base ni el modelo',
+      async (value) => {
+        if (value === undefined) {
+          delete process.env['CHATBOT_ENABLED'];
+        } else {
+          process.env['CHATBOT_ENABLED'] = value;
+        }
+
+        await expect(
+          service.handleMessage({
+            actor: patient,
+            channel: 'web',
+            text: 'hola',
+          }),
+        ).rejects.toBeInstanceOf(ServiceUnavailableException);
+        expect(repo.createSession).not.toHaveBeenCalled();
+        expect(agent.run).not.toHaveBeenCalled();
+      },
+    );
+  });
+
+  describe('cuota diaria', () => {
+    async function expect429(promise: Promise<unknown>) {
+      const error = await promise.catch((e: unknown) => e);
+      expect(error).toBeInstanceOf(HttpException);
+      expect((error as HttpException).getStatus()).toBe(429);
+    }
+
+    it('un usuario que llegó a 100 mensajes en 24 h recibe 429 y no se crea conversación', async () => {
+      repo.countUserMessagesSince.mockResolvedValue(100);
+
+      await expect429(
+        service.handleMessage({ actor: patient, channel: 'web', text: 'hola' }),
+      );
+      const [userId, since] = repo.countUserMessagesSince.mock.calls[0] as [
+        string,
+        Date,
+      ];
+      expect(userId).toBe('user-1');
+      expect(Date.now() - since.getTime()).toBeGreaterThanOrEqual(
+        24 * 60 * 60 * 1000 - 1000,
+      );
+      expect(repo.createSession).not.toHaveBeenCalled();
+      expect(agent.run).not.toHaveBeenCalled();
+    });
+
+    it('respeta CHAT_DAILY_MESSAGES_USER', async () => {
+      process.env['CHAT_DAILY_MESSAGES_USER'] = '5';
+      repo.countUserMessagesSince.mockResolvedValue(5);
+
+      await expect429(
+        service.handleMessage({ actor: patient, channel: 'web', text: 'hola' }),
+      );
+    });
+
+    it('por debajo del límite el turno sigue', async () => {
+      repo.countUserMessagesSince.mockResolvedValue(99);
+      repo.createSession.mockResolvedValue(session());
+
+      await expect(
+        service.handleMessage({ actor: patient, channel: 'web', text: 'hola' }),
+      ).resolves.toMatchObject({ reply: 'Tu próxima cita es el martes' });
+    });
+
+    it('un anónimo con token cuenta los mensajes de esa conversación (límite 20)', async () => {
+      repo.countAnonMessagesSince.mockResolvedValue(20);
+
+      await expect429(
+        service.handleMessage({
+          actor: anonymous,
+          channel: 'web',
+          anonToken: 'mi-token',
+          text: 'hola',
+        }),
+      );
+      expect(repo.countAnonMessagesSince).toHaveBeenCalledWith(
+        hashAnonToken('mi-token'),
+        expect.any(Date),
+      );
+    });
+
+    it('respeta CHAT_DAILY_MESSAGES_ANON', async () => {
+      process.env['CHAT_DAILY_MESSAGES_ANON'] = '3';
+      repo.countAnonMessagesSince.mockResolvedValue(3);
+
+      await expect429(
+        service.handleMessage({
+          actor: anonymous,
+          channel: 'web',
+          anonToken: 'mi-token',
+          text: 'hola',
+        }),
+      );
+    });
+
+    it('un anónimo sin token arranca de cero (el límite por IP lo cubre el throttler)', async () => {
+      repo.createSession.mockResolvedValue(session({ userId: null }));
+
+      await service.handleMessage({
+        actor: anonymous,
+        channel: 'web',
+        text: 'hola',
+      });
+
+      expect(repo.countAnonMessagesSince).not.toHaveBeenCalled();
+      expect(agent.run).toHaveBeenCalled();
+    });
+  });
+
+  describe('borrar conversaciones', () => {
+    it('deleteSession borra una conversación propia', async () => {
+      repo.deleteSessionForUser.mockResolvedValue(true);
+
+      await expect(
+        service.deleteSession('user-1', 'session-1'),
+      ).resolves.toBeUndefined();
+      expect(repo.deleteSessionForUser).toHaveBeenCalledWith(
+        'session-1',
+        'user-1',
+      );
+    });
+
+    it('deleteSession de una conversación ajena o inexistente da 404', async () => {
+      repo.deleteSessionForUser.mockResolvedValue(false);
+
+      await expect(
+        service.deleteSession('user-1', 'session-de-otro'),
+      ).rejects.toBeInstanceOf(NotFoundException);
+    });
+
+    it('deleteAllSessions borra todas las del usuario', async () => {
+      repo.deleteAllForUser.mockResolvedValue(3);
+
+      await service.deleteAllSessions('user-1');
+
+      expect(repo.deleteAllForUser).toHaveBeenCalledWith('user-1');
+    });
+  });
+
+  describe('auditoría (CLI-98)', () => {
+    const MARKER = 'MARCADOR-UNICO-7f3a9c';
+    let logged: jest.SpyInstance[];
+
+    beforeEach(() => {
+      logged = (['log', 'warn', 'error', 'debug', 'verbose'] as const).map(
+        (level) =>
+          jest.spyOn(Logger.prototype, level).mockImplementation(() => {}),
+      );
+    });
+
+    afterEach(() => jest.restoreAllMocks());
+
+    function allLogs(): string {
+      return logged
+        .flatMap((spy) => spy.mock.calls as unknown[][])
+        .map((args) => args.map(String).join(' '))
+        .join('\n');
+    }
+
+    function events(kind: string): Record<string, unknown>[] {
+      return allLogs()
+        .split('\n')
+        .filter((line) => line.includes(`"event":"${kind}"`))
+        .map((line) => JSON.parse(line) as Record<string, unknown>);
+    }
+
+    it('cada turno emite exactamente un chat.turn, sin el texto del usuario ni la respuesta', async () => {
+      repo.findSessionForUser.mockResolvedValue(session());
+      agent.run.mockResolvedValue({
+        ...AGENT_RESULT,
+        reply: `Respuesta con ${MARKER}`,
+        toolCalls: [
+          { name: 'get_my_balance', status: 'ok', ms: 5 },
+          { name: 'get_clinic_financial_report', status: 'denied', ms: 1 },
+        ],
+      });
+
+      await service.handleMessage({
+        actor: patient,
+        channel: 'web',
+        sessionId: 'session-1',
+        text: `Pregunta con ${MARKER}`,
+        requestId: 'req-1',
+      });
+
+      expect(allLogs()).not.toContain(MARKER);
+      const [turn, ...rest] = events('chat.turn');
+      expect(rest).toHaveLength(0);
+      expect(turn).toMatchObject({
+        requestId: 'req-1',
+        channel: 'web',
+        actor: 'user:user-1',
+        role: 'patient',
+        intent: 'tool',
+        tools: [
+          { name: 'get_my_balance', status: 'ok', ms: 5 },
+          { name: 'get_clinic_financial_report', status: 'denied', ms: 1 },
+        ],
+        llmMs: 1500,
+        promptTokens: 900,
+        cachedPromptTokens: 512,
+        completionTokens: 40,
+        iterations: 1,
+        errorCode: null,
+      });
+      expect(repo.appendMessage).toHaveBeenLastCalledWith(
+        'session-1',
+        expect.objectContaining({ deniedTools: 1 }),
+      );
+    });
+
+    it('un visitante nuevo queda identificado por el prefijo del hash de su token', async () => {
+      repo.createSession.mockResolvedValue(session({ userId: null }));
+
+      const reply = await service.handleMessage({
+        actor: anonymous,
+        channel: 'web',
+        text: 'hola',
+      });
+
+      const [turn] = events('chat.turn');
+      expect(turn.actor).toBe(
+        `anon:${hashAnonToken(reply.anonToken!).slice(0, 8)}`,
+      );
+      expect(allLogs()).not.toContain(reply.anonToken!);
+    });
+
+    it('una conversación ajena queda como evento de seguridad', async () => {
+      repo.findSessionForUser.mockResolvedValue(null);
+
+      await expect(
+        service.handleMessage({
+          actor: patient,
+          channel: 'web',
+          sessionId: 'session-de-otro',
+          text: MARKER,
+        }),
+      ).rejects.toBeInstanceOf(NotFoundException);
+
+      expect(events('chat.security')).toEqual([
+        expect.objectContaining({
+          reason: 'foreign_or_unknown_session',
+          actor: 'user:user-1',
+        }),
+      ]);
+      expect(events('chat.turn')).toHaveLength(0);
+      expect(allLogs()).not.toContain(MARKER);
+    });
+
+    it('la cuota excedida queda como evento de seguridad', async () => {
+      repo.countUserMessagesSince.mockResolvedValue(100);
+
+      await expect(
+        service.handleMessage({ actor: patient, channel: 'web', text: 'hola' }),
+      ).rejects.toBeInstanceOf(HttpException);
+
+      expect(events('chat.security')).toEqual([
+        expect.objectContaining({ reason: 'daily_quota_exceeded' }),
+      ]);
+    });
+
+    it('borrar una conversación ajena queda auditado si llega el contexto', async () => {
+      repo.deleteSessionForUser.mockResolvedValue(false);
+      const context = {
+        requestId: 'req-2',
+        actor: 'user:user-1',
+        role: UserRole.PATIENT,
+      };
+
+      await expect(
+        service.deleteSession('user-1', 'session-de-otro', context),
+      ).rejects.toBeInstanceOf(NotFoundException);
+
+      expect(events('chat.security')).toEqual([
+        expect.objectContaining({
+          requestId: 'req-2',
+          reason: 'foreign_or_unknown_session',
+        }),
       ]);
     });
   });

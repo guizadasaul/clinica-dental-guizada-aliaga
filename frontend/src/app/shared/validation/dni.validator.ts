@@ -23,3 +23,14 @@ export function normalizeDni(value: string): string {
 export function isValidDni(value: string): boolean {
   return DNI_RE.test(normalizeDni(value));
 }
+
+// Extensión/complemento de la CI boliviana ("LP", "1A", ...) — espejo de
+// DOCUMENT_EXTENSION_RE en api/src/shared/validators/dni.validator.ts.
+// Misma normalización que el DNI.
+export const DOCUMENT_EXTENSION_MAX_LENGTH = 12;
+export const DOCUMENT_EXTENSION_RE = /^[A-Z0-9]{1,12}$/;
+
+/** Extensión (ya normalizada internamente) contra `DOCUMENT_EXTENSION_RE`. */
+export function isValidDocumentExtension(value: string): boolean {
+  return DOCUMENT_EXTENSION_RE.test(normalizeDni(value));
+}

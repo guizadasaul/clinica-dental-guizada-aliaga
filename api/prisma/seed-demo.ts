@@ -4,8 +4,9 @@ import 'dotenv/config';
 import { PrismaClient } from '@prisma/client';
 import type { UserRole } from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
+import { pgConnectionConfig } from '../src/shared/prisma/pg-connection';
 
-const adapter = new PrismaPg({ connectionString: process.env['DATABASE_URL'] });
+const adapter = new PrismaPg(pgConnectionConfig());
 const prisma = new PrismaClient({ adapter });
 
 /**
@@ -136,6 +137,11 @@ async function seedPatient(doctorUserId: string) {
 }
 
 async function main() {
+  // Los usuarios de demo existen solo en el Supabase de staging/desarrollo:
+  // en producción nunca se siembran, aunque alguien ponga SEED_DEMO=true.
+  if (process.env['APP_ENV'] === 'production') {
+    throw new Error('seed-demo no se corre en producción (APP_ENV=production)');
+  }
   await seedAdmin();
   const doctor = await seedDoctor();
   await seedPatient(doctor.id);

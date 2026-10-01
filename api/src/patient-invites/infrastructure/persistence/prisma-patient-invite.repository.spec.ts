@@ -218,7 +218,7 @@ describe('PrismaPatientInviteRepository', () => {
       return {
         used_at: null,
         expires_at: new Date(NOW.getTime() + HOUR),
-        users: { role: 'patient' },
+        users: { role: 'patient', phone: null },
         ...overrides,
       };
     }
@@ -233,7 +233,7 @@ describe('PrismaPatientInviteRepository', () => {
         select: {
           used_at: true,
           expires_at: true,
-          users: { select: { role: true } },
+          users: { select: { role: true, phone: true } },
         },
       });
       expect(prismaMock.patient_invites.updateMany).not.toHaveBeenCalled();
@@ -251,6 +251,19 @@ describe('PrismaPatientInviteRepository', () => {
       expect(await repo.findTokenStatus('hash-1', NOW)).toEqual({
         valid: true,
         kind: 'patient',
+        phone: null,
+      });
+    });
+
+    // CLI-144: el teléfono de la ficha viaja para validar el registro por
+    // teléfono (el servicio decide qué parte se expone).
+    it('includes the phone of the invited user', async () => {
+      prismaMock.patient_invites.findUnique.mockResolvedValue(
+        record({ users: { role: 'patient', phone: '+59171234567' } }),
+      );
+
+      expect(await repo.findTokenStatus('hash-1', NOW)).toMatchObject({
+        phone: '+59171234567',
       });
     });
 
@@ -298,6 +311,7 @@ describe('PrismaPatientInviteRepository', () => {
       expect(await repo.findTokenStatus('hash-1', NOW)).toEqual({
         valid: false,
         kind: 'patient',
+        phone: null,
       });
     });
 

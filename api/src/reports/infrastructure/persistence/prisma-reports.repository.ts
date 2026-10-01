@@ -7,6 +7,7 @@ import {
   CLINIC_TIMEZONE,
 } from '../../../appointments/domain/ClinicSchedule.js';
 import type { WeeklyScheduleBlock } from '../../../appointments/domain/ClinicSchedule.js';
+import { AppointmentStatus } from '../../../appointments/domain/Appointment.js';
 import type {
   AppointmentStatusCounts,
   DoctorOperationalRow,
@@ -18,6 +19,7 @@ import type {
   FinancialReport,
 } from '../../domain/FinancialReport.js';
 import type { IReportsRepository } from '../../domain/ReportsRepository.js';
+import type { TopTreatmentsReport } from '../../domain/TopTreatmentsReport.js';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -84,7 +86,8 @@ export class PrismaReportsRepository implements IReportsRepository {
         _count: { _all: true },
       }),
       // CLI-65: "atendidos" se reporta con los estados reales que existen
-      // hoy en appointments (held/confirmed/expired) — no hay ningún flujo
+      // hoy en appointments (held/confirmed/expired, y cancelled desde
+      // CLI-149) — no hay ningún flujo
       // que transicione una cita a 'attended' (no existe check-in), así que
       // ese estado nunca aparece poblado. No se inventa ese flujo acá.
       this.prisma.patients.groupBy({
@@ -130,8 +133,11 @@ export class PrismaReportsRepository implements IReportsRepository {
 
     const rows: DoctorOperationalRow[] = doctors.map((doctor) => {
       const appointmentsByStatus = statusByDoctor.get(doctor.id) ?? {};
-      const totalAppointments = Object.values(appointmentsByStatus).reduce(
-        (sum, count) => sum + count,
+      // CLI-154: una cita cancelada no ocupó la agenda — se informa en
+      // appointmentsByStatus.cancelled pero no suma al total.
+      const totalAppointments = Object.entries(appointmentsByStatus).reduce(
+        (sum, [status, count]) =>
+          status === AppointmentStatus.CANCELLED ? sum : sum + count,
         0,
       );
       const confirmedAppointments = appointmentsByStatus['confirmed'] ?? 0;
@@ -255,5 +261,44 @@ export class PrismaReportsRepository implements IReportsRepository {
     );
 
     return { from, to, doctors: rows };
+  }
+
+  async getTopTreatments(
+    params: ReportParams & { limit: number },
+  ): Promise<TopTreatmentsReport> {
+    const from = toClinicDateString(params.from);
+    const to = lastInclusiveDateString(params.to);
+    const groups = await this.prisma.tooth_procedures.groupBy({
+      by: ['treatment_id'],
+      where: {
+        // procedure_date es DATE: se compara contra las fechas de calendario
+        // de la clínica, no contra instantes.
+        procedure_date: {
+          gte: new Date(`${from}T00:00:00Z`),
+          lte: new Date(`${to}T00:00:00Z`),
+        },
+        ...(params.doctorId && { performed_by: params.doctorId }),
+      },
+      _count: { _all: true },
+      orderBy: { _count: { treatment_id: 'desc' } },
+      take: params.limit,
+    });
+    if (groups.length === 0) {
+      return { from, to, treatments: [] };
+    }
+    const names = await this.prisma.treatments.findMany({
+      where: { id: { in: groups.map((g) => g.treatment_id) } },
+      select: { id: true, name: true },
+    });
+    const nameById = new Map(names.map((t) => [t.id, t.name]));
+    return {
+      from,
+      to,
+      treatments: groups.map((g) => ({
+        treatmentId: g.treatment_id,
+        name: nameById.get(g.treatment_id) ?? 'Tratamiento',
+        count: g._count._all,
+      })),
+    };
   }
 }

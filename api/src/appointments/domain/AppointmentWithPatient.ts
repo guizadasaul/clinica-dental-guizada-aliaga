@@ -16,5 +16,13 @@ export class AppointmentWithPatient {
     readonly doctorId: string,
     readonly doctorName: string | null,
     readonly doctorColor: string | null,
+    /** CLI-148: la agenda dibuja el turno con su duración real y distingue las citas agendadas por el doctor de las reservas web. */
+    readonly durationMinutes: number,
+    readonly source: string,
+    readonly treatmentId: string | null,
+    readonly treatmentName: string | null,
+    readonly notes: string | null,
+    /** CLI-149: solo si status = 'cancelled'. */
+    readonly cancelledAt: Date | null,
   ) {}
 }

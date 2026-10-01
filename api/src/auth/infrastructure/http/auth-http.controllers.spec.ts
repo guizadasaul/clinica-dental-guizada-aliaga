@@ -59,11 +59,13 @@ describe('controllers de auth', () => {
       await controller.register({
         phone: '+59170000000',
         password: 'clave-123',
+        inviteToken: 'token-1',
       });
 
       expect(service.registerWithPhone).toHaveBeenCalledWith(
         '+59170000000',
         'clave-123',
+        'token-1',
       );
     });
 

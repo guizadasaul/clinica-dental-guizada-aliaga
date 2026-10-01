@@ -1,18 +1,33 @@
 import { createHash, randomBytes } from 'node:crypto';
-import { Inject, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  ConflictException,
+  HttpException,
+  HttpStatus,
+  Inject,
+  Injectable,
+  NotFoundException,
+  ServiceUnavailableException,
+} from '@nestjs/common';
 import type { ChatActor } from '../domain/ChatActor';
+import { chatAuditContext } from '../domain/ChatAudit';
+import type { ChatAuditContext } from '../domain/ChatAudit';
 import type { ChatChannel } from '../domain/ChatChannel';
 import { ChatRepository } from '../domain/ChatRepository';
 import type { ChatRepository as IChatRepository } from '../domain/ChatRepository';
 import type { ChatSession } from '../domain/ChatSession';
+import type { ChatLink } from '../domain/ChatLink';
 import type { LlmMessage } from '../domain/LlmProvider';
 import { readEnvInt } from '../../shared/env.util';
 import { AgentRunner } from './agent-runner';
+import { ChatAuditLogger } from './chat-audit.logger';
 import type { ChatLocale } from './fallback-reply';
 import { SystemPromptBuilder } from './system-prompt.builder';
 
 export const DEFAULT_CONTEXT_MESSAGES = 12;
 export const DEFAULT_CONTEXT_MAX_CHARS = 8000;
+export const DEFAULT_DAILY_MESSAGES_USER = 100;
+export const DEFAULT_DAILY_MESSAGES_ANON = 20;
+const DAY_MS = 24 * 60 * 60 * 1000;
 
 /**
  * Entrada única del chatbot para todos los canales (web, WhatsApp). El
@@ -26,8 +41,20 @@ export interface IncomingChatMessage {
   sessionId?: string;
   /** Token opaco de la conversación de un visitante anónimo. */
   anonToken?: string;
+  /**
+   * Canales sin sesión propia (WhatsApp, CLI-101): el usuario sigue en su
+   * última conversación de ese canal en vez de abrir una nueva por mensaje.
+   */
+  resumeLatestSession?: boolean;
+  /**
+   * El anonToken lo derivó el servidor (WhatsApp: del número), no un
+   * cliente: si su conversación no existe, se crea con ese mismo token.
+   */
+  serverIssuedAnonToken?: boolean;
   text: string;
   locale?: ChatLocale;
+  /** Correlación de los eventos de auditoría (x-request-id). */
+  requestId?: string;
 }
 
 export interface ChatReply {
@@ -36,6 +63,8 @@ export interface ChatReply {
   /** Solo para anónimos: el token a reenviar para seguir la conversación. */
   anonToken: string | null;
   reply: string;
+  /** Links para mostrar junto a la respuesta (ej. el de reserva). */
+  links: ChatLink[];
 }
 
 interface ResolvedSession {
@@ -54,65 +83,215 @@ export function hashAnonToken(token: string): string {
  */
 @Injectable()
 export class ChatService {
+  /**
+   * Conversaciones con un turno en curso (CLI-145). Dos mensajes en paralelo
+   * en la misma conversación cruzaban el historial y las respuestas. Es en
+   * memoria, como el throttler: alcanza mientras la API corra en un solo
+   * proceso.
+   */
+  private readonly activeSessions = new Set<string>();
+
   constructor(
     @Inject(ChatRepository) private readonly chatRepo: IChatRepository,
     private readonly agent: AgentRunner,
     private readonly promptBuilder: SystemPromptBuilder,
+    private readonly audit: ChatAuditLogger,
   ) {}
 
   async handleMessage(message: IncomingChatMessage): Promise<ChatReply> {
     const started = Date.now();
-    const { session, anonToken } = await this.resolveSession(message);
+    this.ensureEnabled();
+    let audit = chatAuditContext(
+      message.requestId ?? null,
+      message.actor,
+      message.anonToken ? hashAnonToken(message.anonToken) : null,
+    );
+    // Antes de resolver la sesión: sin cupo no se crea ninguna conversación.
+    await this.ensureWithinDailyQuota(message.actor, message.anonToken, audit);
+    const { session, anonToken } = await this.resolveSession(message, audit);
+    if (anonToken) {
+      audit = chatAuditContext(
+        audit.requestId,
+        message.actor,
+        hashAnonToken(anonToken),
+      );
+    }
+    if (this.activeSessions.has(session.id)) {
+      throw new ConflictException(
+        'Todavía estoy respondiendo tu mensaje anterior',
+      );
+    }
+    this.activeSessions.add(session.id);
+    try {
+      return await this.runTurn(message, session.id, anonToken, audit, started);
+    } finally {
+      this.activeSessions.delete(session.id);
+    }
+  }
 
-    await this.chatRepo.appendMessage(session.id, {
+  private async runTurn(
+    message: IncomingChatMessage,
+    sessionId: string,
+    anonToken: string | null,
+    audit: ChatAuditContext,
+    started: number,
+  ): Promise<ChatReply> {
+    await this.chatRepo.appendMessage(sessionId, {
       role: 'user',
       content: message.text,
     });
-    const history = await this.loadHistory(session.id);
+    const history = await this.loadHistory(sessionId);
 
     const result = await this.agent.run({
       actor: message.actor,
       system: this.promptBuilder.build(message.actor, new Date()),
       history,
       locale: message.locale,
+      audit,
     });
+    const totalMs = Date.now() - started;
 
-    await this.chatRepo.appendMessage(session.id, {
+    await this.chatRepo.appendMessage(sessionId, {
       role: 'assistant',
       content: result.reply,
       toolNames: result.toolNames,
-      latencyMs: Date.now() - started,
+      latencyMs: totalMs,
       promptTokens: result.usage.promptTokens,
       completionTokens: result.usage.completionTokens,
       errorCode: result.errorCode,
+      deniedTools: result.toolCalls.filter((t) => t.status === 'denied').length,
+    });
+    this.audit.turn(audit, {
+      channel: message.channel,
+      tools: result.toolCalls,
+      llmMs: result.llmLatencyMs,
+      totalMs,
+      promptTokens: result.usage.promptTokens,
+      cachedPromptTokens: result.cachedPromptTokens,
+      completionTokens: result.usage.completionTokens,
+      iterations: result.iterations,
+      errorCode: result.errorCode,
     });
 
-    return { sessionId: session.id, anonToken, reply: result.reply };
+    return {
+      sessionId: sessionId,
+      anonToken,
+      reply: result.reply,
+      links: result.links,
+    };
+  }
+
+  /** Borra una conversación propia. 404 si no existe o es de otro usuario. */
+  async deleteSession(
+    userId: string,
+    sessionId: string,
+    audit?: ChatAuditContext,
+  ): Promise<void> {
+    const deleted = await this.chatRepo.deleteSessionForUser(sessionId, userId);
+    if (!deleted) {
+      if (audit) {
+        this.audit.security(audit, 'foreign_or_unknown_session');
+      }
+      throw new NotFoundException('Conversación no encontrada');
+    }
+  }
+
+  /** Borra todas las conversaciones del usuario (derecho a borrar su historial). */
+  async deleteAllSessions(userId: string): Promise<void> {
+    await this.chatRepo.deleteAllForUser(userId);
+  }
+
+  /** Kill switch: el chat queda apagado salvo CHATBOT_ENABLED="true". */
+  private ensureEnabled(): void {
+    if (process.env['CHATBOT_ENABLED'] !== 'true') {
+      throw new ServiceUnavailableException(
+        'El asistente no está disponible en este momento',
+      );
+    }
+  }
+
+  /**
+   * Cuota diaria desde la base (el throttler es en memoria y por IP): mensajes
+   * del usuario en las últimas 24 h, en todas sus conversaciones; para un
+   * anónimo, los de su conversación (el rate limit por IP cubre el resto).
+   */
+  private async ensureWithinDailyQuota(
+    actor: ChatActor,
+    anonToken: string | undefined,
+    audit: ChatAuditContext,
+  ): Promise<void> {
+    const since = new Date(Date.now() - DAY_MS);
+    let sent: number;
+    let limit: number;
+    if (actor.kind === 'user') {
+      sent = await this.chatRepo.countUserMessagesSince(actor.userId, since);
+      limit = readEnvInt(
+        'CHAT_DAILY_MESSAGES_USER',
+        DEFAULT_DAILY_MESSAGES_USER,
+      );
+    } else {
+      sent = anonToken
+        ? await this.chatRepo.countAnonMessagesSince(
+            hashAnonToken(anonToken),
+            since,
+          )
+        : 0;
+      limit = readEnvInt(
+        'CHAT_DAILY_MESSAGES_ANON',
+        DEFAULT_DAILY_MESSAGES_ANON,
+      );
+    }
+    if (sent >= limit) {
+      this.audit.security(audit, 'daily_quota_exceeded');
+      throw new HttpException(
+        'Alcanzaste el límite diario de mensajes del asistente',
+        HttpStatus.TOO_MANY_REQUESTS,
+      );
+    }
+  }
+
+  private async resolveUserSession(
+    message: IncomingChatMessage,
+    userId: string,
+    audit: ChatAuditContext,
+  ): Promise<ResolvedSession> {
+    if (message.sessionId) {
+      const session = await this.chatRepo.findSessionForUser(
+        message.sessionId,
+        userId,
+      );
+      // Misma respuesta para "no existe" y "es de otro usuario": no se
+      // confirma la existencia de conversaciones ajenas.
+      if (!session) {
+        this.audit.security(audit, 'foreign_or_unknown_session');
+        throw new NotFoundException('Conversación no encontrada');
+      }
+      return { session, anonToken: null };
+    }
+    if (message.resumeLatestSession) {
+      const latest = await this.chatRepo.findLatestSessionForUser(
+        userId,
+        message.channel,
+      );
+      if (latest) {
+        return { session: latest, anonToken: null };
+      }
+    }
+    const session = await this.chatRepo.createSession({
+      userId,
+      channel: message.channel,
+      anonTokenHash: null,
+    });
+    return { session, anonToken: null };
   }
 
   private async resolveSession(
     message: IncomingChatMessage,
+    audit: ChatAuditContext,
   ): Promise<ResolvedSession> {
     const { actor } = message;
     if (actor.kind === 'user') {
-      if (message.sessionId) {
-        const session = await this.chatRepo.findSessionForUser(
-          message.sessionId,
-          actor.userId,
-        );
-        // Misma respuesta para "no existe" y "es de otro usuario": no se
-        // confirma la existencia de conversaciones ajenas.
-        if (!session) {
-          throw new NotFoundException('Conversación no encontrada');
-        }
-        return { session, anonToken: null };
-      }
-      const session = await this.chatRepo.createSession({
-        userId: actor.userId,
-        channel: message.channel,
-        anonTokenHash: null,
-      });
-      return { session, anonToken: null };
+      return this.resolveUserSession(message, actor.userId, audit);
     }
 
     if (message.anonToken) {
@@ -124,8 +303,12 @@ export class ChatService {
       }
     }
     // Sin token, o con uno cuya conversación ya no existe (retención): se
-    // emite uno nuevo generado por el servidor, nunca uno elegido por el cliente.
-    const anonToken = randomBytes(32).toString('base64url');
+    // emite uno nuevo generado por el servidor, nunca uno elegido por el
+    // cliente. La excepción es un token que ya derivó el servidor (WhatsApp).
+    const anonToken =
+      message.serverIssuedAnonToken && message.anonToken
+        ? message.anonToken
+        : randomBytes(32).toString('base64url');
     const session = await this.chatRepo.createSession({
       userId: null,
       channel: message.channel,
@@ -146,7 +329,13 @@ export class ChatService {
       'CHAT_CONTEXT_MAX_CHARS',
       DEFAULT_CONTEXT_MAX_CHARS,
     );
-    const recent = await this.chatRepo.findRecentMessages(sessionId, limit);
+    // Las respuestas de fallback (turnos con error_code) no se reenvían: en
+    // vivo, un "no puedo responder" en el historial hacía que el turno
+    // siguiente contestara "no tengo esa herramienta" sin intentar ninguna
+    // (CLI-145). El mensaje del usuario de ese turno sí queda.
+    const recent = (
+      await this.chatRepo.findRecentMessages(sessionId, limit)
+    ).filter((m) => !(m.role === 'assistant' && m.errorCode));
 
     const kept: LlmMessage[] = [];
     let totalChars = 0;

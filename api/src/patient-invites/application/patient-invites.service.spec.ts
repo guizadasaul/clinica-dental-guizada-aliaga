@@ -349,5 +349,57 @@ describe('PatientInvitesService', () => {
 
       expect(await service.checkStatus('unknown')).toEqual({ valid: false });
     });
+
+    // CLI-144: la landing dice con qué número registrarse, sin exponerlo.
+    it('exposes only the last 3 digits of the ficha phone while the invite is valid', async () => {
+      mockInviteRepo.findTokenStatus.mockResolvedValue({
+        valid: true,
+        kind: 'patient',
+        phone: '+59177842665',
+      });
+
+      expect(await service.checkStatus('tok')).toEqual({
+        valid: true,
+        kind: 'patient',
+        phoneHint: '665',
+      });
+    });
+
+    it('does not give a phone hint for an expired or used invite', async () => {
+      mockInviteRepo.findTokenStatus.mockResolvedValue({
+        valid: false,
+        kind: 'patient',
+        phone: '+59177842665',
+      });
+
+      expect(await service.checkStatus('tok')).toEqual({
+        valid: false,
+        kind: 'patient',
+      });
+    });
+  });
+
+  describe('registrationTarget', () => {
+    it('returns validity and the full ficha phone (internal use only)', async () => {
+      mockInviteRepo.findTokenStatus.mockResolvedValue({
+        valid: true,
+        kind: 'patient',
+        phone: '+59177842665',
+      });
+
+      expect(await service.registrationTarget('tok')).toEqual({
+        valid: true,
+        phone: '+59177842665',
+      });
+    });
+
+    it('treats an unknown token as invalid with no phone', async () => {
+      mockInviteRepo.findTokenStatus.mockResolvedValue(null);
+
+      expect(await service.registrationTarget('unknown')).toEqual({
+        valid: false,
+        phone: null,
+      });
+    });
   });
 });

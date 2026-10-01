@@ -1,6 +1,7 @@
 import { Test } from '@nestjs/testing';
 import { PrismaModule } from '../shared/prisma/prisma.module';
 import { ChatbotModule } from './chatbot.module';
+import { UserRole } from '../auth/domain/value-objects/UserRole';
 import { ChatService } from './application/chat.service';
 import { ToolExecutor } from './application/tool-executor';
 import { ToolExecutionPort } from './domain/ToolExecution';
@@ -11,6 +12,21 @@ import { ToolExecutionPort } from './domain/ToolExecution';
  * que levantar toda la app.
  */
 describe('ChatbotModule', () => {
+  const originalEnv = process.env;
+
+  // SupabaseJwtVerifier (vía AuthModule) exige SUPABASE_URL al construirse;
+  // alcanza con un placeholder, igual que en el job e2e del CI.
+  beforeAll(() => {
+    process.env = {
+      ...originalEnv,
+      SUPABASE_URL: 'https://placeholder.supabase.co',
+    };
+  });
+
+  afterAll(() => {
+    process.env = originalEnv;
+  });
+
   it('resuelve todas sus dependencias', async () => {
     const moduleRef = await Test.createTestingModule({
       imports: [PrismaModule, ChatbotModule],
@@ -18,5 +34,156 @@ describe('ChatbotModule', () => {
 
     expect(moduleRef.get(ChatService)).toBeInstanceOf(ChatService);
     expect(moduleRef.get(ToolExecutionPort)).toBe(moduleRef.get(ToolExecutor));
+  });
+
+  // Regresión de costo (CLI-99): las definiciones de tools viajan en cada
+  // llamada al LLM. Medido tras compactarlas: anónimo 1947, paciente 3383,
+  // doctor 2631, admin 3355 caracteres; los topes dejan un 6-8 % de margen. Si
+  // una tool nueva los supera, recortar descripciones antes de subirlos.
+  it.each([
+    ['anónimo', { kind: 'anonymous' as const }, 2100],
+    [
+      'paciente',
+      {
+        kind: 'user' as const,
+        userId: 'u1',
+        role: UserRole.PATIENT,
+        patientId: 'p1',
+      },
+      3600,
+    ],
+    [
+      'odontólogo',
+      {
+        kind: 'user' as const,
+        userId: 'd1',
+        role: UserRole.ODONTOLOGIST,
+        patientId: null,
+      },
+      2850,
+    ],
+    [
+      'admin',
+      {
+        kind: 'user' as const,
+        userId: 'a1',
+        role: UserRole.ADMIN,
+        patientId: null,
+      },
+      3550,
+    ],
+  ])(
+    'las definiciones de tools de un %s no superan su tope de caracteres',
+    async (_role, actor, maxChars) => {
+      const moduleRef = await Test.createTestingModule({
+        imports: [PrismaModule, ChatbotModule],
+      }).compile();
+      const port = moduleRef.get<ToolExecutor>(ToolExecutionPort);
+
+      expect(
+        JSON.stringify(port.definitionsFor(actor)).length,
+      ).toBeLessThanOrEqual(maxChars);
+    },
+  );
+
+  it('registra las tools públicas para un visitante anónimo', async () => {
+    const moduleRef = await Test.createTestingModule({
+      imports: [PrismaModule, ChatbotModule],
+    }).compile();
+    const port = moduleRef.get<ToolExecutor>(ToolExecutionPort);
+
+    expect(
+      port
+        .definitionsFor({ kind: 'anonymous' })
+        .map((tool) => tool.name)
+        .sort((a, b) => a.localeCompare(b)),
+    ).toEqual([
+      'get_available_slots',
+      'get_booking_link',
+      'get_clinic_info',
+      'get_faq',
+      'list_doctors',
+      'list_services',
+    ]);
+  });
+
+  it('registra las tools del paciente, visibles solo para un paciente', async () => {
+    const moduleRef = await Test.createTestingModule({
+      imports: [PrismaModule, ChatbotModule],
+    }).compile();
+    const port = moduleRef.get<ToolExecutor>(ToolExecutionPort);
+    const patientTools = port
+      .definitionsFor({
+        kind: 'user',
+        userId: 'u1',
+        role: UserRole.PATIENT,
+        patientId: 'p1',
+      })
+      .map((tool) => tool.name);
+
+    expect(patientTools).toEqual(
+      expect.arrayContaining([
+        'get_my_next_appointment',
+        'get_my_appointments',
+        'get_my_quotes',
+        'get_my_balance',
+        'get_my_treatments',
+        'get_my_pending_treatments',
+      ]),
+    );
+    expect(
+      port.definitionsFor({ kind: 'anonymous' }).map((tool) => tool.name),
+    ).not.toContain('get_my_balance');
+  });
+
+  it('registra las tools del doctor, visibles solo para un odontólogo', async () => {
+    const moduleRef = await Test.createTestingModule({
+      imports: [PrismaModule, ChatbotModule],
+    }).compile();
+    const port = moduleRef.get<ToolExecutor>(ToolExecutionPort);
+    const doctorTools = port
+      .definitionsFor({
+        kind: 'user',
+        userId: 'd1',
+        role: UserRole.ODONTOLOGIST,
+        patientId: null,
+      })
+      .map((tool) => tool.name);
+
+    expect(doctorTools).toEqual(
+      expect.arrayContaining([
+        'get_my_agenda',
+        'get_my_next_patient',
+        'get_my_patients',
+        'get_my_monthly_stats',
+      ]),
+    );
+    expect(doctorTools).not.toContain('get_my_balance');
+    expect(doctorTools).not.toContain('get_clinic_financial_report');
+  });
+
+  it('registra las tools del admin, visibles solo para el administrador', async () => {
+    const moduleRef = await Test.createTestingModule({
+      imports: [PrismaModule, ChatbotModule],
+    }).compile();
+    const port = moduleRef.get<ToolExecutor>(ToolExecutionPort);
+    const adminTools = port
+      .definitionsFor({
+        kind: 'user',
+        userId: 'a1',
+        role: UserRole.ADMIN,
+        patientId: null,
+      })
+      .map((tool) => tool.name);
+
+    expect(adminTools).toEqual(
+      expect.arrayContaining([
+        'get_clinic_operational_report',
+        'get_clinic_financial_report',
+        'get_clinic_agenda',
+        'get_top_treatments',
+      ]),
+    );
+    expect(adminTools).not.toContain('get_my_agenda');
   });
 });

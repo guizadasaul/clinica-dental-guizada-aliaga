@@ -13,7 +13,8 @@ export interface CreatePatientRequest {
   // El teléfono del PACIENTE sigue opcional — a diferencia del contacto de
   // emergencia, no está en la lista de campos obligatorios.
   phone?: string;
-  emergencyContactName: string;
+  emergencyContactFirstName: string;
+  emergencyContactLastName: string;
   emergencyContactPhone: string;
   emergencyContactRelationship: string;
   consultationReason?: string;
@@ -22,6 +23,8 @@ export interface CreatePatientRequest {
   familyHistory?: string;
   documentType: string;
   dni: string;
+  /** null = sin extensión (también la borra en un update). */
+  documentExtension: string | null;
 }
 
 export interface UpdatePatientRequest {
@@ -36,7 +39,8 @@ export interface UpdatePatientRequest {
   zona?: string;
   ciudad?: string;
   phone?: string;
-  emergencyContactName?: string;
+  emergencyContactFirstName?: string;
+  emergencyContactLastName?: string;
   emergencyContactPhone?: string;
   emergencyContactRelationship?: string;
   consultationReason?: string;
@@ -45,6 +49,7 @@ export interface UpdatePatientRequest {
   familyHistory?: string;
   documentType?: string;
   dni?: string;
+  documentExtension?: string | null;
   email?: string;
 }
 

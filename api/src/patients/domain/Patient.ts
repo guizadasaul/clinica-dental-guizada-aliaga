@@ -14,7 +14,8 @@ export class Patient {
     readonly zona: string | null,
     readonly ciudad: string | null,
     readonly phone: string | null,
-    readonly emergencyContactName: string | null,
+    readonly emergencyContactFirstName: string | null,
+    readonly emergencyContactLastName: string | null,
     readonly emergencyContactPhone: string | null,
     readonly emergencyContactRelationship: string | null,
     readonly consultationReason: string | null,
@@ -24,6 +25,8 @@ export class Patient {
     /** CI/pasaporte/nit (CLI-54) — junto con dni forman la clave única real, ver DOCUMENT_TYPES. null solo si dni también es null. */
     readonly documentType: string | null,
     readonly dni: string | null,
+    /** Extensión/complemento de la CI boliviana (ej. "LP", "1A") — solo con documentType 'ci'. */
+    readonly documentExtension: string | null,
     readonly createdAt: Date,
     readonly updatedAt: Date,
     /** Doctor asignado (CLI-58) — informativo, no restringe acceso a la ficha. */

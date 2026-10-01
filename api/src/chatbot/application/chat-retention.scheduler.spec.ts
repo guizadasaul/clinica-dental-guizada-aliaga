@@ -1,5 +1,6 @@
 import { Logger } from '@nestjs/common';
 import type { ChatRepository } from '../domain/ChatRepository';
+import type { ChannelIdentityRepository } from '../domain/ChannelIdentity';
 import { ChatRetentionScheduler } from './chat-retention.scheduler';
 
 const NOW = new Date('2026-09-24T12:00:00Z');
@@ -7,15 +8,18 @@ const NOW = new Date('2026-09-24T12:00:00Z');
 describe('ChatRetentionScheduler', () => {
   const originalEnv = process.env;
   const deleteInactiveSince = jest.fn();
-  const scheduler = new ChatRetentionScheduler({
-    deleteInactiveSince,
-  } as unknown as ChatRepository);
+  const purgeLinkDataBefore = jest.fn();
+  const scheduler = new ChatRetentionScheduler(
+    { deleteInactiveSince } as unknown as ChatRepository,
+    { purgeLinkDataBefore } as unknown as ChannelIdentityRepository,
+  );
   let logSpy: jest.SpyInstance;
 
   beforeEach(() => {
     process.env = { ...originalEnv };
     delete process.env['CHAT_RETENTION_DAYS'];
     deleteInactiveSince.mockReset();
+    purgeLinkDataBefore.mockReset().mockResolvedValue(0);
     logSpy = jest.spyOn(Logger.prototype, 'log').mockImplementation(() => {});
   });
 
@@ -34,6 +38,16 @@ describe('ChatRetentionScheduler', () => {
     );
     expect(logSpy).toHaveBeenCalledWith(
       'Retención del chatbot: 3 conversación(es) borrada(s)',
+    );
+  });
+
+  it('borra los códigos e intentos de vinculación de más de un día (CLI-100)', async () => {
+    deleteInactiveSince.mockResolvedValue(0);
+
+    await scheduler.purgeExpired(NOW);
+
+    expect(purgeLinkDataBefore).toHaveBeenCalledWith(
+      new Date('2026-09-23T12:00:00Z'),
     );
   });
 

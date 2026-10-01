@@ -53,6 +53,7 @@ describe('PrismaAdminDoctorRepository', () => {
       deleteMany: jest.Mock;
     };
     users: { create: jest.Mock; update: jest.Mock };
+    chat_channel_identities: { updateMany: jest.Mock };
     transaction: jest.Mock;
   };
   let repo: PrismaAdminDoctorRepository;
@@ -71,6 +72,7 @@ describe('PrismaAdminDoctorRepository', () => {
         deleteMany: jest.fn(),
       },
       users: { create: jest.fn(), update: jest.fn() },
+      chat_channel_identities: { updateMany: jest.fn() },
       transaction: jest.fn((fn: (tx: unknown) => unknown) => fn(prismaMock)),
     };
     repo = new PrismaAdminDoctorRepository(
@@ -435,6 +437,13 @@ describe('PrismaAdminDoctorRepository', () => {
       expect(prismaMock.doctor_profiles.update).toHaveBeenCalledWith({
         where: { user_id: 'doctor-1' },
         data: { is_bookable: false, updated_at: expect.any(Date) as Date },
+      });
+      // CLI-100: sus números de WhatsApp vinculados dejan de identificarlo.
+      expect(
+        prismaMock.chat_channel_identities.updateMany,
+      ).toHaveBeenCalledWith({
+        where: { user_id: 'doctor-1', revoked_at: null },
+        data: { revoked_at: expect.any(Date) as Date },
       });
       expect(result?.isActive).toBe(false);
       expect(result?.isBookable).toBe(false);

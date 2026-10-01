@@ -1,12 +1,13 @@
+import { doctorContactsText } from '../domain/ClinicContacts';
+
 export type ChatLocale = 'es' | 'en' | 'pt';
 
-/** WhatsApp de la clínica — el mismo de la landing (frontend landing.html). */
-export const CLINIC_WHATSAPP = '+591 577 44250';
-
+// El WhatsApp de la clínica es el mismo bot, así que cuando el bot falla se
+// deriva a los doctores (en horario de atención).
 const FALLBACK_REPLIES: Record<ChatLocale, string> = {
-  es: `En este momento no puedo responder. Intenta de nuevo en unos minutos o escríbenos al WhatsApp de la clínica: ${CLINIC_WHATSAPP}.`,
-  en: `I can't answer right now. Please try again in a few minutes or message the clinic on WhatsApp: ${CLINIC_WHATSAPP}.`,
-  pt: `No momento não consigo responder. Tente novamente em alguns minutos ou fale com a clínica pelo WhatsApp: ${CLINIC_WHATSAPP}.`,
+  es: `En este momento no puedo responder. Intenta de nuevo en unos minutos o, en horario de atención, escribe a ${doctorContactsText()}.`,
+  en: `I can't answer right now. Please try again in a few minutes or, during office hours, message ${doctorContactsText()}.`,
+  pt: `No momento não consigo responder. Tente novamente em alguns minutos ou, no horário de atendimento, escreva para ${doctorContactsText()}.`,
 };
 
 /**

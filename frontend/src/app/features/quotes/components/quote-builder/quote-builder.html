@@ -14,186 +14,56 @@
     </div>
   } @else if (quote(); as q) {
 
-    <div class="qb__body" [class.qb__body--split]="currentSelection()">
+    <div class="qb__layout">
 
-      <div class="qb__picker-col">
+      <section class="qb__builder" aria-label="Agregar tratamientos">
+        <h3 class="qb__section-title">Agregar tratamiento</h3>
+
         <app-treatment-scope-picker
           [treatments]="treatments()"
+          [frequentIds]="frequentIds()"
           (selectionChange)="onSelectionChange($event)"
         />
 
-        @if (groupedItems().length > 0) {
-          <div class="qb__lines">
-            <h4 class="qb__lines-title">Líneas del presupuesto</h4>
-            <table class="qb__table">
-              <thead>
-                <tr>
-                  <th>Diente</th>
-                  <th>Tratamiento</th>
-                  <th>Precio</th>
-                  <th></th>
-                </tr>
-              </thead>
-              <tbody>
-                @for (line of groupedItems(); track line.key) {
-                  <tr>
-                    <td>
-                      @if (line.toothNumbers.length > 0) {
-                        @for (n of line.toothNumbers; track n) {
-                          <span class="qb__tooth-badge">#{{ n }}</span>
-                        }
-                      } @else {
-                        <span>—</span>
-                      }
-                    </td>
-                    <td>{{ getTreatmentName(line.treatmentId) }}</td>
-                    <td class="qb__price">
-                      Bs. {{ line.total | number:'1.2-2' }}
-                      @if (getUsdEquivalent(line); as usd) {
-                        <br />
-                        <small class="qb__fx-hint">equivalente a $ {{ usd | number:'1.2-2' }}</small>
-                      }
-                    </td>
-                    <td>
-                      <button
-                        type="button"
-                        class="qb__remove-btn"
-                        [disabled]="removingItemId() === line.firstItemId"
-                        (click)="onRemoveItem(line.firstItemId)"
-                        aria-label="Eliminar línea"
-                      >
-                        <span class="material-symbols-outlined">delete</span>
-                      </button>
-                    </td>
-                  </tr>
-                }
-              </tbody>
-            </table>
-          </div>
-        } @else {
-          <p class="qb__empty">Este presupuesto todavía no tiene líneas.</p>
-        }
+        @if (currentSelection(); as sel) {
+          <div class="qb__panel" aria-label="Agregar línea al presupuesto">
+            <div class="qb__panel-fields">
+              <div class="qb__panel-field">
+                <label class="qb__panel-label" for="customPrice">
+                  Precio ({{ sel.treatment.currency === 'USD' ? '$' : 'Bs.' }}) — opcional
+                </label>
+                <input
+                  id="customPrice"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  class="qb__input"
+                  [ngModel]="customPrice()"
+                  (ngModelChange)="customPrice.set($event)"
+                  placeholder="{{ sel.treatment.basePrice }}"
+                />
+              </div>
 
-        <div class="qb__payments">
-          <h4 class="qb__lines-title">Pagos</h4>
-
-          @if (q.payments.length > 0) {
-            <table class="qb__table">
-              <thead>
-                <tr>
-                  <th>Fecha</th>
-                  <th>Monto</th>
-                  <th>Método</th>
-                  <th>Recibo</th>
-                </tr>
-              </thead>
-              <tbody>
-                @for (payment of q.payments; track payment.id) {
-                  <tr>
-                    <td>{{ payment.paymentDate | date:'dd/MM/yyyy' }}</td>
-                    <td class="qb__price">Bs. {{ payment.amount | number:'1.2-2' }}</td>
-                    <td>{{ payment.paymentMethod ?? '—' }}</td>
-                    <td>{{ payment.receiptNumber }}</td>
-                  </tr>
-                }
-              </tbody>
-            </table>
-          } @else {
-            <p class="qb__empty">Todavía no se registraron pagos.</p>
-          }
-
-          <div class="qb__payment-form">
-            <div class="qb__panel-field">
-              <label class="qb__panel-label" for="paymentAmount">Monto (Bs.)</label>
-              <input
-                id="paymentAmount"
-                type="number"
-                min="0"
-                step="0.01"
-                class="qb__input"
-                [ngModel]="paymentAmount()"
-                (ngModelChange)="paymentAmount.set($event)"
-              />
-            </div>
-            <div class="qb__panel-field">
-              <label class="qb__panel-label" for="paymentMethod">Método (opcional)</label>
-              <input
-                id="paymentMethod"
-                type="text"
-                class="qb__input"
-                placeholder="efectivo, tarjeta, transferencia..."
-                [ngModel]="paymentMethod()"
-                (ngModelChange)="paymentMethod.set($event)"
-              />
+              @if (allowsQuantity(sel.treatment)) {
+                <div class="qb__panel-field">
+                  <label class="qb__panel-label" for="quantity">Cantidad</label>
+                  <input
+                    id="quantity"
+                    type="number"
+                    min="1"
+                    step="1"
+                    class="qb__input"
+                    [ngModel]="quantity()"
+                    (ngModelChange)="quantity.set($event)"
+                  />
+                </div>
+              }
             </div>
 
-            @if (paymentError()) {
-              <p class="qb__error">{{ paymentError() }}</p>
+            @if (formError()) {
+              <p class="qb__error">{{ formError() }}</p>
             }
 
-            <button
-              type="button"
-              class="qb__btn qb__btn--primary"
-              [disabled]="savingPayment() || !paymentAmount()"
-              (click)="onAddPayment()"
-            >
-              @if (savingPayment()) {
-                <span class="qb__spinner qb__spinner--small"></span>
-                Registrando...
-              } @else {
-                <span class="material-symbols-outlined">payments</span>
-                Registrar pago
-              }
-            </button>
-          </div>
-        </div>
-      </div>
-
-      @if (currentSelection(); as sel) {
-        <section class="qb__panel" aria-label="Agregar línea al presupuesto">
-          <div class="qb__panel-header">
-            <div class="qb__panel-badge">
-              <span class="material-symbols-outlined">add_shopping_cart</span>
-              {{ sel.treatment.name }}
-            </div>
-          </div>
-
-          <div class="qb__panel-field">
-            <label class="qb__panel-label" for="customPrice">
-              Precio ({{ sel.treatment.currency === 'USD' ? '$' : 'Bs.' }}) — opcional, por defecto {{ sel.treatment.basePrice }}
-            </label>
-            <input
-              id="customPrice"
-              type="number"
-              min="0"
-              step="0.01"
-              class="qb__input"
-              [ngModel]="customPrice()"
-              (ngModelChange)="customPrice.set($event)"
-              placeholder="{{ sel.treatment.basePrice }}"
-            />
-          </div>
-
-          @if (allowsQuantity(sel.treatment)) {
-            <div class="qb__panel-field">
-              <label class="qb__panel-label" for="quantity">Cantidad</label>
-              <input
-                id="quantity"
-                type="number"
-                min="1"
-                step="1"
-                class="qb__input"
-                [ngModel]="quantity()"
-                (ngModelChange)="quantity.set($event)"
-              />
-            </div>
-          }
-
-          @if (formError()) {
-            <p class="qb__error">{{ formError() }}</p>
-          }
-
-          <div class="qb__panel-actions">
             <button
               type="button"
               class="qb__btn qb__btn--primary"
@@ -205,29 +75,109 @@
                 Agregando...
               } @else {
                 <span class="material-symbols-outlined">add</span>
-                Agregar línea
+                Agregar al presupuesto
               }
             </button>
           </div>
-        </section>
-      }
+        }
+      </section>
 
-    </div>
+      <aside class="qb__summary" aria-label="Resumen del presupuesto">
+        <div class="qb__summary-header">
+          <h3 class="qb__section-title">Presupuesto</h3>
+          @if (q.sharedAt) {
+            <span class="qb__badge qb__badge--shared">
+              <span class="material-symbols-outlined">visibility</span>
+              Compartido
+            </span>
+          } @else {
+            <span class="qb__badge">Borrador</span>
+          }
+        </div>
 
-    <div class="qb__footer">
-      <span class="qb__total">
-        Total: <strong>Bs. {{ q.totalAmount | number:'1.2-2' }}</strong>
-      </span>
-      <span class="qb__total">
-        Pagado: <strong>Bs. {{ q.totalPaid | number:'1.2-2' }}</strong>
-      </span>
-      <span class="qb__total">
-        Saldo: <strong>Bs. {{ balance() | number:'1.2-2' }}</strong>
-      </span>
-      <button type="button" class="qb__btn qb__btn--secondary" (click)="onClose()">
-        <span class="material-symbols-outlined">check</span>
-        Listo
-      </button>
+        @if (groupedItems().length > 0) {
+          <ul class="qb__lines">
+            @for (line of groupedItems(); track line.key) {
+              <li class="qb__line">
+                <div class="qb__line-main">
+                  <span class="qb__line-name">{{ line.treatmentName }}</span>
+                  @if (line.toothNumbers.length > 0) {
+                    <span class="qb__line-teeth">
+                      @for (n of line.toothNumbers; track n) {
+                        <span class="qb__tooth-badge">#{{ n }}</span>
+                      }
+                    </span>
+                  }
+                </div>
+                <div class="qb__line-price">
+                  Bs. {{ line.total | number:'1.2-2' }}
+                  @if (getUsdEquivalent(line); as usd) {
+                    <small class="qb__fx-hint">equivalente a $ {{ usd | number:'1.2-2' }}</small>
+                  }
+                </div>
+                <button
+                  type="button"
+                  class="qb__remove-btn"
+                  [disabled]="removingItemId() === line.firstItemId"
+                  (click)="onRemoveItem(line.firstItemId)"
+                  aria-label="Eliminar línea"
+                >
+                  <span class="material-symbols-outlined">delete</span>
+                </button>
+              </li>
+            }
+          </ul>
+        } @else {
+          <p class="qb__empty">Todavía no agregaste tratamientos. Elegí uno del catálogo.</p>
+        }
+
+        <div class="qb__totals">
+          <div class="qb__total-row qb__total-row--main">
+            <span>Total</span>
+            <strong>Bs. {{ q.totalAmount | number:'1.2-2' }}</strong>
+          </div>
+          @if (q.totalPaid > 0) {
+            <div class="qb__total-row">
+              <span>Pagado</span>
+              <span>Bs. {{ q.totalPaid | number:'1.2-2' }}</span>
+            </div>
+            <div class="qb__total-row">
+              <span>Saldo</span>
+              <span>Bs. {{ q.balance | number:'1.2-2' }}</span>
+            </div>
+          }
+        </div>
+
+        @if (shareError()) {
+          <p class="qb__error">{{ shareError() }}</p>
+        }
+
+        @if (q.sharedAt) {
+          <p class="qb__share-note">
+            El paciente ve este presupuesto desde su cuenta. Los cambios que hagas se le actualizan solos.
+          </p>
+        } @else {
+          <button
+            type="button"
+            class="qb__btn qb__btn--primary qb__btn--block"
+            [disabled]="sharing() || groupedItems().length === 0"
+            (click)="onShare()"
+          >
+            @if (sharing()) {
+              <span class="qb__spinner qb__spinner--small"></span>
+              Compartiendo...
+            } @else {
+              <span class="material-symbols-outlined">send</span>
+              Guardar y compartir
+            }
+          </button>
+        }
+
+        <button type="button" class="qb__btn qb__btn--secondary qb__btn--block" (click)="onClose()">
+          Listo
+        </button>
+      </aside>
+
     </div>
 
   }

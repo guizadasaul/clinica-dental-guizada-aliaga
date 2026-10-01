@@ -11,6 +11,7 @@ export interface AddQuoteItemRequest {
 
 export interface AddPaymentRequest {
   amount: number;
-  paymentMethod?: string;
+  /** A mano solo efectivo: el QR BANECO se registra al verificarlo contra el banco (CLI-159). */
+  paymentMethod?: 'cash';
   notes?: string;
 }

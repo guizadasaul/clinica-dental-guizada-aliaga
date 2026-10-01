@@ -2,7 +2,15 @@ import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import type { Observable } from 'rxjs';
 import { environment } from '../../../../environments/environment';
-import type { AppointmentAgendaItem } from '../models/appointment.model';
+import type {
+  AppointmentAgendaItem,
+  DoctorScheduleBlock,
+  PatientAppointment,
+} from '../models/appointment.model';
+import type {
+  CreateDoctorAppointmentRequest,
+  RescheduleDoctorAppointmentRequest,
+} from '../models/appointment.request';
 
 export interface AgendaFilters {
   status?: string;
@@ -37,5 +45,38 @@ export class AppointmentsService {
       params['scope'] = filters.scope;
     }
     return this.http.get<AppointmentAgendaItem[]>(this.base, { params });
+  }
+
+  /** CLI-148: el doctor agenda una cita para un paciente con ficha. */
+  createByDoctor(request: CreateDoctorAppointmentRequest): Observable<AppointmentAgendaItem> {
+    return this.http.post<AppointmentAgendaItem>(`${this.base}/doctor`, request);
+  }
+
+  /** CLI-149: mueve una cita confirmada propia a otro horario. */
+  rescheduleByDoctor(
+    id: string,
+    request: RescheduleDoctorAppointmentRequest,
+  ): Observable<AppointmentAgendaItem> {
+    return this.http.patch<AppointmentAgendaItem>(`${this.base}/doctor/${id}`, request);
+  }
+
+  /** CLI-149: cancela una cita confirmada propia (idempotente). */
+  cancelByDoctor(id: string, reason?: string): Observable<AppointmentAgendaItem> {
+    return this.http.post<AppointmentAgendaItem>(
+      `${this.base}/doctor/${id}/cancel`,
+      reason ? { reason } : {},
+    );
+  }
+
+  /** CLI-153: próximas citas confirmadas del paciente logueado, la más cercana primero. */
+  getMyUpcoming(): Observable<PatientAppointment[]> {
+    return this.http.get<PatientAppointment[]>(
+      `${environment.backendUrl}/patients/me/appointments`,
+    );
+  }
+
+  /** CLI-148: horario de atención del doctor logueado. */
+  getMySchedule(): Observable<DoctorScheduleBlock[]> {
+    return this.http.get<DoctorScheduleBlock[]>(`${this.base}/my-schedule`);
   }
 }

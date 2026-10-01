@@ -2,6 +2,7 @@ export interface QuoteItem {
   id: string;
   quoteId: string;
   treatmentId: string;
+  treatmentName: string;
   toothNumber: number | null;
   applicationGroupId: string | null;
   unitPrice: number;
@@ -27,10 +28,14 @@ export interface Quote {
   patientId: string;
   totalAmount: number;
   totalPaid: number;
+  /** totalAmount − totalPaid, nunca negativo (CLI-156). */
+  balance: number;
   status: string;
   notes: string | null;
   createdAt: string;
   updatedAt: string;
+  /** null = borrador que el paciente todavía no ve (CLI-156). */
+  sharedAt: string | null;
   items: QuoteItem[];
   payments: Payment[];
 }

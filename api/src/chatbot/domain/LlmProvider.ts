@@ -35,6 +35,8 @@ export interface LlmRequest {
 export interface LlmUsage {
   promptTokens: number;
   completionTokens: number;
+  /** Parte de promptTokens servida desde la caché del proveedor (más barata), si la informa. */
+  cachedPromptTokens?: number;
 }
 
 export type LlmFinishReason = 'stop' | 'tool_calls' | 'length' | 'other';

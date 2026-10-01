@@ -13,7 +13,8 @@ export interface Patient {
   zona: string | null;
   ciudad: string | null;
   phone: string | null;
-  emergencyContactName: string | null;
+  emergencyContactFirstName: string | null;
+  emergencyContactLastName: string | null;
   emergencyContactPhone: string | null;
   emergencyContactRelationship: string | null;
   consultationReason: string | null;
@@ -23,6 +24,8 @@ export interface Patient {
   /** ci | pasaporte | nit (CLI-54) — junto con dni forman la clave única real. */
   documentType: string | null;
   dni: string | null;
+  /** Extensión/complemento de la CI boliviana (ej. "LP", "1A") — solo con documentType 'ci'. */
+  documentExtension: string | null;
   createdAt: string;
   updatedAt: string;
   /** Doctor asignado (CLI-58) — informativo, no restringe acceso a la ficha. */

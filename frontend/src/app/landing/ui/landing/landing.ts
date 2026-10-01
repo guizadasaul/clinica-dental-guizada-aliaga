@@ -38,6 +38,7 @@ import {
 } from '../../../shared/ui/stagger-testimonials/stagger-testimonials';
 import { TestimonialCtaComponent } from '../../../shared/ui/testimonial-cta/testimonial-cta';
 import { randomUnit } from '../../../shared/utils/random.util';
+import { ChatWidgetComponent } from '../../../features/chatbot/components/chat-widget/chat-widget';
 
 interface Instrument {
   readonly id: number;
@@ -60,6 +61,7 @@ interface Instrument {
     WorkShowcaseComponent,
     StaggerTestimonialsComponent,
     TestimonialCtaComponent,
+    ChatWidgetComponent,
   ],
   templateUrl: './landing.html',
   styleUrl: './landing.scss',

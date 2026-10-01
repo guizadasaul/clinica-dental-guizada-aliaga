@@ -1,0 +1,299 @@
+@use 'breakpoints' as bp;
+
+// Por encima de la navbar de la landing (50) y por debajo del sidebar móvil
+// del dashboard (99/100) y del modal de reserva (100).
+$z-widget: 60;
+
+:host {
+  position: fixed;
+  right: var(--space-4);
+  bottom: var(--space-4);
+  z-index: $z-widget;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: var(--space-3);
+  font-family: var(--font-body);
+}
+
+// ─── Botón flotante ─────────────────────────────────────────────────────────
+
+.chat-launcher {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 3.5rem;
+  height: 3.5rem;
+  border: 0;
+  border-radius: var(--radius-full);
+  background: var(--color-primary);
+  color: var(--color-text);
+  box-shadow: var(--shadow-warm);
+  cursor: pointer;
+  transition: transform var(--transition-fast);
+
+  &:hover {
+    transform: scale(1.05);
+  }
+
+  &:focus-visible {
+    outline: 3px solid var(--color-tertiary);
+    outline-offset: 3px;
+  }
+
+  .material-symbols-outlined {
+    font-size: 1.75rem;
+  }
+}
+
+// ─── Panel ──────────────────────────────────────────────────────────────────
+
+.chat-panel {
+  // <dialog open> no modal: se anulan el posicionamiento, margen y padding
+  // que le pone el navegador para que quede en el flujo del :host fijo.
+  position: static;
+  inset: auto;
+  margin: 0;
+  padding: 0;
+  max-width: none;
+  max-height: none;
+  display: flex;
+  flex-direction: column;
+  width: min(24rem, calc(100vw - 2 * var(--space-4)));
+  height: min(34rem, calc(100dvh - 7rem));
+  overflow: hidden;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xl);
+  background: var(--color-bg);
+  color: var(--color-text);
+  box-shadow: var(--shadow-xl);
+  animation: chat-panel-in var(--transition-base);
+}
+
+@include bp.down('sm') {
+  .chat-panel {
+    height: calc(100dvh - 7rem);
+  }
+}
+
+@keyframes chat-panel-in {
+  from {
+    opacity: 0;
+    transform: translateY(0.5rem);
+  }
+}
+
+.chat-panel__header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-3) var(--space-3) var(--space-4);
+  background: var(--color-navy);
+  color: var(--color-cream);
+}
+
+.chat-panel__avatar {
+  color: var(--color-primary);
+}
+
+.chat-panel__heading {
+  flex: 1;
+  min-width: 0;
+}
+
+.chat-panel__title {
+  margin: 0;
+  font-family: var(--font-headline);
+  font-size: var(--font-size-base);
+  font-weight: 700;
+}
+
+.chat-panel__subtitle {
+  margin: 0;
+  font-size: var(--font-size-xs);
+  color: var(--color-gray-300);
+}
+
+.chat-panel__icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  border: 0;
+  border-radius: var(--radius-full);
+  background: transparent;
+  color: var(--color-cream);
+  cursor: pointer;
+
+  &:hover:not(:disabled) {
+    background: rgb(255 255 255 / 0.12);
+  }
+
+  &:disabled {
+    cursor: default;
+    opacity: 0.4;
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--color-primary);
+  }
+}
+
+// ─── Mensajes ───────────────────────────────────────────────────────────────
+
+.chat-panel__messages {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: 0;
+  padding: var(--space-4);
+  overflow-y: auto;
+  list-style: none;
+}
+
+.chat-msg {
+  max-width: 85%;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-xl);
+  font-size: var(--font-size-sm);
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+
+  span {
+    white-space: pre-wrap;
+  }
+}
+
+.chat-msg--assistant {
+  align-self: flex-start;
+  background: #fff;
+  border: 1px solid var(--color-border);
+  border-bottom-left-radius: var(--radius-sm);
+}
+
+.chat-msg--user {
+  align-self: flex-end;
+  background: var(--color-primary-light);
+  border-bottom-right-radius: var(--radius-sm);
+}
+
+.chat-msg--error {
+  align-self: flex-start;
+  background: var(--color-error-light);
+  color: var(--color-error);
+}
+
+.chat-msg--typing {
+  color: var(--color-text-muted);
+  font-style: italic;
+}
+
+.chat-msg__inline-link {
+  color: var(--color-tertiary);
+  text-decoration: underline;
+}
+
+.chat-msg__links {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+}
+
+.chat-msg__link {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--radius-full);
+  background: var(--color-tertiary);
+  color: #fff;
+  font-weight: 600;
+  text-decoration: none;
+
+  &:hover {
+    background: var(--color-navy);
+  }
+
+  .material-symbols-outlined {
+    font-size: 1.1rem;
+  }
+}
+
+.chat-msg__link-text {
+  color: var(--color-text-muted);
+}
+
+// ─── Formulario ─────────────────────────────────────────────────────────────
+
+.chat-panel__form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border-top: 1px solid var(--color-border);
+  background: var(--color-surface-dim);
+}
+
+.chat-panel__input {
+  width: 100%;
+  resize: none;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-gray-300);
+  border-radius: var(--radius-lg);
+  background: #fff;
+  color: var(--color-text);
+  font: inherit;
+  font-size: var(--font-size-sm);
+
+  &:focus {
+    outline: 2px solid var(--color-primary);
+    border-color: transparent;
+  }
+}
+
+.chat-panel__form-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.chat-panel__privacy {
+  flex: 1;
+  margin: 0;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+}
+
+.chat-panel__counter {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.chat-panel__send {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  border: 0;
+  border-radius: var(--radius-full);
+  background: var(--color-navy);
+  color: var(--color-cream);
+  cursor: pointer;
+
+  &:disabled {
+    cursor: default;
+    background: var(--color-gray-400);
+    color: var(--color-text);
+  }
+
+  &:focus-visible {
+    outline: 3px solid var(--color-primary);
+    outline-offset: 2px;
+  }
+}

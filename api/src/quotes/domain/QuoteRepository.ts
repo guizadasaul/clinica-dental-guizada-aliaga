@@ -1,4 +1,5 @@
 import type { Quote } from './Quote';
+import type { QrCharge } from './QrCharge';
 
 export interface NewQuoteItemData {
   treatmentId: string;
@@ -29,11 +30,23 @@ export interface NewPaymentData {
   notes?: string | null;
 }
 
+export interface NewQrChargeData {
+  quoteId: string;
+  amount: number;
+  qrId: string;
+  transactionId: string;
+  qrImageBase64: string;
+}
+
 export interface IQuoteRepository {
   createForPatient(patientId: string, notes: string | null): Promise<Quote>;
   findById(id: string): Promise<Quote | null>;
   /** Con sus líneas, más recientes primero. */
   findByPatient(patientId: string): Promise<Quote[]>;
+  /** Solo los compartidos (shared_at NOT NULL) — lo único que ve el paciente. */
+  findSharedByPatient(patientId: string): Promise<Quote[]>;
+  /** Setea shared_at si todavía era NULL (idempotente: no pisa la fecha original). */
+  share(quoteId: string): Promise<Quote>;
   /** Inserta filas sueltas (single_tooth/general, cada una con su propio precio) y recalcula total_amount. */
   addItems(quoteId: string, items: NewQuoteItemData[]): Promise<Quote>;
   /** Crea el application_groups (precio del grupo) + una fila de quote_items por diente, sin precio propio, y recalcula total_amount. */
@@ -47,6 +60,17 @@ export interface IQuoteRepository {
   removeItemGroup(quoteId: string, itemId: string): Promise<Quote | null>;
   /** Inserta el pago y recalcula total_paid + status en la misma transacción. */
   addPayment(quoteId: string, data: NewPaymentData): Promise<Quote>;
+  createQrCharge(data: NewQrChargeData): Promise<QrCharge>;
+  findQrCharge(chargeId: string): Promise<QrCharge | null>;
+  /**
+   * pending → paid, crea el pago qr_baneco por el monto del cobro y recalcula
+   * total_paid + status, en una sola transacción. El cambio de estado va
+   * primero con guarda `status = 'pending'`: si ya no estaba pendiente (otra
+   * verificación ganó), no hace nada y devuelve null.
+   */
+  settleQrCharge(chargeId: string): Promise<Quote | null>;
+  /** pending → cancelled. false si ya no estaba pendiente. */
+  cancelQrCharge(chargeId: string): Promise<boolean>;
 }
 
 export const QuoteRepository = Symbol('IQuoteRepository');

@@ -37,6 +37,7 @@ function toolsPort(
     toolName: call.name,
     status: 'ok',
     content: JSON.stringify({ data: { tool: call.name } }),
+    links: [],
   }),
 ) {
   const port = {
@@ -102,6 +103,80 @@ describe('AgentRunner', () => {
     expect(tools.definitionsFor).toHaveBeenCalledWith(patient);
   });
 
+  it('le pasa a cada tool la identidad de auditoría y registra su resultado', async () => {
+    const audit = {
+      requestId: 'req-1',
+      actor: 'user:user-1',
+      role: UserRole.PATIENT,
+    };
+    const llm = new FakeLlmProvider([
+      toolCallResponse({ id: 'c1', name: 'get_clinic_financial_report' }),
+      textResponse('No puedo ver eso'),
+    ]);
+    const tools = toolsPort((call) => ({
+      toolName: call.name,
+      status: 'denied',
+      content: '{"error":"not_allowed"}',
+      links: [],
+    }));
+
+    const result = await run(llm, tools, { audit });
+
+    expect(tools.execute).toHaveBeenCalledWith(
+      patient,
+      expect.objectContaining({ name: 'get_clinic_financial_report' }),
+      audit,
+    );
+    expect(result.toolCalls).toEqual([
+      {
+        name: 'get_clinic_financial_report',
+        status: 'denied',
+        ms: expect.any(Number) as unknown,
+      },
+    ]);
+  });
+
+  it('suma los tokens de entrada que el proveedor sirvió desde su caché', async () => {
+    const withCache = <T extends { usage: unknown }>(
+      response: T,
+      cached: number,
+    ) => ({
+      ...response,
+      usage: {
+        promptTokens: 100,
+        completionTokens: 10,
+        cachedPromptTokens: cached,
+      },
+    });
+    const llm = new FakeLlmProvider([
+      withCache(toolCallResponse({ id: 'c1', name: 'get_my_balance' }), 64),
+      withCache(textResponse('Listo'), 96),
+    ]);
+
+    const result = await run(llm);
+
+    expect(result.cachedPromptTokens).toBe(160);
+  });
+
+  it('sin datos de caché, cachedPromptTokens queda en 0', async () => {
+    const result = await run(new FakeLlmProvider([textResponse('ok')]));
+
+    expect(result.cachedPromptTokens).toBe(0);
+  });
+
+  it('saca del texto una URL inventada por el modelo (CLI-145)', async () => {
+    const result = await run(
+      new FakeLlmProvider([
+        textResponse(
+          'Reservá acá: https://clinicadentalguizadaaliaga.com/booking?token=generated_link_12345 y listo.',
+        ),
+      ]),
+    );
+
+    expect(result.reply).toBe('Reservá acá: y listo.');
+    expect(result.links).toEqual([]);
+  });
+
   it('ejecuta una tool, le devuelve el resultado al modelo y responde', async () => {
     const llm = new FakeLlmProvider([
       toolCallResponse({ id: 'c1', name: 'get_my_balance' }),
@@ -115,11 +190,18 @@ describe('AgentRunner', () => {
     expect(result.toolNames).toEqual(['get_my_balance']);
     expect(result.iterations).toBe(1);
     expect(result.usage).toEqual({ promptTokens: 200, completionTokens: 20 });
-    expect(tools.execute).toHaveBeenCalledWith(patient, {
-      id: 'c1',
-      name: 'get_my_balance',
-      argumentsJson: '{}',
-    });
+    expect(tools.execute).toHaveBeenCalledWith(
+      patient,
+      { id: 'c1', name: 'get_my_balance', argumentsJson: '{}' },
+      undefined,
+    );
+    expect(result.toolCalls).toEqual([
+      {
+        name: 'get_my_balance',
+        status: 'ok',
+        ms: expect.any(Number) as unknown,
+      },
+    ]);
     expect(llm.requests[1].messages).toEqual([
       ...HISTORY,
       {
@@ -219,6 +301,7 @@ describe('AgentRunner', () => {
       toolName: call.name,
       status: 'denied',
       content: JSON.stringify({ error: 'not_allowed' }),
+      links: [],
     }));
 
     const result = await run(llm, tools);
@@ -294,5 +377,84 @@ describe('AgentRunner', () => {
 
     expect(result.usage).toEqual({ promptTokens: 0, completionTokens: 0 });
     expect(result.llmLatencyMs).toBeGreaterThanOrEqual(0);
+  });
+
+  describe('links', () => {
+    const BOOKING_URL =
+      'http://localhost:4200/reservar?slot=2026-09-26T14%3A00%3A00.000Z&doctorId=ac984e91-3391-4729-93e8-a89a495b7053';
+
+    function bookingPort() {
+      return toolsPort((call) => ({
+        toolName: call.name,
+        status: 'ok',
+        content: JSON.stringify({ date: '2026-09-26', time: '10:00' }),
+        links:
+          call.name === 'get_booking_link'
+            ? [
+                {
+                  label: 'Reservar el 2026-09-26 a las 10:00',
+                  url: BOOKING_URL,
+                },
+              ]
+            : [],
+      }));
+    }
+
+    it('devuelve los links de las tools aparte del texto, sin repetir', async () => {
+      const llm = new FakeLlmProvider([
+        toolCallResponse({ name: 'get_booking_link' }),
+        toolCallResponse({ name: 'get_booking_link' }),
+        textResponse('Listo, te dejo el link para reservar.'),
+      ]);
+
+      const result = await run(llm, bookingPort());
+
+      expect(result.reply).toBe('Listo, te dejo el link para reservar.');
+      expect(result.links).toEqual([
+        { label: 'Reservar el 2026-09-26 a las 10:00', url: BOOKING_URL },
+      ]);
+    });
+
+    it('saca del texto un link de reserva recortado por el modelo (lo que pasó en vivo)', async () => {
+      const llm = new FakeLlmProvider([
+        toolCallResponse({ name: 'get_booking_link' }),
+        textResponse(
+          'Puedes reservar a las 10:00 en el siguiente enlace: http://localhost:4200/reservar?slot=2026-09-26T14:00:00.000Z&doctorId=ac984e1...\nCualquier duda, avísame.',
+        ),
+      ]);
+
+      const result = await run(llm, bookingPort());
+
+      expect(result.reply).toBe(
+        'Puedes reservar a las 10:00 en el siguiente enlace:\nCualquier duda, avísame.',
+      );
+      expect(result.reply).not.toContain('/reservar');
+      expect(result.links).toHaveLength(1);
+    });
+
+    it('si la respuesta era solo el link, contesta una frase corta y conserva el link', async () => {
+      const llm = new FakeLlmProvider([
+        toolCallResponse({ name: 'get_booking_link' }),
+        textResponse(BOOKING_URL),
+      ]);
+
+      const result = await run(llm, bookingPort(), { locale: 'en' });
+
+      expect(result.reply).toBe('Here is the link below.');
+      expect(result.errorCode).toBeNull();
+      expect(result.links).toHaveLength(1);
+    });
+
+    it('con fallback no devuelve links', async () => {
+      const llm = new FakeLlmProvider([
+        toolCallResponse({ name: 'get_booking_link' }),
+        new LlmUnavailableError(),
+      ]);
+
+      const result = await run(llm, bookingPort());
+
+      expect(result.errorCode).toBe('llm_unavailable');
+      expect(result.links).toEqual([]);
+    });
   });
 });

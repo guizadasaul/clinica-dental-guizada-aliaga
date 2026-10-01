@@ -18,10 +18,12 @@ function fakeQuote(overrides: Partial<Quote> = {}): Quote {
     patientId: 'patient-1',
     totalAmount: 0,
     totalPaid: 0,
+    balance: 0,
     status: 'pending',
     notes: null,
     createdAt: new Date(),
     updatedAt: new Date(),
+    sharedAt: null,
     items: [],
     payments: [],
     ...overrides,
@@ -54,6 +56,8 @@ const mockQuoteRepo = {
   createForPatient: jest.fn(),
   findById: jest.fn(),
   findByPatient: jest.fn(),
+  findSharedByPatient: jest.fn(),
+  share: jest.fn(),
   addItems: jest.fn(),
   addItemGroup: jest.fn(),
   removeItemGroup: jest.fn(),
@@ -361,6 +365,12 @@ describe('QuotesService', () => {
   });
 
   describe('addPayment', () => {
+    beforeEach(() => {
+      mockQuoteRepo.findById.mockResolvedValue(
+        fakeQuote({ totalAmount: 300, balance: 300 }),
+      );
+    });
+
     it('throws NotFoundException when the quote does not exist', async () => {
       mockQuoteRepo.findById.mockResolvedValue(null);
 
@@ -376,28 +386,101 @@ describe('QuotesService', () => {
 
       const result = await service.addPayment('quote-1', {
         amount: 100,
-        paymentMethod: 'efectivo',
+        paymentMethod: 'cash',
         notes: 'primer pago',
       });
 
       expect(mockQuoteRepo.addPayment).toHaveBeenCalledWith('quote-1', {
         amount: 100,
-        paymentMethod: 'efectivo',
+        paymentMethod: 'cash',
         notes: 'primer pago',
       });
       expect(result).toEqual(updated);
     });
 
-    it('defaults paymentMethod and notes to null when not provided', async () => {
+    it('sin método es efectivo, y sin notas null (CLI-159)', async () => {
       mockQuoteRepo.addPayment.mockResolvedValue(fakeQuote());
 
       await service.addPayment('quote-1', { amount: 50 });
 
       expect(mockQuoteRepo.addPayment).toHaveBeenCalledWith('quote-1', {
         amount: 50,
-        paymentMethod: null,
+        paymentMethod: 'cash',
         notes: null,
       });
+    });
+
+    it('cobrar exactamente el saldo está permitido', async () => {
+      mockQuoteRepo.addPayment.mockResolvedValue(fakeQuote());
+
+      await service.addPayment('quote-1', { amount: 300 });
+
+      expect(mockQuoteRepo.addPayment).toHaveBeenCalled();
+    });
+
+    it('400 si el monto supera el saldo pendiente (CLI-159)', async () => {
+      await expect(
+        service.addPayment('quote-1', { amount: 300.01 }),
+      ).rejects.toThrow(BadRequestException);
+      expect(mockQuoteRepo.addPayment).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('compartir con el paciente (CLI-156)', () => {
+    const withItem = fakeQuote({
+      items: [
+        {
+          id: 'item-1',
+          quoteId: 'quote-1',
+          treatmentId: 'treatment-1',
+          treatmentName: 'Tratamiento',
+          toothNumber: 16,
+          applicationGroupId: null,
+          unitPrice: 100,
+          quantity: 1,
+          subtotal: 100,
+          currency: 'BOB',
+          exchangeRate: null,
+        },
+      ],
+    });
+
+    it('share marca el presupuesto como compartido', async () => {
+      mockQuoteRepo.findById.mockResolvedValue(withItem);
+      mockQuoteRepo.share.mockResolvedValue({
+        ...withItem,
+        sharedAt: new Date(),
+      });
+
+      const shared = await service.share('quote-1');
+
+      expect(mockQuoteRepo.share).toHaveBeenCalledWith('quote-1');
+      expect(shared.sharedAt).toBeInstanceOf(Date);
+    });
+
+    it('share responde 404 si el presupuesto no existe', async () => {
+      mockQuoteRepo.findById.mockResolvedValue(null);
+
+      await expect(service.share('missing')).rejects.toThrow(NotFoundException);
+      expect(mockQuoteRepo.share).not.toHaveBeenCalled();
+    });
+
+    it('share responde 400 si el presupuesto no tiene tratamientos', async () => {
+      await expect(service.share('quote-1')).rejects.toThrow(
+        BadRequestException,
+      );
+      expect(mockQuoteRepo.share).not.toHaveBeenCalled();
+    });
+
+    it('findSharedByPatient delega en el repositorio', async () => {
+      mockQuoteRepo.findSharedByPatient.mockResolvedValue([withItem]);
+
+      await expect(service.findSharedByPatient('patient-1')).resolves.toEqual([
+        withItem,
+      ]);
+      expect(mockQuoteRepo.findSharedByPatient).toHaveBeenCalledWith(
+        'patient-1',
+      );
     });
   });
 

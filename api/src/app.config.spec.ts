@@ -9,6 +9,7 @@ import {
 function fakeApp() {
   return {
     use: jest.fn(),
+    set: jest.fn(),
     enableCors: jest.fn(),
     useBodyParser: jest.fn(),
     useGlobalPipes: jest.fn(),
@@ -27,6 +28,7 @@ describe('configureApp', () => {
   beforeEach(() => {
     delete process.env['CORS_ORIGINS'];
     delete process.env['FRONTEND_URL'];
+    delete process.env['TRUST_PROXY_HOPS'];
   });
 
   afterAll(() => {
@@ -39,6 +41,24 @@ describe('configureApp', () => {
     expect(app.use).toHaveBeenCalledTimes(1);
     expect(app.useBodyParser).toHaveBeenCalledWith('json', { limit: '100kb' });
     expect(app.useGlobalPipes).toHaveBeenCalledTimes(1);
+  });
+
+  describe('trust proxy', () => {
+    it('sin TRUST_PROXY_HOPS no confía en X-Forwarded-For (desarrollo local)', () => {
+      expect(configure().set).not.toHaveBeenCalled();
+    });
+
+    it('confía en la cantidad de proxies indicada por TRUST_PROXY_HOPS', () => {
+      process.env['TRUST_PROXY_HOPS'] = '1';
+
+      expect(configure().set).toHaveBeenCalledWith('trust proxy', 1);
+    });
+
+    it('ignora un TRUST_PROXY_HOPS que no es un entero positivo', () => {
+      process.env['TRUST_PROXY_HOPS'] = 'true';
+
+      expect(configure().set).not.toHaveBeenCalled();
+    });
   });
 
   describe('CORS', () => {

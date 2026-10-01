@@ -18,5 +18,7 @@ import { PrismaReportsRepository } from './infrastructure/persistence/prisma-rep
       useClass: PrismaReportsRepository,
     },
   ],
+  // ReportsService lo usan las tools del doctor del chatbot (CLI-92).
+  exports: [ReportsService],
 })
 export class ReportsModule {}

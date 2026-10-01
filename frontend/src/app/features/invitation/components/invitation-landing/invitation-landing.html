@@ -69,6 +69,11 @@
           <div class="auth-form__field">
             <label class="auth-form__label" for="invite-phone">Teléfono</label>
             <app-phone-input id="invite-phone" (changed)="onPhoneChanged($event)" />
+            @if (phoneHint()) {
+              <p class="phone-hint">
+                Usá el número que diste en la clínica, terminado en <strong>{{ phoneHint() }}</strong>.
+              </p>
+            }
           </div>
         }
 

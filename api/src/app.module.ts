@@ -13,12 +13,14 @@ import { AppointmentsModule } from './appointments/appointments.module';
 import { PaymentsModule } from './payments/payments.module';
 import { ExchangeRateModule } from './exchange-rate/exchange-rate.module';
 import { QuotesModule } from './quotes/quotes.module';
+import { FinancesModule } from './finances/finances.module';
 import { TestimonialsModule } from './testimonials/testimonials.module';
 import { DiagnosesModule } from './diagnoses/diagnoses.module';
 import { MedicalConditionsModule } from './medical-conditions/medical-conditions.module';
 import { AdminModule } from './admin/admin.module';
 import { ReportsModule } from './reports/reports.module';
 import { ChatbotModule } from './chatbot/chatbot.module';
+import { HealthModule } from './health/health.module';
 
 @Module({
   imports: [
@@ -41,10 +43,12 @@ import { ChatbotModule } from './chatbot/chatbot.module';
     AppointmentsModule,
     PaymentsModule,
     QuotesModule,
+    FinancesModule,
     TestimonialsModule,
     AdminModule,
     ReportsModule,
     ChatbotModule,
+    HealthModule,
   ],
   controllers: [AppController],
   providers: [AppService, { provide: APP_GUARD, useClass: ThrottlerGuard }],

@@ -1,5 +1,6 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import type { ChatActor } from '../domain/ChatActor';
+import type { ChatAuditContext } from '../domain/ChatAudit';
 import {
   LlmInvalidResponseError,
   LlmProvider,
@@ -18,7 +19,12 @@ import { ToolExecutionPort } from '../domain/ToolExecution';
 import type { ToolExecutionPort as IToolExecutionPort } from '../domain/ToolExecution';
 import { readEnvInt } from '../../shared/env.util';
 import { fallbackReply } from './fallback-reply';
+import { linkOnlyReply, mergeLinks, removeUrls } from './reply-links';
+import { guardOutput } from './output-guard';
+import type { OutputGuardAction } from './output-guard';
+import type { ChatLink } from '../domain/ChatLink';
 import type { ChatLocale } from './fallback-reply';
+import type { ToolCallAudit } from './chat-audit.logger';
 
 export const DEFAULT_MAX_TOOL_ITERATIONS = 4;
 /** Tool calls que se ejecutan por iteración; el resto recibe un error sin ejecutarse. */
@@ -37,22 +43,35 @@ export interface AgentRunInput {
   /** Historial reciente user/assistant, terminando en el mensaje actual del usuario. */
   history: LlmMessage[];
   locale?: ChatLocale;
+  /** Identidad redactada del turno, para correlacionar los eventos de seguridad. */
+  audit?: ChatAuditContext;
 }
 
 export interface AgentRunResult {
   reply: string;
+  /** Links que produjeron las tools (ej. el de reserva); los agrega el backend, no el modelo. */
+  links: ChatLink[];
   /** Tools pedidas por el modelo y enviadas a ejecutar, en orden (métricas). */
   toolNames: string[];
+  /** Cada tool ejecutada con su resultado y duración (auditoría, CLI-98). */
+  toolCalls: ToolCallAudit[];
   usage: LlmUsage;
+  /** Tokens de entrada que el proveedor sirvió desde su caché (métricas de costo, CLI-99). */
+  cachedPromptTokens: number;
   llmLatencyMs: number;
   /** Iteraciones del loop que terminaron en tool calls. */
   iterations: number;
   errorCode: AgentErrorCode | null;
+  /** Qué hizo el OutputGuard con la respuesta (auditoría, CLI-98). */
+  guardAction: OutputGuardAction;
 }
 
 interface RunState {
   toolNames: string[];
+  toolCalls: ToolCallAudit[];
+  links: ChatLink[];
   usage: LlmUsage;
+  cachedPromptTokens: number;
   llmLatencyMs: number;
   iterations: number;
 }
@@ -92,7 +111,10 @@ export class AgentRunner {
     const messages: LlmMessage[] = [...input.history];
     const state: RunState = {
       toolNames: [],
+      toolCalls: [],
+      links: [],
       usage: { promptTokens: 0, completionTokens: 0 },
+      cachedPromptTokens: 0,
       llmLatencyMs: 0,
       iterations: 0,
     };
@@ -117,7 +139,7 @@ export class AgentRunner {
           messages.push({
             role: 'tool',
             toolCallId: call.id,
-            content: await this.runTool(input.actor, call, index, state),
+            content: await this.runTool(input, call, index, state),
           });
         }
       }
@@ -147,6 +169,7 @@ export class AgentRunner {
       if (response.usage) {
         state.usage.promptTokens += response.usage.promptTokens;
         state.usage.completionTokens += response.usage.completionTokens;
+        state.cachedPromptTokens += response.usage.cachedPromptTokens ?? 0;
       }
       return response;
     } finally {
@@ -155,7 +178,7 @@ export class AgentRunner {
   }
 
   private async runTool(
-    actor: ChatActor,
+    input: AgentRunInput,
     call: LlmToolCall,
     index: number,
     state: RunState,
@@ -165,7 +188,14 @@ export class AgentRunner {
       return JSON.stringify({ error: 'too_many_tool_calls' });
     }
     state.toolNames.push(call.name);
-    const result = await this.tools.execute(actor, call);
+    const started = Date.now();
+    const result = await this.tools.execute(input.actor, call, input.audit);
+    state.toolCalls.push({
+      name: result.toolName,
+      status: result.status,
+      ms: Date.now() - started,
+    });
+    mergeLinks(state.links, result.links);
     return result.content;
   }
 
@@ -174,25 +204,39 @@ export class AgentRunner {
     state: RunState,
     locale: ChatLocale | undefined,
   ): AgentRunResult {
-    const reply = content?.trim();
+    const reply = content ? removeUrls(content) : '';
+    if (!reply && state.links.length > 0) {
+      return this.result(linkOnlyReply(locale), state, null);
+    }
     if (!reply) {
       return this.result(fallbackReply(locale), state, 'empty_response');
     }
-    return this.result(reply, state, null);
+    const guarded = guardOutput(reply, locale);
+    if (guarded.action === 'blocked') {
+      // Una respuesta bloqueada no lleva links: no se sabe qué prometía.
+      state.links = [];
+    }
+    return this.result(guarded.reply, state, null, guarded.action);
   }
 
   private result(
     reply: string,
     state: RunState,
     errorCode: AgentErrorCode | null,
+    guardAction: OutputGuardAction = 'none',
   ): AgentRunResult {
     return {
       reply,
+      // Con fallback no se muestran links: la respuesta no los menciona.
+      links: errorCode ? [] : state.links,
       toolNames: state.toolNames,
+      toolCalls: state.toolCalls,
       usage: state.usage,
+      cachedPromptTokens: state.cachedPromptTokens,
       llmLatencyMs: state.llmLatencyMs,
       iterations: state.iterations,
       errorCode,
+      guardAction,
     };
   }
 }

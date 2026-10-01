@@ -11,6 +11,7 @@ import {
   GuestEmailBelongsToAccountError,
   GuestPhoneBelongsToAccountError,
   GuestPhoneConflictError,
+  PatientNotFoundError,
   SlotUnavailableError,
 } from '../domain/AppointmentRepository';
 import { Appointment, AppointmentStatus } from '../domain/Appointment';
@@ -48,6 +49,11 @@ const mockRepo = {
   attachQr: jest.fn(),
   appendNote: jest.fn(),
   findForAgenda: jest.fn(),
+  findForPatient: jest.fn(),
+  createByDoctor: jest.fn(),
+  findForDoctor: jest.fn(),
+  reschedule: jest.fn(),
+  cancel: jest.fn(),
 };
 
 const mockTreatmentRepo = {
@@ -498,6 +504,53 @@ describe('AppointmentsService', () => {
     });
   });
 
+  describe('getPatientAppointments (CLI-91)', () => {
+    const NOW_FIXED = new Date('2026-09-25T12:00:00Z');
+
+    it('upcoming: desde ahora, la más cercana primero', async () => {
+      mockRepo.findForPatient.mockResolvedValue([]);
+
+      await service.getPatientAppointments(
+        'patient-1',
+        'upcoming',
+        1,
+        NOW_FIXED,
+      );
+
+      expect(mockRepo.findForPatient).toHaveBeenCalledWith('patient-1', {
+        from: NOW_FIXED,
+        order: 'asc',
+        limit: 1,
+      });
+    });
+
+    it('past: hasta ahora, la más reciente primero', async () => {
+      mockRepo.findForPatient.mockResolvedValue([]);
+
+      await service.getPatientAppointments('patient-1', 'past', 5, NOW_FIXED);
+
+      expect(mockRepo.findForPatient).toHaveBeenCalledWith('patient-1', {
+        to: NOW_FIXED,
+        order: 'desc',
+        limit: 5,
+      });
+    });
+
+    it('usa la hora actual por defecto', async () => {
+      mockRepo.findForPatient.mockResolvedValue([]);
+      const before = Date.now();
+
+      await service.getPatientAppointments('patient-1', 'upcoming', 1);
+
+      const filters = (
+        mockRepo.findForPatient.mock.calls as unknown[][]
+      )[0][1] as {
+        from: Date;
+      };
+      expect(filters.from.getTime()).toBeGreaterThanOrEqual(before);
+    });
+  });
+
   describe('getAgenda', () => {
     it('delegates the filters straight to the repository', async () => {
       mockRepo.findForAgenda.mockResolvedValue([]);
@@ -506,6 +559,435 @@ describe('AppointmentsService', () => {
       await service.getAgenda(filters);
 
       expect(mockRepo.findForAgenda).toHaveBeenCalledWith(filters);
+    });
+  });
+  // CLI-148: el doctor agenda la próxima cita de un paciente con ficha.
+  describe('createByDoctor', () => {
+    const PATIENT_ID = 'patient-1';
+    const created = { id: 'appt-new' };
+
+    beforeEach(() => {
+      mockRepo.findActiveBetween.mockResolvedValue([]);
+      mockRepo.createByDoctor.mockResolvedValue(created);
+    });
+
+    it('crea la cita para el doctor dado, con una franja por defecto y notas limpias', async () => {
+      const result = await service.createByDoctor(DOCTOR_ID, {
+        patientId: PATIENT_ID,
+        appointmentDatetime: VALID_SLOT_ISO,
+        notes: '  control de brackets  ',
+      });
+
+      expect(result).toBe(created);
+      expect(mockRepo.createByDoctor).toHaveBeenCalledWith({
+        doctorId: DOCTOR_ID,
+        patientId: PATIENT_ID,
+        treatmentId: null,
+        appointmentDatetime: new Date(VALID_SLOT_ISO),
+        durationMinutes: 30,
+        notes: 'control de brackets',
+      });
+    });
+
+    it('toma la duración del tratamiento si no se indica otra', async () => {
+      mockTreatmentRepo.findById.mockResolvedValue(
+        fakeTreatment({ estimatedMinutes: 90 }),
+      );
+
+      await service.createByDoctor(DOCTOR_ID, {
+        patientId: PATIENT_ID,
+        appointmentDatetime: VALID_SLOT_ISO,
+        treatmentId: 'treatment-1',
+      });
+
+      expect(mockRepo.createByDoctor).toHaveBeenCalledWith(
+        expect.objectContaining({
+          treatmentId: 'treatment-1',
+          durationMinutes: 90,
+        }),
+      );
+    });
+
+    it('la duración explícita gana sobre la del tratamiento', async () => {
+      mockTreatmentRepo.findById.mockResolvedValue(
+        fakeTreatment({ estimatedMinutes: 90 }),
+      );
+
+      await service.createByDoctor(DOCTOR_ID, {
+        patientId: PATIENT_ID,
+        appointmentDatetime: VALID_SLOT_ISO,
+        treatmentId: 'treatment-1',
+        durationMinutes: 60,
+      });
+
+      expect(mockRepo.createByDoctor).toHaveBeenCalledWith(
+        expect.objectContaining({ durationMinutes: 60 }),
+      );
+    });
+
+    it('404 si el tratamiento no existe', async () => {
+      mockTreatmentRepo.findById.mockResolvedValue(null);
+
+      await expect(
+        service.createByDoctor(DOCTOR_ID, {
+          patientId: PATIENT_ID,
+          appointmentDatetime: VALID_SLOT_ISO,
+          treatmentId: 'missing',
+        }),
+      ).rejects.toThrow(NotFoundException);
+      expect(mockRepo.createByDoctor).not.toHaveBeenCalled();
+    });
+
+    it('permite agendar fuera del horario de atención del doctor (emergencias)', async () => {
+      // Domingo 21:00 — el fixture tiene el domingo cerrado.
+      await service.createByDoctor(DOCTOR_ID, {
+        patientId: PATIENT_ID,
+        appointmentDatetime: '2026-08-16T21:00:00-04:00',
+      });
+
+      expect(mockRepo.createByDoctor).toHaveBeenCalled();
+      expect(mockDoctorScheduleRepo.findBlocksForDoctor).not.toHaveBeenCalled();
+    });
+
+    it('400 si la cita es en el pasado', async () => {
+      await expect(
+        service.createByDoctor(DOCTOR_ID, {
+          patientId: PATIENT_ID,
+          appointmentDatetime: '2026-08-14T09:00:00-04:00',
+        }),
+      ).rejects.toThrow(BadRequestException);
+      expect(mockRepo.createByDoctor).not.toHaveBeenCalled();
+    });
+
+    it('400 si no empieza en una franja de la grilla', async () => {
+      await expect(
+        service.createByDoctor(DOCTOR_ID, {
+          patientId: PATIENT_ID,
+          appointmentDatetime: `${MONDAY}T09:15:00-04:00`,
+        }),
+      ).rejects.toThrow(BadRequestException);
+      expect(mockRepo.createByDoctor).not.toHaveBeenCalled();
+    });
+
+    it('busca choques solo en la agenda de ese doctor', async () => {
+      await service.createByDoctor(DOCTOR_ID, {
+        patientId: PATIENT_ID,
+        appointmentDatetime: VALID_SLOT_ISO,
+        durationMinutes: 60,
+      });
+
+      const [from, to, , doctorId] = (
+        mockRepo.findActiveBetween.mock.calls as unknown[][]
+      )[0] as [Date, Date, Date, string];
+      expect(doctorId).toBe(DOCTOR_ID);
+      expect(from.getTime()).toBeLessThan(new Date(VALID_SLOT_ISO).getTime());
+      expect(to).toEqual(new Date(`${MONDAY}T10:00:00-04:00`));
+    });
+
+    it('409 si una cita anterior más larga todavía está en curso', async () => {
+      // 08:30 + 60 min = hasta las 09:30: pisa la nueva de las 09:00.
+      mockRepo.findActiveBetween.mockResolvedValue([
+        fakeAppointment({
+          slot: new Date(`${MONDAY}T08:30:00-04:00`),
+          durationMinutes: 60,
+          status: AppointmentStatus.CONFIRMED,
+        }),
+      ]);
+
+      await expect(
+        service.createByDoctor(DOCTOR_ID, {
+          patientId: PATIENT_ID,
+          appointmentDatetime: VALID_SLOT_ISO,
+        }),
+      ).rejects.toThrow(ConflictException);
+      expect(mockRepo.createByDoctor).not.toHaveBeenCalled();
+    });
+
+    it('no choca con una cita que termina justo cuando empieza la nueva', async () => {
+      mockRepo.findActiveBetween.mockResolvedValue([
+        fakeAppointment({
+          slot: new Date(`${MONDAY}T08:00:00-04:00`),
+          durationMinutes: 60,
+          status: AppointmentStatus.CONFIRMED,
+        }),
+      ]);
+
+      await service.createByDoctor(DOCTOR_ID, {
+        patientId: PATIENT_ID,
+        appointmentDatetime: VALID_SLOT_ISO,
+      });
+
+      expect(mockRepo.createByDoctor).toHaveBeenCalled();
+    });
+
+    it('409 si la nueva cita, por su duración, pisa una posterior', async () => {
+      mockRepo.findActiveBetween.mockResolvedValue([
+        fakeAppointment({
+          slot: new Date(`${MONDAY}T09:30:00-04:00`),
+          status: AppointmentStatus.CONFIRMED,
+        }),
+      ]);
+
+      await expect(
+        service.createByDoctor(DOCTOR_ID, {
+          patientId: PATIENT_ID,
+          appointmentDatetime: VALID_SLOT_ISO,
+          durationMinutes: 60,
+        }),
+      ).rejects.toThrow(ConflictException);
+    });
+
+    it('traduce la carrera en el índice único (SlotUnavailableError) a 409', async () => {
+      mockRepo.createByDoctor.mockRejectedValue(new SlotUnavailableError());
+
+      await expect(
+        service.createByDoctor(DOCTOR_ID, {
+          patientId: PATIENT_ID,
+          appointmentDatetime: VALID_SLOT_ISO,
+        }),
+      ).rejects.toThrow(ConflictException);
+    });
+
+    it('404 si el paciente no existe', async () => {
+      mockRepo.createByDoctor.mockRejectedValue(new PatientNotFoundError());
+
+      await expect(
+        service.createByDoctor(DOCTOR_ID, {
+          patientId: 'missing',
+          appointmentDatetime: VALID_SLOT_ISO,
+        }),
+      ).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  describe('getDoctorSchedule', () => {
+    it('devuelve los bloques del doctor dado', async () => {
+      await expect(service.getDoctorSchedule(DOCTOR_ID)).resolves.toBe(
+        CLINIC_HOURS_FIXTURE,
+      );
+      expect(mockDoctorScheduleRepo.findBlocksForDoctor).toHaveBeenCalledWith(
+        DOCTOR_ID,
+      );
+    });
+  });
+  // CLI-149
+  describe('rescheduleByDoctor', () => {
+    const APPT_ID = 'appt-moving';
+    const confirmed = {
+      id: APPT_ID,
+      status: AppointmentStatus.CONFIRMED,
+      durationMinutes: 60,
+    };
+
+    beforeEach(() => {
+      mockRepo.findForDoctor.mockResolvedValue(confirmed);
+      mockRepo.findActiveBetween.mockResolvedValue([]);
+      mockRepo.reschedule.mockResolvedValue({ ...confirmed, id: APPT_ID });
+    });
+
+    it('mueve la cita conservando su duración si no se indica otra', async () => {
+      await service.rescheduleByDoctor(DOCTOR_ID, APPT_ID, {
+        appointmentDatetime: VALID_SLOT_ISO,
+      });
+
+      expect(mockRepo.findForDoctor).toHaveBeenCalledWith(APPT_ID, DOCTOR_ID);
+      expect(mockRepo.reschedule).toHaveBeenCalledWith(APPT_ID, DOCTOR_ID, {
+        appointmentDatetime: new Date(VALID_SLOT_ISO),
+        durationMinutes: 60,
+      });
+    });
+
+    it('actualiza duración y notas si vienen (vacío borra las notas)', async () => {
+      await service.rescheduleByDoctor(DOCTOR_ID, APPT_ID, {
+        appointmentDatetime: VALID_SLOT_ISO,
+        durationMinutes: 30,
+        notes: '   ',
+      });
+
+      expect(mockRepo.reschedule).toHaveBeenCalledWith(APPT_ID, DOCTOR_ID, {
+        appointmentDatetime: new Date(VALID_SLOT_ISO),
+        durationMinutes: 30,
+        notes: null,
+      });
+    });
+
+    it('no choca consigo misma al correrla media hora', async () => {
+      mockRepo.findActiveBetween.mockResolvedValue([
+        new Appointment(
+          APPT_ID,
+          null,
+          null,
+          new Date(`${MONDAY}T08:30:00-04:00`),
+          60,
+          AppointmentStatus.CONFIRMED,
+          'doctor',
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          new Date(),
+          null,
+          null,
+          null,
+          null,
+          null,
+        ),
+      ]);
+
+      await service.rescheduleByDoctor(DOCTOR_ID, APPT_ID, {
+        appointmentDatetime: VALID_SLOT_ISO,
+      });
+
+      expect(mockRepo.reschedule).toHaveBeenCalled();
+    });
+
+    it('409 si el nuevo horario pisa otra cita', async () => {
+      mockRepo.findActiveBetween.mockResolvedValue([
+        fakeAppointment({
+          slot: new Date(`${MONDAY}T09:30:00-04:00`),
+          status: AppointmentStatus.CONFIRMED,
+        }),
+      ]);
+
+      await expect(
+        service.rescheduleByDoctor(DOCTOR_ID, APPT_ID, {
+          appointmentDatetime: VALID_SLOT_ISO,
+        }),
+      ).rejects.toThrow(ConflictException);
+      expect(mockRepo.reschedule).not.toHaveBeenCalled();
+    });
+
+    it('404 si la cita no existe o es de otro doctor', async () => {
+      mockRepo.findForDoctor.mockResolvedValue(null);
+
+      await expect(
+        service.rescheduleByDoctor(DOCTOR_ID, APPT_ID, {
+          appointmentDatetime: VALID_SLOT_ISO,
+        }),
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it('409 si la cita no está confirmada', async () => {
+      mockRepo.findForDoctor.mockResolvedValue({
+        ...confirmed,
+        status: AppointmentStatus.CANCELLED,
+      });
+
+      await expect(
+        service.rescheduleByDoctor(DOCTOR_ID, APPT_ID, {
+          appointmentDatetime: VALID_SLOT_ISO,
+        }),
+      ).rejects.toThrow(ConflictException);
+    });
+
+    it('400 si el nuevo horario es pasado o está fuera de la grilla', async () => {
+      await expect(
+        service.rescheduleByDoctor(DOCTOR_ID, APPT_ID, {
+          appointmentDatetime: '2026-08-13T09:00:00-04:00',
+        }),
+      ).rejects.toThrow(BadRequestException);
+      await expect(
+        service.rescheduleByDoctor(DOCTOR_ID, APPT_ID, {
+          appointmentDatetime: `${MONDAY}T09:10:00-04:00`,
+        }),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('409 si la cancelaron entre la lectura y el UPDATE', async () => {
+      mockRepo.reschedule.mockResolvedValue(null);
+
+      await expect(
+        service.rescheduleByDoctor(DOCTOR_ID, APPT_ID, {
+          appointmentDatetime: VALID_SLOT_ISO,
+        }),
+      ).rejects.toThrow(ConflictException);
+    });
+
+    it('traduce SlotUnavailableError a 409', async () => {
+      mockRepo.reschedule.mockRejectedValue(new SlotUnavailableError());
+
+      await expect(
+        service.rescheduleByDoctor(DOCTOR_ID, APPT_ID, {
+          appointmentDatetime: VALID_SLOT_ISO,
+        }),
+      ).rejects.toThrow(ConflictException);
+    });
+  });
+
+  describe('cancelByDoctor', () => {
+    const APPT_ID = 'appt-1';
+    const confirmed = { id: APPT_ID, status: AppointmentStatus.CONFIRMED };
+    const cancelled = { id: APPT_ID, status: AppointmentStatus.CANCELLED };
+
+    it('cancela la cita propia, registrando quién y el motivo limpio', async () => {
+      mockRepo.findForDoctor.mockResolvedValue(confirmed);
+      mockRepo.cancel.mockResolvedValue(cancelled);
+
+      await expect(
+        service.cancelByDoctor(DOCTOR_ID, APPT_ID, '  no puede venir '),
+      ).resolves.toBe(cancelled);
+      expect(mockRepo.cancel).toHaveBeenCalledWith(
+        APPT_ID,
+        DOCTOR_ID,
+        DOCTOR_ID,
+        'no puede venir',
+      );
+    });
+
+    it('sin motivo pasa null', async () => {
+      mockRepo.findForDoctor.mockResolvedValue(confirmed);
+      mockRepo.cancel.mockResolvedValue(cancelled);
+
+      await service.cancelByDoctor(DOCTOR_ID, APPT_ID);
+
+      expect(mockRepo.cancel).toHaveBeenCalledWith(
+        APPT_ID,
+        DOCTOR_ID,
+        DOCTOR_ID,
+        null,
+      );
+    });
+
+    it('es idempotente: una ya cancelada se devuelve sin tocarla', async () => {
+      mockRepo.findForDoctor.mockResolvedValue(cancelled);
+
+      await expect(service.cancelByDoctor(DOCTOR_ID, APPT_ID)).resolves.toBe(
+        cancelled,
+      );
+      expect(mockRepo.cancel).not.toHaveBeenCalled();
+    });
+
+    it('404 si la cita no existe o es de otro doctor', async () => {
+      mockRepo.findForDoctor.mockResolvedValue(null);
+
+      await expect(service.cancelByDoctor(DOCTOR_ID, APPT_ID)).rejects.toThrow(
+        NotFoundException,
+      );
+    });
+
+    it('409 si no está confirmada (ej. un hold)', async () => {
+      mockRepo.findForDoctor.mockResolvedValue({
+        id: APPT_ID,
+        status: AppointmentStatus.HELD,
+      });
+
+      await expect(service.cancelByDoctor(DOCTOR_ID, APPT_ID)).rejects.toThrow(
+        ConflictException,
+      );
+    });
+
+    it('si otra request la canceló en el medio, devuelve la cancelada', async () => {
+      mockRepo.findForDoctor
+        .mockResolvedValueOnce(confirmed)
+        .mockResolvedValueOnce(cancelled);
+      mockRepo.cancel.mockResolvedValue(null);
+
+      await expect(service.cancelByDoctor(DOCTOR_ID, APPT_ID)).resolves.toBe(
+        cancelled,
+      );
     });
   });
 });

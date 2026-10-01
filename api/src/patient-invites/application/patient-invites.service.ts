@@ -20,7 +20,7 @@ import type {
   EmailSender as IEmailSender,
   InviteEmailKind,
 } from '../domain/EmailSender.js';
-import { toE164Bolivia } from '../../shared/phone.util.js';
+import { phoneLastDigits, toE164Bolivia } from '../../shared/phone.util.js';
 
 export interface CreateInviteResult {
   whatsappUrl?: string;
@@ -30,6 +30,19 @@ export interface CreateInviteResult {
 export interface InviteStatus {
   valid: boolean;
   kind?: InviteEmailKind;
+  /**
+   * Últimos 3 dígitos del teléfono de la ficha, solo si la invitación sigue
+   * vigente y la ficha tiene teléfono: la landing le dice al invitado con qué
+   * número registrarse, sin exponerlo completo a quien tenga el link.
+   */
+  phoneHint?: string;
+}
+
+/** Para validar un registro por teléfono (uso interno, nunca sale por HTTP). */
+export interface InviteRegistrationTarget {
+  valid: boolean;
+  /** Teléfono de la ficha: si está, es el único con el que se puede registrar. */
+  phone: string | null;
 }
 
 function hashToken(rawToken: string): string {
@@ -186,6 +199,24 @@ export class PatientInvitesService {
       new Date(),
     );
     // Un token que no existe no revela nada: ni siquiera a quién iría dirigido.
-    return status ?? { valid: false };
+    if (!status) {
+      return { valid: false };
+    }
+    return {
+      valid: status.valid,
+      kind: status.kind,
+      ...(status.valid &&
+        status.phone && { phoneHint: phoneLastDigits(status.phone) }),
+    };
+  }
+
+  async registrationTarget(
+    rawToken: string,
+  ): Promise<InviteRegistrationTarget> {
+    const status = await this.inviteRepo.findTokenStatus(
+      hashToken(rawToken),
+      new Date(),
+    );
+    return { valid: status?.valid ?? false, phone: status?.phone ?? null };
   }
 }

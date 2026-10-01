@@ -86,6 +86,7 @@ model appointments {
   /// agendas ya reservadas, mismo criterio que los precios de quote_items.
   duration_minutes         Int         @default(30)
   status                   String      @default("scheduled") @db.VarChar(20)
+  /// public_web | whatsapp | doctor (CLI-148: agendada por el doctor desde su agenda, nace confirmada y sin pago).
   source                   String      @db.VarChar(20)
   whatsapp_name            String?     @db.VarChar(200)
   whatsapp_phone           String?     @db.VarChar(20)
@@ -104,9 +105,14 @@ model appointments {
   baneco_qr_image          String?
   payment_amount           Decimal?    @db.Decimal(10, 2)
   paid_at                  DateTime?   @db.Timestamptz(6)
+  /// CLI-149: cuándo y quién canceló la cita (status = 'cancelled'). Cancelar
+  /// libera el turno: los índices únicos de abajo solo cuentan held/confirmed.
+  cancelled_at             DateTime?   @db.Timestamptz(6)
+  cancelled_by             String?     @db.Uuid
   patients                 patients?   @relation(fields: [patient_id], references: [id], onUpdate: NoAction)
   treatments               treatments? @relation(fields: [treatment_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  users                    users       @relation(fields: [doctor_id], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  users                    users       @relation("AppointmentDoctor", fields: [doctor_id], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  cancelled_by_user        users?      @relation("AppointmentCancelledBy", fields: [cancelled_by], references: [id], onDelete: SetNull, onUpdate: NoAction)
 
   @@unique([doctor_id, appointment_datetime], map: "idx_one_active_appointment_slot", where: raw("(((status)::text = 'held'::text) OR ((status)::text = 'confirmed'::text))"))
   @@index([appointment_datetime], map: "idx_appointments_datetime")
@@ -337,7 +343,9 @@ model patients {
   address                        String?
   zona                           String?                      @db.VarChar(100)
   ciudad                         String?                      @db.VarChar(100)
-  emergency_contact_name         String?                      @db.VarChar(200)
+  /// Nombres y apellidos del contacto de emergencia por separado (antes un solo emergency_contact_name).
+  emergency_contact_first_name   String?                      @db.VarChar(100)
+  emergency_contact_last_name    String?                      @db.VarChar(100)
   emergency_contact_phone        String?                      @db.VarChar(20)
   emergency_contact_relationship String?                      @db.VarChar(100)
   consultation_reason            String?
@@ -347,6 +355,8 @@ model patients {
   /// CI/pasaporte/nit (CLI-54, ver DOCUMENT_TYPES) — null solo si dni también es null. La unicidad real es (document_type, dni), no dni solo: un pasaporte y una CI pueden coincidir en número sin ser la misma persona.
   document_type                  String?                      @db.VarChar(20)
   dni                            String?                      @db.VarChar(20)
+  /// Extensión/complemento de la CI boliviana (ej. "LP", "1A") — solo con document_type = 'ci'. No entra en la unicidad: (document_type, dni) sigue siendo la clave.
+  document_extension             String?                      @db.VarChar(12)
   /// Doctor asignado (CLI-61) — informativo, no restringe acceso: cualquier
   /// odontólogo logueado sigue viendo y editando cualquier paciente (decisión
   /// de alcance de la épica). Nullable porque un paciente puede no tener
@@ -393,15 +403,39 @@ model patient_invites {
 
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
 model payments {
-  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  quote_id       String   @db.Uuid
-  amount         Decimal  @db.Decimal(10, 2)
-  payment_method String?  @db.VarChar(50)
-  receipt_number String   @unique @default(dbgenerated("('REC-'::text || lpad((nextval('receipt_number_seq'::regclass))::text, 6, '0'::text))")) @db.VarChar(20)
-  payment_date   DateTime @default(now()) @db.Timestamptz(6)
+  id             String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  quote_id       String            @db.Uuid
+  amount         Decimal           @db.Decimal(10, 2)
+  payment_method String?           @db.VarChar(50)
+  receipt_number String            @unique @default(dbgenerated("('REC-'::text || lpad((nextval('receipt_number_seq'::regclass))::text, 6, '0'::text))")) @db.VarChar(20)
+  payment_date   DateTime          @default(now()) @db.Timestamptz(6)
   notes          String?
-  created_at     DateTime @default(now()) @db.Timestamptz(6)
-  quotes         quotes   @relation(fields: [quote_id], references: [id], onUpdate: NoAction)
+  created_at     DateTime          @default(now()) @db.Timestamptz(6)
+  quotes         quotes            @relation(fields: [quote_id], references: [id], onUpdate: NoAction)
+  qr_charge      quote_qr_charges?
+}
+
+/// Cobro con QR BANECO de un presupuesto (CLI-159). Nace `pending` al generar
+/// el QR; "Verificar pago" consulta a BANECO y, si está pagado, lo pasa a
+/// `paid` y crea el `payments` (qr_baneco) en la misma transacción — el cambio
+/// de estado va primero y con guarda `status = 'pending'`, así dos
+/// verificaciones simultáneas no duplican el pago.
+model quote_qr_charges {
+  id                    String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  quote_id              String    @db.Uuid
+  amount                Decimal   @db.Decimal(10, 2)
+  baneco_qr_id          String    @unique @db.VarChar(50)
+  baneco_transaction_id String    @unique @db.VarChar(50)
+  qr_image              String
+  /// pending | paid | cancelled
+  status                String    @default("pending") @db.VarChar(20)
+  payment_id            String?   @unique @db.Uuid
+  created_at            DateTime  @default(now()) @db.Timestamptz(6)
+  updated_at            DateTime  @default(now()) @db.Timestamptz(6)
+  quotes                quotes    @relation(fields: [quote_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  payments              payments? @relation(fields: [payment_id], references: [id], onDelete: SetNull, onUpdate: NoAction)
+
+  @@index([quote_id], map: "idx_quote_qr_charges_quote")
 }
 
 /// Precio y tratamiento compartidos por un grupo de quote_items que
@@ -464,10 +498,14 @@ model quotes {
   status             String               @default("pending") @db.VarChar(20)
   notes              String?
   created_at         DateTime             @default(now()) @db.Timestamptz(6)
+  /// NULL = borrador que el paciente no ve (CLI-156). Se setea una sola vez,
+  /// con "Guardar y compartir"; las ediciones posteriores se ven igual.
+  shared_at          DateTime?            @db.Timestamptz(6)
   updated_at         DateTime             @default(now()) @db.Timestamptz(6)
   payments           payments[]
   quote_items        quote_items[]
   application_groups application_groups[]
+  qr_charges         quote_qr_charges[]
   patients           patients             @relation(fields: [patient_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
 }
 
@@ -660,25 +698,28 @@ model doctor_schedule_blocks {
 
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
 model users {
-  id                     String                   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  auth_user_id           String?                  @unique @db.Uuid
-  email                  String?                  @unique @db.VarChar(255)
-  display_name           String?                  @db.VarChar(255)
-  photo_url              String?
-  phone                  String?                  @db.VarChar(20)
-  is_active              Boolean                  @default(true)
-  created_at             DateTime                 @default(now()) @db.Timestamptz(6)
-  updated_at             DateTime                 @default(now()) @db.Timestamptz(6)
-  role                   UserRole                 @unique(map: "idx_one_admin_user", where: raw("(role = 'admin'::\"UserRole\")")) @default(patient)
-  patients               patients?                @relation("PatientAccount")
-  assigned_patients      patients[]               @relation("PatientAssignedDoctor")
-  appointments           appointments[]
-  doctor_profiles        doctor_profiles?
-  doctor_schedule_blocks doctor_schedule_blocks[]
-  tooth_procedures       tooth_procedures[]
-  dental_exams           dental_exams[]
-  patient_invites        patient_invites[]
-  chat_sessions          chat_sessions[]
+  id                      String                    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  auth_user_id            String?                   @unique @db.Uuid
+  email                   String?                   @unique @db.VarChar(255)
+  display_name            String?                   @db.VarChar(255)
+  photo_url               String?
+  phone                   String?                   @db.VarChar(20)
+  is_active               Boolean                   @default(true)
+  created_at              DateTime                  @default(now()) @db.Timestamptz(6)
+  updated_at              DateTime                  @default(now()) @db.Timestamptz(6)
+  role                    UserRole                  @unique(map: "idx_one_admin_user", where: raw("(role = 'admin'::\"UserRole\")")) @default(patient)
+  patients                patients?                 @relation("PatientAccount")
+  assigned_patients       patients[]                @relation("PatientAssignedDoctor")
+  appointments            appointments[]            @relation("AppointmentDoctor")
+  cancelled_appointments  appointments[]            @relation("AppointmentCancelledBy")
+  doctor_profiles         doctor_profiles?
+  doctor_schedule_blocks  doctor_schedule_blocks[]
+  tooth_procedures        tooth_procedures[]
+  dental_exams            dental_exams[]
+  patient_invites         patient_invites[]
+  chat_sessions           chat_sessions[]
+  chat_channel_identities chat_channel_identities[]
+  chat_link_codes         chat_link_codes[]
 }
 
 /// Sin código todavía — CLI-53. Notas para cuando se implemente:
@@ -743,9 +784,57 @@ model chat_messages {
   prompt_tokens     Int?
   completion_tokens Int?
   error_code        String?       @db.VarChar(50)
+  /// Tools que el modelo pidió y el ToolExecutor denegó en el turno (CLI-98).
+  denied_tools      Int           @default(0)
   created_at        DateTime      @default(now()) @db.Timestamptz(6)
   chat_sessions     chat_sessions @relation(fields: [session_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
   @@index([session_id, created_at], map: "idx_chat_messages_session_created")
   @@index([created_at], map: "idx_chat_messages_created")
+}
+
+/// Un número de un canal externo (WhatsApp) vinculado a una cuenta, con
+/// posesión probada por un código de un solo uso (CLI-100). Nunca se infiere
+/// de users.phone. Un número activo (revoked_at null) pertenece a una sola
+/// cuenta: índice único parcial en la migración.
+model chat_channel_identities {
+  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id     String    @db.Uuid
+  channel     String    @db.VarChar(20)
+  /// E.164, ej. +59171234567
+  external_id String    @db.VarChar(20)
+  verified_at DateTime  @db.Timestamptz(6)
+  revoked_at  DateTime? @db.Timestamptz(6)
+  created_at  DateTime  @default(now()) @db.Timestamptz(6)
+  users       users     @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([user_id], map: "idx_chat_channel_identities_user")
+}
+
+/// Código de 6 dígitos para vincular un número (CLI-100). Solo se guarda el
+/// sha256; vence a los 10 minutos y se usa una sola vez.
+model chat_link_codes {
+  id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id    String    @db.Uuid
+  channel    String    @db.VarChar(20)
+  code_hash  String    @db.VarChar(64)
+  expires_at DateTime  @db.Timestamptz(6)
+  used_at    DateTime? @db.Timestamptz(6)
+  created_at DateTime  @default(now()) @db.Timestamptz(6)
+  users      users     @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([code_hash], map: "idx_chat_link_codes_hash")
+  @@index([user_id], map: "idx_chat_link_codes_user")
+}
+
+/// Intentos de canje por número (CLI-100): límite de intentos fallidos por
+/// hora contra la adivinación de códigos. Se purgan con la retención diaria.
+model chat_link_attempts {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  channel     String   @db.VarChar(20)
+  external_id String   @db.VarChar(20)
+  succeeded   Boolean
+  created_at  DateTime @default(now()) @db.Timestamptz(6)
+
+  @@index([channel, external_id, created_at], map: "idx_chat_link_attempts_number")
 }
