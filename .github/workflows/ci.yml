@@ -18,6 +18,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: scripts/check-no-destructive-db-commands.sh
+      # CLI-175: los textos de la app van en español neutro, tuteando (la
+      # clínica es de Bolivia). Falla si vuelve a entrar voseo ("Reservá", "podés").
+      - run: scripts/check-neutral-spanish.sh
 
   # A main (producción) solo llega lo que ya pasó por staging: PRs desde
   # develop, o un hotfix/* que sale de main. Es check obligatorio de main.
