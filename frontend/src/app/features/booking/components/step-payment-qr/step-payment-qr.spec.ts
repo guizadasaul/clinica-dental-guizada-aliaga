@@ -73,6 +73,17 @@ describe('StepPaymentQrComponent', () => {
     });
   });
 
+  it('permite descargar la imagen del QR como PNG, con un nombre claro (CLI-170)', () => {
+    const { root } = setup(false);
+    const link = root.querySelector<HTMLAnchorElement>('.payment-qr__download-btn')!;
+
+    expect(link.textContent).toContain('Descargar QR');
+    expect(link.getAttribute('download')).toBe('qr-pago-clinica-guizada-aliaga.png');
+    // Es la misma imagen que se muestra, y Angular no la marca como insegura.
+    expect(link.getAttribute('href')).toBe('data:image/png;base64,QUJD');
+    expect(link.getAttribute('href')).toBe(root.querySelector('img')?.getAttribute('src'));
+  });
+
   it('antes de pagar avisa que la clínica no realiza reembolsos (CLI-103)', () => {
     const { root } = setup(false);
 

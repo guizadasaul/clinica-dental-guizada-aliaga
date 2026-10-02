@@ -2,6 +2,8 @@ import { Component, ChangeDetectionStrategy, computed, inject, input, output, si
 import { firstValueFrom } from 'rxjs';
 import { BookingService } from '../../services/booking.service';
 
+const QR_FILE_NAME = 'qr-pago-clinica-guizada-aliaga.png';
+
 /** Sin teléfono del doctor, "Contactanos" cae al WhatsApp de la clínica. */
 const CLINIC_PHONE = '+59157744250';
 
@@ -31,6 +33,9 @@ export class StepPaymentQrComponent {
     const text = `${greeting}, acabo de reservar una cita y quiero consultarte sobre mi pago.`;
     return `https://wa.me/${phone}?text=${encodeURIComponent(text)}`;
   });
+  /** El QR ya llega en base64: sirve tanto para mostrarlo como para descargarlo (CLI-170), sin otra llamada. */
+  protected readonly qrDataUrl = computed(() => `data:image/png;base64,${this.qrImageBase64()}`);
+  protected readonly qrFileName = QR_FILE_NAME;
   protected readonly checkingNow = signal(false);
   protected readonly justCheckedNotPaid = signal(false);
 
