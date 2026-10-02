@@ -46,6 +46,19 @@ function patientRow(overrides: Partial<PatientRecord> = {}): PatientRecord {
 }
 
 describe('PatientMapper.toDomainPatient', () => {
+  it('trae la marca de teléfono no habilitado como login desde users (CLI-143)', () => {
+    const row = patientRow();
+    const patient = PatientMapper.toDomainPatient({
+      ...row,
+      users: { ...row.users, phone_login_error: 'phone_in_use' },
+    });
+
+    expect(patient.phoneLoginError).toBe('phone_in_use');
+    expect(PatientMapper.toDomainPatient(patientRow()).phoneLoginError).toBe(
+      null,
+    );
+  });
+
   it('toma el teléfono de users y deja en null lo opcional vacío', () => {
     const patient = PatientMapper.toDomainPatient(patientRow());
 

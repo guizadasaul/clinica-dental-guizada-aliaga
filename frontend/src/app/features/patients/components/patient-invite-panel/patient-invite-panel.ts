@@ -1,4 +1,5 @@
 import { Component, ChangeDetectionStrategy, computed, effect, inject, input, output, signal } from '@angular/core';
+import { HttpErrorResponse } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
 import { PatientsService } from '../../services/patients.service';
 import {
@@ -6,6 +7,14 @@ import {
   type InviteChannel,
 } from '../../../patient-invites/services/patient-invites.service';
 import { PageHeaderComponent } from '../../../../shared/ui/page-header/page-header';
+
+function conflictMessage(err: unknown): string | null {
+  if (!(err instanceof HttpErrorResponse) || err.status !== 409) {
+    return null;
+  }
+  const message = (err.error as { message?: unknown } | null)?.message;
+  return typeof message === 'string' ? message : null;
+}
 
 @Component({
   selector: 'app-patient-invite-panel',
@@ -82,8 +91,10 @@ export class PatientInvitePanelComponent {
       );
       this.savedPhone.set(trimmedPhone ?? null);
       this.savedEmail.set(trimmedEmail ?? null);
-    } catch {
-      this.saveError.set('No pudimos guardar los cambios. Intentá de nuevo.');
+    } catch (err) {
+      // Un 409 trae un motivo concreto (email o teléfono ya usados por otra
+      // cuenta, CLI-143) que sirve más que el mensaje genérico.
+      this.saveError.set(conflictMessage(err) ?? 'No pudimos guardar los cambios. Intentá de nuevo.');
     } finally {
       this.saving.set(false);
     }

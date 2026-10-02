@@ -609,6 +609,19 @@ describe('PrismaUserRepository', () => {
       });
     });
 
+    it('guarda y limpia la marca de teléfono no habilitado (CLI-143)', async () => {
+      prismaMock.users.update.mockResolvedValue(fakeUserRecord());
+
+      await repo.updateContactInfo(USER_ID, { phoneLoginError: 'unknown' });
+      await repo.updateContactInfo(USER_ID, { phoneLoginError: null });
+
+      const calls = prismaMock.users.update.mock.calls as [
+        { data: Record<string, unknown> },
+      ][];
+      expect(calls[0][0].data).toMatchObject({ phone_login_error: 'unknown' });
+      expect(calls[1][0].data).toMatchObject({ phone_login_error: null });
+    });
+
     it('mapea email, teléfono y nombre cuando vienen', async () => {
       prismaMock.users.update.mockResolvedValue(fakeUserRecord());
 

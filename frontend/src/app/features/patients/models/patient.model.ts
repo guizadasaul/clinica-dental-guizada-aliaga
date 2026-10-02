@@ -28,6 +28,11 @@ export interface Patient {
   documentExtension: string | null;
   createdAt: string;
   updatedAt: string;
+  /**
+   * Por qué el teléfono no quedó habilitado como login (CLI-143):
+   * 'phone_in_use' = ya está en otra cuenta; 'unknown' = falló Supabase.
+   */
+  phoneLoginError?: 'phone_in_use' | 'unknown' | null;
   /** Doctor asignado (CLI-58) — informativo, no restringe acceso a la ficha. */
   assignedDoctorId: string | null;
 }

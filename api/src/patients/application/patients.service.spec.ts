@@ -141,6 +141,7 @@ const mockPatientRepo = {
 
 const mockUserRepo = {
   findByAuthUserId: jest.fn(),
+  findById: jest.fn(),
   upsertByAuthUserId: jest.fn(),
   createPlaceholder: jest.fn(),
   linkAuthIdentity: jest.fn(),
@@ -179,6 +180,22 @@ function fakeMedicalCondition(
     displayOrder: 0,
     ...overrides,
   };
+}
+
+/** Usuario de una ficha placeholder: todavía sin cuenta de Supabase. */
+function unclaimedUser(): User {
+  return new User(
+    'user-1',
+    null,
+    null,
+    UserRole.PATIENT,
+    'Name',
+    '71234567',
+    null,
+    true,
+    new Date(),
+    new Date(),
+  );
 }
 
 describe('PatientsService', () => {
@@ -472,6 +489,15 @@ describe('PatientsService', () => {
   });
 
   describe('updatePatient', () => {
+    beforeEach(() => {
+      // clearAllMocks no borra implementaciones: un rechazo de un test no
+      // tiene que filtrarse al siguiente.
+      mockUserRepo.updateContactInfo.mockReset();
+      mockUserRepo.findById.mockReset();
+      mockPatientRepo.findPatientById.mockReset();
+      mockSupabaseAdminService.setConfirmedPhone.mockReset();
+    });
+
     it('throws NotFoundException when the patient does not exist', async () => {
       mockPatientRepo.updatePatient.mockResolvedValue(null);
 
@@ -519,11 +545,12 @@ describe('PatientsService', () => {
     });
 
     it('syncs the phone onto the linked user when provided', async () => {
-      mockPatientRepo.updatePatient.mockResolvedValue(
+      mockPatientRepo.findPatientById.mockResolvedValue(
         fakePatient({ userId: 'user-1' }),
       );
-      mockUserRepo.updateContactInfo.mockResolvedValue(
-        makeAppUser(UserRole.PATIENT, 'user-1'),
+      mockUserRepo.findById.mockResolvedValue(unclaimedUser());
+      mockPatientRepo.updatePatient.mockResolvedValue(
+        fakePatient({ userId: 'user-1' }),
       );
 
       await service.updatePatient('patient-1', {
@@ -536,12 +563,18 @@ describe('PatientsService', () => {
       });
     });
 
-    it('confirms the phone in Supabase Auth when the linked user already has an account', async () => {
-      mockPatientRepo.updatePatient.mockResolvedValue(
+    it('confirms the phone in Supabase Auth before saving, and clears any previous flag', async () => {
+      mockPatientRepo.findPatientById.mockResolvedValue(
         fakePatient({ userId: 'user-1' }),
       );
       const linkedUser = makeAppUser(UserRole.PATIENT, 'user-1');
-      mockUserRepo.updateContactInfo.mockResolvedValue(linkedUser);
+      mockUserRepo.findById.mockResolvedValue(linkedUser);
+      mockSupabaseAdminService.setConfirmedPhone.mockResolvedValue({
+        ok: true,
+      });
+      mockPatientRepo.updatePatient.mockResolvedValue(
+        fakePatient({ userId: 'user-1' }),
+      );
 
       await service.updatePatient('patient-1', { phone: '71234567' });
 
@@ -549,30 +582,90 @@ describe('PatientsService', () => {
         linkedUser.authUserId,
         '+59171234567',
       );
+      expect(mockUserRepo.updateContactInfo).toHaveBeenCalledWith('user-1', {
+        phone: '71234567',
+        phoneLoginError: null,
+      });
     });
 
-    it('does not confirm the phone in Supabase Auth when the linked user has no account yet', async () => {
+    it('a phone already on another Supabase account is a 409 and nothing is saved (CLI-143)', async () => {
+      mockPatientRepo.findPatientById.mockResolvedValue(
+        fakePatient({ userId: 'user-1' }),
+      );
+      mockUserRepo.findById.mockResolvedValue(
+        makeAppUser(UserRole.PATIENT, 'user-1'),
+      );
+      mockSupabaseAdminService.setConfirmedPhone.mockResolvedValue({
+        ok: false,
+        reason: 'phone_in_use',
+      });
+
+      await expect(
+        service.updatePatient('patient-1', {
+          firstName: 'X',
+          phone: '71234567',
+        }),
+      ).rejects.toThrow('ya está registrado en otra cuenta');
+      expect(mockPatientRepo.updatePatient).not.toHaveBeenCalled();
+      expect(mockUserRepo.updateContactInfo).not.toHaveBeenCalled();
+    });
+
+    it('any other Supabase error saves the record but flags the phone as "unknown" (CLI-143)', async () => {
+      mockPatientRepo.findPatientById.mockResolvedValue(
+        fakePatient({ userId: 'user-1' }),
+      );
+      mockUserRepo.findById.mockResolvedValue(
+        makeAppUser(UserRole.PATIENT, 'user-1'),
+      );
+      mockSupabaseAdminService.setConfirmedPhone.mockResolvedValue({
+        ok: false,
+        reason: 'unknown',
+      });
       mockPatientRepo.updatePatient.mockResolvedValue(
         fakePatient({ userId: 'user-1' }),
       );
-      mockUserRepo.updateContactInfo.mockResolvedValue(
-        new User(
-          'user-1',
-          null,
-          null,
-          UserRole.PATIENT,
-          'Name',
-          '71234567',
-          null,
-          true,
-          new Date(),
-          new Date(),
-        ),
+
+      await service.updatePatient('patient-1', { phone: '71234567' });
+
+      expect(mockUserRepo.updateContactInfo).toHaveBeenCalledWith('user-1', {
+        phone: '71234567',
+        phoneLoginError: 'unknown',
+      });
+    });
+
+    it('does not confirm the phone in Supabase Auth when the linked user has no account yet', async () => {
+      mockPatientRepo.findPatientById.mockResolvedValue(
+        fakePatient({ userId: 'user-1' }),
+      );
+      mockUserRepo.findById.mockResolvedValue(unclaimedUser());
+      mockPatientRepo.updatePatient.mockResolvedValue(
+        fakePatient({ userId: 'user-1' }),
       );
 
       await service.updatePatient('patient-1', { phone: '71234567' });
 
       expect(mockSupabaseAdminService.setConfirmedPhone).not.toHaveBeenCalled();
+    });
+
+    it('a phone change on a missing patient is a 404 before calling Supabase', async () => {
+      mockPatientRepo.findPatientById.mockResolvedValue(null);
+
+      await expect(
+        service.updatePatient('missing', { phone: '71234567' }),
+      ).rejects.toThrow(NotFoundException);
+      expect(mockSupabaseAdminService.setConfirmedPhone).not.toHaveBeenCalled();
+    });
+
+    it('returns the re-read record so the phone and its flag are fresh', async () => {
+      const fresh = fakePatient({ id: 'patient-fresh', userId: 'user-1' });
+      mockPatientRepo.updatePatient.mockResolvedValue(
+        fakePatient({ userId: 'user-1' }),
+      );
+      mockPatientRepo.findPatientById.mockResolvedValue(fresh);
+
+      await expect(
+        service.updatePatient('patient-1', { email: 'new@example.com' }),
+      ).resolves.toBe(fresh);
     });
   });
 
