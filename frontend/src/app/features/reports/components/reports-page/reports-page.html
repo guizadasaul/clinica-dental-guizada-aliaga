@@ -109,6 +109,36 @@
         <p class="reports-page__note">
           "Canceladas" son las citas que el doctor canceló desde su agenda: se informan aparte y no suman a "Total turnos".
         </p>
+
+        <h3 class="reports-page__subtitle">Citas canceladas</h3>
+        @if (operationalReport()!.cancellations.length === 0) {
+          <p class="reports-page__empty">No hay citas canceladas en el rango elegido.</p>
+        } @else {
+          <table class="reports-page__table reports-page__table--cancellations">
+            <thead>
+              <tr>
+                <th>Turno</th>
+                <th>Paciente</th>
+                <th>Doctor</th>
+                <th>Cancelada el</th>
+                <th>Cancelada por</th>
+                <th>Motivo</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (c of operationalReport()!.cancellations; track c.appointmentId) {
+                <tr>
+                  <td>{{ formatDateTime(c.appointmentDatetime) }}</td>
+                  <td class="reports-page__cell--name">{{ c.patientName ?? 'Sin nombre' }}</td>
+                  <td>{{ c.doctorName ?? 'Sin nombre' }}</td>
+                  <td>{{ c.cancelledAt ? formatDateTime(c.cancelledAt) : '—' }}</td>
+                  <td>{{ c.cancelledByName ?? '—' }}</td>
+                  <td class="reports-page__cell--reason">{{ c.cancelReason ?? 'Sin motivo' }}</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        }
       }
     </div>
   } @else {

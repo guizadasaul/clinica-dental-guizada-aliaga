@@ -180,6 +180,19 @@
     font-weight: 600;
   }
 
+  &__subtitle {
+    margin: var(--space-4) 0 0;
+    font-family: var(--font-headline);
+    font-size: var(--font-size-lg);
+    color: var(--color-navy);
+  }
+
+  &__cell--reason {
+    max-width: 18rem;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+
   &__note {
     margin: 0;
     font-family: var(--font-body);

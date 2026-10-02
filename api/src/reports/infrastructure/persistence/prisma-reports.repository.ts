@@ -10,6 +10,7 @@ import type { WeeklyScheduleBlock } from '../../../appointments/domain/ClinicSch
 import { AppointmentStatus } from '../../../appointments/domain/Appointment.js';
 import type {
   AppointmentStatusCounts,
+  CancelledAppointmentRow,
   DoctorOperationalRow,
   OperationalReport,
   ReportParams,
@@ -53,6 +54,13 @@ function lastInclusiveDateString(toExclusive: Date): string {
   return toClinicDateString(new Date(toExclusive.getTime() - 1));
 }
 
+function fullName(
+  first: string | null | undefined,
+  last: string | null | undefined,
+): string | null {
+  return [first, last].filter(Boolean).join(' ') || null;
+}
+
 @Injectable()
 export class PrismaReportsRepository implements IReportsRepository {
   constructor(private readonly prisma: PrismaService) {}
@@ -71,37 +79,61 @@ export class PrismaReportsRepository implements IReportsRepository {
     const to = lastInclusiveDateString(params.to);
 
     if (doctors.length === 0) {
-      return { from, to, doctors: [] };
+      return { from, to, doctors: [], cancellations: [] };
     }
 
     const doctorIds = doctors.map((d) => d.id);
 
-    const [statusCounts, patientCounts, scheduleBlocks] = await Promise.all([
-      this.prisma.appointments.groupBy({
-        by: ['doctor_id', 'status'],
-        where: {
-          appointment_datetime: { gte: params.from, lt: params.to },
-          doctor_id: { in: doctorIds },
-        },
-        _count: { _all: true },
-      }),
-      // CLI-65: "atendidos" se reporta con los estados reales que existen
-      // hoy en appointments (held/confirmed/expired, y cancelled desde
-      // CLI-149) — no hay ningún flujo
-      // que transicione una cita a 'attended' (no existe check-in), así que
-      // ese estado nunca aparece poblado. No se inventa ese flujo acá.
-      this.prisma.patients.groupBy({
-        by: ['assigned_doctor_id'],
-        where: {
-          created_at: { gte: params.from, lt: params.to },
-          assigned_doctor_id: { in: doctorIds },
-        },
-        _count: { _all: true },
-      }),
-      this.prisma.doctor_schedule_blocks.findMany({
-        where: { doctor_id: { in: doctorIds } },
-      }),
-    ]);
+    const [statusCounts, patientCounts, scheduleBlocks, cancelled] =
+      await Promise.all([
+        this.prisma.appointments.groupBy({
+          by: ['doctor_id', 'status'],
+          where: {
+            appointment_datetime: { gte: params.from, lt: params.to },
+            doctor_id: { in: doctorIds },
+          },
+          _count: { _all: true },
+        }),
+        // CLI-65: "atendidos" se reporta con los estados reales que existen
+        // hoy en appointments (held/confirmed/expired, y cancelled desde
+        // CLI-149) — no hay ningún flujo
+        // que transicione una cita a 'attended' (no existe check-in), así que
+        // ese estado nunca aparece poblado. No se inventa ese flujo acá.
+        this.prisma.patients.groupBy({
+          by: ['assigned_doctor_id'],
+          where: {
+            created_at: { gte: params.from, lt: params.to },
+            assigned_doctor_id: { in: doctorIds },
+          },
+          _count: { _all: true },
+        }),
+        this.prisma.doctor_schedule_blocks.findMany({
+          where: { doctor_id: { in: doctorIds } },
+        }),
+        // CLI-103: mismo rango y doctores que el conteo de canceladas.
+        this.prisma.appointments.findMany({
+          where: {
+            status: AppointmentStatus.CANCELLED,
+            appointment_datetime: { gte: params.from, lt: params.to },
+            doctor_id: { in: doctorIds },
+          },
+          select: {
+            id: true,
+            appointment_datetime: true,
+            doctor_id: true,
+            cancelled_at: true,
+            cancel_reason: true,
+            guest_first_name: true,
+            guest_last_name_paternal: true,
+            patients: {
+              select: { first_name: true, last_name_paternal: true },
+            },
+            users: { select: { display_name: true } },
+            cancelled_by_user: { select: { display_name: true } },
+          },
+          orderBy: { appointment_datetime: 'desc' },
+        }),
+      ]);
 
     const statusByDoctor = new Map<string, AppointmentStatusCounts>();
     for (const row of statusCounts) {
@@ -167,7 +199,21 @@ export class PrismaReportsRepository implements IReportsRepository {
       };
     });
 
-    return { from, to, doctors: rows };
+    const cancellations: CancelledAppointmentRow[] = cancelled.map((a) => ({
+      appointmentId: a.id,
+      appointmentDatetime: a.appointment_datetime,
+      doctorId: a.doctor_id,
+      doctorName: a.users.display_name,
+      patientName: fullName(
+        a.patients?.first_name ?? a.guest_first_name,
+        a.patients?.last_name_paternal ?? a.guest_last_name_paternal,
+      ),
+      cancelledAt: a.cancelled_at,
+      cancelledByName: a.cancelled_by_user?.display_name ?? null,
+      cancelReason: a.cancel_reason,
+    }));
+
+    return { from, to, doctors: rows, cancellations };
   }
 
   async getFinancialReport(params: ReportParams): Promise<FinancialReport> {

@@ -18,10 +18,24 @@ export interface DoctorOperationalRow {
   occupancyRate: number;
 }
 
+/** Detalle de una cita cancelada (CLI-103): quién, cuándo y por qué. */
+export interface CancelledAppointmentRow {
+  appointmentId: string;
+  appointmentDatetime: string;
+  doctorId: string;
+  doctorName: string | null;
+  patientName: string | null;
+  cancelledAt: string | null;
+  cancelledByName: string | null;
+  cancelReason: string | null;
+}
+
 export interface OperationalReport {
   from: string;
   to: string;
   doctors: DoctorOperationalRow[];
+  /** Citas canceladas del rango, la más reciente primero (CLI-103). */
+  cancellations: CancelledAppointmentRow[];
 }
 
 export interface DoctorFinancialRow {

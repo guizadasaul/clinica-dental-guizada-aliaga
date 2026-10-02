@@ -36,9 +36,27 @@ export interface DoctorOperationalRow {
   occupancyRate: number;
 }
 
+/**
+ * Detalle de una cita cancelada (CLI-103) — el conteo vive en
+ * appointmentsByStatus.cancelled; esto es el "quién, cuándo y por qué".
+ */
+export interface CancelledAppointmentRow {
+  appointmentId: string;
+  appointmentDatetime: Date;
+  doctorId: string;
+  doctorName: string | null;
+  /** Paciente con ficha o, si fue una reserva web sin cuenta, el invitado. */
+  patientName: string | null;
+  cancelledAt: Date | null;
+  cancelledByName: string | null;
+  cancelReason: string | null;
+}
+
 export interface OperationalReport {
   /** YYYY-MM-DD, tal como vino en el query. */
   from: string;
   to: string;
   doctors: DoctorOperationalRow[];
+  /** Citas canceladas cuyo turno caía en el rango, la más reciente primero. */
+  cancellations: CancelledAppointmentRow[];
 }

@@ -35,6 +35,12 @@ describe('StepPaymentQrComponent', () => {
     expect(root.querySelector('.payment-qr__call-btn')?.getAttribute('href')).toMatch(/^tel:/);
   });
 
+  it('antes de pagar avisa que la clínica no realiza reembolsos (CLI-103)', () => {
+    const { root } = setup(false);
+
+    expect(root.querySelector('.payment-qr__warning')?.textContent).toContain('La clínica no realiza reembolsos');
+  });
+
   it('"Ya pagué" con el pago acreditado confirma la cita', async () => {
     const { booking, check, confirmed } = setup(true);
 

@@ -497,19 +497,19 @@ describe('PrismaAppointmentsRepository', () => {
   });
 
   describe('cancel', () => {
-    it('pasa a cancelled con quién y cuándo, agregando el motivo a las notas', async () => {
-      prismaMock.appointments.findFirst
-        .mockResolvedValueOnce({ notes: 'control' })
-        .mockResolvedValueOnce(
-          fakeAppointmentRecord({
-            status: 'cancelled',
-            cancelled_at: NOW,
-            doctor_id: 'doctor-1',
-            patients: null,
-            users: { display_name: 'Dr. Saul', doctor_profiles: null },
-            treatments: null,
-          }),
-        );
+    it('pasa a cancelled con quién, cuándo y el motivo en su propia columna (CLI-103)', async () => {
+      prismaMock.appointments.findFirst.mockResolvedValueOnce(
+        fakeAppointmentRecord({
+          status: 'cancelled',
+          cancelled_at: NOW,
+          cancel_reason: 'no puede venir',
+          doctor_id: 'doctor-1',
+          patients: null,
+          users: { display_name: 'Dr. Saul', doctor_profiles: null },
+          treatments: null,
+          cancelled_by_user: { display_name: 'Dr. Saul' },
+        }),
+      );
       prismaMock.appointments.updateMany.mockResolvedValue({ count: 1 });
 
       const result = await repo.cancel(
@@ -533,34 +533,39 @@ describe('PrismaAppointmentsRepository', () => {
       expect(call.data).toMatchObject({
         status: 'cancelled',
         cancelled_by: 'doctor-1',
-        notes: 'control\nCancelada: no puede venir',
+        cancel_reason: 'no puede venir',
       });
+      // Las notas del turno no se tocan.
+      expect(call.data).not.toHaveProperty('notes');
       expect(call.data.cancelled_at).toBeInstanceOf(Date);
-      expect(result).toMatchObject({ status: 'cancelled', cancelledAt: NOW });
+      expect(result).toMatchObject({
+        status: 'cancelled',
+        cancelledAt: NOW,
+        cancelReason: 'no puede venir',
+        cancelledByName: 'Dr. Saul',
+      });
     });
 
-    it('sin motivo ni notas previas deja las notas en null', async () => {
-      prismaMock.appointments.findFirst
-        .mockResolvedValueOnce({ notes: null })
-        .mockResolvedValueOnce(null);
+    it('sin motivo guarda cancel_reason en null', async () => {
+      prismaMock.appointments.findFirst.mockResolvedValueOnce(null);
       prismaMock.appointments.updateMany.mockResolvedValue({ count: 1 });
 
       await repo.cancel('appt-1', 'doctor-1', 'doctor-1', null);
 
       expect(prismaMock.appointments.updateMany).toHaveBeenCalledWith(
         expect.objectContaining({
-          data: expect.objectContaining({ notes: null }) as unknown,
+          data: expect.objectContaining({ cancel_reason: null }) as unknown,
         }),
       );
     });
 
-    it('devuelve null sin escribir si ya no estaba confirmada', async () => {
-      prismaMock.appointments.findFirst.mockResolvedValue(null);
+    it('devuelve null si ya no estaba confirmada (no se actualizó nada)', async () => {
+      prismaMock.appointments.updateMany.mockResolvedValue({ count: 0 });
 
       await expect(
         repo.cancel('appt-1', 'doctor-1', 'doctor-1', null),
       ).resolves.toBeNull();
-      expect(prismaMock.appointments.updateMany).not.toHaveBeenCalled();
+      expect(prismaMock.appointments.findFirst).not.toHaveBeenCalled();
     });
   });
 
