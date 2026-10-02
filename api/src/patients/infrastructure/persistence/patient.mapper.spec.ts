@@ -54,9 +54,9 @@ describe('PatientMapper.toDomainPatient', () => {
     });
 
     expect(patient.phoneLoginError).toBe('phone_in_use');
-    expect(PatientMapper.toDomainPatient(patientRow()).phoneLoginError).toBe(
-      null,
-    );
+    expect(
+      PatientMapper.toDomainPatient(patientRow()).phoneLoginError,
+    ).toBeNull();
   });
 
   it('toma el teléfono de users y deja en null lo opcional vacío', () => {
