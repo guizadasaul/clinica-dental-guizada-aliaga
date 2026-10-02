@@ -1611,7 +1611,7 @@ describe('PatientsService', () => {
       mockPatientRepo.findByUserId.mockResolvedValue(null);
 
       await expect(service.findMyPatient(PATIENT_AUTH_ID)).rejects.toThrow(
-        'No tenés un perfil de paciente registrado',
+        'No tienes un perfil de paciente registrado',
       );
     });
   });

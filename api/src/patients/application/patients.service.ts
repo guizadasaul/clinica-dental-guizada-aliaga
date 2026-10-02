@@ -180,7 +180,9 @@ export class PatientsService {
       targetUserId = requestedUserId!;
     } else {
       if (requestedUserId && requestedUserId !== caller.id) {
-        throw new ForbiddenException('No podés crear la ficha de otro usuario');
+        throw new ForbiddenException(
+          'No puedes crear la ficha de otro usuario',
+        );
       }
       targetUserId = caller.id;
     }
@@ -226,7 +228,7 @@ export class PatientsService {
       );
       if (existing) {
         throw new ConflictException(
-          `Ya existe ${patientFullName(existing)} con ese documento. Buscalo en la lista de pacientes.`,
+          `Ya existe ${patientFullName(existing)} con ese documento. Búscalo en la lista de pacientes.`,
         );
       }
     }
@@ -235,7 +237,7 @@ export class PatientsService {
       const [owner] = await this.userRepo.findActiveByPhone(e164);
       if (owner) {
         throw new ConflictException(
-          `Ya existe ${owner.displayName ?? 'una persona'} con ese teléfono. Buscala en la lista de pacientes.`,
+          `Ya existe ${owner.displayName ?? 'una persona'} con ese teléfono. Búscala en la lista de pacientes.`,
         );
       }
     }
@@ -329,7 +331,7 @@ export class PatientsService {
     }
     if (result.reason === PhoneLoginError.PHONE_IN_USE) {
       throw new ConflictException(
-        'Ese teléfono ya está registrado en otra cuenta, así que no se puede usar para iniciar sesión. Usá otro número.',
+        'Ese teléfono ya está registrado en otra cuenta, así que no se puede usar para iniciar sesión. Usa otro número.',
       );
     }
     return result.reason;
@@ -698,7 +700,7 @@ export class PatientsService {
     }
     const patient = await this.patientRepo.findByUserId(user.id);
     if (!patient) {
-      throw new NotFoundException('No tenés un perfil de paciente registrado');
+      throw new NotFoundException('No tienes un perfil de paciente registrado');
     }
     return patient;
   }

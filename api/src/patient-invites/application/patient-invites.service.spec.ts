@@ -253,7 +253,7 @@ describe('PatientInvitesService', () => {
       const text = url.searchParams.get('text')!;
       expect(text).toContain('Dr. Juan Gomez');
       expect(text).toContain('equipo de odontólogos');
-      expect(text).toContain('Creá tu acceso acá:');
+      expect(text).toContain('Crea tu acceso aquí:');
       expect(text).toContain('/invitacion/');
       expect(text).toContain('vence en 48 horas');
       expect(text).not.toContain('vence en 5 minutos');

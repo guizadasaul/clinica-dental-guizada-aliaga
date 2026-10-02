@@ -70,7 +70,7 @@ describe('IsFullName / IsPersonName', () => {
       ['que no es texto', 42],
     ])('%s: pide el nombre completo', (_, value) => {
       expect(messagesFor(BookingDto, 'fullName', value)).toEqual([
-        'Ingresá tu nombre completo.',
+        'Ingresa tu nombre completo.',
       ]);
     });
 
@@ -97,7 +97,7 @@ describe('IsFullName / IsPersonName', () => {
 
     it('que no es texto: pide el nombre', () => {
       expect(messagesFor(CommentDto, 'name', null)).toEqual([
-        'Ingresá tu nombre completo.',
+        'Ingresa tu nombre completo.',
       ]);
     });
   });

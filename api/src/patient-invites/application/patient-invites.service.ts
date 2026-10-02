@@ -68,8 +68,8 @@ const WHATSAPP_INTRO: Record<InviteEmailKind, string> = {
 };
 
 const WHATSAPP_CALL_TO_ACTION: Record<InviteEmailKind, string> = {
-  patient: 'Completá tu registro acá:',
-  doctor: 'Creá tu acceso acá:',
+  patient: 'Completa tu registro aquí:',
+  doctor: 'Crea tu acceso aquí:',
 };
 
 function buildWhatsappMessage(

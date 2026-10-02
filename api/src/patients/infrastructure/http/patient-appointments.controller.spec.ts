@@ -31,7 +31,7 @@ describe('PatientAppointmentsController (CLI-153)', () => {
 
   it('sin ficha propaga el 404, sin consultar citas', async () => {
     patientsService.findMyPatient.mockRejectedValue(
-      new NotFoundException('No tenés un perfil de paciente registrado'),
+      new NotFoundException('No tienes un perfil de paciente registrado'),
     );
 
     await expect(controller.findMyUpcoming(user)).rejects.toThrow(

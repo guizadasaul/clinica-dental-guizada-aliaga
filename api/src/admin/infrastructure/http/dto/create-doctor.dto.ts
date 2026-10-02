@@ -58,7 +58,7 @@ export class CreateDoctorDto {
     {
       message: (args: ValidationArguments) =>
         args.value === undefined
-          ? 'Ingresá al menos un contacto: email o teléfono'
+          ? 'Ingresa al menos un contacto: email o teléfono'
           : 'email must be an email',
     },
   )

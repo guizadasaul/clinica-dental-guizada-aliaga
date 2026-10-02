@@ -47,10 +47,47 @@ describe('ResendEmailSender', () => {
   it('tells a doctor the link expires in 48 hours and uses the doctor subject', async () => {
     const email = await sentEmail('doctor');
 
-    expect(email.subject).toContain('unirte al staff');
+    expect(email.subject).toContain('unirte al equipo');
     expect(email.html).toContain('vence en <strong>48 horas</strong>');
     expect(email.text).toContain('vence en 48 horas');
     expect(email.html).not.toContain('5 minutos');
+  });
+
+  // CLI-174: el preheader y la línea del enlace en texto plano decían
+  // "Completá tu registro" también en la invitación a doctores.
+  it('a patient gets "Completa tu registro" in the preview and the plain-text link line', async () => {
+    const email = await sentEmail('patient');
+
+    expect(email.html).toContain(
+      'Nombre, completa tu registro en Clínica Dental Guizada-Aliaga',
+    );
+    expect(email.text).toContain(
+      'Completa tu registro aquí: https://app.example.com/invitacion/tok',
+    );
+  });
+
+  it('a doctor gets "Crea tu acceso" instead, never the patient wording', async () => {
+    const email = await sentEmail('doctor');
+
+    expect(email.html).toContain(
+      'Nombre, crea tu acceso al equipo de Clínica Dental Guizada-Aliaga',
+    );
+    expect(email.text).toContain(
+      'Crea tu acceso aquí: https://app.example.com/invitacion/tok',
+    );
+    expect(email.html).not.toContain('completa tu registro');
+    expect(email.text).not.toContain('Completa tu registro');
+  });
+
+  it('is written in neutral Spanish, without voseo', async () => {
+    for (const kind of ['patient', 'doctor'] as const) {
+      fetchMock.mockClear();
+      const email = await sentEmail(kind);
+      const all = `${email.subject} ${email.html} ${email.text}`;
+      expect(all).not.toMatch(
+        /Complet[aá] tu registro acá|copiá|pegá|creés|podés|Unite|Completá/,
+      );
+    }
   });
 
   it('fails with ServiceUnavailableException when Resend is not configured', async () => {

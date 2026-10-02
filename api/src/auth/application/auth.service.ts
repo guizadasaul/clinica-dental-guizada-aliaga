@@ -128,7 +128,7 @@ export class AuthService {
     const phoneE164 = toE164Bolivia(phone);
     if (invite.phone && toE164Bolivia(invite.phone) !== phoneE164) {
       throw new UnprocessableEntityException(
-        `Registrate con el número que diste en la clínica (terminado en ${phoneLastDigits(invite.phone)}).`,
+        `Regístrate con el número que diste en la clínica (terminado en ${phoneLastDigits(invite.phone)}).`,
       );
     }
     await this.supabaseAdminService.createPhoneUser(phoneE164, password);
