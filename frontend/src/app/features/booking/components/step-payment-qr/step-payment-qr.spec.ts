@@ -56,7 +56,9 @@ describe('StepPaymentQrComponent', () => {
     await check();
 
     expect(confirmed()).toBe(0);
-    expect(root.textContent).toContain('Todavía no detectamos tu pago');
+    expect(root.textContent).toContain('No detectamos tu pago todavía');
+    // CLI-165: se presenta como un error (alerta), no como una nota.
+    expect(root.querySelector('.payment-qr__not-paid-yet')?.getAttribute('role')).toBe('alert');
     expect(root.querySelector<HTMLButtonElement>('.payment-qr__check-btn')!.disabled).toBe(false);
   });
 });
