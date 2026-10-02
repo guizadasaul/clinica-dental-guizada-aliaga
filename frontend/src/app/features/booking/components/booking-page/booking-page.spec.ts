@@ -100,6 +100,34 @@ describe('BookingPageComponent', () => {
     expect(fixture.componentInstance['step']()).toBe('contact');
   });
 
+  it('"elegir otro doctor" desde un doctor sin turnos vuelve al selector (CLI-142)', async () => {
+    const bookingService = createBookingServiceStub();
+    const fixture = setup(bookingService);
+    await settle(fixture);
+    fixture.componentInstance['onDoctorSelected']('doctor-1');
+    await settle(fixture);
+
+    fixture.componentInstance['onChangeDoctor']();
+    await settle(fixture);
+
+    expect(fixture.componentInstance['step']()).toBe('doctor');
+    expect(fixture.componentInstance['selectedDoctorId']()).toBeNull();
+    // La lista ya estaba cargada: no se vuelve a pedir.
+    expect(bookingService.getDoctors).toHaveBeenCalledTimes(1);
+  });
+
+  it('si se llegó con el doctor preelegido desde la landing, "elegir otro doctor" carga la lista', async () => {
+    const bookingService = createBookingServiceStub();
+    const fixture = setup(bookingService, { doctorId: 'doctor-1', slot: SLOT_ISO });
+    await settle(fixture);
+
+    fixture.componentInstance['onChangeDoctor']();
+    await settle(fixture);
+
+    expect(bookingService.getDoctors).toHaveBeenCalledTimes(1);
+    expect(fixture.componentInstance['doctors']()).toEqual([DOCTOR]);
+  });
+
   // El modal de la landing manda ?doctorId=&slot= cuando el visitante ya
   // eligió doctor y horario ahí — /reservar no debe repreguntar el doctor.
   it('with ?doctorId and ?slot in the URL, holds directly and skips the doctor/slot pickers', async () => {

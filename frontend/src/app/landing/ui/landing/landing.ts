@@ -358,6 +358,12 @@ export class LandingComponent implements OnInit, AfterViewInit, OnDestroy {
     void this.loadBookingAvailability(doctorId);
   }
 
+  /** Volver al selector de doctores desde un doctor sin turnos (CLI-142). */
+  protected onBookingChangeDoctor(): void {
+    this.bookingSelectedDoctorId.set(null);
+    this.bookingSlotsByDate.set({});
+  }
+
   protected onBookingSlotSelected(slot: string): void {
     const doctorId = this.bookingSelectedDoctorId();
     if (!doctorId) {

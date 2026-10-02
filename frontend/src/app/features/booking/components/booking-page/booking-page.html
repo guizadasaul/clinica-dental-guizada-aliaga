@@ -35,6 +35,7 @@
           [loading]="loading()"
           [error]="error()"
           (slotSelected)="onSlotSelected($event)"
+          (changeDoctor)="onChangeDoctor()"
         />
       }
       @case ('contact') {

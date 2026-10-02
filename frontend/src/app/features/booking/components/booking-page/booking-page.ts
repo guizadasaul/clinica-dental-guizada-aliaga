@@ -88,6 +88,17 @@ export class BookingPageComponent implements OnInit {
     void this.loadAvailability(doctorId);
   }
 
+  /** Volver al selector de doctores desde un doctor sin turnos (CLI-142). */
+  protected onChangeDoctor(): void {
+    this.selectedDoctorId.set(null);
+    this.slotsByDate.set({});
+    this.step.set('doctor');
+    // Si llegamos desde la landing con el doctor ya elegido, la lista nunca se cargó.
+    if (this.doctors().length === 0) {
+      void this.loadDoctors();
+    }
+  }
+
   private async loadAvailability(doctorId: string): Promise<void> {
     this.loading.set(true);
     this.error.set(null);

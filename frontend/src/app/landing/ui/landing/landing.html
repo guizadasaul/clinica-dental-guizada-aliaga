@@ -187,6 +187,7 @@
           [loading]="bookingLoading()"
           [error]="bookingError()"
           (slotSelected)="onBookingSlotSelected($event)"
+          (changeDoctor)="onBookingChangeDoctor()"
         />
       }
     </dialog>
