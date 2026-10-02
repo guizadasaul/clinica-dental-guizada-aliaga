@@ -1,7 +1,7 @@
 <section class="mq" aria-labelledby="mq-title">
   <header class="mq__header">
     <h1 id="mq-title" class="mq__title">Mi presupuesto</h1>
-    <p class="mq__subtitle">Los tratamientos que tu doctor planificó para vos y lo que llevás pagado.</p>
+    <p class="mq__subtitle">Los tratamientos que tu doctor planificó para ti y lo que llevas pagado.</p>
   </header>
 
   @switch (state().status) {
@@ -14,7 +14,7 @@
     @case ('error') {
       <div class="mq__state mq__state--error">
         <span class="material-symbols-outlined">error</span>
-        <p>No pudimos cargar tu presupuesto. Intentá de nuevo en un rato.</p>
+        <p>No pudimos cargar tu presupuesto. Intenta de nuevo en un momento.</p>
       </div>
     }
     @default {

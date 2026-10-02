@@ -78,7 +78,7 @@ describe('InvitationLandingComponent', () => {
       const { harness, invites } = await setup({ status: { valid: true, kind: 'doctor' } });
 
       expect(invites.checkStatus).toHaveBeenCalledWith('tok-1');
-      expect(text(harness)).toContain('Sumate al equipo');
+      expect(text(harness)).toContain('Únete al equipo');
       expect(text(harness)).toContain('tu panel, tu agenda y las fichas de tus pacientes');
       expect(text(harness)).not.toContain('ver tus citas');
     });
@@ -86,36 +86,36 @@ describe('InvitationLandingComponent', () => {
     it('keeps the patient copy for a valid patient invitation', async () => {
       const { harness } = await setup({ status: { valid: true, kind: 'patient' } });
 
-      expect(text(harness)).toContain('Completá tu registro');
+      expect(text(harness)).toContain('Completa tu registro');
       expect(text(harness)).toContain('ver tus citas y tu historial');
-      expect(text(harness)).not.toContain('Sumate al equipo');
+      expect(text(harness)).not.toContain('Únete al equipo');
     });
 
     it('treats a response without kind (older backend) as a patient invitation', async () => {
       const { harness } = await setup({ status: { valid: true } });
 
-      expect(text(harness)).toContain('Completá tu registro');
+      expect(text(harness)).toContain('Completa tu registro');
     });
 
     it('tells an expired doctor link to ask the clinic administration, not a doctor', async () => {
       const { harness } = await setup({ status: { valid: false, kind: 'doctor' } });
 
       expect(text(harness)).toContain('Link no disponible');
-      expect(text(harness)).toContain('Pedile a la administración de la clínica que te lo reenvíe');
-      expect(text(harness)).not.toContain('Pedile al doctor');
+      expect(text(harness)).toContain('Pídele a la administración de la clínica que te lo reenvíe');
+      expect(text(harness)).not.toContain('Pídele al doctor');
     });
 
     it('keeps telling an expired patient link to ask the doctor', async () => {
       const { harness } = await setup({ status: { valid: false, kind: 'patient' } });
 
-      expect(text(harness)).toContain('Pedile al doctor que te lo reenvíe');
+      expect(text(harness)).toContain('Pídele al doctor que te lo reenvíe');
     });
 
     it('uses the patient wording for a token that does not exist (no kind), revealing nothing else', async () => {
       const { harness } = await setup({ status: { valid: false } });
 
       expect(text(harness)).toContain('Link no disponible');
-      expect(text(harness)).toContain('Pedile al doctor que te lo reenvíe');
+      expect(text(harness)).toContain('Pídele al doctor que te lo reenvíe');
       expect(text(harness)).not.toContain('administración');
     });
   });
@@ -161,7 +161,7 @@ describe('InvitationLandingComponent', () => {
 
       expect(auth.registerWithPassword).toHaveBeenCalledWith('marylu@example.com', PASSWORD);
       expect(localStorage.getItem('pendingInviteToken')).toBe('tok-1');
-      expect(text(harness)).toContain('Revisá tu correo');
+      expect(text(harness)).toContain('Revisa tu correo');
     });
 
     it('phone + password: creates the account, waits for the sync and lands on the dashboard', async () => {
@@ -221,7 +221,7 @@ describe('InvitationLandingComponent', () => {
       auth.registerWithPhone.mockRejectedValue(
         new HttpErrorResponse({
           status: 422,
-          error: { message: 'Registrate con el número que diste en la clínica (terminado en 665).' },
+          error: { message: 'Regístrate con el número que diste en la clínica (terminado en 665).' },
         }),
       );
 
@@ -236,7 +236,7 @@ describe('InvitationLandingComponent', () => {
       (el<HTMLFormElement>(harness, '.auth-form')).dispatchEvent(new Event('submit'));
       await settle(harness);
 
-      expect(text(harness)).toContain('Registrate con el número que diste en la clínica (terminado en 665).');
+      expect(text(harness)).toContain('Regístrate con el número que diste en la clínica (terminado en 665).');
       expect(localStorage.getItem('pendingInviteToken')).toBeNull();
     });
 
@@ -255,7 +255,7 @@ describe('InvitationLandingComponent', () => {
       (el<HTMLFormElement>(harness, '.auth-form')).dispatchEvent(new Event('submit'));
       await settle(harness);
 
-      expect(text(harness)).toContain('Registrate con el número que diste en la clínica.');
+      expect(text(harness)).toContain('Regístrate con el número que diste en la clínica.');
     });
 
     it('forgets the token and explains it when the phone is already registered (409)', async () => {

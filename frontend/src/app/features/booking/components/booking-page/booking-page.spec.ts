@@ -146,13 +146,13 @@ describe('BookingPageComponent', () => {
     await settle(fixture);
     const subtitle = () => (fixture.nativeElement as HTMLElement).querySelector('.booking-page__subtitle')?.textContent;
 
-    expect(subtitle()).toContain('Elegí con qué doctor');
+    expect(subtitle()).toContain('Elige con qué doctor');
     fixture.componentInstance['onDoctorSelected']('doctor-1');
     await settle(fixture);
-    expect(subtitle()).toContain('Elegí el día y la hora');
+    expect(subtitle()).toContain('Elige el día y la hora');
     await fixture.componentInstance['onSlotSelected'](SLOT_ISO);
     await settle(fixture);
-    expect(subtitle()).toContain('Dejanos tus datos');
+    expect(subtitle()).toContain('Déjanos tus datos');
   });
 
   it('muestra el indicador de pasos con el paso actual (CLI-166)', async () => {

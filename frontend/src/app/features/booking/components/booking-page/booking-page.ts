@@ -17,7 +17,7 @@ type BookingStep = BookingStepKey;
 
 /** La API limita los intentos de reserva por IP y hora (429): se avisa con un mensaje propio, no con el genérico (CLI-169). */
 const RATE_LIMIT_MESSAGE =
-  'Superaste el límite de intentos de reserva. Esperá un rato (hasta una hora) y volvé a intentarlo.';
+  'Superaste el límite de intentos de reserva. Espera un momento (hasta una hora) y vuelve a intentarlo.';
 
 function isRateLimited(err: unknown): boolean {
   return err instanceof HttpErrorResponse && err.status === 429;
@@ -25,10 +25,10 @@ function isRateLimited(err: unknown): boolean {
 
 /** Subtítulo propio de cada paso (CLI-166): el de antes era fijo para todos. */
 const STEP_SUBTITLES: Record<BookingStep, string> = {
-  doctor: 'Elegí con qué doctor querés tu consulta.',
-  slot: 'Elegí el día y la hora que mejor te quede.',
-  contact: 'Dejanos tus datos para reservar tu lugar. Tu horario queda guardado unos minutos.',
-  payment: 'Escaneá el código QR con la app de tu banco para pagar y confirmar tu cita.',
+  doctor: 'Elige con qué doctor quieres tu consulta.',
+  slot: 'Elige el día y la hora que mejor te quede.',
+  contact: 'Déjanos tus datos para reservar tu lugar. Tu horario queda guardado unos minutos.',
+  payment: 'Escanea el código QR con la app de tu banco para pagar y confirmar tu cita.',
   confirmed: '¡Listo! Tu cita quedó confirmada.',
 };
 
@@ -114,7 +114,7 @@ export class BookingPageComponent implements OnInit {
       const result = await firstValueFrom(this.bookingService.getDoctors());
       this.doctors.set(result);
     } catch {
-      this.error.set('No pudimos cargar los doctores disponibles. Intentá de nuevo.');
+      this.error.set('No pudimos cargar los doctores disponibles. Intenta de nuevo.');
     } finally {
       this.doctorsLoading.set(false);
     }
@@ -145,7 +145,7 @@ export class BookingPageComponent implements OnInit {
       this.slotsByDate.set(result.slotsByDate);
     } catch {
       this.slotsByDate.set({});
-      this.error.set('No pudimos cargar los horarios disponibles. Intentá de nuevo.');
+      this.error.set('No pudimos cargar los horarios disponibles. Intenta de nuevo.');
     } finally {
       this.loading.set(false);
     }
@@ -167,11 +167,11 @@ export class BookingPageComponent implements OnInit {
       if (isRateLimited(err)) {
         this.error.set(RATE_LIMIT_MESSAGE);
       } else if (err instanceof HttpErrorResponse && err.status === 409) {
-        this.error.set('Ese horario ya no está disponible, elegí otro.');
+        this.error.set('Ese horario ya no está disponible, elige otro.');
         this.step.set('slot');
         await this.loadAvailability(doctorId);
       } else {
-        this.error.set('No pudimos reservar ese horario. Intentá de nuevo.');
+        this.error.set('No pudimos reservar ese horario. Intenta de nuevo.');
       }
     } finally {
       this.loading.set(false);
@@ -198,7 +198,7 @@ export class BookingPageComponent implements OnInit {
       if (isRateLimited(err)) {
         this.error.set(RATE_LIMIT_MESSAGE);
       } else if (err instanceof HttpErrorResponse && err.status === 410) {
-        this.error.set('El horario reservado ya venció. Elegí uno nuevo.');
+        this.error.set('El horario reservado ya venció. Elige uno nuevo.');
         this.resetToSlotSelection();
       } else if (err instanceof HttpErrorResponse && err.status === 409) {
         // 409 = el email/teléfono ya pertenece a una cuenta existente, o a
@@ -206,10 +206,10 @@ export class BookingPageComponent implements OnInit {
         // mensaje, mostrarlo tal cual en vez de un genérico.
         this.error.set(
           (err.error?.message as string | undefined) ??
-            'Ese email o teléfono ya está en uso. Revisá tus datos.',
+            'Ese email o teléfono ya está en uso. Revisa tus datos.',
         );
       } else {
-        this.error.set('No pudimos guardar tus datos. Intentá de nuevo.');
+        this.error.set('No pudimos guardar tus datos. Intenta de nuevo.');
       }
     } finally {
       this.loading.set(false);
@@ -221,7 +221,7 @@ export class BookingPageComponent implements OnInit {
   }
 
   protected onHoldExpired(): void {
-    this.error.set('El tiempo para completar la reserva venció. Elegí un horario nuevamente.');
+    this.error.set('El tiempo para completar la reserva venció. Elige un horario nuevamente.');
     this.resetToSlotSelection();
   }
 

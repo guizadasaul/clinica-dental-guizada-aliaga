@@ -2,9 +2,9 @@
   @if (!loading() && !error() && noSlotsInRange()) {
     <div class="week-picker__empty">
       <span class="material-symbols-outlined week-picker__empty-icon" aria-hidden="true">event_busy</span>
-      <p class="week-picker__empty-title">Sin turnos disponibles por ahora</p>
+      <p class="week-picker__empty-title">Sin citas disponibles por ahora</p>
       <p class="week-picker__empty-text">
-        Este doctor no tiene horarios libres en las próximas dos semanas. Probá con otro doctor o escribinos por
+        Este doctor no tiene horarios libres en las próximas dos semanas. Prueba con otro doctor o escríbenos por
         <a href="https://wa.me/59157744250" target="_blank" rel="noopener noreferrer">WhatsApp</a>.
       </p>
       <button type="button" class="week-picker__empty-btn" (click)="changeDoctor.emit()">Elegir otro doctor</button>
@@ -13,9 +13,9 @@
     <div class="week-picker__doctor">
       <p class="week-picker__doctor-label">
         @if (doctorName()) {
-          Turnos con <strong>{{ doctorName() }}</strong>
+          Citas con <strong>{{ doctorName() }}</strong>
         } @else {
-          Elegí un horario
+          Elige un horario
         }
       </p>
       <button type="button" class="week-picker__change-doctor" (click)="changeDoctor.emit()">
@@ -71,7 +71,7 @@
     } @else if (loading()) {
       <p class="week-picker__hint">Buscando horarios disponibles…</p>
     } @else if (daySlots().length === 0) {
-      <p class="week-picker__hint">No hay horarios disponibles este día. Probá con otro.</p>
+      <p class="week-picker__hint">No hay horarios disponibles este día. Prueba con otro.</p>
     } @else {
       <div class="week-picker__slots">
         @for (option of daySlots(); track option.iso) {

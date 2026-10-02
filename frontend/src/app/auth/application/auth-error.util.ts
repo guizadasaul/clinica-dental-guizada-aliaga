@@ -5,9 +5,9 @@ const MESSAGES_BY_CODE: Record<string, string> = {
   user_already_exists: 'Ya existe una cuenta con este correo.',
   email_exists: 'Ya existe una cuenta con este correo.',
   weak_password: 'La contraseña debe tener al menos 8 caracteres.',
-  email_not_confirmed: 'Confirmá tu correo antes de iniciar sesión. Revisá tu bandeja de entrada.',
+  email_not_confirmed: 'Confirma tu correo antes de iniciar sesión. Revisa tu bandeja de entrada.',
   same_password: 'La nueva contraseña debe ser diferente a la anterior.',
-  over_email_send_rate_limit: 'Demasiados intentos. Esperá unos minutos antes de volver a intentar.',
+  over_email_send_rate_limit: 'Demasiados intentos. Espera unos minutos antes de volver a intentarlo.',
 };
 
 const MESSAGE_FALLBACKS: Array<[needle: string, message: string]> = [
