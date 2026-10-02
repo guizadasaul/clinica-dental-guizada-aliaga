@@ -120,6 +120,17 @@ describe('LandingComponent', () => {
     expect((fixture.nativeElement as HTMLElement).textContent).toContain('Excelente atención');
   });
 
+  it('el hero lleva las dos partes del logo como marca de agua decorativa, una a cada lado (CLI-163)', async () => {
+    const { fixture } = setup();
+    await render(fixture);
+
+    const marks = all(fixture, '.hero__watermark');
+    expect(marks.map((m) => m.classList.contains('hero__watermark--left'))).toEqual([true, false]);
+    expect(marks[1].classList).toContain('hero__watermark--right');
+    // Decorativas: viven en el fondo, ocultas para lectores de pantalla.
+    expect(marks.every((m) => m.closest('[aria-hidden="true"]'))).toBe(true);
+  });
+
   it('si los comentarios no cargan, la sección queda sin testimonios (sin romper la página)', async () => {
     const { fixture } = setup({
       mocks: {
