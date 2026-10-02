@@ -377,7 +377,7 @@ export class LandingComponent implements OnInit, AfterViewInit, OnDestroy {
       const result = await firstValueFrom(this.bookingService.getDoctors());
       this.bookingDoctors.set(result);
     } catch {
-      this.bookingError.set('No pudimos cargar los doctores disponibles. Intentá de nuevo más tarde.');
+      this.bookingError.set('No pudimos cargar los doctores disponibles. Intenta de nuevo más tarde.');
     } finally {
       this.bookingDoctorsLoading.set(false);
     }
@@ -391,7 +391,7 @@ export class LandingComponent implements OnInit, AfterViewInit, OnDestroy {
       const result = await firstValueFrom(this.bookingService.getAvailabilityRange(today, doctorId));
       this.bookingSlotsByDate.set(result.slotsByDate);
     } catch {
-      this.bookingError.set('No pudimos cargar los horarios disponibles. Intentá de nuevo más tarde.');
+      this.bookingError.set('No pudimos cargar los horarios disponibles. Intenta de nuevo más tarde.');
     } finally {
       this.bookingLoading.set(false);
     }

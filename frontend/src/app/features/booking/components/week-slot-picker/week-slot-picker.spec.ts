@@ -1,7 +1,7 @@
 import { TestBed } from '@angular/core/testing';
 import { WeekSlotPickerComponent } from './week-slot-picker';
 
-const EMPTY_TITLE = 'Sin turnos disponibles por ahora';
+const EMPTY_TITLE = 'Sin citas disponibles por ahora';
 
 function range(slotsForFirstDay: string[] = []): Record<string, string[]> {
   const slotsByDate: Record<string, string[]> = {};
@@ -77,7 +77,7 @@ describe('WeekSlotPickerComponent', () => {
   it('mientras carga también se puede cambiar de doctor, aunque no se sepa el nombre', () => {
     const { root } = setup({ slotsByDate: {}, loading: true });
 
-    expect(root.querySelector('.week-picker__doctor-label')?.textContent).toContain('Elegí un horario');
+    expect(root.querySelector('.week-picker__doctor-label')?.textContent).toContain('Elige un horario');
     expect(root.querySelector('.week-picker__change-doctor')).not.toBeNull();
   });
 

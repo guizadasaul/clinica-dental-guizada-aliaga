@@ -36,16 +36,16 @@ describe('StepPaymentQrComponent', () => {
     expect(root.querySelector('img')?.getAttribute('src')).toBe('data:image/png;base64,QUJD');
   });
 
-  describe('botón Contactanos (CLI-166)', () => {
+  describe('botón Contáctanos (CLI-166)', () => {
     function contact(doctorName: string | null, doctorPhone: string | null) {
       const s = setup(false, { doctorName, doctorPhone });
       return s.root.querySelector<HTMLAnchorElement>('.payment-qr__contact-btn')!;
     }
 
-    it('dice "Contactanos" y no muestra ningún número', () => {
+    it('dice "Contáctanos" y no muestra ningún número', () => {
       const link = contact('Dra. Ejemplo', '+59167402602');
 
-      expect(link.textContent).toContain('Contactanos');
+      expect(link.textContent).toContain('Contáctanos');
       expect(link.textContent).not.toMatch(/\d{4}/);
     });
 

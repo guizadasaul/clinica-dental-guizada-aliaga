@@ -70,7 +70,7 @@ describe('ForgotPasswordComponent', () => {
     await settle(fixture);
 
     expect(authService.requestPasswordReset).toHaveBeenCalledWith('maria@correo.com');
-    expect(el(fixture, TITLE)?.textContent).toContain('Revisá tu correo');
+    expect(el(fixture, TITLE)?.textContent).toContain('Revisa tu correo');
   });
 
   it('tras enviar, deshabilita el reenvío con cuenta regresiva de 60s', async () => {

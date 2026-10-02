@@ -93,7 +93,7 @@ describe('PatientDashboardComponent', () => {
     it('sin citas muestra el estado vacío de siempre', () => {
       const { root } = setup('home');
 
-      expect(root.querySelector('.appointment-empty')?.textContent).toContain('No tenés citas programadas');
+      expect(root.querySelector('.appointment-empty')?.textContent).toContain('No tienes citas programadas');
       expect(root.querySelector('.stat-card__value')?.textContent?.trim()).toBe('—');
     });
 

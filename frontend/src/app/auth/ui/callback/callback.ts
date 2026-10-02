@@ -25,7 +25,7 @@ export class CallbackComponent implements OnInit {
   private async completeLogin(): Promise<void> {
     const params = this.route.snapshot.queryParamMap;
     if (params.get('error') || params.get('error_description')) {
-      this.errorMessage.set('No se pudo iniciar sesión con Google. Intentá nuevamente.');
+      this.errorMessage.set('No se pudo iniciar sesión con Google. Intenta nuevamente.');
       return;
     }
 
