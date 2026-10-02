@@ -1,5 +1,6 @@
 export interface CreatePatientRequest {
-  userId: string;
+  /** Sin userId, el backend crea un paciente nuevo (llegó sin reserva previa, CLI-171). */
+  userId?: string;
   firstName: string;
   lastNamePaternal: string;
   lastNameMaternal?: string;

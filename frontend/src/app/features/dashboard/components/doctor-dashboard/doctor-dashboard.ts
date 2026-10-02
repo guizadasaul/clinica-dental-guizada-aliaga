@@ -102,9 +102,14 @@ export class DoctorDashboardComponent implements OnInit {
   protected readonly inviteSuccessMessage = signal<string | null>(null);
   private inviteSuccessTimeout: ReturnType<typeof setTimeout> | null = null;
 
+  /** Alta de un paciente nuevo sin reserva previa (CLI-171): el asistente se abre sin un userId. */
+  protected readonly newPatientMode = signal(false);
+
   protected readonly showWizard = computed(
     () =>
-      (this.selectedUserId() !== null || this.selectedPatientId() !== null) &&
+      (this.selectedUserId() !== null ||
+        this.selectedPatientId() !== null ||
+        this.newPatientMode()) &&
       this.selectedPatientForTreatment() === null &&
       this.selectedPatientForHistory() === null &&
       this.selectedPatientForQuote() === null &&
@@ -191,6 +196,16 @@ export class DoctorDashboardComponent implements OnInit {
     this.selectedPatientForClinicalRecord.set(null);
   }
 
+  protected onNewPatient(): void {
+    this.newPatientMode.set(true);
+    this.selectedUserId.set(null);
+    this.selectedPatientId.set(null);
+    this.selectedPatientForInvite.set(null);
+    this.selectedPatientForDiagnosis.set(null);
+    this.selectedPatientForClinicalRecord.set(null);
+    this.wizardStartStep.set(1);
+  }
+
   protected onOpenOdontogram(patientId: string): void {
     this.selectedPatientId.set(patientId);
     this.selectedUserId.set(null);
@@ -242,6 +257,7 @@ export class DoctorDashboardComponent implements OnInit {
   }
 
   private closeWizard(): void {
+    this.newPatientMode.set(false);
     this.selectedUserId.set(null);
     this.selectedPatientId.set(null);
     this.selectedPatientForDiagnosis.set(null);

@@ -1,3 +1,4 @@
+import type { CreatePlaceholderUserData } from '../../auth/domain/UserRepository';
 import type { Patient } from './Patient';
 import type { MedicalHistory } from './MedicalHistory';
 import type { HygieneHabits } from './HygieneHabits';
@@ -176,6 +177,13 @@ export interface IPatientRepository {
   findPatientById(id: string): Promise<Patient | null>;
   findByUserId(userId: string): Promise<Patient | null>;
   create(userId: string, data: CreatePatientData): Promise<Patient>;
+  /** Paciente nuevo sin cuenta ni reserva previa (CLI-171): usuario placeholder + ficha, atómico. */
+  createWithPlaceholderUser(
+    user: CreatePlaceholderUserData,
+    data: CreatePatientData,
+  ): Promise<Patient>;
+  /** Ficha por (tipo de documento, número) — la clave única real del paciente. */
+  findByDocument(documentType: string, dni: string): Promise<Patient | null>;
   /** null si el patientId no existe. */
   updatePatient(id: string, data: UpdatePatientData): Promise<Patient | null>;
   upsertMedicalHistory(

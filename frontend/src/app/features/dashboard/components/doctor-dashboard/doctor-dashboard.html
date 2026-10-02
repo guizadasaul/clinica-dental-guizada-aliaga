@@ -145,6 +145,7 @@
     } @else {
       <app-patients-list
         (startWizard)="onStartWizard($event)"
+        (newPatient)="onNewPatient()"
         (openOdontogram)="onOpenOdontogram($event)"
         (newDiagnosis)="onNewDiagnosis($event)"
         (registerDiagnosis)="onRegisterDiagnosis($event)"

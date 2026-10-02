@@ -16,6 +16,12 @@
           (input)="filter.set($any($event.target).value)"
         />
       </div>
+      @if (!readOnly()) {
+        <button type="button" class="patients-list__new-btn" (click)="newPatient.emit()">
+          <span class="material-symbols-outlined" aria-hidden="true">person_add</span>
+          Nuevo paciente
+        </button>
+      }
       @if (!forcedDoctorId()) {
         <div class="patients-list__owner-toggle" role="tablist" aria-label="Filtrar por doctor">
           <button
