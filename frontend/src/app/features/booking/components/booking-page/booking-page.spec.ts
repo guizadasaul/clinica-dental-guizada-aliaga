@@ -86,6 +86,17 @@ describe('BookingPageComponent', () => {
     );
   });
 
+  it('en el paso de horarios pasa el nombre del doctor elegido al selector (CLI-164)', async () => {
+    const bookingService = createBookingServiceStub();
+    const fixture = setup(bookingService);
+    await settle(fixture);
+
+    fixture.componentInstance['onDoctorSelected']('doctor-1');
+    await settle(fixture);
+
+    expect(fixture.componentInstance['selectedDoctorName']()).toBe('Dra. Ejemplo');
+  });
+
   it('selecting a slot holds it for the previously chosen doctor and moves to contact', async () => {
     const bookingService = createBookingServiceStub();
     const fixture = setup(bookingService);

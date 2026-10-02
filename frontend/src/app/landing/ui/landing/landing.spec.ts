@@ -242,6 +242,21 @@ describe('LandingComponent', () => {
       expect(el(fixture, 'app-doctor-picker')).toBeNull();
     });
 
+    it('el selector de horarios muestra el doctor elegido y "Cambiar doctor" vuelve a la lista (CLI-164)', async () => {
+      const { fixture } = await openModal();
+      (
+        fixture.componentInstance as unknown as { onBookingDoctorSelected(id: string): void }
+      ).onBookingDoctorSelected('doctor-1');
+      await render(fixture);
+
+      expect(el(fixture, '.week-picker__doctor-label')?.textContent).toContain('Dr. Ariel Guizada');
+      (el(fixture, '.week-picker__change-doctor') as HTMLButtonElement).click();
+      await render(fixture);
+
+      expect(el(fixture, 'app-doctor-picker')).not.toBeNull();
+      expect(el(fixture, 'app-week-slot-picker')).toBeNull();
+    });
+
     it('"elegir otro doctor" desde un doctor sin turnos vuelve al selector de doctores (CLI-142)', async () => {
       const { fixture } = await openModal();
       const landing = fixture.componentInstance as unknown as {

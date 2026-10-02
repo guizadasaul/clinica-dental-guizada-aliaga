@@ -10,6 +10,20 @@
       <button type="button" class="week-picker__empty-btn" (click)="changeDoctor.emit()">Elegir otro doctor</button>
     </div>
   } @else {
+    <div class="week-picker__doctor">
+      <p class="week-picker__doctor-label">
+        @if (doctorName()) {
+          Turnos con <strong>{{ doctorName() }}</strong>
+        } @else {
+          Elegí un horario
+        }
+      </p>
+      <button type="button" class="week-picker__change-doctor" (click)="changeDoctor.emit()">
+        <span class="material-symbols-outlined" aria-hidden="true">arrow_back</span>
+        Cambiar doctor
+      </button>
+    </div>
+
     <div class="week-picker__week-toggle" role="tablist" aria-label="Semana">
       <button
         type="button"

@@ -183,6 +183,7 @@
       } @else {
         <app-week-slot-picker
           [slotsByDate]="bookingSlotsByDate()"
+          [doctorName]="bookingSelectedDoctorName()"
           [loading]="bookingLoading()"
           [error]="bookingError()"
           (slotSelected)="onBookingSlotSelected($event)"
