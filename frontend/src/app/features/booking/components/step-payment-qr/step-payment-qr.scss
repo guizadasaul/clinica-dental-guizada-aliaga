@@ -128,9 +128,11 @@
     transition: background var(--transition-fast);
 
     &:hover { background: var(--color-gray-200); }
+  }
 
-    .material-symbols-outlined {
-      font-size: 1.125rem;
-    }
+  &__contact-icon {
+    width: 1.125rem;
+    height: 1.125rem;
+    flex-shrink: 0;
   }
 }
