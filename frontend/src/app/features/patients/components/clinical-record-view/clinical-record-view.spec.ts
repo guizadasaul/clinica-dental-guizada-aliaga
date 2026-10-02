@@ -218,6 +218,22 @@ describe('ClinicalRecordViewComponent — ficha', () => {
     updatedAt: '2026-09-01T00:00:00Z',
   };
 
+  it('avisa si el teléfono está en otra cuenta y no sirve para iniciar sesión (CLI-143)', async () => {
+    const record = await text(setupRecord({ patient: { phone: '71234567', phoneLoginError: 'phone_in_use' } }));
+    expect(record).toContain('ya está registrado en otra cuenta');
+  });
+
+  it('avisa si no se pudo habilitar el teléfono por otro motivo (CLI-143)', async () => {
+    const record = await text(setupRecord({ patient: { phone: '71234567', phoneLoginError: 'unknown' } }));
+    expect(record).toContain('No se pudo habilitar este teléfono');
+  });
+
+  it('sin marca no muestra ningún aviso sobre el teléfono', async () => {
+    const record = await text(setupRecord({ patient: { phone: '71234567', phoneLoginError: null } }));
+    expect(record).not.toContain('otra cuenta');
+    expect(record).not.toContain('No se pudo habilitar');
+  });
+
   it('muestra el nombre completo, con el apellido materno si lo tiene', async () => {
     expect(await text(setupRecord({ patient: { lastNameMaternal: 'Rojas' } }))).toContain('Julian Alvarez Rojas');
   });

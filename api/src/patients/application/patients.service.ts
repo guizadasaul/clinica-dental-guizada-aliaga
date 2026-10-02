@@ -22,6 +22,7 @@ import type {
 import { UserRepository } from '../../auth/domain/UserRepository';
 import type { UserRepository as IUserRepository } from '../../auth/domain/UserRepository';
 import { UserRole } from '../../auth/domain/value-objects/UserRole';
+import { PhoneLoginError } from '../../auth/domain/value-objects/PhoneLoginError';
 import { SupabaseAdminService } from '../../auth/infrastructure/SupabaseAdminService';
 import { toE164Bolivia } from '../../shared/phone.util';
 import { TreatmentRepository } from '../../treatments/domain/TreatmentRepository';
@@ -202,6 +203,12 @@ export class PatientsService {
     data: UpdatePatientData & { email?: string },
   ): Promise<Patient> {
     const { email, ...patientFields } = data;
+    const phone = patientFields.phone;
+    // Antes de guardar nada: si el teléfono está en otra cuenta de Supabase
+    // Auth, el cambio se rechaza entero (CLI-143) en vez de quedar a medias.
+    const phoneLoginError = phone
+      ? await this.enablePhoneLogin(patientId, phone)
+      : undefined;
     const patient = await this.patientRepo.updatePatient(
       patientId,
       patientFields,
@@ -209,25 +216,59 @@ export class PatientsService {
     if (!patient) {
       throw new NotFoundException(`Paciente con id ${patientId} no encontrado`);
     }
-    const phone = patientFields.phone;
-    if (email !== undefined || phone !== undefined) {
-      const user = await this.userRepo.updateContactInfo(patient.userId, {
-        ...(email !== undefined && { email }),
-        ...(phone !== undefined && { phone }),
-      });
-      // El teléfono queda utilizable como login (phone + contraseña) recién
-      // cuando la cuenta de Supabase ya existe (authUserId no nulo). Si
-      // todavía es una ficha placeholder, alcanza con guardarlo en `users` —
-      // se confirma en Supabase cuando el paciente reclame la invitación
-      // (ver AuthService.tryLinkInvitedUser).
-      if (user?.authUserId && phone) {
-        await this.supabaseAdminService.setConfirmedPhone(
-          user.authUserId,
-          toE164Bolivia(phone),
-        );
-      }
+    if (
+      email === undefined &&
+      phone === undefined &&
+      phoneLoginError === undefined
+    ) {
+      return patient;
     }
-    return patient;
+    await this.userRepo.updateContactInfo(patient.userId, {
+      ...(email !== undefined && { email }),
+      ...(phone !== undefined && { phone }),
+      ...(phoneLoginError !== undefined && { phoneLoginError }),
+    });
+    // El teléfono y su marca viven en `users`: se relee para que la
+    // respuesta ya los refleje.
+    return (await this.patientRepo.findPatientById(patientId)) ?? patient;
+  }
+
+  /**
+   * Habilita el teléfono como login (phone + contraseña) en Supabase Auth.
+   * Solo aplica si la cuenta ya existe (authUserId no nulo): en una ficha
+   * placeholder alcanza con guardarlo en `users`, y se confirma cuando el
+   * paciente reclame la invitación (ver AuthService.tryLinkInvitedUser).
+   *
+   * Devuelve la marca a guardar en users.phone_login_error: null si quedó
+   * habilitado, 'unknown' si Supabase falló por otro motivo (el resto de la
+   * ficha se guarda igual y el doctor ve el aviso), o undefined si todavía no
+   * hay cuenta. Un teléfono que ya usa otra cuenta es un 409.
+   */
+  private async enablePhoneLogin(
+    patientId: string,
+    phone: string,
+  ): Promise<PhoneLoginError | null | undefined> {
+    const current = await this.patientRepo.findPatientById(patientId);
+    if (!current) {
+      throw new NotFoundException(`Paciente con id ${patientId} no encontrado`);
+    }
+    const user = await this.userRepo.findById(current.userId);
+    if (!user?.authUserId) {
+      return undefined;
+    }
+    const result = await this.supabaseAdminService.setConfirmedPhone(
+      user.authUserId,
+      toE164Bolivia(phone),
+    );
+    if (result.ok) {
+      return null;
+    }
+    if (result.reason === PhoneLoginError.PHONE_IN_USE) {
+      throw new ConflictException(
+        'Ese teléfono ya está registrado en otra cuenta, así que no se puede usar para iniciar sesión. Usá otro número.',
+      );
+    }
+    return result.reason;
   }
 
   async upsertMedicalHistory(

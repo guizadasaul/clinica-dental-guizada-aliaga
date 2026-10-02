@@ -193,6 +193,9 @@ export class PrismaUserRepository implements UserRepository {
           ...(data.displayName !== undefined && {
             display_name: data.displayName,
           }),
+          ...(data.phoneLoginError !== undefined && {
+            phone_login_error: data.phoneLoginError,
+          }),
           updated_at: new Date(),
         },
       });

@@ -1,3 +1,5 @@
+import type { PhoneLoginError } from '../../auth/domain/value-objects/PhoneLoginError';
+
 export class Patient {
   constructor(
     readonly id: string,
@@ -31,5 +33,10 @@ export class Patient {
     readonly updatedAt: Date,
     /** Doctor asignado (CLI-58) — informativo, no restringe acceso a la ficha. */
     readonly assignedDoctorId: string | null,
+    /**
+     * Por qué el teléfono no quedó habilitado como login (CLI-143) — vive en
+     * users.phone_login_error, igual que el teléfono vive en users.phone.
+     */
+    readonly phoneLoginError: PhoneLoginError | null = null,
   ) {}
 }

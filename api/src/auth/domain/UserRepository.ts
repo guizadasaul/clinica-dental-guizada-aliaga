@@ -1,3 +1,4 @@
+import type { PhoneLoginError } from './value-objects/PhoneLoginError';
 import { User } from './User';
 import { UserRole } from './value-objects/UserRole';
 
@@ -28,6 +29,8 @@ export interface UpdateContactInfoData {
   email?: string;
   phone?: string;
   displayName?: string;
+  /** null limpia la marca (CLI-143). */
+  phoneLoginError?: PhoneLoginError | null;
 }
 
 export interface UserRepository {

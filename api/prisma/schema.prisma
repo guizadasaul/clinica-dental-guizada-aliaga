@@ -704,6 +704,9 @@ model users {
   display_name            String?                   @db.VarChar(255)
   photo_url               String?
   phone                   String?                   @db.VarChar(20)
+  /// Por qué `phone` no quedó habilitado como login en Supabase Auth (CLI-143):
+  /// 'phone_in_use' | 'unknown'. NULL = habilitado o todavía sin cuenta.
+  phone_login_error       String?                   @db.VarChar(20)
   is_active               Boolean                   @default(true)
   created_at              DateTime                  @default(now()) @db.Timestamptz(6)
   updated_at              DateTime                  @default(now()) @db.Timestamptz(6)

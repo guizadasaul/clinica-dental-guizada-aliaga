@@ -1,4 +1,5 @@
 import { TestBed } from '@angular/core/testing';
+import { HttpErrorResponse } from '@angular/common/http';
 import { of, throwError } from 'rxjs';
 import { PatientInvitePanelComponent } from './patient-invite-panel';
 import { PatientsService } from '../../services/patients.service';
@@ -144,6 +145,25 @@ describe('PatientInvitePanelComponent', () => {
 
       expect(root.textContent).toContain('No pudimos guardar los cambios');
       expect(button(root, 'Guardar').disabled).toBe(false);
+    });
+
+    it('un 409 muestra el motivo que manda el backend (CLI-143)', async () => {
+      const { fixture, root, patients } = setup();
+      patients.updatePatient.mockReturnValue(
+        throwError(
+          () =>
+            new HttpErrorResponse({
+              status: 409,
+              error: { message: 'Ese teléfono ya está registrado en otra cuenta' },
+            }),
+        ),
+      );
+
+      button(root, 'Guardar').click();
+      await settle(fixture);
+
+      expect(root.textContent).toContain('Ese teléfono ya está registrado en otra cuenta');
+      expect(root.textContent).not.toContain('No pudimos guardar los cambios');
     });
   });
 

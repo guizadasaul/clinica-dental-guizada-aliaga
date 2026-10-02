@@ -146,6 +146,9 @@ describe('AuthService', () => {
         new Date(),
       );
       mockRepo.linkAuthIdentity.mockResolvedValue(linkedUserWithPhone);
+      mockSupabaseAdminService.setConfirmedPhone.mockResolvedValue({
+        ok: true,
+      });
 
       const result = await service.syncUser(authUser, 'valid-invite-token');
 
@@ -154,6 +157,41 @@ describe('AuthService', () => {
         AUTH_USER_ID,
         '+59171234567',
       );
+      // Habilitado: se limpia cualquier marca anterior.
+      expect(mockRepo.updateContactInfo).toHaveBeenCalledWith('uuid-1', {
+        phoneLoginError: null,
+      });
+    });
+
+    it('if the phone is already on another Supabase account, the login still completes but the account is flagged (CLI-143)', async () => {
+      mockPatientInvitesService.redeem.mockResolvedValue({
+        patientId: 'patient-1',
+        userId: 'user-1',
+      });
+      const linkedUserWithPhone = new User(
+        'uuid-1',
+        AUTH_USER_ID,
+        'test@example.com',
+        UserRole.PATIENT,
+        'Test User',
+        '71234567',
+        null,
+        true,
+        new Date(),
+        new Date(),
+      );
+      mockRepo.linkAuthIdentity.mockResolvedValue(linkedUserWithPhone);
+      mockSupabaseAdminService.setConfirmedPhone.mockResolvedValue({
+        ok: false,
+        reason: 'phone_in_use',
+      });
+
+      const result = await service.syncUser(authUser, 'valid-invite-token');
+
+      expect(result).toBe(linkedUserWithPhone);
+      expect(mockRepo.updateContactInfo).toHaveBeenCalledWith('uuid-1', {
+        phoneLoginError: 'phone_in_use',
+      });
     });
 
     it('threads the phone from the JWT through to upsertByAuthUserId when present', async () => {

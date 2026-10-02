@@ -32,7 +32,20 @@
         <div class="record__field"><dt>Lugar de nacimiento</dt><dd>{{ patient().birthPlace || '—' }}</dd></div>
         <div class="record__field"><dt>Sexo</dt><dd class="record__capitalize">{{ patient().sex || '—' }}</dd></div>
         <div class="record__field"><dt>Ocupación</dt><dd>{{ patient().occupation || '—' }}</dd></div>
-        <div class="record__field"><dt>Teléfono</dt><dd>{{ patient().phone || '—' }}</dd></div>
+        <div class="record__field">
+          <dt>Teléfono</dt>
+          <dd>{{ patient().phone || '—' }}</dd>
+          @if (patient().phoneLoginError; as phoneLoginError) {
+            <p class="record__phone-warning">
+              <span class="material-symbols-outlined" aria-hidden="true">warning</span>
+              @if (phoneLoginError === 'phone_in_use') {
+                Este teléfono ya está registrado en otra cuenta: el paciente no puede iniciar sesión con teléfono y contraseña. Cargá otro número.
+              } @else {
+                No se pudo habilitar este teléfono para iniciar sesión. Volvé a guardar la ficha para reintentar.
+              }
+            </p>
+          }
+        </div>
         <div class="record__field"><dt>Dirección</dt><dd>{{ patient().address || '—' }}</dd></div>
         <div class="record__field"><dt>Zona</dt><dd>{{ patient().zona || '—' }}</dd></div>
         <div class="record__field"><dt>Ciudad</dt><dd>{{ patient().ciudad || '—' }}</dd></div>

@@ -85,11 +85,16 @@ export class AuthService {
       // de que el paciente reclamara la invitación — si está, lo confirmamos
       // en Supabase Auth ahora para que quede utilizable como login desde el
       // primer momento, sin que el doctor tenga que volver a tocar la ficha.
+      // Si no queda habilitado (CLI-143), el login sigue igual, pero se marca
+      // en la cuenta para que el doctor o el admin lo vean en la ficha.
       if (linked?.phone) {
-        await this.supabaseAdminService.setConfirmedPhone(
+        const result = await this.supabaseAdminService.setConfirmedPhone(
           authUser.uid,
           toE164Bolivia(linked.phone),
         );
+        await this.userRepository.updateContactInfo(linked.id, {
+          phoneLoginError: result.ok ? null : result.reason,
+        });
       }
       return linked;
     } catch (error) {
