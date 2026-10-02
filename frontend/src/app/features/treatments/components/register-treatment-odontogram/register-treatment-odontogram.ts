@@ -364,17 +364,17 @@ export class RegisterTreatmentOdontogramComponent {
   protected async onPanelSave(): Promise<void> {
     const treatment = this.panelTreatment();
     if (!treatment) {
-      this.formError.set('Elegí un tratamiento.');
+      this.formError.set('Elige un tratamiento.');
       return;
     }
 
     const teeth = this.effectiveToothNumbers();
     if (treatment.applicationType === 'single_tooth' && teeth.length !== 1) {
-      this.formError.set('Este tratamiento requiere exactamente un diente — hacé clic en un diente del odontograma.');
+      this.formError.set('Este tratamiento requiere exactamente un diente: haz clic en un diente del odontograma.');
       return;
     }
     if (treatment.applicationType === 'multiple_teeth' && teeth.length < 1) {
-      this.formError.set('Este tratamiento requiere al menos un diente — hacé clic en los dientes del odontograma.');
+      this.formError.set('Este tratamiento requiere al menos un diente: haz clic en los dientes del odontograma.');
       return;
     }
 
@@ -419,7 +419,7 @@ export class RegisterTreatmentOdontogramComponent {
       });
       this.panelOpen.set(false);
     } catch {
-      this.formError.set('Error al guardar el tratamiento. Intentá de nuevo.');
+      this.formError.set('Error al guardar el tratamiento. Intenta de nuevo.');
     } finally {
       this.saving.set(false);
     }

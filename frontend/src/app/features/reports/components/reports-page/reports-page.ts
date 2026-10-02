@@ -137,7 +137,7 @@ export class ReportsPageComponent implements OnInit {
       this.operationalReport.set(operational);
       this.financialReport.set(financial);
     } catch {
-      this.error.set('No se pudieron cargar los reportes. Probá de nuevo.');
+      this.error.set('No se pudieron cargar los reportes. Prueba de nuevo.');
       this.operationalReport.set(null);
       this.financialReport.set(null);
     } finally {

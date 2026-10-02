@@ -249,7 +249,7 @@ export class StepPatientDataComponent {
     touchAll(...fields);
     this.submitted.set(true);
     if (!allValid(...fields) || !this.phoneOk() || !this.emergencyContactPhoneOk()) {
-      this.formError.set('Revisá los campos marcados en rojo.');
+      this.formError.set('Revisa los campos marcados en rojo.');
       return;
     }
     this.formError.set(null);

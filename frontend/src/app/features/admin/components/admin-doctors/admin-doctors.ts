@@ -468,6 +468,6 @@ export class AdminDoctorsComponent implements OnInit {
     if (error instanceof HttpErrorResponse && error.status === 409) {
       return 'Ya existe un usuario con ese email.';
     }
-    return 'Ocurrió un error. Intentá nuevamente.';
+    return 'Ocurrió un error. Intenta nuevamente.';
   }
 }

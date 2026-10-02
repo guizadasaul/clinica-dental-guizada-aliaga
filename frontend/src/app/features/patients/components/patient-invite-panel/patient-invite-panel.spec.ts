@@ -86,7 +86,7 @@ describe('PatientInvitePanelComponent', () => {
     type(input(root, 'invitePanelEmail'), 'otro@example.com');
     fixture.detectChanges();
 
-    expect(root.textContent).toContain('Guardá los cambios antes de enviar');
+    expect(root.textContent).toContain('Guarda los cambios antes de enviar');
     expect(button(root, 'Enviar por email').disabled).toBe(true);
   });
 
@@ -106,7 +106,7 @@ describe('PatientInvitePanelComponent', () => {
         phone: '+59170000000',
         email: 'nueva@example.com',
       });
-      expect(root.textContent).not.toContain('Guardá los cambios');
+      expect(root.textContent).not.toContain('Guarda los cambios');
     });
 
     it('un teléfono o email vacío se guarda como "sin dato"', async () => {
@@ -207,7 +207,7 @@ describe('PatientInvitePanelComponent', () => {
 
     it.each([
       ['Enviar por email', 'No pudimos enviar el email'],
-      ['Enviar por WhatsApp', 'No pudimos armar el mensaje de WhatsApp'],
+      ['Enviar por WhatsApp', 'No pudimos preparar el mensaje de WhatsApp'],
     ])('si "%s" falla, muestra el error y no cierra', async (label, message) => {
       const { fixture, root, invites, emitted } = setup();
       invites.createInvite.mockReturnValue(throwError(() => new Error('500')));

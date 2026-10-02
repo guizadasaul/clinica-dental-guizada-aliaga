@@ -94,7 +94,7 @@ export class PatientInvitePanelComponent {
     } catch (err) {
       // Un 409 trae un motivo concreto (email o teléfono ya usados por otra
       // cuenta, CLI-143) que sirve más que el mensaje genérico.
-      this.saveError.set(conflictMessage(err) ?? 'No pudimos guardar los cambios. Intentá de nuevo.');
+      this.saveError.set(conflictMessage(err) ?? 'No pudimos guardar los cambios. Intenta de nuevo.');
     } finally {
       this.saving.set(false);
     }
@@ -107,7 +107,7 @@ export class PatientInvitePanelComponent {
       await firstValueFrom(this.patientInvitesService.createInvite(this.patientId(), 'email'));
       this.sent.emit('email');
     } catch {
-      this.sendError.set('No pudimos enviar el email. Intentá de nuevo.');
+      this.sendError.set('No pudimos enviar el email. Intenta de nuevo.');
     } finally {
       this.loadingChannel.set(null);
     }
@@ -125,7 +125,7 @@ export class PatientInvitePanelComponent {
       }
       this.sent.emit('whatsapp');
     } catch {
-      this.sendError.set('No pudimos armar el mensaje de WhatsApp. Intentá de nuevo.');
+      this.sendError.set('No pudimos preparar el mensaje de WhatsApp. Intenta de nuevo.');
     } finally {
       this.loadingChannel.set(null);
     }

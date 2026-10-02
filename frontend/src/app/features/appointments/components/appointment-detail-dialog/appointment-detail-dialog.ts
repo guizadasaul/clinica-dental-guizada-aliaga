@@ -126,7 +126,7 @@ export class AppointmentDetailDialogComponent {
       );
       this.cancelled.emit(cancelled);
     } catch {
-      this.error.set('No pudimos cancelar la cita. Probá de nuevo.');
+      this.error.set('No pudimos cancelar la cita. Prueba de nuevo.');
     } finally {
       this.cancelling.set(false);
     }

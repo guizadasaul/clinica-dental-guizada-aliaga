@@ -107,12 +107,12 @@
 
       @if (overlapsNext()) {
         <p class="book-modal__alert book-modal__alert--error" role="alert">
-          Con {{ duration() }} min se pisa con tu cita de las {{ nextBusyLabel() }}. Elegí una
+          Con {{ duration() }} min se superpone con tu cita de las {{ nextBusyLabel() }}. Elige una
           duración más corta.
         </p>
       } @else if (outsideSchedule()) {
         <output class="book-modal__alert book-modal__alert--warning">
-          Este horario está fuera de tu horario de atención. Podés agendarla igual.
+          Este horario está fuera de tu horario de atención. Puedes agendarla igual.
         </output>
       }
 

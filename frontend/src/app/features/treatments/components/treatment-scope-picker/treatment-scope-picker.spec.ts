@@ -91,7 +91,7 @@ describe('TreatmentScopePickerComponent', () => {
     const { root, last } = setup();
 
     expect(last()).toBeNull();
-    expect(root.textContent).toContain('Elegí un tratamiento del catálogo para continuar');
+    expect(root.textContent).toContain('Elige un tratamiento del catálogo para continuar');
   });
 
   it('un tratamiento general es válido sin piezas y no muestra el odontograma', () => {
