@@ -128,6 +128,12 @@ describe('RegisterPaymentComponent', () => {
       expect(button('Efectivo').disabled).toBe(true);
     });
 
+    it('junto al QR avisa al paciente que la clínica no realiza reembolsos (CLI-103)', async () => {
+      const { root } = await withQr();
+
+      expect(root.querySelector('.rp__no-refund')?.textContent).toContain('La clínica no realiza reembolsos');
+    });
+
     it('verificar sin pago: avisa y no emite nada (sin polling)', async () => {
       const s = setup();
       s.finances.verifyQrCharge.mockReturnValue(of({ status: 'pending' }));

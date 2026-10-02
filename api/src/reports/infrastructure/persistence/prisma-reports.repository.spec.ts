@@ -12,7 +12,7 @@ const RANGE_ONE_DAY: ReportParams = {
 describe('PrismaReportsRepository', () => {
   let prismaMock: {
     users: { findMany: jest.Mock };
-    appointments: { groupBy: jest.Mock };
+    appointments: { groupBy: jest.Mock; findMany: jest.Mock };
     patients: { groupBy: jest.Mock };
     doctor_schedule_blocks: { findMany: jest.Mock };
     payments: { findMany: jest.Mock };
@@ -25,7 +25,10 @@ describe('PrismaReportsRepository', () => {
   beforeEach(() => {
     prismaMock = {
       users: { findMany: jest.fn() },
-      appointments: { groupBy: jest.fn() },
+      appointments: {
+        groupBy: jest.fn(),
+        findMany: jest.fn().mockResolvedValue([]),
+      },
       patients: { groupBy: jest.fn() },
       doctor_schedule_blocks: { findMany: jest.fn() },
       payments: { findMany: jest.fn() },
@@ -49,9 +52,84 @@ describe('PrismaReportsRepository', () => {
         from: '2026-09-07',
         to: '2026-09-07',
         doctors: [],
+        cancellations: [],
       });
       expect(prismaMock.appointments.groupBy).not.toHaveBeenCalled();
       expect(prismaMock.patients.groupBy).not.toHaveBeenCalled();
+    });
+
+    it('lista las canceladas del rango con paciente (o invitado), quién canceló y el motivo (CLI-103)', async () => {
+      prismaMock.users.findMany.mockResolvedValue([
+        { id: 'doctor-1', display_name: 'Juan Perez' },
+      ]);
+      prismaMock.appointments.groupBy.mockResolvedValue([]);
+      prismaMock.patients.groupBy.mockResolvedValue([]);
+      prismaMock.doctor_schedule_blocks.findMany.mockResolvedValue([]);
+      const at = new Date('2026-09-07T14:00:00.000Z');
+      const cancelledAt = new Date('2026-09-06T20:00:00.000Z');
+      prismaMock.appointments.findMany.mockResolvedValue([
+        {
+          id: 'appt-1',
+          appointment_datetime: at,
+          doctor_id: 'doctor-1',
+          cancelled_at: cancelledAt,
+          cancel_reason: 'viaje',
+          guest_first_name: null,
+          guest_last_name_paternal: null,
+          patients: { first_name: 'Ana', last_name_paternal: 'Arce' },
+          users: { display_name: 'Juan Perez' },
+          cancelled_by_user: { display_name: 'Juan Perez' },
+        },
+        {
+          id: 'appt-2',
+          appointment_datetime: at,
+          doctor_id: 'doctor-1',
+          cancelled_at: null,
+          cancel_reason: null,
+          guest_first_name: 'Beto',
+          guest_last_name_paternal: null,
+          patients: null,
+          users: { display_name: 'Juan Perez' },
+          cancelled_by_user: null,
+        },
+      ]);
+
+      const result = await repo.getOperationalReport(RANGE_ONE_DAY);
+
+      expect(prismaMock.appointments.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            status: 'cancelled',
+            appointment_datetime: {
+              gte: RANGE_ONE_DAY.from,
+              lt: RANGE_ONE_DAY.to,
+            },
+            doctor_id: { in: ['doctor-1'] },
+          },
+        }),
+      );
+      expect(result.cancellations).toEqual([
+        {
+          appointmentId: 'appt-1',
+          appointmentDatetime: at,
+          doctorId: 'doctor-1',
+          doctorName: 'Juan Perez',
+          patientName: 'Ana Arce',
+          cancelledAt,
+          cancelledByName: 'Juan Perez',
+          cancelReason: 'viaje',
+        },
+        {
+          appointmentId: 'appt-2',
+          appointmentDatetime: at,
+          doctorId: 'doctor-1',
+          doctorName: 'Juan Perez',
+          patientName: 'Beto',
+          cancelledAt: null,
+          cancelledByName: null,
+          cancelReason: null,
+        },
+      ]);
     });
 
     it('combines appointment status counts, new patients and theoretical slots per doctor', async () => {
@@ -103,6 +181,7 @@ describe('PrismaReportsRepository', () => {
             occupancyRate: 0.5,
           },
         ],
+        cancellations: [],
       });
     });
 

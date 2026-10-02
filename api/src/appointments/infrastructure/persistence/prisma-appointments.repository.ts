@@ -32,6 +32,8 @@ const AGENDA_INCLUDE = {
   // El doctor del turno (CLI-110): nombre y color para la agenda común.
   users: { include: { doctor_profiles: true } },
   treatments: true,
+  // Quién canceló (CLI-103): el detalle de una cita cancelada lo muestra.
+  cancelled_by_user: { select: { display_name: true } },
 } satisfies Prisma.appointmentsInclude;
 
 @Injectable()
@@ -240,29 +242,18 @@ export class PrismaAppointmentsRepository implements IAppointmentRepository {
     cancelledBy: string,
     reason: string | null,
   ): Promise<AppointmentWithPatient | null> {
-    const count = await this.prisma.transaction(async (tx) => {
-      const current = await tx.appointments.findFirst({
-        where: { id, doctor_id: doctorId, status: AppointmentStatus.CONFIRMED },
-        select: { notes: true },
-      });
-      if (!current) {
-        return 0;
-      }
-      const reasonLine = reason ? `Cancelada: ${reason}` : null;
-      const notes =
-        [current.notes, reasonLine].filter(Boolean).join('\n') || null;
-      const result = await tx.appointments.updateMany({
-        where: { id, doctor_id: doctorId, status: AppointmentStatus.CONFIRMED },
-        data: {
-          status: AppointmentStatus.CANCELLED,
-          cancelled_at: new Date(),
-          cancelled_by: cancelledBy,
-          notes,
-        },
-      });
-      return result.count;
+    // El motivo va a su propia columna (CLI-103): las notas del turno quedan
+    // como estaban. El WHERE con status hace la transición idempotente.
+    const result = await this.prisma.appointments.updateMany({
+      where: { id, doctor_id: doctorId, status: AppointmentStatus.CONFIRMED },
+      data: {
+        status: AppointmentStatus.CANCELLED,
+        cancelled_at: new Date(),
+        cancelled_by: cancelledBy,
+        cancel_reason: reason,
+      },
     });
-    return count === 0 ? null : this.findForDoctor(id, doctorId);
+    return result.count === 0 ? null : this.findForDoctor(id, doctorId);
   }
 
   async updateGuestContact(

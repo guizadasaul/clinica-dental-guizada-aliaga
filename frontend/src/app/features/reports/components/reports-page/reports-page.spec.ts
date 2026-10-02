@@ -31,6 +31,28 @@ const OPERATIONAL_REPORT: OperationalReport = {
       occupancyRate: 0.3,
     },
   ],
+  cancellations: [
+    {
+      appointmentId: 'appt-1',
+      appointmentDatetime: '2026-09-01T14:00:00.000Z',
+      doctorId: 'doctor-1',
+      doctorName: 'Juan Perez',
+      patientName: 'Ana Arce',
+      cancelledAt: '2026-08-31T20:30:00.000Z',
+      cancelledByName: 'Juan Perez',
+      cancelReason: 'El paciente viaja',
+    },
+    {
+      appointmentId: 'appt-2',
+      appointmentDatetime: '2026-09-02T14:00:00.000Z',
+      doctorId: 'doctor-1',
+      doctorName: 'Juan Perez',
+      patientName: 'Beto',
+      cancelledAt: null,
+      cancelledByName: null,
+      cancelReason: null,
+    },
+  ],
 };
 
 const FINANCIAL_REPORT: FinancialReport = {
@@ -125,6 +147,33 @@ describe('ReportsPageComponent', () => {
     expect(col('Canceladas')).toBe('2');
     expect(col('Total turnos')).toBe('6');
     expect(fixture.nativeElement.textContent).toContain('no suman a "Total turnos"');
+  });
+
+  it('lista las canceladas con turno, paciente, quién canceló y el motivo (CLI-103)', async () => {
+    const { fixture } = setup();
+    await settleAllLoads(fixture);
+
+    const rows = [...(fixture.nativeElement as HTMLElement).querySelectorAll('.reports-page__table--cancellations tbody tr')].map(
+      (tr) => tr.textContent ?? '',
+    );
+    expect(rows).toHaveLength(2);
+    // 10:00 en La Paz (UTC-4).
+    expect(rows[0]).toContain('01/09/2026, 10:00');
+    expect(rows[0]).toContain('Ana Arce');
+    expect(rows[0]).toContain('31/08/2026, 16:30');
+    expect(rows[0]).toContain('El paciente viaja');
+    expect(rows[1]).toContain('Sin motivo');
+  });
+
+  it('sin canceladas en el rango lo dice en vez de mostrar una tabla vacía', async () => {
+    const { fixture, reportsService } = setup();
+    reportsService.getOperational.mockReturnValue(of({ ...OPERATIONAL_REPORT, cancellations: [] }));
+    await settleAllLoads(fixture);
+    // Fuerza una recarga con el mock nuevo.
+    (fixture.componentInstance as unknown as { loadReports(): Promise<void> }).loadReports();
+    await settleAllLoads(fixture);
+
+    expect(fixture.nativeElement.textContent).toContain('No hay citas canceladas en el rango elegido');
   });
 
   it('switches to the financial tab and shows the unassigned-doctor row', async () => {

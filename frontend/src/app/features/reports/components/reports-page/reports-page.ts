@@ -24,6 +24,17 @@ function daysAgoString(days: number): string {
   return toDateString(date);
 }
 
+/** Fecha y hora en el huso de la clínica, para la lista de canceladas (CLI-103). */
+const DATE_TIME_FORMATTER = new Intl.DateTimeFormat('es-BO', {
+  timeZone: 'America/La_Paz',
+  day: '2-digit',
+  month: '2-digit',
+  year: 'numeric',
+  hour: '2-digit',
+  minute: '2-digit',
+  hour12: false,
+});
+
 @Component({
   selector: 'app-reports-page',
   standalone: true,
@@ -102,6 +113,10 @@ export class ReportsPageComponent implements OnInit {
 
   protected occupancyPercent(row: DoctorOperationalRow): number {
     return Math.round(row.occupancyRate * 100);
+  }
+
+  protected formatDateTime(iso: string): string {
+    return DATE_TIME_FORMATTER.format(new Date(iso));
   }
 
   private async loadReports(): Promise<void> {
