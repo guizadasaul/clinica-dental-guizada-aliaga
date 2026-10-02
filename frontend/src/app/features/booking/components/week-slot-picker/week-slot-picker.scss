@@ -7,6 +7,49 @@
 }
 
 // ---------------------------------------------------------------
+// DOCTOR ELEGIDO + "CAMBIAR DOCTOR" (CLI-164)
+// ---------------------------------------------------------------
+
+.week-picker__doctor {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2) var(--space-4);
+}
+
+.week-picker__doctor-label {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+
+  strong { color: var(--color-navy); }
+}
+
+.week-picker__change-doctor {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-1) var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-full);
+  background: var(--color-surface);
+  color: var(--color-primary);
+  font-family: var(--font-body);
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color var(--transition-fast), background var(--transition-fast);
+
+  .material-symbols-outlined { font-size: 1.1rem; }
+
+  &:hover {
+    border-color: var(--color-primary);
+    background: var(--color-primary-subtle);
+  }
+}
+
+// ---------------------------------------------------------------
 // TOGGLE ESTA SEMANA / PRÓXIMA SEMANA — control segmentado
 // ---------------------------------------------------------------
 

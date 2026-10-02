@@ -32,6 +32,7 @@
       @case ('slot') {
         <app-week-slot-picker
           [slotsByDate]="slotsByDate()"
+          [doctorName]="selectedDoctorName()"
           [loading]="loading()"
           [error]="error()"
           (slotSelected)="onSlotSelected($event)"

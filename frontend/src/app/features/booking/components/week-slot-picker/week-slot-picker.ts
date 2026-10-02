@@ -47,9 +47,11 @@ export class WeekSlotPickerComponent {
   readonly slotsByDate = input<Record<string, string[]>>({});
   readonly loading = input(false);
   readonly error = input<string | null>(null);
+  /** Con quién se está reservando (CLI-164); null si todavía no se conoce. */
+  readonly doctorName = input<string | null>(null);
 
   readonly slotSelected = output<string>();
-  /** "Elegir otro doctor" desde el estado sin turnos (CLI-142). */
+  /** Volver al selector de doctores: desde el estado sin turnos (CLI-142) o en cualquier momento (CLI-164). */
   readonly changeDoctor = output<void>();
 
   protected readonly activeWeekIndex = signal<0 | 1>(0);

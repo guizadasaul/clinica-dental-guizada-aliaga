@@ -6,6 +6,7 @@ import {
   HostListener,
   ElementRef,
   signal,
+  computed,
   effect,
   inject,
   PLATFORM_ID,
@@ -85,6 +86,9 @@ export class LandingComponent implements OnInit, AfterViewInit, OnDestroy {
   protected readonly bookingDoctorsLoading = signal(true);
   protected readonly bookingSelectedDoctorId = signal<string | null>(null);
   protected readonly bookingSlotsByDate = signal<Record<string, string[]>>({});
+  protected readonly bookingSelectedDoctorName = computed(
+    () => this.bookingDoctors().find((d) => d.id === this.bookingSelectedDoctorId())?.displayName ?? null,
+  );
   protected readonly bookingLoading = signal(false);
   protected readonly bookingError = signal<string | null>(null);
   // El selector de horarios ya no vive fijo en la landing: se abre en un

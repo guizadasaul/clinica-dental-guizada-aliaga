@@ -1,4 +1,4 @@
-import { Component, ChangeDetectionStrategy, inject, signal, OnInit } from '@angular/core';
+import { Component, ChangeDetectionStrategy, computed, inject, signal, OnInit } from '@angular/core';
 import { HttpErrorResponse } from '@angular/common/http';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
@@ -43,6 +43,9 @@ export class BookingPageComponent implements OnInit {
   protected readonly doctorsLoading = signal(false);
   protected readonly selectedDoctorId = signal<string | null>(null);
   protected readonly slotsByDate = signal<Record<string, string[]>>({});
+  protected readonly selectedDoctorName = computed(
+    () => this.doctors().find((d) => d.id === this.selectedDoctorId())?.displayName ?? null,
+  );
   protected readonly loading = signal(false);
   protected readonly error = signal<string | null>(null);
 
