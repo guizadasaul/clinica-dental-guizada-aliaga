@@ -85,6 +85,7 @@ export class PatientWizardComponent implements OnInit {
   private readonly diagnosesService = inject(DiagnosesService);
   private readonly medicalConditionsService = inject(MedicalConditionsService);
 
+  /** Vacío = paciente nuevo, sin una persona preexistente (CLI-171). */
   readonly userId = input('');
   readonly existingPatientId = input<string | null>(null);
   /** Paciente ya cargado (viene de patients-list.html, que ya tiene el objeto completo en el
@@ -200,7 +201,7 @@ export class PatientWizardComponent implements OnInit {
       const patient = await firstValueFrom(
         existingId
           ? this.patientsService.updatePatient(existingId, data)
-          : this.patientsService.createPatient({ ...data, userId: this.userId() }),
+          : this.patientsService.createPatient({ ...data, ...(this.userId() && { userId: this.userId() }) }),
       );
       this.patientId.set(patient.id);
       this.currentStep.set(2);

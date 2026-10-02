@@ -183,6 +183,39 @@ describe('PatientsListComponent', () => {
   });
 });
 
+describe('PatientsListComponent — Nuevo paciente (CLI-171)', () => {
+  it('el botón "Nuevo paciente" emite newPatient, para alguien que llegó sin reserva', async () => {
+    const { fixture } = setup();
+    let emitted = 0;
+    fixture.componentInstance.newPatient.subscribe(() => emitted++);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    el<HTMLButtonElement>(fixture, '.patients-list__new-btn').click();
+
+    expect(emitted).toBe(1);
+  });
+
+  it('también está con la lista vacía: ahí es justo cuando más hace falta', async () => {
+    const { fixture } = setup([]);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(el(fixture, '.patients-list__new-btn')).not.toBeNull();
+  });
+
+  it('en modo solo lectura (admin viendo a un doctor) no aparece', async () => {
+    const { fixture } = setup();
+    fixture.componentRef.setInput('readOnly', true);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(el(fixture, '.patients-list__new-btn')).toBeNull();
+  });
+});
+
 describe('PatientsListComponent — búsqueda, acciones y menú', () => {
   function type(fixture: ReturnType<typeof setup>['fixture'], value: string): void {
     const search = el<HTMLInputElement>(fixture, '.patients-list__search');

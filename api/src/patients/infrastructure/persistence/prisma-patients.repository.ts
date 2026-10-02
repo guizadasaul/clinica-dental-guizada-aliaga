@@ -25,6 +25,8 @@ import type {
   DentalExamVersionSummary,
 } from '../../domain/DentalExam';
 import { PatientMapper } from './patient.mapper';
+import { UserMapper } from '../../../auth/infrastructure/persistence/user.mapper';
+import type { CreatePlaceholderUserData } from '../../../auth/domain/UserRepository';
 import { OdontogramEntryMapper } from './odontogram-entry.mapper';
 import { ToothProcedureMapper } from './tooth-procedure.mapper';
 import { DentalExamMapper } from './dental-exam.mapper';
@@ -97,6 +99,37 @@ function toPatientUpdateData(
   return update;
 }
 
+function toPatientCreateData(
+  userId: string,
+  data: CreatePatientData,
+): Prisma.patientsUncheckedCreateInput {
+  return {
+    user_id: userId,
+    first_name: data.firstName,
+    last_name_paternal: data.lastNamePaternal,
+    last_name_maternal: data.lastNameMaternal ?? null,
+    birth_date: data.birthDate,
+    birth_place: data.birthPlace ?? null,
+    sex: data.sex ?? null,
+    occupation: data.occupation ?? null,
+    address: data.address ?? null,
+    zona: data.zona ?? null,
+    ciudad: data.ciudad ?? null,
+    emergency_contact_first_name: data.emergencyContactFirstName ?? null,
+    emergency_contact_last_name: data.emergencyContactLastName ?? null,
+    emergency_contact_phone: data.emergencyContactPhone ?? null,
+    emergency_contact_relationship: data.emergencyContactRelationship ?? null,
+    consultation_reason: data.consultationReason ?? null,
+    last_dentist_visit: data.lastDentistVisit ?? null,
+    last_visit_treatment: data.lastVisitTreatment ?? null,
+    family_history: data.familyHistory ?? null,
+    document_type: data.documentType ?? null,
+    dni: data.dni ?? null,
+    document_extension: data.documentExtension ?? null,
+    assigned_doctor_id: data.assignedDoctorId ?? null,
+  };
+}
+
 @Injectable()
 export class PrismaPatientsRepository implements IPatientRepository {
   constructor(private readonly prisma: PrismaService) {}
@@ -139,35 +172,42 @@ export class PrismaPatientsRepository implements IPatientRepository {
   // sincroniza PatientsService vía UserRepository.updateContactInfo.
   async create(userId: string, data: CreatePatientData): Promise<Patient> {
     const record = await this.prisma.patients.create({
-      data: {
-        user_id: userId,
-        first_name: data.firstName,
-        last_name_paternal: data.lastNamePaternal,
-        last_name_maternal: data.lastNameMaternal ?? null,
-        birth_date: data.birthDate,
-        birth_place: data.birthPlace ?? null,
-        sex: data.sex ?? null,
-        occupation: data.occupation ?? null,
-        address: data.address ?? null,
-        zona: data.zona ?? null,
-        ciudad: data.ciudad ?? null,
-        emergency_contact_first_name: data.emergencyContactFirstName ?? null,
-        emergency_contact_last_name: data.emergencyContactLastName ?? null,
-        emergency_contact_phone: data.emergencyContactPhone ?? null,
-        emergency_contact_relationship:
-          data.emergencyContactRelationship ?? null,
-        consultation_reason: data.consultationReason ?? null,
-        last_dentist_visit: data.lastDentistVisit ?? null,
-        last_visit_treatment: data.lastVisitTreatment ?? null,
-        family_history: data.familyHistory ?? null,
-        document_type: data.documentType ?? null,
-        dni: data.dni ?? null,
-        document_extension: data.documentExtension ?? null,
-        assigned_doctor_id: data.assignedDoctorId ?? null,
-      },
+      data: toPatientCreateData(userId, data),
       include: { users: true },
     });
     return PatientMapper.toDomainPatient(record);
+  }
+
+  /**
+   * Paciente que llega sin reserva previa (CLI-171): el usuario placeholder (sin
+   * cuenta ni email, igual que los de la reserva web) y la ficha se crean en
+   * una sola transacción, para no dejar un usuario huérfano si falla la ficha.
+   */
+  async createWithPlaceholderUser(
+    user: CreatePlaceholderUserData,
+    data: CreatePatientData,
+  ): Promise<Patient> {
+    const record = await this.prisma.transaction(async (tx) => {
+      const created = await tx.users.create({
+        data: UserMapper.toPlaceholderCreateInput(user),
+      });
+      return tx.patients.create({
+        data: toPatientCreateData(created.id, data),
+        include: { users: true },
+      });
+    });
+    return PatientMapper.toDomainPatient(record);
+  }
+
+  async findByDocument(
+    documentType: string,
+    dni: string,
+  ): Promise<Patient | null> {
+    const record = await this.prisma.patients.findUnique({
+      where: { document_type_dni: { document_type: documentType, dni } },
+      include: { users: true },
+    });
+    return record ? PatientMapper.toDomainPatient(record) : null;
   }
 
   // El teléfono NO se escribe acá tampoco — PatientsService.updatePatient ya

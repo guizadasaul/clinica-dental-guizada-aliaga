@@ -39,6 +39,8 @@ export class PatientsListComponent implements OnInit {
   readonly readOnly = input(false);
 
   readonly startWizard = output<string>();
+  /** "Nuevo paciente": alguien que llegó sin reserva previa (CLI-171). */
+  readonly newPatient = output<void>();
   readonly openOdontogram = output<string>();
   /** Diagnóstico nuevo desde cero para un paciente que ya tiene uno (CLI-109). */
   readonly newDiagnosis = output<string>();

@@ -14,6 +14,7 @@ import type { Patient, PatientInviteContact } from '../../../patients/models/pat
 @Component({ selector: 'app-patients-list', standalone: true, template: 'lista' })
 class PatientsListStub {
   readonly startWizard = output<string>();
+  readonly newPatient = output<void>();
   readonly openOdontogram = output<string>();
   readonly newDiagnosis = output<string>();
   readonly registerDiagnosis = output<Patient>();
@@ -301,6 +302,28 @@ describe('DoctorDashboardComponent', () => {
       const wizard = child(fixture, PatientWizardStub);
       expect(wizard.userId()).toBe('user-1');
       expect(wizard.existingPatientId()).toBeNull();
+    });
+
+    it('"Nuevo paciente" abre el wizard sin ningún usuario, para alguien que llegó sin reserva (CLI-171)', async () => {
+      const { fixture, list } = await patients();
+
+      list.newPatient.emit();
+      fixture.detectChanges();
+
+      const wizard = child(fixture, PatientWizardStub);
+      expect(wizard.userId()).toBe('');
+      expect(wizard.existingPatientId()).toBeNull();
+    });
+
+    it('al terminar o cancelar el alta de un paciente nuevo vuelve a la lista y no queda en modo alta (CLI-171)', async () => {
+      const { fixture, list } = await patients();
+      list.newPatient.emit();
+      fixture.detectChanges();
+
+      child(fixture, PatientWizardStub).cancelled.emit();
+      fixture.detectChanges();
+
+      expect(text(fixture)).toContain('lista');
     });
 
     it('odontograma: abre el examen dental para corregir el vigente', async () => {

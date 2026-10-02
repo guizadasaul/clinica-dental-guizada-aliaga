@@ -103,6 +103,31 @@ function text(fixture: ReturnType<typeof setup>['fixture']): string {
 }
 
 describe('PatientWizardComponent', () => {
+  describe('paciente nuevo sin reserva previa (CLI-171)', () => {
+    it('sin userId crea la ficha sin mandar ningún userId (el backend crea la persona)', async () => {
+      const { fixture, patients } = setup({});
+      await settle(fixture);
+
+      step(fixture, Step1Stub).submitStep.emit({ firstName: 'Ana' });
+      await settle(fixture);
+
+      expect(patients.createPatient).toHaveBeenCalledWith({ firstName: 'Ana' });
+      expect(text(fixture)).toContain('Paso 2 de 4');
+    });
+
+    it('si el backend dice que ya existe (409), muestra el motivo y no avanza', async () => {
+      const { fixture, patients } = setup({});
+      patients.createPatient.mockReturnValue(httpError('Ya existe Beto Bravo con ese documento'));
+      await settle(fixture);
+
+      step(fixture, Step1Stub).submitStep.emit({ firstName: 'Ana' });
+      await settle(fixture);
+
+      expect(text(fixture)).toContain('Ya existe Beto Bravo con ese documento');
+      expect(text(fixture)).toContain('Paso 1 de 4');
+    });
+  });
+
   describe('alta completa de un paciente nuevo', () => {
     it('recorre los 4 pasos guardando cada uno y termina con la ficha registrada', async () => {
       const { fixture, patients, events } = setup({ userId: 'user-1' });

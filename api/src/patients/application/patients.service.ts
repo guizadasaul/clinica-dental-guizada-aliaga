@@ -24,7 +24,7 @@ import type { UserRepository as IUserRepository } from '../../auth/domain/UserRe
 import { UserRole } from '../../auth/domain/value-objects/UserRole';
 import { PhoneLoginError } from '../../auth/domain/value-objects/PhoneLoginError';
 import { SupabaseAdminService } from '../../auth/infrastructure/SupabaseAdminService';
-import { toE164Bolivia } from '../../shared/phone.util';
+import { toE164, toE164Bolivia } from '../../shared/phone.util';
 import { TreatmentRepository } from '../../treatments/domain/TreatmentRepository';
 import type { ITreatmentRepository } from '../../treatments/domain/TreatmentRepository';
 import {
@@ -118,6 +118,17 @@ interface UpsertMedicalHistoryInput {
   medications?: PatientMedicationInput[];
 }
 
+/** "Nombre Apellido Paterno Materno" de una ficha o de los datos de alta. */
+function patientFullName(p: {
+  firstName: string;
+  lastNamePaternal: string;
+  lastNameMaternal?: string | null;
+}): string {
+  return [p.firstName, p.lastNamePaternal, p.lastNameMaternal]
+    .filter(Boolean)
+    .join(' ');
+}
+
 @Injectable()
 export class PatientsService {
   constructor(
@@ -157,9 +168,16 @@ export class PatientsService {
       );
     }
 
+    // Un odontólogo sin userId registra a un paciente nuevo, que llegó a la
+    // clínica sin reserva previa (CLI-171). Antes caía en caller.id, o sea,
+    // intentaba hacerle una ficha al propio doctor.
+    if (caller.role === UserRole.ODONTOLOGIST && !requestedUserId) {
+      return this.registerNewPatient(caller.id, data);
+    }
+
     let targetUserId: string;
     if (caller.role === UserRole.ODONTOLOGIST) {
-      targetUserId = requestedUserId ?? caller.id;
+      targetUserId = requestedUserId!;
     } else {
       if (requestedUserId && requestedUserId !== caller.id) {
         throw new ForbiddenException('No podés crear la ficha de otro usuario');
@@ -188,14 +206,60 @@ export class PatientsService {
         assignedDoctorId,
       });
     } catch (error: unknown) {
-      const msg = error instanceof Error ? error.message : '';
-      if (msg.includes('Unique constraint') || msg.includes('unique')) {
+      throw this.toCreateConflict(error) ?? error;
+    }
+  }
+
+  /**
+   * Alta de un paciente nuevo, sin cuenta (CLI-171). Antes de crear, se busca
+   * si ya está en el sistema por documento o por teléfono, y el mensaje dice
+   * quién es para que el doctor use esa ficha en vez de duplicarla.
+   */
+  private async registerNewPatient(
+    doctorId: string,
+    data: CreatePatientData,
+  ): Promise<Patient> {
+    if (data.documentType && data.dni) {
+      const existing = await this.patientRepo.findByDocument(
+        data.documentType,
+        data.dni,
+      );
+      if (existing) {
         throw new ConflictException(
-          'El paciente ya tiene una ficha registrada',
+          `Ya existe ${patientFullName(existing)} con ese documento. Buscalo en la lista de pacientes.`,
         );
       }
-      throw error;
     }
+    const e164 = data.phone ? toE164(data.phone) : null;
+    if (e164) {
+      const [owner] = await this.userRepo.findActiveByPhone(e164);
+      if (owner) {
+        throw new ConflictException(
+          `Ya existe ${owner.displayName ?? 'una persona'} con ese teléfono. Buscala en la lista de pacientes.`,
+        );
+      }
+    }
+    try {
+      return await this.patientRepo.createWithPlaceholderUser(
+        { displayName: patientFullName(data), phone: data.phone ?? null },
+        { ...data, assignedDoctorId: doctorId },
+      );
+    } catch (error: unknown) {
+      throw this.toCreateConflict(error) ?? error;
+    }
+  }
+
+  /** Un choque de unicidad al crear la ficha: documento repetido o ficha ya existente para ese usuario. */
+  private toCreateConflict(error: unknown): ConflictException | null {
+    const msg = error instanceof Error ? error.message : '';
+    if (!msg.includes('Unique constraint') && !msg.includes('unique')) {
+      return null;
+    }
+    return new ConflictException(
+      msg.includes('document_type') || msg.includes('dni')
+        ? 'Ya existe un paciente con ese documento'
+        : 'El paciente ya tiene una ficha registrada',
+    );
   }
 
   async updatePatient(

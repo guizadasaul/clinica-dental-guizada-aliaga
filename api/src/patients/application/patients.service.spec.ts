@@ -120,6 +120,8 @@ const mockPatientRepo = {
   findPatientById: jest.fn(),
   findByUserId: jest.fn(),
   create: jest.fn(),
+  createWithPlaceholderUser: jest.fn(),
+  findByDocument: jest.fn(),
   updatePatient: jest.fn(),
   upsertMedicalHistory: jest.fn(),
   findMedicalHistory: jest.fn(),
@@ -142,6 +144,7 @@ const mockPatientRepo = {
 const mockUserRepo = {
   findByAuthUserId: jest.fn(),
   findById: jest.fn(),
+  findActiveByPhone: jest.fn(),
   upsertByAuthUserId: jest.fn(),
   createPlaceholder: jest.fn(),
   linkAuthIdentity: jest.fn(),
@@ -349,22 +352,125 @@ describe('PatientsService', () => {
       );
     });
 
-    it('an odontologist without a target userId creates the record for themself', async () => {
+    describe('un odontólogo sin userId registra un paciente nuevo (CLI-171)', () => {
+      const NEW_PATIENT = {
+        firstName: 'Ana',
+        lastNamePaternal: 'Arce',
+        lastNameMaternal: 'Rojas',
+        birthDate: new Date('1990-01-01'),
+        phone: '71234567',
+        documentType: 'ci',
+        dni: '1234567',
+      };
+
+      beforeEach(() => {
+        mockUserRepo.findByAuthUserId.mockResolvedValue(
+          makeAppUser(UserRole.ODONTOLOGIST, 'doctor-id'),
+        );
+        mockPatientRepo.findByDocument.mockReset();
+        mockPatientRepo.findByDocument.mockResolvedValue(null);
+        mockUserRepo.findActiveByPhone.mockReset();
+        mockUserRepo.findActiveByPhone.mockResolvedValue([]);
+        mockPatientRepo.createWithPlaceholderUser.mockReset();
+        mockPatientRepo.createWithPlaceholderUser.mockResolvedValue(
+          fakePatient({ userId: 'new-user' }),
+        );
+      });
+
+      it('crea el usuario placeholder y la ficha, asignada al doctor, sin tocar su propia ficha', async () => {
+        await service.createPatient(DOCTOR_AUTH_ID, undefined, NEW_PATIENT);
+
+        expect(mockPatientRepo.createWithPlaceholderUser).toHaveBeenCalledWith(
+          { displayName: 'Ana Arce Rojas', phone: '71234567' },
+          expect.objectContaining({
+            firstName: 'Ana',
+            assignedDoctorId: 'doctor-id',
+          }),
+        );
+        expect(mockPatientRepo.create).not.toHaveBeenCalled();
+      });
+
+      it('sin teléfono ni documento no consulta duplicados', async () => {
+        await service.createPatient(DOCTOR_AUTH_ID, undefined, {
+          firstName: 'Ana',
+          lastNamePaternal: 'Arce',
+          birthDate: new Date(),
+        });
+
+        expect(mockPatientRepo.findByDocument).not.toHaveBeenCalled();
+        expect(mockUserRepo.findActiveByPhone).not.toHaveBeenCalled();
+        expect(mockPatientRepo.createWithPlaceholderUser).toHaveBeenCalledWith(
+          { displayName: 'Ana Arce', phone: null },
+          expect.anything(),
+        );
+      });
+
+      it('un documento que ya tiene ficha se bloquea y dice quién es', async () => {
+        mockPatientRepo.findByDocument.mockResolvedValue(fakePatient());
+
+        // fakePatient es "Juana Perez".
+        await expect(
+          service.createPatient(DOCTOR_AUTH_ID, undefined, NEW_PATIENT),
+        ).rejects.toThrow('Ya existe Juana Perez con ese documento');
+        expect(mockPatientRepo.findByDocument).toHaveBeenCalledWith(
+          'ci',
+          '1234567',
+        );
+        expect(
+          mockPatientRepo.createWithPlaceholderUser,
+        ).not.toHaveBeenCalled();
+      });
+
+      it('un teléfono que ya es de otra persona se bloquea y dice quién es', async () => {
+        mockUserRepo.findActiveByPhone.mockResolvedValue([
+          {
+            ...makeAppUser(UserRole.PATIENT, 'u-1'),
+            displayName: 'Carla Cruz',
+          },
+        ]);
+
+        await expect(
+          service.createPatient(DOCTOR_AUTH_ID, undefined, NEW_PATIENT),
+        ).rejects.toThrow('Ya existe Carla Cruz con ese teléfono');
+        // Se busca el teléfono normalizado a E.164.
+        expect(mockUserRepo.findActiveByPhone).toHaveBeenCalledWith(
+          '+59171234567',
+        );
+        expect(
+          mockPatientRepo.createWithPlaceholderUser,
+        ).not.toHaveBeenCalled();
+      });
+
+      it('si igual choca el documento al crear (carrera), el mensaje habla del documento', async () => {
+        mockPatientRepo.createWithPlaceholderUser.mockRejectedValue(
+          new Error(
+            'Unique constraint failed on the fields: (`document_type`,`dni`)',
+          ),
+        );
+
+        await expect(
+          service.createPatient(DOCTOR_AUTH_ID, undefined, NEW_PATIENT),
+        ).rejects.toThrow('Ya existe un paciente con ese documento');
+      });
+    });
+
+    it('un documento repetido al crear con userId ya no dice "ya tiene una ficha" (CLI-171)', async () => {
       mockUserRepo.findByAuthUserId.mockResolvedValue(
         makeAppUser(UserRole.ODONTOLOGIST, 'doctor-id'),
       );
-      mockPatientRepo.create.mockResolvedValue(fakePatient());
-
-      await service.createPatient(DOCTOR_AUTH_ID, undefined, {
-        firstName: 'A',
-        lastNamePaternal: 'B',
-        birthDate: new Date(),
-      });
-
-      expect(mockPatientRepo.create).toHaveBeenCalledWith(
-        'doctor-id',
-        expect.anything(),
+      mockPatientRepo.create.mockRejectedValue(
+        new Error(
+          'Unique constraint failed on the fields: (`document_type`,`dni`)',
+        ),
       );
+
+      await expect(
+        service.createPatient(DOCTOR_AUTH_ID, 'some-user-id', {
+          firstName: 'A',
+          lastNamePaternal: 'B',
+          birthDate: new Date(),
+        }),
+      ).rejects.toThrow('Ya existe un paciente con ese documento');
     });
 
     it.each([

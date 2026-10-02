@@ -447,6 +447,87 @@ describe('PrismaPatientsRepository.create', () => {
   });
 });
 
+// CLI-171: paciente que llega sin reserva previa — usuario placeholder + ficha, atómico.
+describe('PrismaPatientsRepository.createWithPlaceholderUser', () => {
+  function setup(patientCreate: jest.Mock = jest.fn()) {
+    const tx = {
+      users: { create: jest.fn().mockResolvedValue({ id: 'new-user' }) },
+      patients: {
+        create: patientCreate.mockResolvedValue({
+          id: 'patient-1',
+          users: { phone: '71234567' },
+        }),
+      },
+    };
+    const prisma = {
+      transaction: jest.fn((fn: (t: unknown) => unknown) => fn(tx)),
+    };
+    return { tx, prisma, repo: new PrismaPatientsRepository(prisma as never) };
+  }
+
+  const DATA = {
+    firstName: 'Ana',
+    lastNamePaternal: 'Arce',
+    birthDate: new Date('1990-01-01'),
+    assignedDoctorId: 'doctor-1',
+  };
+
+  it('crea el usuario sin cuenta ni email y la ficha con ese usuario, en una transacción', async () => {
+    const { tx, prisma, repo } = setup();
+
+    await repo.createWithPlaceholderUser(
+      { displayName: 'Ana Arce', phone: '71234567' },
+      DATA,
+    );
+
+    expect(prisma.transaction).toHaveBeenCalledTimes(1);
+    expect(tx.users.create).toHaveBeenCalledWith({
+      data: {
+        auth_user_id: null,
+        email: null,
+        display_name: 'Ana Arce',
+        phone: '71234567',
+        role: 'patient',
+      },
+    });
+    expect(tx.patients.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          user_id: 'new-user',
+          first_name: 'Ana',
+          assigned_doctor_id: 'doctor-1',
+        }) as Record<string, unknown>,
+      }),
+    );
+  });
+
+  it('si falla la ficha dentro de la transacción, el error sube (Prisma revierte también el usuario)', async () => {
+    const { tx, repo } = setup(
+      jest.fn().mockRejectedValue(new Error('Unique constraint failed')),
+    );
+    tx.patients.create.mockRejectedValue(new Error('Unique constraint failed'));
+
+    await expect(
+      repo.createWithPlaceholderUser({ displayName: 'Ana', phone: null }, DATA),
+    ).rejects.toThrow('Unique constraint failed');
+  });
+});
+
+describe('PrismaPatientsRepository.findByDocument', () => {
+  it('busca por la clave única (tipo de documento, número)', async () => {
+    const findUnique = jest.fn().mockResolvedValue(null);
+    const repo = new PrismaPatientsRepository({
+      patients: { findUnique },
+    } as never);
+
+    await expect(repo.findByDocument('ci', '1234567')).resolves.toBeNull();
+    expect(findUnique).toHaveBeenCalledWith({
+      where: { document_type_dni: { document_type: 'ci', dni: '1234567' } },
+      include: { users: true },
+    });
+  });
+});
+
 // CLI-109: un examen puede ser un diagnóstico nuevo o la corrección del vigente.
 describe('PrismaPatientsRepository.createDentalExam', () => {
   function setupExamTx(lastVersion: number | null) {
