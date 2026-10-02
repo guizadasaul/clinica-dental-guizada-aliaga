@@ -188,7 +188,7 @@ export class QuoteBuilderComponent {
       this.quantity.set(1);
       this.scopePicker()?.reset();
     } catch {
-      this.formError.set('No se pudo agregar la línea. Verificá los datos e intentá de nuevo.');
+      this.formError.set('No se pudo agregar la línea. Verifica los datos e intenta de nuevo.');
     } finally {
       this.saving.set(false);
     }
@@ -205,7 +205,7 @@ export class QuoteBuilderComponent {
       });
       this.quote.set(updated);
     } catch {
-      this.formError.set('No se pudo eliminar la línea. Intentá de nuevo.');
+      this.formError.set('No se pudo eliminar la línea. Intenta de nuevo.');
     } finally {
       this.removingItemId.set(null);
     }
@@ -224,7 +224,7 @@ export class QuoteBuilderComponent {
       });
       this.quote.set(updated);
     } catch {
-      this.shareError.set('No se pudo compartir el presupuesto. Intentá de nuevo.');
+      this.shareError.set('No se pudo compartir el presupuesto. Intenta de nuevo.');
     } finally {
       this.sharing.set(false);
     }

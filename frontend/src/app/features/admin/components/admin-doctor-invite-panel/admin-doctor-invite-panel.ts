@@ -7,8 +7,8 @@ import type { AdminDoctorSummary } from '../../models/admin-doctor.model';
 import { PageHeaderComponent } from '../../../../shared/ui/page-header/page-header';
 
 const CHANNEL_ERROR: Record<InviteChannel, string> = {
-  email: 'No pudimos enviar el email. Intentá de nuevo.',
-  whatsapp: 'No pudimos armar el mensaje de WhatsApp. Intentá de nuevo.',
+  email: 'No pudimos enviar el email. Intenta de nuevo.',
+  whatsapp: 'No pudimos preparar el mensaje de WhatsApp. Intenta de nuevo.',
 };
 
 /**

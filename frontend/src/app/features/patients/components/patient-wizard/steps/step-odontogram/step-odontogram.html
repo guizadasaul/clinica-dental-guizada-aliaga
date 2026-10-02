@@ -6,7 +6,7 @@
     <div class="odontogram-step__chart">
 
       <div class="odontogram-step__toolbar">
-        <p class="odontogram-step__chart-hint">Hacé clic en un diente para registrar un hallazgo en esa pieza.</p>
+        <p class="odontogram-step__chart-hint">Haz clic en un diente para registrar un hallazgo en esa pieza.</p>
         <button
           type="button"
           class="step-form__btn step-form__btn--secondary"
@@ -181,7 +181,7 @@
                 <span class="step-form__req">*</span>
               </span>
               @if (panelToothNumbers().length === 0) {
-                <p class="odontogram-step__panel-hint">Hacé clic en {{ panelDiagnosis()!.scope === 'single_tooth' ? 'un diente' : 'una o más piezas' }} del odontograma.</p>
+                <p class="odontogram-step__panel-hint">Haz clic en {{ panelDiagnosis()!.scope === 'single_tooth' ? 'un diente' : 'una o más piezas' }} del odontograma.</p>
               } @else {
                 <div class="odontogram-step__panel-chips">
                   @for (n of panelToothNumbers(); track n) {
@@ -205,7 +205,7 @@
                 [value]="panelModifierValue()"
                 (change)="panelModifierValue.set($any($event.target).value)"
               >
-                <option value="" disabled>Elegí una opción...</option>
+                <option value="" disabled>Elige una opción...</option>
                 @for (opt of modifierOptions(); track opt) {
                   <option [value]="opt">{{ modifierLabel(opt) }}</option>
                 }
@@ -221,7 +221,7 @@
             id="findingDesc"
             class="step-form__input step-form__input--textarea"
             [class.step-form__input--invalid]="panelDescription.showError()"
-            placeholder="Describí el hallazgo..."
+            placeholder="Describe el hallazgo..."
             [value]="panelDescription.value()"
             (input)="panelDescription.set($any($event.target).value)"
             (blur)="panelDescription.markTouched()"
@@ -296,7 +296,7 @@
         id="changeReason"
         class="step-form__input step-form__input--textarea"
         [class.step-form__input--invalid]="changeReason.showError()"
-        placeholder="Explicá qué cambió respecto de la versión anterior..."
+        placeholder="Explica qué cambió respecto de la versión anterior..."
         [value]="changeReason.value()"
         (input)="changeReason.set($any($event.target).value)"
         (blur)="changeReason.markTouched()"

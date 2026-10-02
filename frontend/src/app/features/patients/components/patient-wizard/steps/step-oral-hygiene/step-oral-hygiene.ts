@@ -53,7 +53,7 @@ export class StepOralHygieneComponent {
   // Obligatorio si usesToothbrush está marcado (regla cruzada, igual que el backend).
   protected readonly brushingFrequency = field<string>('', (v: string) => {
     if (!this.usesToothbrush()) return null;
-    if (!v) return 'La frecuencia de cepillado es obligatoria si usás cepillo dental.';
+    if (!v) return 'La frecuencia de cepillado es obligatoria si usas cepillo dental.';
     return null;
   });
   protected readonly usesDentalFloss = signal(false);

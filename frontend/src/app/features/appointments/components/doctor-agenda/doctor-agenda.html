@@ -102,7 +102,7 @@
     <output class="agenda__pick">
       <span class="material-symbols-outlined" aria-hidden="true">event_repeat</span>
       <span>
-        {{ rescheduling() ? 'Elegí el nuevo horario para la cita de' : 'Elegí el horario de la próxima cita de' }}
+        {{ rescheduling() ? 'Elige el nuevo horario para la cita de' : 'Elige el horario de la próxima cita de' }}
         <strong>{{ patientLabel(picked) }}</strong>
       </span>
       <button type="button" class="agenda__pick-cancel" (click)="onStopPicking()">Cancelar</button>
@@ -178,7 +178,7 @@
     <!-- Siempre el mismo alto: si el texto apareciera o desapareciera, movería la grilla bajo el cursor. -->
     @if (canBook()) {
       <p class="agenda__hint agenda__hint--inline">
-        {{ picking() ? 'Hacé click en el horario que elija el paciente.' : 'Hacé click en un horario libre para agendar una cita.' }}
+        {{ picking() ? 'Haz clic en el horario que elija el paciente.' : 'Haz clic en un horario libre para agendar una cita.' }}
       </p>
     }
 

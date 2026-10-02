@@ -146,8 +146,8 @@ describe('ReportsPageComponent', () => {
     const col = (name: string) => cells[headers.indexOf(name)];
 
     expect(col('Canceladas')).toBe('2');
-    expect(col('Total turnos')).toBe('6');
-    expect(fixture.nativeElement.textContent).toContain('no suman a "Total turnos"');
+    expect(col('Total citas')).toBe('6');
+    expect(fixture.nativeElement.textContent).toContain('no suman a "Total citas"');
   });
 
   it('lista las canceladas con turno, paciente, quién canceló y el motivo (CLI-103)', async () => {

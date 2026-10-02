@@ -36,7 +36,7 @@ export interface AgendaSlot {
 /** Duraciones que acepta el backend (CLI-148): múltiplos de 30 min, hasta 4 h. */
 const DURATIONS = [30, 60, 90, 120, 150, 180, 210, 240];
 const MAX_DURATION = DURATIONS.at(-1)!;
-const SLOT_TAKEN = 'Ya tenés una cita en ese horario. Elegí otro horario u otra duración.';
+const SLOT_TAKEN = 'Ya tienes una cita en ese horario. Elige otro horario u otra duración.';
 
 const LONG_DATE_FORMATTER = new Intl.DateTimeFormat('es-BO', {
   timeZone: 'America/La_Paz',
@@ -258,7 +258,7 @@ export class BookAppointmentDialogComponent implements OnInit {
       this.error.set(
         status === 409
           ? (backendMessage(err) ?? SLOT_TAKEN)
-          : (backendMessage(err) ?? 'No pudimos guardar la cita. Probá de nuevo.'),
+          : (backendMessage(err) ?? 'No pudimos guardar la cita. Prueba de nuevo.'),
       );
     } finally {
       this.submitting.set(false);

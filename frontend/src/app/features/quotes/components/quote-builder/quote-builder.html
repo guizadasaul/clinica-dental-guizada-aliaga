@@ -1,6 +1,6 @@
 <div class="qb">
 
-  <app-page-header title="Armar presupuesto" backLabel="Volver a la lista" (back)="onClose()" />
+  <app-page-header title="Preparar presupuesto" backLabel="Volver a la lista" (back)="onClose()" />
 
   @if (loading()) {
     <div class="qb__state">
@@ -10,7 +10,7 @@
   } @else if (loadError()) {
     <div class="qb__state qb__state--error">
       <span class="material-symbols-outlined">error</span>
-      <p>No se pudo cargar el presupuesto. Intentá de nuevo.</p>
+      <p>No se pudo cargar el presupuesto. Intenta de nuevo.</p>
     </div>
   } @else if (quote(); as q) {
 
@@ -128,7 +128,7 @@
             }
           </ul>
         } @else {
-          <p class="qb__empty">Todavía no agregaste tratamientos. Elegí uno del catálogo.</p>
+          <p class="qb__empty">Todavía no agregaste tratamientos. Elige uno del catálogo.</p>
         }
 
         <div class="qb__totals">

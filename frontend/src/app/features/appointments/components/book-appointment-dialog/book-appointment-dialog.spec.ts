@@ -167,7 +167,7 @@ describe('BookAppointmentDialogComponent (CLI-150)', () => {
 
     expect(internals(fixture).overlapsNext()).toBe(true);
     expect(internals(fixture).canSubmit()).toBe(false);
-    expect(fixture.nativeElement.textContent).toContain('se pisa con tu cita de las 11:00');
+    expect(fixture.nativeElement.textContent).toContain('se superpone con tu cita de las 11:00');
   });
 
   it('sin paciente no se puede agendar', () => {
@@ -208,7 +208,7 @@ describe('BookAppointmentDialogComponent (CLI-150)', () => {
     await internals(fixture).onSubmit();
 
     expect(booked).not.toHaveBeenCalled();
-    expect(internals(fixture).error()).toContain('Ya tenés una cita en ese horario');
+    expect(internals(fixture).error()).toContain('Ya tienes una cita en ese horario');
   });
 
   it('muestra el mensaje del backend ante otros errores', async () => {

@@ -71,7 +71,7 @@ export class RegisterPaymentComponent {
         }),
       );
       this.paid.emit(quote);
-    }, 'No se pudo registrar el pago. Intentá de nuevo.');
+    }, 'No se pudo registrar el pago. Intenta de nuevo.');
   }
 
   protected async onGenerateQr(): Promise<void> {
@@ -79,7 +79,7 @@ export class RegisterPaymentComponent {
     if (amount === null) { return; }
     await this.run(async () => {
       this.charge.set(await firstValueFrom(this.financesService.createQrCharge(this.quoteId(), amount)));
-    }, 'No se pudo generar el QR de BANECO. Intentá de nuevo en un momento.');
+    }, 'No se pudo generar el QR de BANECO. Intenta de nuevo en un momento.');
   }
 
   protected async onVerify(): Promise<void> {
@@ -92,11 +92,11 @@ export class RegisterPaymentComponent {
         this.paid.emit(result.quote);
       } else if (result.status === 'cancelled') {
         this.charge.set(null);
-        this.notice.set('El QR fue anulado. Generá uno nuevo para cobrar.');
+        this.notice.set('El QR fue anulado. Genera uno nuevo para cobrar.');
       } else {
-        this.notice.set('Todavía no llegó el pago. Cuando el paciente confirme en su app, verificá de nuevo.');
+        this.notice.set('Todavía no llegó el pago. Cuando el paciente confirme en su app, verifica de nuevo.');
       }
-    }, 'No se pudo consultar el pago en BANECO. Intentá de nuevo.');
+    }, 'No se pudo consultar el pago en BANECO. Intenta de nuevo.');
   }
 
   protected async onCancelQr(): Promise<void> {
@@ -106,7 +106,7 @@ export class RegisterPaymentComponent {
       await firstValueFrom(this.financesService.cancelQrCharge(charge.chargeId));
       this.charge.set(null);
       this.notice.set(null);
-    }, 'No se pudo anular el QR. Si ya fue pagado, verificalo.');
+    }, 'No se pudo anular el QR. Si ya fue pagado, verifícalo.');
   }
 
   protected onClose(): void {
@@ -116,7 +116,7 @@ export class RegisterPaymentComponent {
   private validAmount(): number | null {
     const amount = Number(this.amount());
     if (!amount || amount <= 0) {
-      this.error.set('Ingresá un monto mayor a 0.');
+      this.error.set('Ingresa un monto mayor a 0.');
       return null;
     }
     if (amount > this.balance()) {

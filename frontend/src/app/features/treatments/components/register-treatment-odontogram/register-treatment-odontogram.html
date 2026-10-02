@@ -5,7 +5,7 @@
     <div class="rto__chart">
 
       <div class="rto__toolbar">
-        <p class="rto__chart-hint">Hacé clic en un diente para registrar un tratamiento en esa pieza.</p>
+        <p class="rto__chart-hint">Haz clic en un diente para registrar un tratamiento en esa pieza.</p>
         <button
           type="button"
           class="rto__btn rto__btn--secondary"
@@ -67,7 +67,7 @@
 
           @if (treatment.applicationType === 'single_tooth' || treatment.applicationType === 'multiple_teeth') {
             @if (panelToothNumbers().length === 0) {
-              <p class="rto__panel-hint">Hacé clic en {{ treatment.applicationType === 'single_tooth' ? 'un diente' : 'una o más piezas' }} del odontograma.</p>
+              <p class="rto__panel-hint">Haz clic en {{ treatment.applicationType === 'single_tooth' ? 'un diente' : 'una o más piezas' }} del odontograma.</p>
             } @else {
               <!-- Surfaces — una por cada diente seleccionado (CLI-41), no un juego copiado a cada uno -->
               @for (n of panelToothNumbers(); track n) {

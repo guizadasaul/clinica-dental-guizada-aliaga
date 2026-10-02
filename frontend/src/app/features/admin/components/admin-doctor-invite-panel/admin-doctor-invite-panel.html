@@ -2,8 +2,8 @@
   <app-page-header title="Enviar invitación" backLabel="Volver a doctores" (back)="onClose()" />
 
   <p class="invite-panel__intro">
-    <strong>{{ doctor().displayName ?? 'El doctor' }}</strong> va a crear su acceso desde un link personal. Elegí por
-    dónde mandárselo: el link sirve una sola vez y vence a las 48 horas.
+    <strong>{{ doctor().displayName ?? 'El doctor' }}</strong> va a crear su acceso desde un link personal. Elige por
+    dónde enviárselo: el link sirve una sola vez y vence a las 48 horas.
   </p>
 
   <dl class="invite-panel__contact">
@@ -47,13 +47,13 @@
 
   @if (!doctor().email || !doctor().phone) {
     <p class="invite-panel__hint">
-      Para usar el canal que está deshabilitado, cargá ese dato en
+      Para usar el canal que está deshabilitado, registra ese dato en
       <button type="button" class="invite-panel__link" (click)="onEditContact()">Editar datos de contacto</button>.
     </p>
   }
 
   <p class="invite-panel__hint">
-    Si preferís mandarlo más tarde, cerrá este panel: el doctor queda como «Pendiente de registro» y podés enviarle la
+    Si prefieres enviarlo más tarde, cierra este panel: el doctor queda como «Pendiente de registro» y puedes enviarle la
     invitación desde la lista.
   </p>
 </div>

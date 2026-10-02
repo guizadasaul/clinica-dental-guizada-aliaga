@@ -610,7 +610,7 @@ describe('DoctorAgendaComponent', () => {
         new Date(originMonday + 7 * 86_400_000).toISOString().slice(0, 10),
       );
       expect(fixture.nativeElement.querySelector('.agenda__pick')?.textContent).toContain(
-        'Elegí el horario de la próxima cita de',
+        'Elige el horario de la próxima cita de',
       );
 
       (fixture.nativeElement.querySelector('button.agenda-cell') as HTMLButtonElement).click();

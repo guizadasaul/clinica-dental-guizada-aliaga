@@ -32,7 +32,7 @@
             @if (examLoadingId() === v.id) {
               <p class="exam-history__empty">Cargando examen...</p>
             } @else if (examErrorId() === v.id) {
-              <p class="exam-history__empty">No se pudo cargar este examen. Intentá de nuevo.</p>
+              <p class="exam-history__empty">No se pudo cargar este examen. Intenta de nuevo.</p>
             } @else if (expandedExam(); as exam) {
               @if (canCopy() && exam.findings.length > 0) {
                 <button type="button" class="exam-history__copy" (click)="onCopy()">

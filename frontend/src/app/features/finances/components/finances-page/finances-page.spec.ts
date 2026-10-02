@@ -117,7 +117,7 @@ describe('FinancesPageComponent', () => {
     expect(finances.listPatients).toHaveBeenCalledWith('');
     expect(root.querySelector('.fin__patient')?.textContent).toContain('Ana Pérez');
     expect(root.querySelector('.fin__patient-balance')?.textContent).toContain('Bs. 500.00');
-    expect(root.textContent).toContain('Elegí un paciente');
+    expect(root.textContent).toContain('Elige un paciente');
   });
 
   it('mientras carga y si falla la lista', () => {

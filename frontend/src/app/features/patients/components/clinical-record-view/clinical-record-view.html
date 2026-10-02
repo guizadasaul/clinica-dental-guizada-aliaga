@@ -15,7 +15,7 @@
   } @else if (loadError()) {
     <div class="record__state record__state--error">
       <span class="material-symbols-outlined">error</span>
-      <p>No se pudo cargar la historia clínica. Intentá de nuevo.</p>
+      <p>No se pudo cargar la historia clínica. Intenta de nuevo.</p>
     </div>
   } @else {
 
@@ -39,9 +39,9 @@
             <p class="record__phone-warning">
               <span class="material-symbols-outlined" aria-hidden="true">warning</span>
               @if (phoneLoginError === 'phone_in_use') {
-                Este teléfono ya está registrado en otra cuenta: el paciente no puede iniciar sesión con teléfono y contraseña. Cargá otro número.
+                Este teléfono ya está registrado en otra cuenta: el paciente no puede iniciar sesión con teléfono y contraseña. Registra otro número.
               } @else {
-                No se pudo habilitar este teléfono para iniciar sesión. Volvé a guardar la ficha para reintentar.
+                No se pudo habilitar este teléfono para iniciar sesión. Vuelve a guardar la ficha para reintentar.
               }
             </p>
           }
