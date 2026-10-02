@@ -130,7 +130,7 @@ export class GetClinicOperationalReportTool implements ChatTool<ClinicReportArgs
       notes: [
         'Las vencidas son reservas que no se pagaron a tiempo, no cancelaciones.',
         // CLI-149/154: las cancelaciones las registra el doctor desde su agenda.
-        'Las canceladas por el doctor se informan aparte y no suman al total de turnos. El sistema no registra asistencia.',
+        'Las canceladas por el doctor se informan aparte y no suman al total de citas. El sistema no registra asistencia.',
       ],
     };
   }

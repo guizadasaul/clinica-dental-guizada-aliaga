@@ -90,7 +90,7 @@ export interface RescheduleInput {
   notes?: string;
 }
 
-const SLOT_TAKEN_MESSAGE = 'Ya tenés una cita en ese horario';
+const SLOT_TAKEN_MESSAGE = 'Ya tienes una cita en ese horario';
 
 // Cuánto hacia atrás buscar citas que todavía podrían estar en curso al
 // empezar la nueva. Holgado a propósito: la duración más larga que se
@@ -296,12 +296,12 @@ export class AppointmentsService {
       }
       if (error instanceof GuestEmailBelongsToAccountError) {
         throw new ConflictException(
-          'Ese email ya pertenece a una cuenta existente. Iniciá sesión para reservar con tu cuenta.',
+          'Ese email ya pertenece a una cuenta existente. Inicia sesión para reservar con tu cuenta.',
         );
       }
       if (error instanceof GuestPhoneBelongsToAccountError) {
         throw new ConflictException(
-          'Ese número de teléfono ya pertenece a una cuenta existente. Iniciá sesión para reservar con tu cuenta.',
+          'Ese número de teléfono ya pertenece a una cuenta existente. Inicia sesión para reservar con tu cuenta.',
         );
       }
       throw error;

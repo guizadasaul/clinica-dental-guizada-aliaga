@@ -125,7 +125,7 @@ export class QuotesService {
       const rate = await this.exchangeRateProvider.getUsdToBob();
       if (!rate) {
         throw new ServiceUnavailableException(
-          'No se pudo obtener el tipo de cambio para calcular el precio en bolivianos. Intentá de nuevo en unos minutos.',
+          'No se pudo obtener el tipo de cambio para calcular el precio en bolivianos. Intenta de nuevo en unos minutos.',
         );
       }
       unitPrice = convertUsdToBob(amount, rate.rate);

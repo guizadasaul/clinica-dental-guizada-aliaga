@@ -24,27 +24,38 @@ interface InviteEmailCopy {
   eyebrow: string;
   heading: string;
   intro: string;
+  /** Texto oculto que el cliente de correo muestra como vista previa, después del nombre. */
+  preheader: string;
+  /** Línea con el enlace en la versión de texto plano. */
+  textCta: string;
 }
 
 // Copy específico por tipo de invitado. El resto del template (layout, logo,
 // botón, footer) se mantiene idéntico — solo cambia este contenido.
 const INVITE_EMAIL_COPY: Record<InviteEmailKind, InviteEmailCopy> = {
   patient: {
-    subject: 'Completá tu registro en Clínica Dental Guizada-Aliaga',
+    subject: 'Completa tu registro en Clínica Dental Guizada-Aliaga',
     eyebrow: 'Invitación de registro',
-    heading: 'Completá tu registro',
+    heading: 'Completa tu registro',
     intro:
       'te invita a completar tu registro para que puedas ' +
       'ver tus citas, tu historial clínico y tus presupuestos desde un solo lugar. Es rápido y te toma ' +
       'menos de un minuto.',
+    preheader:
+      'completa tu registro en Clínica Dental Guizada-Aliaga en solo un minuto.',
+    textCta: 'Completa tu registro aquí:',
   },
   doctor: {
-    subject: 'Invitación para unirte al staff de Clínica Dental Guizada-Aliaga',
+    subject:
+      'Invitación para unirte al equipo de Clínica Dental Guizada-Aliaga',
     eyebrow: 'Invitación al equipo',
-    heading: 'Unite al equipo',
+    heading: 'Únete al equipo',
     intro:
-      'te invita a sumarte a su staff de odontólogos. Completá tu cuenta para acceder a tu ' +
+      'te invita a unirte a su equipo de odontólogos. Completa tu cuenta para acceder a tu ' +
       'panel, tu agenda y las fichas de tus pacientes.',
+    preheader:
+      'crea tu acceso al equipo de Clínica Dental Guizada-Aliaga en solo un minuto.',
+    textCta: 'Crea tu acceso aquí:',
   },
 };
 
@@ -122,7 +133,7 @@ export class ResendEmailSender implements EmailSender {
   </head>
   <body style="margin:0; padding:0; background-color:#f3ede1; font-family:'Source Sans 3', Arial, Helvetica, sans-serif;">
     <span style="display:none; visibility:hidden; opacity:0; overflow:hidden; height:0; width:0; max-height:0; max-width:0; mso-hide:all;">
-      ${name}, completá tu registro en Clínica Dental Guizada-Aliaga en solo un minuto.
+      ${name}, ${copy.preheader}
     </span>
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#f3ede1;">
       <tr>
@@ -188,7 +199,7 @@ export class ResendEmailSender implements EmailSender {
             <tr>
               <td style="padding:24px 40px 0;">
                 <p style="margin:0 0 6px; font-size:13px; line-height:1.5; color:#4d4640;">
-                  Si el botón no funciona, copiá y pegá este enlace en tu navegador:
+                  Si el botón no funciona, copia y pega este enlace en tu navegador:
                 </p>
                 <p style="margin:0 0 24px; font-size:13px; line-height:1.5; word-break:break-all;">
                   <a href="${url}" style="color:#e89858;">${url}</a>
@@ -223,7 +234,7 @@ export class ResendEmailSender implements EmailSender {
                 </p>
                 <p style="margin:0; font-size:12px; line-height:1.5; color:#9b9488;">
                   Recibiste este correo porque un profesional de Clínica Dental Guizada-Aliaga registró tu contacto para
-                  invitarte a crear tu cuenta. Si creés que fue un error, podés ignorar este mensaje.
+                  invitarte a crear tu cuenta. Si crees que fue un error, puedes ignorar este mensaje.
                 </p>
               </td>
             </tr>
@@ -248,7 +259,7 @@ Hola ${params.displayName},
 
 El equipo de Clínica Dental Guizada-Aliaga ${copy.intro}
 
-Completá tu registro acá: ${params.inviteUrl}
+${copy.textCta} ${params.inviteUrl}
 
 Por tu seguridad, este enlace vence en ${expiresIn}.
 

@@ -83,11 +83,11 @@ export function normalizeFullName(value: string): string {
 
 function reasonMessage(value: unknown, requireTwoWords: boolean): string {
   if (typeof value !== 'string') {
-    return 'Ingresá tu nombre completo.';
+    return 'Ingresa tu nombre completo.';
   }
   const normalized = normalizeFullName(value);
   if (normalized === '') {
-    return 'Ingresá tu nombre completo.';
+    return 'Ingresa tu nombre completo.';
   }
   if (requireTwoWords) {
     const words = normalized.split(' ');
