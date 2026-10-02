@@ -36,9 +36,13 @@ export class BookingProgressComponent {
     const step = this.step();
     // En 'confirmed' todos quedan completos.
     const currentIndex = step === 'confirmed' ? ITEMS.length : ITEMS.findIndex((i) => i.key === step);
-    return ITEMS.map((item, index) => ({
-      ...item,
-      state: (index < currentIndex ? 'done' : index === currentIndex ? 'current' : 'todo') as ItemState,
-    }));
+    return ITEMS.map((item, index) => ({ ...item, state: stateOf(index, currentIndex) }));
   });
+}
+
+function stateOf(index: number, currentIndex: number): ItemState {
+  if (index < currentIndex) {
+    return 'done';
+  }
+  return index === currentIndex ? 'current' : 'todo';
 }

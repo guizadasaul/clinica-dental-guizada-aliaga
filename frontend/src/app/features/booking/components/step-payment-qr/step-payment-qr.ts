@@ -27,8 +27,8 @@ export class StepPaymentQrComponent {
    */
   protected readonly contactHref = computed(() => {
     const phone = (this.doctorPhone() ?? CLINIC_PHONE).replace(/\D/g, '');
-    const name = this.doctorName();
-    const text = `Hola${name ? ` ${name}` : ''}, acabo de reservar una cita y quiero consultarte sobre mi pago.`;
+    const greeting = this.doctorName() ? `Hola ${this.doctorName()}` : 'Hola';
+    const text = `${greeting}, acabo de reservar una cita y quiero consultarte sobre mi pago.`;
     return `https://wa.me/${phone}?text=${encodeURIComponent(text)}`;
   });
   protected readonly checkingNow = signal(false);
