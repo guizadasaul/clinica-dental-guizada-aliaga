@@ -15,6 +15,7 @@ describe('PatientsController', () => {
     findAll: jest.fn(),
     findMyPatient: jest.fn(),
     findMyPatientStatus: jest.fn(),
+    findMyToothProcedures: jest.fn(),
     createPatient: jest.fn(),
     updatePatient: jest.fn(),
     upsertMedicalHistory: jest.fn(),
@@ -57,6 +58,17 @@ describe('PatientsController', () => {
 
       expect(mockService.findMyPatient).toHaveBeenCalledWith('doctor-auth-1');
       expect(mockService.findMyPatientStatus).toHaveBeenCalledWith(
+        'doctor-auth-1',
+      );
+    });
+
+    it('me/tooth-procedures resuelve la ficha por el uid de la sesión (CLI-102)', async () => {
+      mockService.findMyToothProcedures.mockResolvedValue(['proc']);
+
+      await expect(controller.findMyToothProcedures(DOCTOR)).resolves.toEqual([
+        'proc',
+      ]);
+      expect(mockService.findMyToothProcedures).toHaveBeenCalledWith(
         'doctor-auth-1',
       );
     });

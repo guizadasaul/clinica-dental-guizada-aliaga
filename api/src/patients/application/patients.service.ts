@@ -598,6 +598,11 @@ export class PatientsService {
     return patient;
   }
 
+  async findMyToothProcedures(authUserId: string): Promise<ToothProcedure[]> {
+    const patient = await this.findMyPatient(authUserId);
+    return this.patientRepo.findToothProcedures(patient.id);
+  }
+
   async findMyPatientStatus(
     authUserId: string,
   ): Promise<{ exists: boolean; patient: Patient | null }> {

@@ -31,31 +31,42 @@ const TREATMENTS = [
   { id: 'carilla', name: 'Carilla', currency: 'USD', basePriceBob: 1392 },
 ] as Treatment[];
 
-function setup(procedures: ToothProcedure[] | Error) {
+function setup(procedures: ToothProcedure[] | Error, mine = false) {
+  const respond = () =>
+    procedures instanceof Error ? throwError(() => procedures) : of(procedures);
+  const service = {
+    getAll: () => of(TREATMENTS),
+    getToothProcedures: vi.fn(respond),
+    getMyToothProcedures: vi.fn(respond),
+  };
   TestBed.configureTestingModule({
     imports: [TreatmentHistoryComponent],
-    providers: [
-      {
-        provide: TreatmentsService,
-        useValue: {
-          getAll: () => of(TREATMENTS),
-          getToothProcedures: vi.fn(() =>
-            procedures instanceof Error ? throwError(() => procedures) : of(procedures),
-          ),
-        },
-      },
-    ],
+    providers: [{ provide: TreatmentsService, useValue: service }],
   });
   const fixture = TestBed.createComponent(TreatmentHistoryComponent);
   fixture.componentRef.setInput('patientId', 'patient-1');
+  fixture.componentRef.setInput('mine', mine);
   fixture.detectChanges();
   const root = fixture.nativeElement as HTMLElement;
   const rows = () =>
     [...root.querySelectorAll('.th__table tbody tr')].map((r) => r.textContent ?? '');
-  return { fixture, root, rows };
+  return { fixture, root, rows, service };
 }
 
 describe('TreatmentHistoryComponent', () => {
+  it('desde el panel del doctor pide el historial por id de paciente', () => {
+    const { service } = setup([]);
+    expect(service.getToothProcedures).toHaveBeenCalledWith('patient-1');
+    expect(service.getMyToothProcedures).not.toHaveBeenCalled();
+  });
+
+  it('desde el panel del paciente pide su propio historial por sesión (CLI-102)', () => {
+    const { service, rows } = setup([procedure()], true);
+    expect(service.getMyToothProcedures).toHaveBeenCalled();
+    expect(service.getToothProcedures).not.toHaveBeenCalled();
+    expect(rows()[0]).toContain('Resina');
+  });
+
   it('sin tratamientos lo avisa', () => {
     expect(setup([]).root.textContent).toContain('Este paciente no tiene tratamientos registrados');
   });

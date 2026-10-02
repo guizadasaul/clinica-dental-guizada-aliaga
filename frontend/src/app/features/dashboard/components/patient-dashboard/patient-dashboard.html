@@ -4,6 +4,7 @@
   @if (patientId()) {
     <app-treatment-history
       [patientId]="patientId()!"
+      [mine]="true"
       (closed)="onHistoryClose()"
     />
   } @else {

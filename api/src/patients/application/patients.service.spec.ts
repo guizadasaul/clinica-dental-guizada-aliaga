@@ -1417,6 +1417,36 @@ describe('PatientsService', () => {
     });
   });
 
+  describe('findMyToothProcedures (CLI-102)', () => {
+    it('trae los procedimientos de la ficha del usuario autenticado', async () => {
+      const patient = fakePatient();
+      mockUserRepo.findByAuthUserId.mockResolvedValue(
+        makeAppUser(UserRole.PATIENT, 'user-1'),
+      );
+      mockPatientRepo.findByUserId.mockResolvedValue(patient);
+      mockPatientRepo.findToothProcedures.mockResolvedValue(['proc']);
+
+      await expect(
+        service.findMyToothProcedures(PATIENT_AUTH_ID),
+      ).resolves.toEqual(['proc']);
+      expect(mockPatientRepo.findToothProcedures).toHaveBeenCalledWith(
+        patient.id,
+      );
+    });
+
+    it('responde 404 si el usuario todavía no tiene ficha', async () => {
+      mockUserRepo.findByAuthUserId.mockResolvedValue(
+        makeAppUser(UserRole.PATIENT, 'user-1'),
+      );
+      mockPatientRepo.findByUserId.mockResolvedValue(null);
+
+      await expect(
+        service.findMyToothProcedures(PATIENT_AUTH_ID),
+      ).rejects.toThrow(NotFoundException);
+      expect(mockPatientRepo.findToothProcedures).not.toHaveBeenCalled();
+    });
+  });
+
   describe('findMyPatientStatus', () => {
     it('sin usuario en la base: no existe', async () => {
       mockUserRepo.findByAuthUserId.mockResolvedValue(null);
