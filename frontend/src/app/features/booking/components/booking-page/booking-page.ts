@@ -15,6 +15,14 @@ import type { Doctor } from '../../models/booking.model';
 
 type BookingStep = BookingStepKey;
 
+/** La API limita los intentos de reserva por IP y hora (429): se avisa con un mensaje propio, no con el genérico (CLI-169). */
+const RATE_LIMIT_MESSAGE =
+  'Superaste el límite de intentos de reserva. Esperá un rato (hasta una hora) y volvé a intentarlo.';
+
+function isRateLimited(err: unknown): boolean {
+  return err instanceof HttpErrorResponse && err.status === 429;
+}
+
 /** Subtítulo propio de cada paso (CLI-166): el de antes era fijo para todos. */
 const STEP_SUBTITLES: Record<BookingStep, string> = {
   doctor: 'Elegí con qué doctor querés tu consulta.',
@@ -156,7 +164,9 @@ export class BookingPageComponent implements OnInit {
       this.holdExpiresAt.set(hold.holdExpiresAt);
       this.step.set('contact');
     } catch (err) {
-      if (err instanceof HttpErrorResponse && err.status === 409) {
+      if (isRateLimited(err)) {
+        this.error.set(RATE_LIMIT_MESSAGE);
+      } else if (err instanceof HttpErrorResponse && err.status === 409) {
         this.error.set('Ese horario ya no está disponible, elegí otro.');
         this.step.set('slot');
         await this.loadAvailability(doctorId);
@@ -185,7 +195,9 @@ export class BookingPageComponent implements OnInit {
       this.holdExpiresAt.set(checkout.holdExpiresAt);
       this.step.set('payment');
     } catch (err) {
-      if (err instanceof HttpErrorResponse && err.status === 410) {
+      if (isRateLimited(err)) {
+        this.error.set(RATE_LIMIT_MESSAGE);
+      } else if (err instanceof HttpErrorResponse && err.status === 410) {
         this.error.set('El horario reservado ya venció. Elegí uno nuevo.');
         this.resetToSlotSelection();
       } else if (err instanceof HttpErrorResponse && err.status === 409) {

@@ -1,7 +1,8 @@
 import { TestBed } from '@angular/core/testing';
 import { ActivatedRoute, convertToParamMap } from '@angular/router';
 import { provideTranslateService } from '@ngx-translate/core';
-import { of } from 'rxjs';
+import { of, throwError } from 'rxjs';
+import { HttpErrorResponse } from '@angular/common/http';
 import { BookingPageComponent } from './booking-page';
 import { BookingService } from '../../services/booking.service';
 import type { Doctor } from '../../models/booking.model';
@@ -162,6 +163,57 @@ describe('BookingPageComponent', () => {
 
     const current = (fixture.nativeElement as HTMLElement).querySelector('[aria-current="step"]');
     expect(current?.textContent).toContain('Horario');
+  });
+
+  describe('límite de intentos (429, CLI-169)', () => {
+    const tooMany = () => throwError(() => new HttpErrorResponse({ status: 429 }));
+    const shownError = (fixture: ReturnType<typeof setup>) =>
+      (fixture.nativeElement as HTMLElement).querySelector('.week-picker__error, .booking-page__error')?.textContent;
+
+    it('al reservar el horario dice que se excedió el límite, no el error genérico', async () => {
+      const bookingService = createBookingServiceStub({ holdSlot: vi.fn().mockReturnValue(tooMany()) });
+      const fixture = setup(bookingService);
+      await settle(fixture);
+      fixture.componentInstance['onDoctorSelected']('doctor-1');
+      await settle(fixture);
+
+      await fixture.componentInstance['onSlotSelected'](SLOT_ISO);
+      await settle(fixture);
+
+      expect(shownError(fixture)).toContain('Superaste el límite de intentos de reserva');
+      expect(shownError(fixture)).not.toContain('No pudimos reservar ese horario');
+      expect(fixture.componentInstance['step']()).toBe('slot');
+    });
+
+    it('al enviar los datos también', async () => {
+      const bookingService = createBookingServiceStub({ saveGuestContact: vi.fn().mockReturnValue(tooMany()) });
+      const fixture = setup(bookingService);
+      await settle(fixture);
+      fixture.componentInstance['onDoctorSelected']('doctor-1');
+      await settle(fixture);
+      await fixture.componentInstance['onSlotSelected'](SLOT_ISO);
+      await settle(fixture);
+
+      await fixture.componentInstance['onContactSubmit']({} as never);
+      await settle(fixture);
+
+      expect(shownError(fixture)).toContain('Superaste el límite de intentos de reserva');
+    });
+
+    it('otros errores siguen mostrando el mensaje genérico', async () => {
+      const bookingService = createBookingServiceStub({
+        holdSlot: vi.fn().mockReturnValue(throwError(() => new HttpErrorResponse({ status: 500 }))),
+      });
+      const fixture = setup(bookingService);
+      await settle(fixture);
+      fixture.componentInstance['onDoctorSelected']('doctor-1');
+      await settle(fixture);
+
+      await fixture.componentInstance['onSlotSelected'](SLOT_ISO);
+      await settle(fixture);
+
+      expect(shownError(fixture)).toContain('No pudimos reservar ese horario');
+    });
   });
 
   // El modal de la landing manda ?doctorId=&slot= cuando el visitante ya
