@@ -242,6 +242,22 @@ describe('LandingComponent', () => {
       expect(el(fixture, 'app-doctor-picker')).toBeNull();
     });
 
+    it('"elegir otro doctor" desde un doctor sin turnos vuelve al selector de doctores (CLI-142)', async () => {
+      const { fixture } = await openModal();
+      const landing = fixture.componentInstance as unknown as {
+        onBookingDoctorSelected(id: string): void;
+        onBookingChangeDoctor(): void;
+      };
+      landing.onBookingDoctorSelected('doctor-1');
+      await render(fixture);
+
+      landing.onBookingChangeDoctor();
+      await render(fixture);
+
+      expect(el(fixture, 'app-doctor-picker')).not.toBeNull();
+      expect(el(fixture, 'app-week-slot-picker')).toBeNull();
+    });
+
     it('si la disponibilidad falla, avisa con un error', async () => {
       const { fixture, mocks } = await openModal();
       mocks.booking.getAvailabilityRange.mockReturnValue(throwError(() => new Error('500')));
