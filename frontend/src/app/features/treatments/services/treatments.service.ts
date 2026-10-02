@@ -27,4 +27,9 @@ export class TreatmentsService {
   getToothProcedures(patientId: string): Observable<ToothProcedure[]> {
     return this.http.get<ToothProcedure[]>(`${this.patientsBase}/${patientId}/tooth-procedures`);
   }
+
+  /** Historial del paciente logueado: la ficha la resuelve el backend por sesión (CLI-102). */
+  getMyToothProcedures(): Observable<ToothProcedure[]> {
+    return this.http.get<ToothProcedure[]>(`${this.patientsBase}/me/tooth-procedures`);
+  }
 }

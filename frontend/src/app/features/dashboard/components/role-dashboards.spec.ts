@@ -13,6 +13,7 @@ import { LogoComponent } from '../../../shared/ui/logo/logo';
 @Component({ selector: 'app-treatment-history', standalone: true, template: 'historial' })
 class TreatmentHistoryStub {
   readonly patientId = input('');
+  readonly mine = input(false);
   readonly closed = output<void>();
 }
 @Component({ selector: 'app-admin-doctors', standalone: true, template: 'doctores' })
@@ -127,6 +128,8 @@ describe('PatientDashboardComponent', () => {
       .componentInstance as TreatmentHistoryStub;
 
     expect(history.patientId()).toBe('patient-1');
+    // CLI-102: el paciente pide su historial por sesión, no por id.
+    expect(history.mine()).toBe(true);
     history.closed.emit();
 
     expect(emitted).toEqual(['home']);

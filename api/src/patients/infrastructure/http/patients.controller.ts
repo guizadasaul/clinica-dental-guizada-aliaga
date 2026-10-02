@@ -49,6 +49,17 @@ export class PatientsController {
     return this.patientsService.findMyPatientStatus(currentUser.uid);
   }
 
+  /**
+   * Historial de tratamientos del propio paciente (CLI-102). La ficha sale
+   * de la sesión, nunca de un parámetro: GET /:patientId/tooth-procedures
+   * sigue siendo solo para odontólogos.
+   */
+  @Get('me/tooth-procedures')
+  @Roles(UserRole.PATIENT)
+  findMyToothProcedures(@CurrentUser() currentUser: AuthenticatedUser) {
+    return this.patientsService.findMyToothProcedures(currentUser.uid);
+  }
+
   @Post()
   @Roles(UserRole.ODONTOLOGIST)
   @HttpCode(HttpStatus.CREATED)
