@@ -49,6 +49,13 @@ describe('StepPaymentQrComponent', () => {
       expect(link.textContent).not.toMatch(/\d{4}/);
     });
 
+    it('muestra el ícono de WhatsApp (CLI-168)', () => {
+      const link = contact('Dra. Ejemplo', '+59167402602');
+
+      expect(link.querySelector('svg.payment-qr__contact-icon')).not.toBeNull();
+      expect(link.querySelector('.material-symbols-outlined')).toBeNull();
+    });
+
     it('abre WhatsApp con el doctor elegido y un mensaje listo, sin emojis', () => {
       const href = contact('Dra. Ejemplo', '+59167402602').getAttribute('href')!;
 
