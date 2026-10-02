@@ -14,6 +14,7 @@ const DOCTOR: Doctor = {
   photoUrl: null,
   displayOrder: 0,
   isBookable: true,
+  phone: null,
 };
 
 // Slot fijo, siempre en el futuro relativo al momento en que corre el test
@@ -139,6 +140,30 @@ describe('BookingPageComponent', () => {
     expect(fixture.componentInstance['doctors']()).toEqual([DOCTOR]);
   });
 
+  it('cada paso tiene su propio subtítulo en vez de uno fijo (CLI-166)', async () => {
+    const fixture = setup(createBookingServiceStub());
+    await settle(fixture);
+    const subtitle = () => (fixture.nativeElement as HTMLElement).querySelector('.booking-page__subtitle')?.textContent;
+
+    expect(subtitle()).toContain('Elegí con qué doctor');
+    fixture.componentInstance['onDoctorSelected']('doctor-1');
+    await settle(fixture);
+    expect(subtitle()).toContain('Elegí el día y la hora');
+    await fixture.componentInstance['onSlotSelected'](SLOT_ISO);
+    await settle(fixture);
+    expect(subtitle()).toContain('Dejanos tus datos');
+  });
+
+  it('muestra el indicador de pasos con el paso actual (CLI-166)', async () => {
+    const fixture = setup(createBookingServiceStub());
+    await settle(fixture);
+    fixture.componentInstance['onDoctorSelected']('doctor-1');
+    await settle(fixture);
+
+    const current = (fixture.nativeElement as HTMLElement).querySelector('[aria-current="step"]');
+    expect(current?.textContent).toContain('Horario');
+  });
+
   // El modal de la landing manda ?doctorId=&slot= cuando el visitante ya
   // eligió doctor y horario ahí — /reservar no debe repreguntar el doctor.
   it('with ?doctorId and ?slot in the URL, holds directly and skips the doctor/slot pickers', async () => {
@@ -149,7 +174,8 @@ describe('BookingPageComponent', () => {
     });
     await settle(fixture);
 
-    expect(bookingService.getDoctors).not.toHaveBeenCalled();
+    // La lista se pide igual (sin picker) para el nombre y el teléfono del doctor (CLI-166).
+    expect(bookingService.getDoctors).toHaveBeenCalledTimes(1);
     expect(bookingService.holdSlot).toHaveBeenCalledWith(SLOT_ISO, 'doctor-1');
     expect(fixture.componentInstance['step']()).toBe('contact');
   });

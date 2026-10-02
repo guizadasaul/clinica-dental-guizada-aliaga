@@ -6,6 +6,8 @@ export interface Doctor {
   photoUrl: string | null;
   displayOrder: number;
   isBookable: boolean;
+  /** Teléfono del doctor en E.164 — arma el botón "Contactanos" del pago (CLI-166). null si no tiene. */
+  phone: string | null;
 }
 
 export interface AvailabilityResponse {

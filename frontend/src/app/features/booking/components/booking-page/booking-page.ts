@@ -2,6 +2,7 @@ import { Component, ChangeDetectionStrategy, computed, inject, signal, OnInit } 
 import { HttpErrorResponse } from '@angular/common/http';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
+import { BookingProgressComponent, type BookingStepKey } from '../booking-progress/booking-progress';
 import { BookingService } from '../../services/booking.service';
 import { DoctorPickerComponent } from '../doctor-picker/doctor-picker';
 import { WeekSlotPickerComponent } from '../week-slot-picker/week-slot-picker';
@@ -12,7 +13,16 @@ import { HoldCountdownComponent } from '../hold-countdown/hold-countdown';
 import type { GuestContactRequest } from '../../models/booking.request';
 import type { Doctor } from '../../models/booking.model';
 
-type BookingStep = 'doctor' | 'slot' | 'contact' | 'payment' | 'confirmed';
+type BookingStep = BookingStepKey;
+
+/** Subtítulo propio de cada paso (CLI-166): el de antes era fijo para todos. */
+const STEP_SUBTITLES: Record<BookingStep, string> = {
+  doctor: 'Elegí con qué doctor querés tu consulta.',
+  slot: 'Elegí el día y la hora que mejor te quede.',
+  contact: 'Dejanos tus datos para reservar tu lugar. Tu horario queda guardado unos minutos.',
+  payment: 'Escaneá el código QR con la app de tu banco para pagar y confirmar tu cita.',
+  confirmed: '¡Listo! Tu cita quedó confirmada.',
+};
 
 function todayIso(): string {
   return new Date().toISOString().slice(0, 10);
@@ -24,6 +34,7 @@ function todayIso(): string {
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
     RouterLink,
+    BookingProgressComponent,
     DoctorPickerComponent,
     WeekSlotPickerComponent,
     StepGuestContactComponent,
@@ -43,6 +54,10 @@ export class BookingPageComponent implements OnInit {
   protected readonly doctorsLoading = signal(false);
   protected readonly selectedDoctorId = signal<string | null>(null);
   protected readonly slotsByDate = signal<Record<string, string[]>>({});
+  protected readonly subtitle = computed(() => STEP_SUBTITLES[this.step()]);
+  protected readonly selectedDoctor = computed(
+    () => this.doctors().find((d) => d.id === this.selectedDoctorId()) ?? null,
+  );
   protected readonly selectedDoctorName = computed(
     () => this.doctors().find((d) => d.id === this.selectedDoctorId())?.displayName ?? null,
   );
@@ -67,8 +82,20 @@ export class BookingPageComponent implements OnInit {
       this.step.set('slot');
       void this.loadAvailability(preselectedDoctorId);
       void this.onSlotSelected(preselectedSlot);
+      // El nombre y el teléfono del doctor elegido (botón "Contactanos") viven
+      // en la lista: se pide aparte, sin mostrar errores, porque en este
+      // flujo el picker de doctores no se usa.
+      void this.loadDoctorsQuietly();
     } else {
       void this.loadDoctors();
+    }
+  }
+
+  private async loadDoctorsQuietly(): Promise<void> {
+    try {
+      this.doctors.set(await firstValueFrom(this.bookingService.getDoctors()));
+    } catch {
+      // Sin la lista, "Contactanos" usa el número de la clínica.
     }
   }
 
