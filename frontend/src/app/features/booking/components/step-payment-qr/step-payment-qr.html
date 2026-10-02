@@ -31,7 +31,10 @@
   </button>
 
   @if (justCheckedNotPaid()) {
-    <p class="payment-qr__not-paid-yet">Todavía no detectamos tu pago. Probá de nuevo en unos segundos.</p>
+    <div class="payment-qr__not-paid-yet" role="alert">
+      <span class="material-symbols-outlined" aria-hidden="true">error</span>
+      <span>No detectamos tu pago todavía. Si ya pagaste, esperá unos segundos y probá de nuevo.</span>
+    </div>
   }
 
   <a class="payment-qr__call-btn" [href]="clinicPhoneHref">
