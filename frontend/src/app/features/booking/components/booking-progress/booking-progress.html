@@ -1,0 +1,15 @@
+<ol class="booking-progress" aria-label="Pasos de la reserva">
+  @for (item of items(); track item.key) {
+    <li
+      class="booking-progress__item"
+      [class.booking-progress__item--done]="item.state === 'done'"
+      [class.booking-progress__item--current]="item.state === 'current'"
+      [attr.aria-current]="item.state === 'current' ? 'step' : null"
+    >
+      <span class="booking-progress__dot">
+        <span class="material-symbols-outlined" aria-hidden="true">{{ item.state === 'done' ? 'check' : item.icon }}</span>
+      </span>
+      <span class="booking-progress__label">{{ item.label }}</span>
+    </li>
+  }
+</ol>

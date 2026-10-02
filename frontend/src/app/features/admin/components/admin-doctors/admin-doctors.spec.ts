@@ -46,6 +46,7 @@ const PICKER_DOCTOR: Doctor = {
   photoUrl: null,
   displayOrder: 0,
   isBookable: true,
+  phone: null,
 };
 
 const PATIENT_WITH_USER: PatientWithUser = {

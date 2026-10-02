@@ -1,7 +1,8 @@
-import { Component, ChangeDetectionStrategy, inject, input, output, signal } from '@angular/core';
+import { Component, ChangeDetectionStrategy, computed, inject, input, output, signal } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 import { BookingService } from '../../services/booking.service';
 
+/** Sin teléfono del doctor, "Contactanos" cae al WhatsApp de la clínica. */
 const CLINIC_PHONE = '+59157744250';
 
 @Component({
@@ -15,10 +16,21 @@ export class StepPaymentQrComponent {
   readonly appointmentId = input.required<string>();
   readonly qrImageBase64 = input.required<string>();
   readonly amount = input.required<number>();
+  /** Doctor elegido (CLI-166): a él va el botón "Contactanos". */
+  readonly doctorName = input<string | null>(null);
+  readonly doctorPhone = input<string | null>(null);
   readonly confirmed = output<void>();
 
-  protected readonly clinicPhoneHref = `tel:${CLINIC_PHONE}`;
-  protected readonly clinicPhoneLabel = CLINIC_PHONE;
+  /**
+   * WhatsApp con el doctor elegido y un mensaje listo — sin emojis, que
+   * wa.me los corrompe. El número no se muestra: solo viaja en el enlace.
+   */
+  protected readonly contactHref = computed(() => {
+    const phone = (this.doctorPhone() ?? CLINIC_PHONE).replace(/\D/g, '');
+    const name = this.doctorName();
+    const text = `Hola${name ? ` ${name}` : ''}, acabo de reservar una cita y quiero consultarte sobre mi pago.`;
+    return `https://wa.me/${phone}?text=${encodeURIComponent(text)}`;
+  });
   protected readonly checkingNow = signal(false);
   protected readonly justCheckedNotPaid = signal(false);
 

@@ -17,6 +17,7 @@ const DOCTOR_A: Doctor = {
   photoUrl: null,
   displayOrder: 0,
   isBookable: true,
+  phone: null,
 };
 const DOCTOR_B: Doctor = { ...DOCTOR_A, id: 'doctor-b', displayName: 'Dra. Marylu' };
 

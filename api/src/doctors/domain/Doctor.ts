@@ -10,4 +10,9 @@ export interface Doctor {
   isBookable: boolean;
   /** Color del doctor en la agenda común (CLI-110). */
   color: string;
+  /**
+   * Teléfono del doctor en E.164 (users.phone) — la reserva pública arma con él
+   * el botón "Contactanos" (CLI-166). null si no tiene uno válido cargado.
+   */
+  phone: string | null;
 }
