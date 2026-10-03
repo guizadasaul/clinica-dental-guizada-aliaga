@@ -28,6 +28,7 @@ interface FixtureUser {
 
 interface CreatedPatientBody {
   id: string;
+  email?: string | null;
   userId: string;
   assignedDoctorId: string | null;
   phone: string | null;
@@ -40,8 +41,14 @@ interface PatientListItem {
   patient: { id: string } | null;
 }
 
+// Teléfono o correo es obligatorio (CLI-181): cada alta de prueba trae un
+// correo propio, así que no choca con el de otra.
+let emailCounter = 0;
+
 function newPatientPayload(overrides: Record<string, unknown> = {}) {
+  emailCounter += 1;
   return {
+    email: `paciente${emailCounter}${FIXTURE_DOMAIN}`,
     firstName: 'Nuevo',
     lastNamePaternal: 'Paciente',
     birthDate: '1990-05-10',
@@ -158,7 +165,12 @@ describe('Alta de un paciente nuevo por el doctor (e2e) — CLI-171', () => {
     const res = await request(app.getHttpServer())
       .post('/patients')
       .set('Authorization', `Bearer ${doctor.token}`)
-      .send(newPatientPayload({ phone: '+59171112223' }))
+      .send(
+        newPatientPayload({
+          phone: '+59171112223',
+          email: `paciente1${FIXTURE_DOMAIN}`,
+        }),
+      )
       .expect(201);
 
     const created = res.body as CreatedPatientBody;
@@ -175,9 +187,9 @@ describe('Alta de un paciente nuevo por el doctor (e2e) — CLI-171', () => {
       (p) => p.patient?.id === created.id,
     );
     expect(item).toBeDefined();
-    // Sin cuenta ni email: se la puede invitar después.
+    // Sin cuenta: se la puede invitar después. El correo es solo de contacto.
     expect(item!.hasAccount).toBe(false);
-    expect(item!.email).toBeNull();
+    expect(item!.email).toBe(`paciente1${FIXTURE_DOMAIN}`);
   });
 
   it('un documento que ya tiene ficha se bloquea y dice quién es', async () => {
@@ -261,6 +273,53 @@ describe('Alta de un paciente nuevo por el doctor (e2e) — CLI-171', () => {
       .get('/patients/field-options')
       .set('Authorization', `Bearer ${patientUser.token}`)
       .expect(403);
+  });
+
+  // CLI-181
+  it('sin teléfono ni correo no se puede dar de alta (400)', async () => {
+    const res = await request(app.getHttpServer())
+      .post('/patients')
+      .set('Authorization', `Bearer ${doctor.token}`)
+      .send(newPatientPayload({ dni: '3332221', email: undefined }))
+      .expect(400);
+
+    expect((res.body as { message: string }).message).toContain(
+      'teléfono o un correo',
+    );
+  });
+
+  it('con solo el correo se da de alta y la ficha lo devuelve normalizado', async () => {
+    const res = await request(app.getHttpServer())
+      .post('/patients')
+      .set('Authorization', `Bearer ${doctor.token}`)
+      .send(
+        newPatientPayload({
+          dni: '3332222',
+          email: `  Solo.Correo${FIXTURE_DOMAIN.toUpperCase()} `,
+        }),
+      )
+      .expect(201);
+
+    expect((res.body as { email: string | null }).email).toBe(
+      `solo.correo${FIXTURE_DOMAIN}`,
+    );
+  });
+
+  it('un correo que ya es de otra persona se bloquea y dice quién es', async () => {
+    const res = await request(app.getHttpServer())
+      .post('/patients')
+      .set('Authorization', `Bearer ${doctor.token}`)
+      .send(
+        newPatientPayload({
+          dni: '3332223',
+          email: `existing${FIXTURE_DOMAIN}`,
+        }),
+      )
+      .expect(409);
+
+    expect((res.body as { message: string }).message).toContain(
+      'Ya existe Beto Bravo con ese correo',
+    );
   });
 
   it('un paciente no puede dar de alta a otro (403)', async () => {

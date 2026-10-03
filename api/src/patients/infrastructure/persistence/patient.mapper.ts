@@ -24,7 +24,11 @@ type MedicalHistoryRecord = medical_history & {
 };
 
 type PatientRecordWithUser = patients & {
-  users: { phone: string | null; phone_login_error?: string | null };
+  users: {
+    phone: string | null;
+    phone_login_error?: string | null;
+    email?: string | null;
+  };
 };
 
 export class PatientMapper {
@@ -59,6 +63,7 @@ export class PatientMapper {
       r.updated_at,
       r.assigned_doctor_id ?? null,
       (r.users.phone_login_error as PhoneLoginError | null | undefined) ?? null,
+      r.users.email ?? null,
     );
   }
 

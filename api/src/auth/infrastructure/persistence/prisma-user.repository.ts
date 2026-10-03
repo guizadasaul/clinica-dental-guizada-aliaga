@@ -33,6 +33,13 @@ export class PrismaUserRepository implements UserRepository {
       .map((record) => UserMapper.toDomain(record));
   }
 
+  async findByEmail(email: string): Promise<User | null> {
+    const record = await this.prisma.users.findFirst({
+      where: { email: { equals: email, mode: 'insensitive' } },
+    });
+    return record ? UserMapper.toDomain(record) : null;
+  }
+
   async findByAuthUserId(authUserId: string): Promise<User | null> {
     const record = await this.prisma.users.findUnique({
       where: { auth_user_id: authUserId },

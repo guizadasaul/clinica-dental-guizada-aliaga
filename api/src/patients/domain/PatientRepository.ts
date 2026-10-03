@@ -25,6 +25,8 @@ export interface CreatePatientData {
   zona?: string;
   ciudad?: string;
   phone?: string;
+  /** Correo de contacto (CLI-181): va a users.email, no a patients. */
+  email?: string;
   emergencyContactFirstName?: string;
   emergencyContactLastName?: string;
   emergencyContactPhone?: string;

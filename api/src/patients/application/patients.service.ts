@@ -218,12 +218,20 @@ export class PatientsService {
       targetUserId = caller.id;
     }
 
-    // El teléfono vive en users.phone (CLI-51) — se sincroniza ANTES de crear
-    // la ficha para que la respuesta ya refleje el valor nuevo (Patient.phone
-    // se lee via join a users, igual que en updatePatient).
-    if (data.phone !== undefined) {
+    // Teléfono o correo (CLI-181): vale lo que llega ahora o lo que la
+    // persona ya tenga guardado (una cuenta de Google ya trae su correo).
+    this.assertHasContact(data, await this.userRepo.findById(targetUserId));
+    if (data.email !== undefined) {
+      await this.assertEmailFree(data.email, targetUserId);
+    }
+
+    // El teléfono vive en users.phone (CLI-51) y el correo en users.email —
+    // se sincronizan ANTES de crear la ficha para que la respuesta ya refleje
+    // el valor nuevo (se leen via join a users, igual que en updatePatient).
+    if (data.phone !== undefined || data.email !== undefined) {
       await this.userRepo.updateContactInfo(targetUserId, {
-        phone: data.phone,
+        ...(data.phone !== undefined && { phone: data.phone }),
+        ...(data.email !== undefined && { email: data.email }),
       });
     }
 
@@ -252,6 +260,7 @@ export class PatientsService {
     doctorId: string,
     data: CreatePatientData,
   ): Promise<Patient> {
+    this.assertHasContact(data, null);
     if (data.documentType && data.dni) {
       const existing = await this.patientRepo.findByDocument(
         data.documentType,
@@ -272,13 +281,46 @@ export class PatientsService {
         );
       }
     }
+    if (data.email !== undefined) {
+      await this.assertEmailFree(data.email);
+    }
     try {
       return await this.patientRepo.createWithPlaceholderUser(
-        { displayName: patientFullName(data), phone: data.phone ?? null },
+        {
+          displayName: patientFullName(data),
+          phone: data.phone ?? null,
+          email: data.email ?? null,
+        },
         { ...data, assignedDoctorId: doctorId },
       );
     } catch (error: unknown) {
       throw this.toCreateConflict(error) ?? error;
+    }
+  }
+
+  /** Hace falta al menos un medio de contacto: teléfono o correo (CLI-181). */
+  private assertHasContact(
+    data: { phone?: string; email?: string },
+    current: { phone: string | null; email: string | null } | null,
+  ): void {
+    if (data.phone || data.email || current?.phone || current?.email) {
+      return;
+    }
+    throw new BadRequestException(
+      'Indica un teléfono o un correo electrónico de contacto.',
+    );
+  }
+
+  /** El correo es único: si ya es de otra persona se dice quién es, como con el teléfono. */
+  private async assertEmailFree(
+    email: string,
+    exceptUserId?: string,
+  ): Promise<void> {
+    const owner = await this.userRepo.findByEmail(email);
+    if (owner && owner.id !== exceptUserId) {
+      throw new ConflictException(
+        `Ya existe ${owner.displayName ?? 'una persona'} con ese correo. Búscala en la lista de pacientes.`,
+      );
     }
   }
 
@@ -302,6 +344,15 @@ export class PatientsService {
     const data = await this.withCanonicalPlaces(rawData);
     const { email, ...patientFields } = data;
     const phone = patientFields.phone;
+    if (email !== undefined) {
+      const current = await this.patientRepo.findPatientById(patientId);
+      if (!current) {
+        throw new NotFoundException(
+          `Paciente con id ${patientId} no encontrado`,
+        );
+      }
+      await this.assertEmailFree(email, current.userId);
+    }
     // Antes de guardar nada: si el teléfono está en otra cuenta de Supabase
     // Auth, el cambio se rechaza entero (CLI-143) en vez de quedar a medias.
     const phoneLoginError = phone
