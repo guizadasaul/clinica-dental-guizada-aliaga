@@ -8,7 +8,11 @@ import {
   effect,
   untracked,
   DestroyRef,
+  ElementRef,
   HostListener,
+  Injector,
+  afterNextRender,
+  viewChild,
 } from '@angular/core';
 import { NgTemplateOutlet } from '@angular/common';
 import { firstValueFrom } from 'rxjs';
@@ -235,15 +239,22 @@ export class DoctorAgendaComponent {
     return this.readOnly() ? 'Agenda' : 'Mi agenda';
   });
 
-  // Grilla horaria: 09:00–21:00 en franjas de 30 min (igual duración que
-  // reserva cada cita, ver SLOT_MINUTES en api/src/appointments/domain/ClinicSchedule.ts).
-  protected readonly GRID_START_HOUR = 9;
+  // Grilla horaria de 24 horas, de 00:00 a 24:00, en franjas de 30 min (igual
+  // duración que reserva cada cita, ver SLOT_MINUTES en
+  // api/src/appointments/domain/ClinicSchedule.ts). Se scrollea hacia arriba y
+  // hacia abajo; al abrir arranca en las 09:00 (CLI-192).
+  protected readonly GRID_START_HOUR = 0;
   protected readonly GRID_END_HOUR = 24;
+  /** Hora a la que queda el scroll al abrir y al cambiar de semana. */
+  protected readonly DEFAULT_SCROLL_HOUR = 9;
   protected readonly SLOT_MINUTES = 30;
   protected readonly ROW_HEIGHT_PX = 40;
   protected readonly totalSlots =
     ((this.GRID_END_HOUR - this.GRID_START_HOUR) * 60) / this.SLOT_MINUTES;
   protected readonly gridHeightPx = this.totalSlots * this.ROW_HEIGHT_PX;
+  /** Scroll (px) que deja la hora por defecto justo debajo del encabezado fijo. */
+  protected readonly defaultScrollPx =
+    ((this.DEFAULT_SCROLL_HOUR - this.GRID_START_HOUR) * 60 / this.SLOT_MINUTES) * this.ROW_HEIGHT_PX;
 
   protected readonly hourMarks: HourMark[] = Array.from(
     { length: this.GRID_END_HOUR - this.GRID_START_HOUR + 1 },
@@ -260,13 +271,11 @@ export class DoctorAgendaComponent {
 
   // Sábado y domingo comparten una sexta columna (mismo ancho que el resto),
   // dividida horizontalmente por la mitad — cada mitad es un panel con la
-  // misma escala 9:00–24:00 que el resto de la semana (para poder registrar
+  // misma escala 00:00–24:00 que el resto de la semana (para poder registrar
   // una emergencia a cualquier hora), con scroll vertical propio e
-  // independiente entre sí. El viewport de cada panel ocupa el alto completo
-  // disponible de la columna (sin dejar espacio vacío abajo) — igual debe
-  // scrollearse para ver más allá de las primeras horas visibles.
-  protected readonly DIVIDER_HEIGHT_PX = 54;
-  protected readonly panelViewportPx = (this.gridHeightPx - this.DIVIDER_HEIGHT_PX) / 2;
+  // independiente entre sí. La columna queda fija a la vista (sticky) con el
+  // alto del área visible de la grilla, partido entre los dos paneles por CSS
+  // (CLI-192): con 24 horas ya no se puede igualar el alto de los demás días.
 
   protected readonly panelSlotLabels: SlotLabel[] = Array.from(
     { length: this.totalSlots },
@@ -473,7 +482,23 @@ export class DoctorAgendaComponent {
     return starts.length > 0 ? Math.min(...starts) : null;
   });
 
+  private readonly injector = inject(Injector);
+  private readonly gridRef = viewChild<ElementRef<HTMLElement>>('grid');
+
   constructor() {
+    // Al abrir la agenda y al cambiar de semana, la vista queda en las 09:00
+    // (la grilla es de 24 horas). La grilla solo existe tras cargar; el efecto
+    // vuelve a correr cuando aparece y cuando cambian los días visibles.
+    effect(() => {
+      const grid = this.gridRef();
+      this.visibleDates();
+      if (!grid) {
+        return;
+      }
+      afterNextRender(() => this.scrollToDefaultHour(grid.nativeElement), {
+        injector: this.injector,
+      });
+    });
     // Reactivo a doctorId (no a selectedDate, que ya dispara su propio
     // reload explícito desde onPrevPage/onNextPage/onToday) — cambia cuando
     // el admin elige otro doctor desde el panel sin desmontar el componente.
@@ -494,6 +519,14 @@ export class DoctorAgendaComponent {
       },
       { allowSignalWrites: true },
     );
+  }
+
+  /** Pone el scroll de la grilla (y el de cada panel de fin de semana) en la hora por defecto. */
+  private scrollToDefaultHour(grid: HTMLElement): void {
+    grid.scrollTop = this.defaultScrollPx;
+    grid.querySelectorAll<HTMLElement>('.agenda-mini-panel').forEach((panel) => {
+      panel.scrollTop = this.defaultScrollPx;
+    });
   }
 
   /** Sin horario cargado solo no se sombrea nada — agendar sigue funcionando. */

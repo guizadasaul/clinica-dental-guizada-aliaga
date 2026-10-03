@@ -347,7 +347,14 @@
     background: rgb(232 152 88 / 0.04);
   }
 
+  // Sábado y domingo apilados (CLI-192): la columna se queda a la vista, bajo el
+  // encabezado fijo, con el alto del área visible de la grilla; cada panel
+  // toma la mitad y scrollea por su cuenta.
   &--split {
+    position: sticky;
+    top: 3.375rem;
+    align-self: start;
+    height: calc(100vh - 130px - 3.375rem);
     display: flex;
     flex-direction: column;
     align-items: stretch;
@@ -355,8 +362,10 @@
 }
 
 // Sábado/domingo: cada mitad es un mini-calendario con scroll propio,
-// mostrando 9:00–12:00 sin scrollear y el resto (hasta 24:00) al scrollear.
+// con la misma grilla de 24 horas; arrancan en las 09:00 (CLI-192).
 .agenda-mini-panel {
+  flex: 1 1 0;
+  min-height: 0;
   overflow-y: auto;
   background: #fff;
 

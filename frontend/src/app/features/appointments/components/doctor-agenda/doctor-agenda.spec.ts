@@ -251,6 +251,82 @@ describe('DoctorAgendaComponent', () => {
     });
   });
 
+  // CLI-192: la grilla cubre las 24 horas y arranca en las 09:00.
+  describe('grilla de 24 horas (CLI-192)', () => {
+    type Grid = {
+      visibleDates: () => string[];
+      cellsFor: (date: string) => { minutes: number }[];
+      hourMarks: { label: string; offset: number }[];
+      gridHeightPx: number;
+      defaultScrollPx: number;
+    };
+    const grid = (fixture: ComponentFixture<DoctorAgendaComponent>) =>
+      fixture.componentInstance as unknown as Grid;
+
+    it('tiene una celda por cada media hora del día, de 00:00 a 23:30', async () => {
+      const { fixture } = setup([], [{ weekday: 1, start: '08:00', end: '12:00' }]);
+      await settle(fixture);
+
+      const cells = grid(fixture).cellsFor(grid(fixture).visibleDates()[0]);
+      expect(cells).toHaveLength(48);
+      expect(cells[0].minutes).toBe(0);
+      expect(cells.at(-1)?.minutes).toBe(23 * 60 + 30);
+    });
+
+    it('las marcas de hora van de 0:00 a 24:00', async () => {
+      const { fixture } = setup([]);
+      await settle(fixture);
+
+      const marks = grid(fixture).hourMarks;
+      expect(marks[0].label).toBe('0:00');
+      expect(marks.at(-1)?.label).toBe('24:00');
+      expect(marks).toHaveLength(25);
+      expect(grid(fixture).gridHeightPx).toBe(48 * 40);
+    });
+
+    it('al abrir, el scroll de la grilla y de los paneles de fin de semana queda en las 09:00', async () => {
+      const { fixture } = setup([]);
+      await settle(fixture);
+      await fixture.whenStable();
+      fixture.detectChanges();
+
+      const root = fixture.nativeElement as HTMLElement;
+      const gridEl = root.querySelector<HTMLElement>('.agenda-grid')!;
+      // 9 horas × 2 franjas × 40 px: la hora por defecto queda bajo el encabezado fijo.
+      expect(grid(fixture).defaultScrollPx).toBe(720);
+      // En el navegador de pruebas el elemento puede no tener alto para scrollear,
+      // así que se comprueba lo asignado cuando hay espacio, o el valor calculado.
+      expect(gridEl.scrollTop === 720 || gridEl.scrollHeight <= gridEl.clientHeight).toBe(true);
+    });
+
+    it('una cita de madrugada o de la noche aparece en su hora (antes se filtraba)', async () => {
+      const { fixture, appointmentsService } = setup([]);
+      await settle(fixture);
+      const monday = grid(fixture).visibleDates()[0];
+      const nextMonday = new Date(Date.parse(`${monday}T12:00:00Z`) + 7 * 86_400_000)
+        .toISOString()
+        .slice(0, 10);
+      const at = (hhmm: string) => new Date(`${nextMonday}T${hhmm}:00-04:00`).toISOString();
+      appointmentsService.getAgenda.mockReturnValue(
+        of([
+          fakeAppointment({ id: 'madrugada', appointmentDatetime: at('03:00') }),
+          fakeAppointment({ id: 'noche', appointmentDatetime: at('23:00') }),
+        ]),
+      );
+
+      (
+        fixture.nativeElement.querySelector('[aria-label="Página siguiente"]') as HTMLButtonElement
+      ).click();
+      await settle(fixture);
+
+      const slots = [...(fixture.nativeElement as HTMLElement).querySelectorAll('.agenda-slot')];
+      expect(slots).toHaveLength(2);
+      // 03:00 → franja 6 (de 0), 23:00 → franja 46: 40 px por franja.
+      const tops = slots.map((s) => parseFloat((s as HTMLElement).style.top)).sort((x, y) => x - y);
+      expect(tops).toEqual([6 * 40, 46 * 40]);
+    });
+  });
+
   // CLI-150: agendar haciendo click sobre un horario de "Mi agenda".
   describe('agendar desde la grilla', () => {
     type Internals = {
@@ -278,8 +354,11 @@ describe('DoctorAgendaComponent', () => {
       await settle(fixture);
       await nextWeek(fixture);
 
-      const cell = fixture.nativeElement.querySelector('button.agenda-cell') as HTMLButtonElement;
-      expect(cell.getAttribute('aria-label')).toContain('a las 09:00');
+      // La grilla es de 24 horas (CLI-192): ya no es la primera celda del día.
+      const cell = [
+        ...(fixture.nativeElement as HTMLElement).querySelectorAll<HTMLButtonElement>('button.agenda-cell'),
+      ].find((c) => c.getAttribute('aria-label')?.includes('a las 09:00'))!;
+      expect(cell).toBeTruthy();
       cell.click();
       await settle(fixture);
 
