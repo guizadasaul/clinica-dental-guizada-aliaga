@@ -668,8 +668,7 @@ export class AppointmentsService {
       );
     if (clashes.length > 0) {
       const list = clashes.map(blockedByLabel).join('; ');
-      const count =
-        clashes.length === 1 ? '1 cita' : `${clashes.length} citas`;
+      const count = clashes.length === 1 ? '1 cita' : `${clashes.length} citas`;
       throw new ConflictException(
         `No se puede reservar ese horario: ya tienes ${count} (${list}). Muévelas o cancélalas antes.`,
       );
