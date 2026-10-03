@@ -187,6 +187,7 @@
     } @else {
       <div class="agenda-grid-wrap">
         <div
+          #grid
           class="agenda-grid"
           [style.gridTemplateColumns]="gridTemplateColumns"
         >
@@ -206,8 +207,8 @@
 
           @for (day of dayHeaders(); track day.date) {
             @if (day.isWeekend) {
-              <div class="agenda-grid__day-col agenda-grid__day-col--split" [style.height.px]="gridHeightPx">
-                <div class="agenda-mini-panel" [style.height.px]="panelViewportPx">
+              <div class="agenda-grid__day-col agenda-grid__day-col--split">
+                <div class="agenda-mini-panel">
                   <div class="agenda-mini-panel__inner" [style.height.px]="gridHeightPx">
                     @for (slot of panelSlotLabels; track slot.offset) {
                       <div
@@ -233,7 +234,7 @@
                   <span class="agenda-grid__day-weekday">{{ day.weekendSecond!.weekday }}</span>
                   <span class="agenda-grid__day-num">{{ day.weekendSecond!.dayNum }}</span>
                 </div>
-                <div class="agenda-mini-panel" [style.height.px]="panelViewportPx">
+                <div class="agenda-mini-panel">
                   <div class="agenda-mini-panel__inner" [style.height.px]="gridHeightPx">
                     @for (slot of panelSlotLabels; track slot.offset) {
                       <div
