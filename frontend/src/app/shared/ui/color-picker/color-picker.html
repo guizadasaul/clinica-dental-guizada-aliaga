@@ -1,4 +1,5 @@
-<div class="color-picker" role="group" aria-label="Color en la agenda">
+<fieldset class="color-picker">
+  <legend class="color-picker__legend">Color en la agenda</legend>
   @for (c of palette; track c) {
     <button
       type="button"
@@ -18,4 +19,4 @@
     [value]="value()"
     (input)="pick($any($event.target).value)"
   />
-</div>
+</fieldset>

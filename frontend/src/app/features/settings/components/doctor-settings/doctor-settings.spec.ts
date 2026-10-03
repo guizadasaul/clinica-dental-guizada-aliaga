@@ -89,7 +89,7 @@ describe('DoctorSettingsComponent (CLI-191)', () => {
     type('#displayName', '  dra.   ana  pérez ');
     type('#specialty', ' ortodoncia ');
     type('#bio', '  Atiendo   adultos. ');
-    el<HTMLButtonElement>('.color-picker__swatch:nth-child(3)').click();
+    el<HTMLButtonElement>('button.color-picker__swatch:nth-of-type(3)').click();
     await submit();
 
     expect(profile.updateMine).toHaveBeenCalledWith({
