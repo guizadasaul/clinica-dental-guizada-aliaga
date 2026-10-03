@@ -32,18 +32,32 @@ describe('CreateDoctorAppointmentDto (CLI-148)', () => {
     ).resolves.toEqual(['appointmentDatetime', 'patientId']);
   });
 
-  it('solo acepta duraciones múltiplo de 30 min, hasta 4 h', async () => {
-    const base = {
-      patientId: PATIENT_ID,
-      appointmentDatetime: '2026-10-05T09:00:00-04:00',
-    };
-    await expect(
-      invalidFields({ ...base, durationMinutes: 45 }),
-    ).resolves.toEqual(['durationMinutes']);
-    await expect(
-      invalidFields({ ...base, durationMinutes: 270 }),
-    ).resolves.toEqual(['durationMinutes']);
-  });
+  // CLI-194: duración libre, de 5 en 5, de 5 minutos a 8 horas.
+  it.each([5, 15, 45, 75, 90, 270, 480])(
+    'acepta una duración de %i minutos',
+    async (durationMinutes) => {
+      await expect(
+        invalidFields({
+          patientId: PATIENT_ID,
+          appointmentDatetime: '2026-10-05T09:00:00-04:00',
+          durationMinutes,
+        }),
+      ).resolves.toEqual([]);
+    },
+  );
+
+  it.each([0, 3, 12, 481, 485, -30, 45.5])(
+    'rechaza una duración de %s minutos (no es múltiplo de 5 o está fuera de 5 min a 8 h)',
+    async (durationMinutes) => {
+      await expect(
+        invalidFields({
+          patientId: PATIENT_ID,
+          appointmentDatetime: '2026-10-05T09:00:00-04:00',
+          durationMinutes,
+        }),
+      ).resolves.toEqual(['durationMinutes']);
+    },
+  );
 
   it('rechaza un doctorId en el body: el doctor sale siempre del token', async () => {
     await expect(

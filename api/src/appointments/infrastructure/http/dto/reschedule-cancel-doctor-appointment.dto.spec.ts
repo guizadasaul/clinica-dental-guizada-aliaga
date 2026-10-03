@@ -31,14 +31,35 @@ describe('RescheduleDoctorAppointmentDto (CLI-149)', () => {
     ).resolves.toEqual([]);
   });
 
-  it('rechaza horario inválido, duración fuera de la lista y cambiar de paciente', async () => {
+  it('rechaza horario inválido, duración que no es múltiplo de 5 y cambiar de paciente', async () => {
     await expect(
       invalidFields(RescheduleDoctorAppointmentDto, {
         appointmentDatetime: 'mañana',
-        durationMinutes: 45,
+        durationMinutes: 47,
         patientId: '7c9e6679-7425-40de-944b-e07fc1f90ae7',
       }),
     ).resolves.toEqual(['appointmentDatetime', 'durationMinutes', 'patientId']);
+  });
+});
+
+// CLI-194: al reprogramar también vale la duración libre.
+describe('RescheduleDoctorAppointmentDto duración libre (CLI-194)', () => {
+  it.each([5, 45, 135])('acepta %i minutos', async (durationMinutes) => {
+    await expect(
+      invalidFields(RescheduleDoctorAppointmentDto, {
+        appointmentDatetime: '2026-10-05T09:45:00-04:00',
+        durationMinutes,
+      }),
+    ).resolves.toEqual([]);
+  });
+
+  it.each([0, 4, 500])('rechaza %i minutos', async (durationMinutes) => {
+    await expect(
+      invalidFields(RescheduleDoctorAppointmentDto, {
+        appointmentDatetime: '2026-10-05T09:45:00-04:00',
+        durationMinutes,
+      }),
+    ).resolves.toEqual(['durationMinutes']);
   });
 });
 
