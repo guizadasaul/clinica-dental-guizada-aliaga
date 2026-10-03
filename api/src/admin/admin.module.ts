@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { AuthModule } from '../auth/auth.module';
 import { AdminDoctorsController } from './infrastructure/http/admin-doctors.controller';
+import { DoctorSelfController } from './infrastructure/http/doctor-self.controller';
 import { AdminDoctorsService } from './application/admin-doctors.service';
 import { AdminDoctorRepository } from './domain/AdminDoctorRepository';
 import { PrismaAdminDoctorRepository } from './infrastructure/persistence/prisma-admin-doctor.repository';
@@ -11,7 +12,7 @@ import { PrismaAdminDoctorRepository } from './infrastructure/persistence/prisma
 // PatientInvitesService).
 @Module({
   imports: [AuthModule],
-  controllers: [AdminDoctorsController],
+  controllers: [AdminDoctorsController, DoctorSelfController],
   providers: [
     AdminDoctorsService,
     {

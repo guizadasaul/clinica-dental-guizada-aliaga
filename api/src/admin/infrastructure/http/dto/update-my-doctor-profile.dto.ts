@@ -1,21 +1,17 @@
 import { Type } from 'class-transformer';
 import {
   IsArray,
-  IsBoolean,
-  IsEmail,
-  IsInt,
   IsNotEmpty,
   IsOptional,
   IsString,
-  IsUrl,
   Matches,
   MaxLength,
-  Min,
   ValidateNested,
 } from 'class-validator';
 import {
   EmptyToUndefined,
-  Trim,
+  NormalizeName,
+  NormalizeText,
 } from '../../../../shared/validators/transforms.js';
 import { PersonNamePart } from '../../../../shared/validators/person-name-part.validator.js';
 import { IsE164Phone } from '../../../../shared/validators/phone.validator.js';
@@ -23,17 +19,22 @@ import { HEX_COLOR_REGEX } from '../../../../shared/doctor-color-palette.js';
 import { NoHtml } from '../../../../shared/validators/text-safety.validator.js';
 import { IsValidSchedule, ScheduleBlockDto } from './schedule-block.dto.js';
 
-export class UpdateDoctorDto {
+/**
+ * Lo que un doctor puede editar de su propio perfil (CLI-191). A diferencia de
+ * UpdateDoctorDto (del administrador) no incluye el correo (es su identidad de
+ * acceso), si es reservable, el orden ni la foto.
+ */
+export class UpdateMyDoctorProfileDto {
+  /** Nombre público: el que ve el paciente al reservar. */
   @IsOptional()
-  @Trim()
+  @EmptyToUndefined()
+  @NormalizeName()
   @IsString()
   @IsNotEmpty()
   @MaxLength(200)
   @NoHtml()
   displayName?: string;
 
-  // Todos opcionales en el PATCH: un doctor cargado antes de CLI-76 no tiene
-  // nombre/apellidos y se tiene que poder seguir editando sin completarlos.
   @IsOptional()
   @EmptyToUndefined()
   @PersonNamePart()
@@ -50,21 +51,14 @@ export class UpdateDoctorDto {
   lastNameMaternal?: string;
 
   @IsOptional()
-  @Trim()
-  @IsEmail()
-  @MaxLength(255)
-  email?: string;
-
-  @IsOptional()
   @EmptyToUndefined()
-  @Trim()
   @IsE164Phone()
   @MaxLength(20)
   phone?: string;
 
   @IsOptional()
   @EmptyToUndefined()
-  @Trim()
+  @NormalizeName()
   @IsString()
   @MaxLength(150)
   @NoHtml()
@@ -72,28 +66,13 @@ export class UpdateDoctorDto {
 
   @IsOptional()
   @EmptyToUndefined()
-  @Trim()
+  @NormalizeText()
   @IsString()
+  @MaxLength(2000)
   @NoHtml()
   bio?: string;
 
-  @IsOptional()
-  @EmptyToUndefined()
-  @Trim()
-  @IsUrl()
-  @MaxLength(2048)
-  photoUrl?: string;
-
-  @IsOptional()
-  @IsInt()
-  @Min(0)
-  displayOrder?: number;
-
-  @IsOptional()
-  @IsBoolean()
-  isBookable?: boolean;
-
-  /** Color en la agenda común (CLI-110), "#rrggbb". */
+  /** Color en la agenda común, "#rrggbb". */
   @IsOptional()
   @Matches(HEX_COLOR_REGEX, { message: 'color debe tener el formato #rrggbb' })
   color?: string;

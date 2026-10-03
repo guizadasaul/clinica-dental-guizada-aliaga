@@ -1,0 +1,21 @@
+<div class="color-picker" role="group" aria-label="Color en la agenda">
+  @for (c of palette; track c) {
+    <button
+      type="button"
+      class="color-picker__swatch"
+      [class.color-picker__swatch--active]="value() === c"
+      [style.background]="c"
+      [attr.aria-label]="'Usar el color ' + c"
+      [attr.aria-pressed]="value() === c"
+      (click)="pick(c)"
+    ></button>
+  }
+  <input
+    [id]="inputId()"
+    class="color-picker__custom"
+    type="color"
+    aria-label="Otro color"
+    [value]="value()"
+    (input)="pick($any($event.target).value)"
+  />
+</div>

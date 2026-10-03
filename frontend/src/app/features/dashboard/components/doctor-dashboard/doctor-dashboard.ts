@@ -19,6 +19,7 @@ import { TreatmentHistoryComponent } from '../../../treatments/components/treatm
 import { ClinicalRecordViewComponent } from '../../../patients/components/clinical-record-view/clinical-record-view';
 import { QuoteBuilderComponent } from '../../../quotes/components/quote-builder/quote-builder';
 import { FinancesPageComponent } from '../../../finances/components/finances-page/finances-page';
+import { DoctorSettingsComponent } from '../../../settings/components/doctor-settings/doctor-settings';
 import { DoctorAgendaComponent } from '../../../appointments/components/doctor-agenda/doctor-agenda';
 import { AppointmentsService } from '../../../appointments/services/appointments.service';
 import type { AppointmentAgendaItem } from '../../../appointments/models/appointment.model';
@@ -70,6 +71,7 @@ interface AppointmentSlot {
     QuoteBuilderComponent,
     DoctorAgendaComponent,
     FinancesPageComponent,
+    DoctorSettingsComponent,
   ],
   templateUrl: './doctor-dashboard.html',
   styleUrl: './doctor-dashboard.scss',

@@ -10,6 +10,7 @@ import { PatientInvitesService } from './patient-invites/services/patient-invite
 import { AppointmentsService } from './appointments/services/appointments.service';
 import { BookingService } from './booking/services/booking.service';
 import { AdminDoctorsService } from './admin/services/admin-doctors.service';
+import { DoctorProfileService } from './settings/services/doctor-profile.service';
 
 const API = 'http://localhost:2999';
 
@@ -32,6 +33,7 @@ function services() {
     appointments: TestBed.inject(AppointmentsService),
     booking: TestBed.inject(BookingService),
     admin: TestBed.inject(AdminDoctorsService),
+    profile: TestBed.inject(DoctorProfileService),
   };
 }
 
@@ -156,6 +158,19 @@ function cases(s: ReturnType<typeof services>): Case[] {
       call: () => s.patients.getDentalExam('p1', 'e1'),
       method: 'GET',
       url: `${API}/patients/p1/dental-exams/e1`,
+    },
+    {
+      name: 'configuración: mi perfil de doctor',
+      call: () => s.profile.getMine(),
+      method: 'GET',
+      url: `${API}/doctors/me`,
+    },
+    {
+      name: 'configuración: guardar mi perfil de doctor',
+      call: () => s.profile.updateMine({ color: '#16a34a' }),
+      method: 'PATCH',
+      url: `${API}/doctors/me`,
+      body: { color: '#16a34a' },
     },
     {
       name: 'reportes: operativo de todos los doctores',

@@ -95,6 +95,10 @@
   <div class="page"><app-finances-page /></div>
 }
 
+@if (activeNav() === 'settings') {
+  <div class="page"><app-doctor-settings /></div>
+}
+
 @if (activeNav() === 'patients') {
   <div class="page">
     @if (showInviteFlow()) {
