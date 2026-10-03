@@ -92,20 +92,20 @@
         <fieldset class="book-modal__field book-modal__fieldset">
           <legend class="book-modal__label">Duración</legend>
           <div class="book-modal__duration">
+            <label class="visually-hidden" for="book-modal-duration-hours">Horas de duración</label>
             <select
               id="book-modal-duration-hours"
               class="book-modal__input"
-              aria-label="Horas"
               (change)="onDurationHoursChange($event)"
             >
               @for (h of hoursOptions; track h) {
                 <option [value]="h" [selected]="h === durationHours()">{{ h }} h</option>
               }
             </select>
+            <label class="visually-hidden" for="book-modal-duration-minutes">Minutos de duración</label>
             <select
               id="book-modal-duration-minutes"
               class="book-modal__input"
-              aria-label="Minutos"
               (change)="onDurationMinutesChange($event)"
             >
               @for (m of minutesOptions; track m) {
