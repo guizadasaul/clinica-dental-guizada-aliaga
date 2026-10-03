@@ -2,9 +2,10 @@ import type { PatientBalance } from './PatientBalance';
 
 export interface IFinancesReadRepository {
   /**
-   * Pacientes con un presupuesto activo (pendiente o con pago parcial, total
-   * mayor a 0), el más recientemente movido primero. `search` filtra por
-   * nombre o apellidos, sin distinguir mayúsculas.
+   * Todos los pacientes con ficha (los eliminados no), los últimos en recibir
+   * un tratamiento primero y los que nunca recibieron uno al final (CLI-190).
+   * Cada uno trae el saldo de su último presupuesto activo. `search` busca por
+   * nombre y apellidos juntos, sin distinguir mayúsculas ni tildes.
    */
   listPatientsWithBalance(search?: string): Promise<PatientBalance[]>;
   /** Nombre completo del paciente, o null si no existe. */

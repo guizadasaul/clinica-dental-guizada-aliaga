@@ -34,13 +34,17 @@
                   (click)="onSelect(p.patientId)"
                 >
                   <span class="fin__patient-name">{{ p.patientName }}</span>
-                  <span class="fin__patient-balance">Debe Bs. {{ p.balance | number: '1.2-2' }}</span>
-                  <span class="fin__patient-meta">de Bs. {{ p.totalAmount | number: '1.2-2' }}</span>
+                  @if (p.balance > 0) {
+                    <span class="fin__patient-balance">Debe Bs. {{ p.balance | number: '1.2-2' }}</span>
+                    <span class="fin__patient-meta">de Bs. {{ p.totalAmount | number: '1.2-2' }}</span>
+                  } @else {
+                    <span class="fin__patient-balance fin__patient-balance--clear">Al día</span>
+                  }
                 </button>
               </li>
             } @empty {
               <li class="fin__muted">
-                {{ search().trim() ? 'Ningún paciente con saldo coincide con la búsqueda.' : 'No hay pacientes con saldo pendiente.' }}
+                {{ search().trim() ? 'Ningún paciente coincide con la búsqueda.' : 'Todavía no hay pacientes registrados.' }}
               </li>
             }
           </ul>
