@@ -79,6 +79,49 @@ describe('CreatePatientDto', () => {
     expect(dto.dni).toBe('1234567-LP');
   });
 
+  // CLI-183: los textos cortos van con mayúscula inicial y un solo espacio; los
+  // largos solo sin espacios de más.
+  it('deja ocupación, dirección y parentesco con mayúscula inicial y un solo espacio', async () => {
+    const dto = plainToInstance(CreatePatientDto, {
+      ...VALID_PATIENT,
+      occupation: '  ingeniero   en sistemas ',
+      address: 'av.   6 de agosto   y calle sucre',
+      emergencyContactRelationship: ' madre ',
+    });
+    expect(await validate(dto)).toHaveLength(0);
+    expect(dto.occupation).toBe('Ingeniero en Sistemas');
+    expect(dto.address).toBe('Av. 6 de Agosto y Calle Sucre');
+    expect(dto.emergencyContactRelationship).toBe('Madre');
+  });
+
+  it('lugar, zona, ciudad y nombres también: "  santa   cruz " → "Santa Cruz"', async () => {
+    const dto = plainToInstance(CreatePatientDto, {
+      ...VALID_PATIENT,
+      firstName: ' juan   carlos ',
+      birthPlace: '  santa   cruz ',
+      zona: 'zona   norte',
+      ciudad: ' cochabamba ',
+    });
+    expect(await validate(dto)).toHaveLength(0);
+    expect(dto.firstName).toBe('Juan Carlos');
+    expect(dto.birthPlace).toBe('Santa Cruz');
+    expect(dto.zona).toBe('Zona Norte');
+    expect(dto.ciudad).toBe('Cochabamba');
+  });
+
+  it('los textos largos conservan su redacción y solo pierden los espacios de más', async () => {
+    const dto = plainToInstance(CreatePatientDto, {
+      ...VALID_PATIENT,
+      consultationReason: '  dolor   en la muela   DERECHA ',
+      lastVisitTreatment: ' Limpieza   dental ',
+      familyHistory: ' diabetes   en la madre ',
+    });
+    expect(await validate(dto)).toHaveLength(0);
+    expect(dto.consultationReason).toBe('dolor en la muela DERECHA');
+    expect(dto.lastVisitTreatment).toBe('Limpieza dental');
+    expect(dto.familyHistory).toBe('diabetes en la madre');
+  });
+
   // CLI-177: sin espacios ni puntos (se rechazan, no se borran) y hasta 12.
   it.each([['12.345.678'], ['12 345 678'], ['1234567890123']])(
     'rechaza el documento %p con un mensaje que nombra el tipo',

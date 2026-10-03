@@ -265,6 +265,69 @@ describe('StepPatientDataComponent', () => {
     },
   );
 
+  // CLI-183: los textos cortos salen con mayúscula inicial y un solo espacio.
+  describe('formato de los textos cortos (CLI-183)', () => {
+    it('al enviar, nombres, lugar, zona, ciudad, ocupación, dirección y parentesco van con mayúscula inicial', async () => {
+      const fixture = setup();
+      await settle(fixture);
+      const emitted: Omit<CreatePatientRequest, 'userId'>[] = [];
+      fixture.componentInstance.submitStep.subscribe((value) => emitted.push(value));
+
+      fillRequiredFields(fixture);
+      type(el(fixture, FIRST_NAME), '  juan   carlos ');
+      type(el(fixture, BIRTH_PLACE), 'santa   cruz ');
+      type(el(fixture, OCCUPATION), ' ingeniero   en sistemas');
+      type(el(fixture, ADDRESS), 'av.  6 de agosto   y calle sucre');
+      type(el(fixture, ZONA), '  zona   norte ');
+      type(el(fixture, CIUDAD), 'cochabamba ');
+      type(el(fixture, EMERGENCY_CONTACT_RELATIONSHIP), ' madre ');
+      submitForm(fixture);
+      await settle(fixture);
+
+      expect(emitted).toHaveLength(1);
+      expect(emitted[0]).toMatchObject({
+        firstName: 'Juan Carlos',
+        birthPlace: 'Santa Cruz',
+        occupation: 'Ingeniero en Sistemas',
+        address: 'Av. 6 de Agosto y Calle Sucre',
+        zona: 'Zona Norte',
+        ciudad: 'Cochabamba',
+        emergencyContactRelationship: 'Madre',
+      });
+    });
+
+    it('al salir del campo lo deja como se va a guardar', async () => {
+      const fixture = setup();
+      await settle(fixture);
+
+      for (const [selector, typed, shown] of [
+        [FIRST_NAME, '  juan   carlos ', 'Juan Carlos'],
+        [ZONA, 'zona   norte', 'Zona Norte'],
+        [OCCUPATION, 'ingeniero', 'Ingeniero'],
+      ]) {
+        const input = el<HTMLInputElement>(fixture, selector);
+        type(input, typed);
+        input.dispatchEvent(new Event('blur'));
+        await settle(fixture);
+        expect(el<HTMLInputElement>(fixture, selector).value).toBe(shown);
+      }
+    });
+
+    it('los textos largos conservan su redacción, solo sin espacios de más', async () => {
+      const fixture = setup();
+      await settle(fixture);
+      const emitted: Omit<CreatePatientRequest, 'userId'>[] = [];
+      fixture.componentInstance.submitStep.subscribe((value) => emitted.push(value));
+
+      fillRequiredFields(fixture);
+      type(el(fixture, '#consultationReason'), '  dolor   en la muela  DERECHA ');
+      submitForm(fixture);
+      await settle(fixture);
+
+      expect(emitted[0].consultationReason).toBe('dolor en la muela DERECHA');
+    });
+  });
+
   it('acepta el envío con los obligatorios completos y los opcionales vacíos', async () => {
     const fixture = setup();
     await settle(fixture);

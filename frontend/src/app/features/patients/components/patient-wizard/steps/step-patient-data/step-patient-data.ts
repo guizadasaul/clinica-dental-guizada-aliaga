@@ -8,7 +8,7 @@ import {
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { PhoneInputComponent } from '../../../../../../shared/ui/phone-input/phone-input';
-import { field, allValid, touchAll } from '../../../../../../shared/validation/field';
+import { field, allValid, touchAll, type Field } from '../../../../../../shared/validation/field';
 import {
   normalizeFullName,
   validatePersonName,
@@ -241,6 +241,18 @@ export class StepPatientDataComponent {
     return this.phoneE164() !== '' && !isBareCallingCode(this.phoneE164());
   }
 
+  /**
+   * Al salir de un campo de texto corto lo deja como se va a guardar (CLI-183):
+   * mayúscula inicial por palabra y un solo espacio entre palabras. Al salir y
+   * no al tipear, para no mover el cursor mientras se escribe.
+   */
+  protected tidy(target: Field<string>): void {
+    const value = target.value();
+    if (value.trim()) {
+      target.set(normalizeFullName(value));
+    }
+  }
+
   protected onPhoneChanged(event: { e164: string; valid: boolean }): void {
     this.phoneE164.set(event.e164);
     this.phoneOk.set(event.valid || isBareCallingCode(event.e164));
@@ -274,12 +286,12 @@ export class StepPatientDataComponent {
         ? normalizeFullName(this.lastNameMaternal.value())
         : undefined,
       birthDate: this.birthDate.value(),
-      birthPlace: normalizeText(this.birthPlace.value()),
+      birthPlace: normalizeFullName(this.birthPlace.value()),
       sex: this.sex.value(),
-      occupation: normalizeText(this.occupation.value()),
-      address: normalizeText(this.address.value()),
-      zona: normalizeText(this.zona.value()),
-      ciudad: normalizeText(this.ciudad.value()),
+      occupation: normalizeFullName(this.occupation.value()),
+      address: normalizeFullName(this.address.value()),
+      zona: normalizeFullName(this.zona.value()),
+      ciudad: normalizeFullName(this.ciudad.value()),
       phone: isBareCallingCode(this.phoneE164()) ? undefined : this.phoneE164(),
       email: normalizeEmail(this.email.value()) || undefined,
       documentType: this.documentType.value(),
@@ -287,7 +299,7 @@ export class StepPatientDataComponent {
       emergencyContactFirstName: normalizeFullName(this.emergencyContactFirstName.value()),
       emergencyContactLastName: normalizeFullName(this.emergencyContactLastName.value()),
       emergencyContactPhone: this.emergencyContactPhoneE164(),
-      emergencyContactRelationship: normalizeText(this.emergencyContactRelationship.value()),
+      emergencyContactRelationship: normalizeFullName(this.emergencyContactRelationship.value()),
       consultationReason: normalizeText(this.consultationReason.value()) || undefined,
       lastDentistVisit: this.lastDentistVisit.value() || undefined,
       lastVisitTreatment: normalizeText(this.lastVisitTreatment.value()) || undefined,

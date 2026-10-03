@@ -14,6 +14,7 @@ import {
   NormalizeDni,
   NormalizeEmail,
   NormalizeName,
+  NormalizeText,
   Trim,
 } from '../../../../shared/validators/transforms.js';
 import { IsPersonName } from '../../../../shared/validators/full-name.validator.js';
@@ -86,7 +87,7 @@ export class CreatePatientDto {
   sex: string;
 
   @EmptyToUndefined()
-  @Trim()
+  @NormalizeName()
   @IsString()
   @IsNotEmpty({ message: 'occupation es obligatorio' })
   @MinLength(3)
@@ -98,7 +99,7 @@ export class CreatePatientDto {
   // Postgres. Resto de la dirección (calle, número, referencias) — zona y
   // ciudad son campos propios (CLI-54), ver abajo.
   @EmptyToUndefined()
-  @Trim()
+  @NormalizeName()
   @IsString()
   @IsNotEmpty({ message: 'address es obligatorio' })
   @MinLength(3)
@@ -178,7 +179,7 @@ export class CreatePatientDto {
   emergencyContactPhone: string;
 
   @EmptyToUndefined()
-  @Trim()
+  @NormalizeName()
   @IsString()
   @IsNotEmpty({ message: 'emergencyContactRelationship es obligatorio' })
   @MinLength(3)
@@ -191,7 +192,7 @@ export class CreatePatientDto {
   // caracteres, igual que el resto del texto libre del wizard.
   @IsOptional()
   @EmptyToUndefined()
-  @Trim()
+  @NormalizeText()
   @IsString()
   @MinLength(3)
   @MaxLength(1000)
@@ -209,7 +210,7 @@ export class CreatePatientDto {
   // MaxLength(500) es nuevo.
   @IsOptional()
   @EmptyToUndefined()
-  @Trim()
+  @NormalizeText()
   @IsString()
   @MinLength(3)
   @MaxLength(500)
@@ -219,7 +220,7 @@ export class CreatePatientDto {
   // MaxLength(1000) es nuevo.
   @IsOptional()
   @EmptyToUndefined()
-  @Trim()
+  @NormalizeText()
   @IsString()
   @MinLength(3)
   @MaxLength(1000)

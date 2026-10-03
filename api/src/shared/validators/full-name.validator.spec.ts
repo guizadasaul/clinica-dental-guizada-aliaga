@@ -21,6 +21,12 @@ describe('normalizeFullName', () => {
     ['maría DEL carmen rojas', 'María del Carmen Rojas'],
     ['de la cruz pérez', 'De la Cruz Pérez'],
     ['laura', 'Laura'],
+    // CLI-183: direcciones y ocupaciones.
+    ['calle sucre y bolívar', 'Calle Sucre y Bolívar'],
+    ['ingeniero EN sistemas', 'Ingeniero en Sistemas'],
+    ['santa cruz de la sierra', 'Santa Cruz de la Sierra'],
+    ['av. 6 de agosto', 'Av. 6 de Agosto'],
+    ['y griega', 'Y Griega'],
   ])('normaliza "%s" a "%s"', (entrada, esperado) => {
     expect(normalizeFullName(entrada)).toBe(esperado);
   });

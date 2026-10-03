@@ -126,6 +126,34 @@ describe('StepMedicalHistoryComponent', () => {
     ]);
   });
 
+  it('el fármaco se guarda con mayúscula inicial y un solo espacio; la dosis no se capitaliza (CLI-183)', async () => {
+    const fixture = setup();
+    await settle(fixture);
+    const emitted: CreateMedicalHistoryRequest[] = [];
+    fixture.componentInstance.submitStep.subscribe((v) => emitted.push(v));
+
+    el<HTMLButtonElement>(fixture, '.mh-step__add-medication').click();
+    await settle(fixture);
+    const [drugName] = elAll<HTMLInputElement>(fixture, '.mh-step__medication-row input[placeholder="Fármaco"]');
+    type(drugName, '  metformina   xr ');
+    drugName.dispatchEvent(new Event('blur'));
+    await settle(fixture);
+    const [dose] = elAll<HTMLInputElement>(fixture, '.mh-step__medication-row input[placeholder="Dosis"]');
+    type(dose, ' 850   mg ');
+    await settle(fixture);
+
+    expect(
+      elAll<HTMLInputElement>(fixture, '.mh-step__medication-row input[placeholder="Fármaco"]')[0].value,
+    ).toBe('Metformina Xr');
+
+    submitForm(fixture);
+    await settle(fixture);
+
+    expect(emitted[0].medications).toEqual([
+      { drugName: 'Metformina Xr', dose: '850 mg', frequency: undefined, startedAt: undefined },
+    ]);
+  });
+
   it('rejects a medication row where dose was filled but drugName was left empty, without emitting', async () => {
     const fixture = setup();
     await settle(fixture);

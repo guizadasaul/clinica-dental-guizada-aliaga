@@ -27,6 +27,29 @@ async function validateHistory(overrides: Record<string, unknown>) {
 }
 
 describe('CreateMedicalHistoryDto', () => {
+  // CLI-183
+  it('el fármaco va con mayúscula inicial; dosis, frecuencia y notas, solo sin espacios de más', async () => {
+    const dto = plainToInstance(CreateMedicalHistoryDto, {
+      conditions: [{ code: 'diabetes', notes: '  tipo   2,  controlada ' }],
+      otherDiseases: '  migraña   ocasional ',
+      medications: [
+        {
+          drugName: '  metformina   ',
+          dose: ' 850  mg ',
+          frequency: '1  vez   al día ',
+        },
+      ],
+    });
+    expect(await validate(dto)).toHaveLength(0);
+    expect(dto.conditions?.[0].notes).toBe('tipo 2, controlada');
+    expect(dto.otherDiseases).toBe('migraña ocasional');
+    expect(dto.medications?.[0]).toMatchObject({
+      drugName: 'Metformina',
+      dose: '850 mg',
+      frequency: '1 vez al día',
+    });
+  });
+
   it('acepta un historial completo y válido', async () => {
     const errors = await validateHistory({});
     expect(errors).toHaveLength(0);

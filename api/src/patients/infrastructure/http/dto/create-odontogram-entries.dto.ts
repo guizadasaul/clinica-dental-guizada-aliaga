@@ -22,6 +22,7 @@ import {
 } from 'class-validator';
 import {
   EmptyToUndefined,
+  NormalizeText,
   Trim,
 } from '../../../../shared/validators/transforms.js';
 import { NoHtml } from '../../../../shared/validators/text-safety.validator.js';
@@ -114,7 +115,7 @@ export class CreateOdontogramEntryDto {
   toothCondition: string;
 
   @IsString()
-  @Trim()
+  @NormalizeText()
   @Length(3, 500)
   diagnosisDescription: string;
 
@@ -132,7 +133,7 @@ export class CreateOdontogramEntryDto {
 
   @IsOptional()
   @EmptyToUndefined()
-  @Trim()
+  @NormalizeText()
   @IsString()
   @MinLength(3)
   @MaxLength(500)

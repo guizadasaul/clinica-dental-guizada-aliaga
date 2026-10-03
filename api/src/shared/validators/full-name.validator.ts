@@ -46,6 +46,12 @@ const LOWERCASE_PARTICLES = new Set([
   'der',
   'di',
   'du',
+  // Conjunción y preposiciones comunes en direcciones y ocupaciones (CLI-183):
+  // "Calle Sucre y Bolívar", "Ingeniero en Sistemas".
+  'y',
+  'en',
+  'con',
+  'al',
 ]);
 
 // Capitaliza la primera letra de la palabra y también la que sigue a un guion
