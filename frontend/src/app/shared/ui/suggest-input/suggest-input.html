@@ -2,8 +2,8 @@
 @if (expanded()) {
   <div class="suggest-input__list" [id]="listId">
     @for (option of matches(); track option; let i = $index) {
-      <!-- Botones reales (no role="option"): interactivos de por sí. tabindex -1
-           porque el foco queda en el input; se navega con las flechas. -->
+      <!-- Cada sugerencia es un botón, interactivo de por sí. Sin tabulación propia:
+           el foco queda en el campo de texto y se navega con las flechas. -->
       <button
         type="button"
         tabindex="-1"
