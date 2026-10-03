@@ -33,7 +33,6 @@ const DOCTOR_NAV: NavItem[] = [
   { icon: 'home', label: 'Inicio', key: 'home' },
   { icon: 'calendar_month', label: 'Agenda', key: 'schedule' },
   { icon: 'group', label: 'Pacientes', key: 'patients' },
-  { icon: 'bar_chart', label: 'Reportes', key: 'reports' },
   { icon: 'payments', label: 'Finanzas', key: 'finances' },
   { icon: 'rate_review', label: 'Comentarios', key: 'testimonials' },
   { icon: 'settings', label: 'Configuración', key: 'settings' },
