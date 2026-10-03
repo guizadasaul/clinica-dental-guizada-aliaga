@@ -8,6 +8,7 @@ import {
 } from '@nestjs/common';
 import type { AuthenticatedUser } from '../domain/AuthenticatedUser';
 import { User } from '../domain/User';
+import { ACCOUNT_DISABLED_MESSAGE } from '../domain/account-disabled';
 import { UserRepository } from '../domain/UserRepository';
 import { PatientInvitesService } from '../../patient-invites/application/patient-invites.service';
 import { SupabaseAdminService } from '../infrastructure/SupabaseAdminService';
@@ -44,6 +45,9 @@ export class AuthService {
       throw new NotFoundException(
         'No hay una cuenta asociada a este login todavía',
       );
+    }
+    if (!existing.isActive) {
+      throw new ForbiddenException(ACCOUNT_DISABLED_MESSAGE);
     }
     return this.userRepository.upsertByAuthUserId({
       authUserId: authUser.uid,
@@ -140,6 +144,9 @@ export class AuthService {
       throw new NotFoundException(
         'User not found. Call POST /auth/sync first.',
       );
+    }
+    if (!user.isActive) {
+      throw new ForbiddenException(ACCOUNT_DISABLED_MESSAGE);
     }
     return user;
   }

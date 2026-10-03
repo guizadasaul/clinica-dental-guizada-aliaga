@@ -39,6 +39,11 @@ export class PatientsService {
     return this.http.get<PatientFieldOptions>(`${this.base}/field-options`);
   }
 
+  /** Baja lógica (CLI-184): el paciente deja de verse y de poder entrar, pero no se borra nada. */
+  deletePatient(userId: string): Observable<void> {
+    return this.http.delete<void>(`${this.base}/users/${userId}`);
+  }
+
   createPatient(data: CreatePatientRequest): Observable<Patient> {
     return this.http.post<Patient>(this.base, data);
   }

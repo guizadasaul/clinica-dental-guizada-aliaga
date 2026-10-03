@@ -169,6 +169,14 @@ export interface CreateToothProcedureGroupData {
   performedBy: string;
 }
 
+/** Lo que impide dar de baja a un paciente (CLI-184). */
+export interface PatientDeletionBlockers {
+  /** Citas confirmadas o en espera con fecha futura. */
+  futureAppointments: number;
+  /** Saldo pendiente de sus presupuestos activos, en la moneda de los presupuestos. */
+  balance: number;
+}
+
 export interface IPatientRepository {
   /** CLI-58: doctorId es un filtro de conveniencia, no de seguridad — sin él devuelve todos los pacientes, igual que siempre (visibilidad compartida). */
   findAllWithUsers(doctorId?: string): Promise<PatientWithUser[]>;
@@ -184,6 +192,14 @@ export interface IPatientRepository {
   ): Promise<Patient>;
   /** Ficha por (tipo de documento, número) — la clave única real del paciente. */
   findByDocument(documentType: string, dni: string): Promise<Patient | null>;
+  /** Citas futuras y saldo pendiente del paciente (por users.id; 0 y 0 si no tiene ficha). */
+  findDeletionBlockers(userId: string): Promise<PatientDeletionBlockers>;
+  /**
+   * Baja lógica (CLI-184), en una sola transacción: marca la ficha
+   * (deleted_at / deleted_by), deja la cuenta inactiva, revoca los canales de
+   * chat e invalida las invitaciones pendientes. No borra ninguna fila.
+   */
+  softDeletePatient(userId: string, deletedBy: string): Promise<void>;
   /** null si el patientId no existe. */
   updatePatient(id: string, data: UpdatePatientData): Promise<Patient | null>;
   upsertMedicalHistory(

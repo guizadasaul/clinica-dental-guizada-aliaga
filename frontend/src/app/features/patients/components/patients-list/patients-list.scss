@@ -312,6 +312,19 @@
     }
   }
 
+  // Eliminar paciente (CLI-184): separado y en rojo. Va después de
+  // __menu-item para ganarle en el orden de la cascada.
+  &__menu-item--danger {
+    margin-top: var(--space-1);
+    border-top: 1px solid var(--color-gray-200, #e5e7eb);
+    border-radius: 0 0 var(--radius-md) var(--radius-md);
+    color: #b91c1c;
+
+    .material-symbols-outlined {
+      color: #b91c1c;
+    }
+  }
+
   &__empty {
     display: flex;
     flex-direction: column;

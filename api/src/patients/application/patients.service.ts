@@ -22,6 +22,7 @@ import type {
 import { UserRepository } from '../../auth/domain/UserRepository';
 import type { UserRepository as IUserRepository } from '../../auth/domain/UserRepository';
 import { UserRole } from '../../auth/domain/value-objects/UserRole';
+import { ACCOUNT_DISABLED_MESSAGE } from '../../auth/domain/account-disabled';
 import { PhoneLoginError } from '../../auth/domain/value-objects/PhoneLoginError';
 import { SupabaseAdminService } from '../../auth/infrastructure/SupabaseAdminService';
 import { toE164, toE164Bolivia } from '../../shared/phone.util';
@@ -157,6 +158,45 @@ export class PatientsService {
    * target no puede ser simplemente "usar el propio id del caller". Un
    * odontólogo puede targetear cualquier userId; un paciente solo el suyo.
    */
+  /**
+   * Baja lógica de un paciente (CLI-184). No borra ninguna fila: ver
+   * PatientRepository.softDeletePatient. Se rechaza si todavía tiene citas
+   * futuras o saldo pendiente, diciendo cuáles.
+   */
+  async deletePatient(callerAuthUserId: string, userId: string): Promise<void> {
+    const caller = await this.userRepo.findByAuthUserId(callerAuthUserId);
+    if (!caller) {
+      throw new NotFoundException(
+        'Usuario autenticado no encontrado en la base de datos',
+      );
+    }
+    const target = await this.userRepo.findById(userId);
+    if (target?.role !== UserRole.PATIENT || !target.isActive) {
+      throw new NotFoundException('Paciente no encontrado');
+    }
+
+    const { futureAppointments, balance } =
+      await this.patientRepo.findDeletionBlockers(userId);
+    const reasons: string[] = [];
+    if (futureAppointments > 0) {
+      reasons.push(
+        futureAppointments === 1
+          ? '1 cita pendiente'
+          : `${futureAppointments} citas pendientes`,
+      );
+    }
+    if (balance > 0) {
+      reasons.push(`un saldo pendiente de Bs ${balance.toFixed(2)}`);
+    }
+    if (reasons.length > 0) {
+      throw new ConflictException(
+        `No se puede eliminar a ${target.displayName ?? 'este paciente'}: tiene ${reasons.join(' y ')}. Resuélvelo antes de eliminarlo.`,
+      );
+    }
+
+    await this.patientRepo.softDeletePatient(userId, caller.id);
+  }
+
   /** Sugerencias para lugar de nacimiento, zona y ciudad (CLI-178). */
   findFieldOptions(): Promise<PatientFieldOptions> {
     return this.patientRepo.findFieldOptions();
@@ -780,6 +820,9 @@ export class PatientsService {
         'Usuario autenticado no encontrado en la base de datos',
       );
     }
+    if (!user.isActive) {
+      throw new ForbiddenException(ACCOUNT_DISABLED_MESSAGE);
+    }
     const patient = await this.patientRepo.findByUserId(user.id);
     if (!patient) {
       throw new NotFoundException('No tienes un perfil de paciente registrado');
@@ -798,6 +841,9 @@ export class PatientsService {
     const user = await this.userRepo.findByAuthUserId(authUserId);
     if (!user) {
       return { exists: false, patient: null };
+    }
+    if (!user.isActive) {
+      throw new ForbiddenException(ACCOUNT_DISABLED_MESSAGE);
     }
     const patient = await this.patientRepo.findByUserId(user.id);
     return { exists: patient !== null, patient };

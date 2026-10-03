@@ -88,6 +88,19 @@ describe('AuthService', () => {
       });
     });
 
+    // CLI-184: un paciente eliminado (o un doctor dado de baja) no entra.
+    it('rechaza con 403 a una cuenta dada de baja y no la toca', async () => {
+      mockRepo.findByAuthUserId.mockResolvedValue({
+        ...mockUser,
+        isActive: false,
+      });
+
+      await expect(service.syncUser(authUser)).rejects.toThrow(
+        'Tu cuenta fue dada de baja.',
+      );
+      expect(mockRepo.upsertByAuthUserId).not.toHaveBeenCalled();
+    });
+
     it('does not create a row and throws NotFoundException for a brand-new login with no invite', async () => {
       mockRepo.findByAuthUserId.mockResolvedValue(null);
 
@@ -352,6 +365,17 @@ describe('AuthService', () => {
 
       expect(result).toBe(mockUser);
       expect(mockRepo.findByAuthUserId).toHaveBeenCalledWith(AUTH_USER_ID);
+    });
+
+    it('rechaza con 403 a una cuenta dada de baja (CLI-184)', async () => {
+      mockRepo.findByAuthUserId.mockResolvedValue({
+        ...mockUser,
+        isActive: false,
+      });
+
+      await expect(service.getCurrentUser(AUTH_USER_ID)).rejects.toThrow(
+        'Tu cuenta fue dada de baja.',
+      );
     });
 
     it('should throw NotFoundException when user does not exist', async () => {

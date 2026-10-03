@@ -367,7 +367,9 @@ describe('PrismaPatientsRepository.findAllWithUsers', () => {
     await repo.findAllWithUsers();
 
     expect(mockPrisma.users.findMany).toHaveBeenCalledWith(
-      expect.objectContaining({ where: { role: 'patient' } }),
+      expect.objectContaining({
+        where: { role: 'patient', is_active: true },
+      }),
     );
   });
 
@@ -383,6 +385,7 @@ describe('PrismaPatientsRepository.findAllWithUsers', () => {
       expect.objectContaining({
         where: {
           role: 'patient',
+          is_active: true,
           patients: { assigned_doctor_id: 'doctor-a' },
         },
       }),
@@ -543,22 +546,22 @@ describe('PrismaPatientsRepository.findFieldOptions (CLI-178)', () => {
     expect(groupBy).toHaveBeenCalledWith(
       expect.objectContaining({
         by: ['zona'],
-        where: { zona: { not: null } },
+        where: { zona: { not: null }, deleted_at: null },
       }),
     );
   });
 });
 
 describe('PrismaPatientsRepository.findByDocument', () => {
-  it('busca por la clave única (tipo de documento, número)', async () => {
-    const findUnique = jest.fn().mockResolvedValue(null);
+  it('busca por (tipo de documento, número) entre las fichas no eliminadas', async () => {
+    const findFirst = jest.fn().mockResolvedValue(null);
     const repo = new PrismaPatientsRepository({
-      patients: { findUnique },
+      patients: { findFirst },
     } as never);
 
     await expect(repo.findByDocument('ci', '1234567')).resolves.toBeNull();
-    expect(findUnique).toHaveBeenCalledWith({
-      where: { document_type_dni: { document_type: 'ci', dni: '1234567' } },
+    expect(findFirst).toHaveBeenCalledWith({
+      where: { document_type: 'ci', dni: '1234567', deleted_at: null },
       include: { users: true },
     });
   });
@@ -673,7 +676,9 @@ describe('PrismaPatientsRepository.updatePatient', () => {
     });
 
     expect(update).toHaveBeenCalledWith(
-      expect.objectContaining({ where: { id: 'patient-1' } }),
+      expect.objectContaining({
+        where: { id: 'patient-1', deleted_at: null },
+      }),
     );
     expect(updateData(update)).toEqual({
       first_name: 'Ana',
@@ -818,8 +823,8 @@ describe('PrismaPatientsRepository — lecturas', () => {
   });
 
   describe.each([
-    ['findPatientById', { id: 'patient-1' }],
-    ['findByUserId', { user_id: 'patient-1' }],
+    ['findPatientById', { id: 'patient-1', deleted_at: null }],
+    ['findByUserId', { user_id: 'patient-1', deleted_at: null }],
   ] as const)('%s', (method, where) => {
     it('busca con el usuario incluido y mapea la fila', async () => {
       jest
@@ -1116,5 +1121,82 @@ describe('PrismaPatientsRepository.createToothProcedures', () => {
       tooth_procedure_surfaces: undefined,
     });
     expect(rows[1].procedure_date).toBeInstanceOf(Date);
+  });
+});
+
+// CLI-184: baja lógica.
+describe('PrismaPatientsRepository — baja lógica (CLI-184)', () => {
+  it('findDeletionBlockers sin ficha devuelve 0 y 0 sin consultar citas ni presupuestos', async () => {
+    const appointmentsCount = jest.fn();
+    const repo = new PrismaPatientsRepository({
+      patients: { findUnique: jest.fn().mockResolvedValue(null) },
+      appointments: { count: appointmentsCount },
+    } as never);
+
+    await expect(repo.findDeletionBlockers('user-1')).resolves.toEqual({
+      futureAppointments: 0,
+      balance: 0,
+    });
+    expect(appointmentsCount).not.toHaveBeenCalled();
+  });
+
+  it('findDeletionBlockers cuenta las citas futuras y suma lo que falta pagar', async () => {
+    const appointmentsCount = jest.fn().mockResolvedValue(2);
+    const quotesFindMany = jest.fn().mockResolvedValue([
+      { total_amount: '300.00', total_paid: '100.50' },
+      { total_amount: '50.00', total_paid: '80.00' },
+    ]);
+    const repo = new PrismaPatientsRepository({
+      patients: { findUnique: jest.fn().mockResolvedValue({ id: 'p1' }) },
+      appointments: { count: appointmentsCount },
+      quotes: { findMany: quotesFindMany },
+    } as never);
+
+    await expect(repo.findDeletionBlockers('user-1')).resolves.toEqual({
+      futureAppointments: 2,
+      balance: 199.5,
+    });
+    expect(appointmentsCount).toHaveBeenCalledWith({
+      where: {
+        patient_id: 'p1',
+        status: { in: ['held', 'confirmed'] },
+        appointment_datetime: { gt: expect.any(Date) as Date },
+      },
+    });
+    expect(quotesFindMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          patient_id: 'p1',
+          status: { in: ['pending', 'partially_paid'] },
+          total_amount: { gt: 0 },
+        },
+      }),
+    );
+  });
+
+  it('softDeletePatient marca la ficha y la cuenta, revoca canales e invitaciones, y no borra nada', async () => {
+    const tx = {
+      users: { update: jest.fn() },
+      patients: { updateMany: jest.fn(), delete: jest.fn() },
+      chat_channel_identities: { updateMany: jest.fn() },
+      patient_invites: { updateMany: jest.fn() },
+    };
+    const repo = new PrismaPatientsRepository({
+      transaction: jest.fn((fn: (t: unknown) => unknown) => fn(tx)),
+    } as never);
+
+    await repo.softDeletePatient('user-1', 'doctor-1');
+
+    expect(tx.users.update).toHaveBeenCalledWith({
+      where: { id: 'user-1' },
+      data: { is_active: false, updated_at: expect.any(Date) as Date },
+    });
+    expect(tx.patients.updateMany).toHaveBeenCalledWith({
+      where: { user_id: 'user-1', deleted_at: null },
+      data: expect.objectContaining({ deleted_by: 'doctor-1' }) as object,
+    });
+    expect(tx.chat_channel_identities.updateMany).toHaveBeenCalledTimes(1);
+    expect(tx.patient_invites.updateMany).toHaveBeenCalledTimes(1);
+    expect(tx.patients.delete).not.toHaveBeenCalled();
   });
 });

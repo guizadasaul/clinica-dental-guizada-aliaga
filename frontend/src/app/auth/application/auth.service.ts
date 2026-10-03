@@ -269,7 +269,14 @@ export class AuthService {
         ),
       );
       this.applyBackendUser(user);
-    } catch {
+    } catch (error) {
+      // 403: la cuenta fue dada de baja (un paciente eliminado, CLI-184): no
+      // hay nada que reintentar, se cierra la sesión y no queda ningún rol.
+      if ((error as { status?: number })?.status === 403) {
+        await this.supabase.auth.signOut();
+        this.currentUser.set(null);
+        return;
+      }
       // El POST falló (blip transitorio, backend reiniciando, etc.) — antes
       // de resignarse a role: null, probar una lectura simple. Si el usuario
       // ya tenía una fila de un sync anterior (ej. un doctor recurrente), esto

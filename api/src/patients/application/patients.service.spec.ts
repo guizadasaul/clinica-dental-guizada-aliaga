@@ -118,6 +118,8 @@ const mockPatientRepo = {
   findAllWithUsers: jest.fn(),
   findPatientById: jest.fn(),
   findByUserId: jest.fn(),
+  findDeletionBlockers: jest.fn(),
+  softDeletePatient: jest.fn(),
   create: jest.fn(),
   createWithPlaceholderUser: jest.fn(),
   findFieldOptions: jest
@@ -785,6 +787,113 @@ describe('PatientsService', () => {
         zonas: ['Zona Norte'],
         ciudades: ['Santa Cruz de la Sierra'],
       });
+    });
+  });
+
+  // CLI-184: una cuenta dada de baja no ve su ficha.
+  describe('cuenta dada de baja', () => {
+    const inactive = { ...makeAppUser(UserRole.PATIENT, 'u'), isActive: false };
+
+    it('findMyPatient lo rechaza con 403', async () => {
+      mockUserRepo.findByAuthUserId.mockResolvedValue(inactive);
+
+      await expect(service.findMyPatient(PATIENT_AUTH_ID)).rejects.toThrow(
+        ForbiddenException,
+      );
+    });
+
+    it('findMyPatientStatus lo rechaza con 403', async () => {
+      mockUserRepo.findByAuthUserId.mockResolvedValue(inactive);
+
+      await expect(
+        service.findMyPatientStatus(PATIENT_AUTH_ID),
+      ).rejects.toThrow('Tu cuenta fue dada de baja.');
+    });
+  });
+
+  // CLI-184: baja lógica de un paciente.
+  describe('deletePatient', () => {
+    const patientUser = (overrides: Record<string, unknown> = {}) => ({
+      ...makeAppUser(UserRole.PATIENT, 'patient-user'),
+      displayName: 'Ana Arce',
+      ...overrides,
+    });
+
+    beforeEach(() => {
+      mockUserRepo.findByAuthUserId.mockReset();
+      mockUserRepo.findByAuthUserId.mockResolvedValue(
+        makeAppUser(UserRole.ODONTOLOGIST, 'doctor-id'),
+      );
+      mockUserRepo.findById.mockReset();
+      mockUserRepo.findById.mockResolvedValue(patientUser());
+      mockPatientRepo.findDeletionBlockers.mockReset();
+      mockPatientRepo.findDeletionBlockers.mockResolvedValue({
+        futureAppointments: 0,
+        balance: 0,
+      });
+      mockPatientRepo.softDeletePatient.mockReset();
+    });
+
+    it('da de baja al paciente anotando quién lo hizo', async () => {
+      await service.deletePatient(DOCTOR_AUTH_ID, 'patient-user');
+
+      expect(mockPatientRepo.softDeletePatient).toHaveBeenCalledWith(
+        'patient-user',
+        'doctor-id',
+      );
+    });
+
+    it.each([
+      ['no existe', null],
+      ['no es un paciente', { role: UserRole.ODONTOLOGIST }],
+      ['ya está dado de baja', { isActive: false }],
+    ])('404 si %s', async (_, found) => {
+      mockUserRepo.findById.mockResolvedValue(
+        found === null ? null : patientUser(found),
+      );
+
+      await expect(
+        service.deletePatient(DOCTOR_AUTH_ID, 'patient-user'),
+      ).rejects.toThrow(NotFoundException);
+      expect(mockPatientRepo.softDeletePatient).not.toHaveBeenCalled();
+    });
+
+    it('409 con citas futuras, diciendo cuántas', async () => {
+      mockPatientRepo.findDeletionBlockers.mockResolvedValue({
+        futureAppointments: 2,
+        balance: 0,
+      });
+
+      await expect(
+        service.deletePatient(DOCTOR_AUTH_ID, 'patient-user'),
+      ).rejects.toThrow(
+        'No se puede eliminar a Ana Arce: tiene 2 citas pendientes.',
+      );
+      expect(mockPatientRepo.softDeletePatient).not.toHaveBeenCalled();
+    });
+
+    it('409 con saldo pendiente, y junto con una cita lo dice todo', async () => {
+      mockPatientRepo.findDeletionBlockers.mockResolvedValue({
+        futureAppointments: 1,
+        balance: 150.5,
+      });
+
+      await expect(
+        service.deletePatient(DOCTOR_AUTH_ID, 'patient-user'),
+      ).rejects.toThrow(
+        'tiene 1 cita pendiente y un saldo pendiente de Bs 150.50',
+      );
+      await expect(
+        service.deletePatient(DOCTOR_AUTH_ID, 'patient-user'),
+      ).rejects.toThrow(ConflictException);
+    });
+
+    it('404 si quien llama no existe en la base', async () => {
+      mockUserRepo.findByAuthUserId.mockResolvedValue(null);
+
+      await expect(
+        service.deletePatient(DOCTOR_AUTH_ID, 'patient-user'),
+      ).rejects.toThrow(NotFoundException);
     });
   });
 

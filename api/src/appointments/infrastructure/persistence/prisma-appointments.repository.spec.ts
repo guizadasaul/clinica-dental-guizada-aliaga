@@ -685,7 +685,7 @@ describe('PrismaAppointmentsRepository', () => {
     });
 
     it('throws GuestEmailBelongsToAccountError when the email already belongs to a user, without touching appointments', async () => {
-      prismaMock.users.findUnique.mockResolvedValue({ id: 'user-1' });
+      prismaMock.users.findFirst.mockResolvedValue({ id: 'user-1' });
 
       await expect(
         repo.updateGuestContact(
@@ -700,8 +700,8 @@ describe('PrismaAppointmentsRepository', () => {
           NOW,
         ),
       ).rejects.toThrow(GuestEmailBelongsToAccountError);
-      expect(prismaMock.users.findUnique).toHaveBeenCalledWith({
-        where: { email: 'ya@existe.com' },
+      expect(prismaMock.users.findFirst).toHaveBeenCalledWith({
+        where: { email: 'ya@existe.com', is_active: true },
       });
       expect(prismaMock.appointments.updateMany).not.toHaveBeenCalled();
     });
@@ -723,7 +723,7 @@ describe('PrismaAppointmentsRepository', () => {
         ),
       ).rejects.toThrow(GuestPhoneBelongsToAccountError);
       expect(prismaMock.users.findFirst).toHaveBeenCalledWith({
-        where: { phone: '70011122' },
+        where: { phone: '70011122', is_active: true },
       });
       expect(prismaMock.appointments.updateMany).not.toHaveBeenCalled();
     });

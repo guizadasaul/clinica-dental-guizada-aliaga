@@ -85,7 +85,10 @@ function setup(
   doctors: Doctor[] = [DOCTOR_A, DOCTOR_B],
   authService = createAuthServiceStub(),
 ) {
-  const patientsService = { getAll: vi.fn().mockReturnValue(of(patients)) };
+  const patientsService = {
+    getAll: vi.fn().mockReturnValue(of(patients)),
+    deletePatient: vi.fn().mockReturnValue(of(undefined)),
+  };
   const bookingService = { getDoctors: vi.fn().mockReturnValue(of(doctors)) };
   TestBed.configureTestingModule({
     imports: [PatientsListComponent],
@@ -173,6 +176,7 @@ describe('PatientsListComponent', () => {
       expect.stringContaining('Nuevo diagnóstico'),
       expect.stringContaining('Corregir diagnóstico actual'),
       expect.stringContaining('Ver historia clínica'),
+      expect.stringContaining('Eliminar paciente'),
     ]);
 
     items[0].click();
@@ -329,6 +333,145 @@ describe('PatientsListComponent — búsqueda, acciones y menú', () => {
     await settle(fixture);
 
     expect(rows(fixture)[0].textContent).toContain('Sin asignar');
+  });
+
+  // CLI-184: eliminar un paciente (baja lógica).
+  describe('eliminar paciente (CLI-184)', () => {
+    function menuItems(fixture: ReturnType<typeof setup>['fixture']): HTMLElement[] {
+      return [...(fixture.nativeElement as HTMLElement).querySelectorAll<HTMLElement>('.patients-list__menu-item')];
+    }
+
+    async function openDialog(patients: PatientWithUser[] = [fakePatientWithUser()]) {
+      const context = setup(patients);
+      await settle(context.fixture);
+      el<HTMLButtonElement>(context.fixture, '.patients-list__menu-trigger').click();
+      await settle(context.fixture);
+      menuItems(context.fixture).find((i) => i.textContent?.includes('Eliminar paciente'))!.click();
+      await settle(context.fixture);
+      return context;
+    }
+
+    function typeWord(fixture: ReturnType<typeof setup>['fixture'], value: string): void {
+      const input = el<HTMLInputElement>(fixture, '#delete-modal-confirm');
+      input.value = value;
+      input.dispatchEvent(new Event('input'));
+      fixture.detectChanges();
+    }
+
+    const confirmButton = (fixture: ReturnType<typeof setup>['fixture']) =>
+      el<HTMLButtonElement>(fixture, '.delete-modal__btn--danger');
+
+    it('todas las filas tienen el menú ⋮, también una persona sin ficha, y ahí solo está "Eliminar paciente"', async () => {
+      const { fixture } = setup([
+        fakePatientWithUser(),
+        fakePatientWithUser({ userId: 'user-3', patient: null, displayName: null }),
+      ]);
+      await settle(fixture);
+
+      const triggers = (fixture.nativeElement as HTMLElement).querySelectorAll<HTMLButtonElement>('.patients-list__menu-trigger');
+      expect(triggers).toHaveLength(2);
+      triggers[1].click();
+      await settle(fixture);
+      expect(menuItems(fixture).map((i) => i.textContent?.trim())).toEqual([
+        expect.stringContaining('Eliminar paciente'),
+      ]);
+    });
+
+    it('en modo solo lectura (panel de admin) no hay menú ni opción de eliminar', async () => {
+      const { fixture } = setup();
+      fixture.componentRef.setInput('readOnly', true);
+      await settle(fixture);
+
+      expect(el(fixture, '.patients-list__menu-trigger')).toBeNull();
+    });
+
+    it('abre la alerta con el nombre del paciente y cierra el menú', async () => {
+      const { fixture } = await openDialog();
+
+      expect(el(fixture, '.patients-list__menu')).toBeNull();
+      expect(el(fixture, '.delete-modal__text')?.textContent).toContain('Juana Perez');
+      expect(confirmButton(fixture).disabled).toBe(true);
+    });
+
+    it('solo se habilita al escribir "eliminar" (sin importar mayúsculas ni espacios)', async () => {
+      const { fixture } = await openDialog();
+
+      typeWord(fixture, 'elimin');
+      expect(confirmButton(fixture).disabled).toBe(true);
+      typeWord(fixture, '  ELIMINAR ');
+      expect(confirmButton(fixture).disabled).toBe(false);
+    });
+
+    it('al confirmar da de baja al paciente, cierra la alerta y recarga la lista', async () => {
+      const { fixture, patientsService } = await openDialog();
+      typeWord(fixture, 'eliminar');
+
+      el<HTMLFormElement>(fixture, '.delete-modal form').dispatchEvent(new Event('submit'));
+      await settle(fixture);
+
+      expect(patientsService.deletePatient).toHaveBeenCalledWith('user-1');
+      expect(patientsService.getAll).toHaveBeenCalledTimes(2);
+      expect(el(fixture, '.delete-modal')).toBeNull();
+    });
+
+    it('sin escribir la palabra no elimina aunque se envíe el formulario', async () => {
+      const { fixture, patientsService } = await openDialog();
+
+      el<HTMLFormElement>(fixture, '.delete-modal form').dispatchEvent(new Event('submit'));
+      await settle(fixture);
+
+      expect(patientsService.deletePatient).not.toHaveBeenCalled();
+    });
+
+    it('si la API rechaza la baja (citas, saldo) muestra el motivo y deja la alerta abierta', async () => {
+      const { fixture, patientsService } = await openDialog();
+      patientsService.deletePatient.mockReturnValue(
+        throwError(() => ({ error: { message: 'No se puede eliminar a Juana Perez: tiene 1 cita pendiente.' } })),
+      );
+      typeWord(fixture, 'eliminar');
+
+      el<HTMLFormElement>(fixture, '.delete-modal form').dispatchEvent(new Event('submit'));
+      await settle(fixture);
+
+      expect(el(fixture, '.delete-modal__error')?.textContent).toContain('tiene 1 cita pendiente');
+      expect(patientsService.getAll).toHaveBeenCalledTimes(1);
+    });
+
+    it('un error sin mensaje usable muestra uno genérico', async () => {
+      const { fixture, patientsService } = await openDialog();
+      patientsService.deletePatient.mockReturnValue(throwError(() => new Error('red')));
+      typeWord(fixture, 'eliminar');
+
+      el<HTMLFormElement>(fixture, '.delete-modal form').dispatchEvent(new Event('submit'));
+      await settle(fixture);
+
+      expect(el(fixture, '.delete-modal__error')?.textContent).toContain('No se pudo eliminar');
+    });
+
+    it('"Cancelar", Escape y el fondo cierran la alerta sin eliminar', async () => {
+      const { fixture, patientsService } = await openDialog();
+
+      el<HTMLButtonElement>(fixture, '.delete-modal__btn--ghost').click();
+      await settle(fixture);
+      expect(el(fixture, '.delete-modal')).toBeNull();
+
+      el<HTMLButtonElement>(fixture, '.patients-list__menu-trigger').click();
+      await settle(fixture);
+      menuItems(fixture).at(-1)!.click();
+      await settle(fixture);
+      el<HTMLElement>(fixture, '.delete-modal').dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+      await settle(fixture);
+      expect(el(fixture, '.delete-modal')).toBeNull();
+
+      el<HTMLButtonElement>(fixture, '.patients-list__menu-trigger').click();
+      await settle(fixture);
+      menuItems(fixture).at(-1)!.click();
+      await settle(fixture);
+      el<HTMLElement>(fixture, '.delete-modal').click();
+      await settle(fixture);
+      expect(el(fixture, '.delete-modal')).toBeNull();
+      expect(patientsService.deletePatient).not.toHaveBeenCalled();
+    });
   });
 
   describe('menú ⋮', () => {

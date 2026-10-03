@@ -112,6 +112,24 @@ describe('AuthService', () => {
     httpMock.verify();
   });
 
+  // CLI-184: un paciente eliminado no queda con la sesión abierta.
+  it('cierra la sesión sin reintentar si el sync responde 403 (cuenta dada de baja)', async () => {
+    vi.useFakeTimers();
+    const { service, httpMock, fakeSupabase } = setup();
+
+    fakeSupabase.fireEvent('SIGNED_IN', { user: { id: 'user-1' } });
+    await vi.advanceTimersByTimeAsync(0);
+    httpMock
+      .expectOne((r) => r.url.endsWith('/auth/sync'))
+      .flush({ message: 'Tu cuenta fue dada de baja.' }, { status: 403, statusText: 'Forbidden' });
+    await vi.advanceTimersByTimeAsync(0);
+
+    expect(fakeSupabase.signOutCalls).toHaveLength(1);
+    expect(service.currentUser()).toBeNull();
+    httpMock.expectNone((r) => r.url.endsWith('/auth/me'));
+    httpMock.verify();
+  });
+
   it('does not re-fire /auth/sync for a duplicate event of a user already fully synced', async () => {
     vi.useFakeTimers();
     const { service, httpMock, fakeSupabase } = setup();
