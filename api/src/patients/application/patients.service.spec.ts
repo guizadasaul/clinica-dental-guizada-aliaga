@@ -1220,6 +1220,8 @@ describe('PatientsService', () => {
 
     beforeEach(() => {
       mockPatientRepo.findPatientById.mockResolvedValue(fakePatient());
+      // Con diagnóstico terminado (CLI-189): sin examen no se registran tratamientos.
+      mockPatientRepo.findCurrentDentalExam.mockResolvedValue({ id: 'exam-1' });
       mockUserRepo.findByAuthUserId.mockResolvedValue(
         makeAppUser(UserRole.ODONTOLOGIST, 'doctor-1'),
       );
@@ -1242,6 +1244,19 @@ describe('PatientsService', () => {
       );
       mockPatientRepo.findOdontogramEntries.mockResolvedValue([]);
       mockPatientRepo.appendOdontogramEntries.mockResolvedValue([]);
+    });
+
+    it('rejects (409) a patient with no diagnosis yet and creates nothing (CLI-189)', async () => {
+      mockPatientRepo.findCurrentDentalExam.mockResolvedValue(null);
+
+      await expect(
+        service.createToothProcedure('patient-1', DOCTOR_AUTH_ID, {
+          ...baseInput,
+          teeth: [{ number: 16, surfaces: [] }],
+        }),
+      ).rejects.toThrow('Primero termina el diagnóstico del paciente.');
+      expect(mockPatientRepo.createToothProcedures).not.toHaveBeenCalled();
+      expect(mockPatientRepo.createToothProcedureGroup).not.toHaveBeenCalled();
     });
 
     it('rejects a nonexistent treatment with 404', async () => {

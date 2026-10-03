@@ -141,6 +141,67 @@ describe('Historial de tratamientos del paciente (e2e) — CLI-102', () => {
     await app.close();
   });
 
+  // CLI-189: tratamiento y presupuesto solo después de terminar el diagnóstico.
+  describe('exige el diagnóstico terminado (CLI-189)', () => {
+    let treatmentId: string;
+
+    const procedureBody = () => ({
+      treatmentId,
+      priceCharged: 100,
+      teeth: [{ number: 11, surfaces: [] }],
+    });
+
+    beforeAll(async () => {
+      treatmentId = (
+        await prisma.treatments.findFirstOrThrow({
+          where: { code: TREATMENT_CODE },
+        })
+      ).id;
+      // patient-b tiene un diagnóstico; patient-a no.
+      await prisma.dental_exams.create({
+        data: {
+          patient_id: patientB.patientId,
+          version: 1,
+          kind: 'diagnosis',
+          recorded_by: doctor.id,
+        },
+      });
+    });
+
+    it('sin diagnóstico no se registra un tratamiento (409)', async () => {
+      const res = await request(app.getHttpServer())
+        .post(`/patients/${patientA.patientId}/tooth-procedures`)
+        .set('Authorization', `Bearer ${doctor.token}`)
+        .send(procedureBody())
+        .expect(409);
+
+      expect((res.body as { message: string }).message).toContain(
+        'Primero termina el diagnóstico',
+      );
+    });
+
+    it('sin diagnóstico no se crea un presupuesto (409)', async () => {
+      await request(app.getHttpServer())
+        .post(`/patients/${patientA.patientId}/quotes`)
+        .set('Authorization', `Bearer ${doctor.token}`)
+        .send({})
+        .expect(409);
+      expect(
+        await prisma.quotes.count({
+          where: { patient_id: patientA.patientId },
+        }),
+      ).toBe(0);
+    });
+
+    it('con diagnóstico sí se registra el tratamiento', async () => {
+      await request(app.getHttpServer())
+        .post(`/patients/${patientB.patientId}/tooth-procedures`)
+        .set('Authorization', `Bearer ${doctor.token}`)
+        .send(procedureBody())
+        .expect(201);
+    });
+  });
+
   it('el paciente ve solo sus propios procedimientos en /patients/me/tooth-procedures', async () => {
     const res = await request(app.getHttpServer())
       .get('/patients/me/tooth-procedures')

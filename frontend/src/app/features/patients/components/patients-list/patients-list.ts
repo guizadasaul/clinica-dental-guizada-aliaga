@@ -238,6 +238,30 @@ export class PatientsListComponent implements OnInit {
     });
   }
 
+  /** Tratamiento y presupuesto solo con ficha y diagnóstico terminado (CLI-189); no depende de la cuenta. */
+  protected canTreat(p: PatientWithUser): boolean {
+    return !!p.patient && p.dentalExamsCount > 0;
+  }
+
+  protected onMenuRegisterTreatment(p: PatientWithUser): void {
+    this.closeMenu();
+    if (p.patient && this.canTreat(p)) {
+      this.registerTreatment.emit(p.patient.id);
+    }
+  }
+
+  protected onMenuBuildQuote(p: PatientWithUser): void {
+    this.closeMenu();
+    if (p.patient && this.canTreat(p)) {
+      this.buildQuote.emit(p.patient.id);
+    }
+  }
+
+  private closeMenu(): void {
+    this.openMenuFor.set(null);
+    this.menuPosition.set(null);
+  }
+
   protected onRegisterTreatment(patientId: string): void {
     this.registerTreatment.emit(patientId);
   }
