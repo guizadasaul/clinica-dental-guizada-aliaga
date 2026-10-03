@@ -70,7 +70,7 @@ export class SuggestInputComponent implements AfterContentInit {
   protected readonly expanded = computed(() => this.open() && this.matches().length > 0);
 
   constructor() {
-    // aria del combobox sobre el input proyectado.
+    // aria-expanded / aria-activedescendant sobre el input proyectado.
     effect(() => {
       // Leer las señales antes del early return: si no, la primera corrida
       // (antes de que exista el input proyectado) no las rastrea nunca.
@@ -90,8 +90,6 @@ export class SuggestInputComponent implements AfterContentInit {
   ngAfterContentInit(): void {
     const el = this.fieldRef?.nativeElement;
     if (!el) return;
-    this.renderer.setAttribute(el, 'role', 'combobox');
-    this.renderer.setAttribute(el, 'aria-autocomplete', 'list');
     this.renderer.setAttribute(el, 'aria-controls', this.listId);
     this.renderer.setAttribute(el, 'autocomplete', 'off');
     this.renderer.setAttribute(el, 'aria-expanded', 'false');

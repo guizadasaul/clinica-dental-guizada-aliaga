@@ -31,7 +31,7 @@ function setup() {
     field.dispatchEvent(new KeyboardEvent('keydown', { key: k, cancelable: true }));
     fixture.detectChanges();
   };
-  const options = () => [...root.querySelectorAll('[role="option"]')].map((o) => o.textContent?.trim());
+  const options = () => [...root.querySelectorAll('.suggest-input__option')].map((o) => o.textContent?.trim());
   return { fixture, field, typeText, key, options, host: fixture.componentInstance };
 }
 
@@ -42,12 +42,11 @@ describe('suggestionKey', () => {
 });
 
 describe('SuggestInputComponent (CLI-178)', () => {
-  it('convierte el input proyectado en un combobox accesible', () => {
+  it('apaga el autocompletado del navegador y anuncia si la lista está abierta', () => {
     const { field } = setup();
-    expect(field.getAttribute('role')).toBe('combobox');
-    expect(field.getAttribute('aria-autocomplete')).toBe('list');
     expect(field.getAttribute('autocomplete')).toBe('off');
     expect(field.getAttribute('aria-expanded')).toBe('false');
+    expect(field.getAttribute('aria-controls')).toMatch(/^suggest-input-/);
   });
 
   it('al escribir sugiere los valores que coinciden, sin distinguir mayúsculas ni tildes', () => {
@@ -70,7 +69,7 @@ describe('SuggestInputComponent (CLI-178)', () => {
   it('elegir con el mouse escribe el valor en el input y avisa con su evento input', () => {
     const { typeText, fixture, field, host } = setup();
     typeText('coch');
-    const option = (fixture.nativeElement as HTMLElement).querySelector<HTMLElement>('[role="option"]')!;
+    const option = (fixture.nativeElement as HTMLElement).querySelector<HTMLElement>('.suggest-input__option')!;
     option.dispatchEvent(new MouseEvent('mousedown', { cancelable: true }));
     fixture.detectChanges();
 

@@ -252,7 +252,7 @@ describe('StepPatientDataComponent', () => {
       fillRequiredFields(fixture);
       type(el(fixture, ZONA), 'sur');
       await settle(fixture);
-      const options = elAll<HTMLElement>(fixture, '[role="option"]');
+      const options = elAll<HTMLElement>(fixture, '.suggest-input__option');
       expect(options.map((o) => o.textContent?.trim())).toEqual(['Zona Sur']);
 
       options[0].dispatchEvent(new MouseEvent('mousedown', { cancelable: true }));

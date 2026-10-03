@@ -1,17 +1,19 @@
 <ng-content />
 @if (expanded()) {
-  <ul class="suggest-input__list" role="listbox" [id]="listId">
+  <div class="suggest-input__list" [id]="listId">
     @for (option of matches(); track option; let i = $index) {
-      <li
+      <!-- Botones reales (no role="option"): interactivos de por sí. tabindex -1
+           porque el foco queda en el input; se navega con las flechas. -->
+      <button
+        type="button"
+        tabindex="-1"
         class="suggest-input__option"
-        role="option"
         [id]="listId + '-' + i"
         [class.suggest-input__option--active]="i === active()"
-        [attr.aria-selected]="i === active()"
         (mousedown)="onOptionMousedown($event, option)"
       >
         {{ option }}
-      </li>
+      </button>
     }
-  </ul>
+  </div>
 }
