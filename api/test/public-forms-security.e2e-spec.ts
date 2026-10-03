@@ -79,8 +79,6 @@ describe('Public forms security (e2e) — CLI-36', () => {
 
   describe('comentario legítimo que contiene texto de inyección', () => {
     it('se guarda literal (201), sin afectar la tabla testimonials', async () => {
-      const countBefore = await prisma.testimonials.count();
-
       // 20+ palabras válidas que contienen, en el medio, un payload de
       // inyección clásico — tiene que pasar (ninguna de las reglas de
       // `comment` restringe esos símbolos, solo HTML/URLs/spam/cantidad de
@@ -90,6 +88,13 @@ describe('Public forms security (e2e) — CLI-36', () => {
         "profesional y atento durante todo el tratamiento Robert'); " +
         'DROP TABLE testimonials;-- que me realizaron hace poco y quedé ' +
         'completamente satisfecha con el resultado final.';
+
+      // Se cuentan solo las filas con este comentario, no toda la tabla: jest
+      // corre los e2e en paralelo y otros (la moderación de comentarios, CLI-188)
+      // crean y borran filas en `testimonials` mientras corre este.
+      const countBefore = await prisma.testimonials.count({
+        where: { comment },
+      });
 
       const response = await request(app.getHttpServer())
         .post('/public/testimonials')
@@ -110,8 +115,10 @@ describe('Public forms security (e2e) — CLI-36', () => {
       // La tabla testimonials sigue existiendo (si "DROP TABLE" se hubiera
       // ejecutado de verdad, este count directamente tiraría un error de
       // Prisma en vez de devolver un número) y el conteo de filas es el
-      // esperado: exactamente una fila más que antes.
-      const countAfter = await prisma.testimonials.count();
+      // esperado: exactamente una fila más con ese comentario que antes.
+      const countAfter = await prisma.testimonials.count({
+        where: { comment },
+      });
       expect(countAfter).toBe(countBefore + 1);
 
       await prisma.testimonials.delete({ where: { id } });
@@ -156,5 +163,4 @@ describe('Public forms security (e2e) — CLI-36', () => {
       expect(res.status).toBe(400);
     });
   });
-
 });
