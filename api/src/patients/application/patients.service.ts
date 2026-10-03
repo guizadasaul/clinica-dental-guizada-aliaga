@@ -97,7 +97,6 @@ interface CreateDentalExamInput {
 /** Una condición dentro del historial, con SU código de catálogo (CLI-50). */
 interface MedicalConditionEntryInput {
   code: string;
-  diagnosedAt?: Date;
   notes?: string;
 }
 
@@ -357,7 +356,6 @@ export class PatientsService {
       }
       return {
         medicalConditionId: condition.id,
-        diagnosedAt: entry.diagnosedAt,
         notes: entry.notes,
       };
     });

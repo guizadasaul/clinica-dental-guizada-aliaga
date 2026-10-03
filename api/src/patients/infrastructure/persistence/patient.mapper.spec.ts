@@ -161,13 +161,8 @@ describe('PatientMapper.toDomainMedicalHistory', () => {
     expect(history.gestationLmpDate).toBe(lmp);
     expect(history.gestationTrimester).toBe(1);
     expect(history.conditions).toEqual([
-      {
-        code: 'diabetes',
-        name: 'Diabetes',
-        diagnosedAt: new Date('2020-01-01'),
-        notes: 'tipo 2',
-      },
-      { code: 'asma', name: 'Asma', diagnosedAt: null, notes: null },
+      { code: 'diabetes', name: 'Diabetes', notes: 'tipo 2' },
+      { code: 'asma', name: 'Asma', notes: null },
     ]);
     expect(history.medications).toEqual([
       {

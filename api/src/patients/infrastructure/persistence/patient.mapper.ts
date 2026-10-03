@@ -70,7 +70,6 @@ export class PatientMapper {
       conditions: r.patient_medical_conditions.map((pmc) => ({
         code: pmc.medical_conditions.code,
         name: pmc.medical_conditions.name,
-        diagnosedAt: pmc.diagnosed_at ?? null,
         notes: pmc.notes ?? null,
       })),
       otherDiseases: r.other_diseases ?? null,

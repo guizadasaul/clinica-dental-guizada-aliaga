@@ -15,15 +15,9 @@
     gap: 0.5rem;
   }
 
+  // Solo las notas de la condición (CLI-176: se quitó la fecha de diagnóstico).
   &__condition-detail {
-    display: grid;
-    grid-template-columns: 160px 1fr;
-    gap: 0.5rem;
     padding-left: 1.625rem;
-
-    @media (max-width: 640px) {
-      grid-template-columns: 1fr;
-    }
   }
 
   &__hint {

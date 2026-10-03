@@ -15,13 +15,6 @@
           @if (isConditionChecked(condition.code)) {
             <div class="mh-step__condition-detail">
               <input
-                type="date"
-                class="step-form__input mh-step__input--small"
-                [value]="conditionDetails().get(condition.code)?.diagnosedAt ?? ''"
-                (input)="setConditionDetail(condition.code, 'diagnosedAt', $any($event.target).value)"
-                aria-label="Fecha de diagnóstico"
-              />
-              <input
                 type="text"
                 class="step-form__input"
                 [value]="conditionDetails().get(condition.code)?.notes ?? ''"

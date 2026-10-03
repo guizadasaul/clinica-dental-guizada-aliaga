@@ -68,7 +68,21 @@ describe('StepMedicalHistoryComponent', () => {
     await settle(fixture);
 
     expect(emitted).toHaveLength(1);
-    expect(emitted[0].conditions).toEqual([{ code: 'diabetes', diagnosedAt: undefined, notes: undefined }]);
+    expect(emitted[0].conditions).toEqual([{ code: 'diabetes', notes: undefined }]);
+  });
+
+  it('una condición marcada solo pide notas, sin fecha de diagnóstico (CLI-176)', async () => {
+    const fixture = setup();
+    await settle(fixture);
+
+    const [firstCheckbox] = elAll<HTMLInputElement>(fixture, '.mh-step__condition input[type="checkbox"]');
+    firstCheckbox.checked = true;
+    firstCheckbox.dispatchEvent(new Event('change'));
+    await settle(fixture);
+
+    const detail = elAll<HTMLElement>(fixture, '.mh-step__condition-detail')[0];
+    expect(detail.querySelector('input[type="date"]')).toBeNull();
+    expect(detail.querySelector('input[aria-label="Notas de la condición"]')).not.toBeNull();
   });
 
   it('unchecking a condition removes it and its detail fields from the submitted payload', async () => {

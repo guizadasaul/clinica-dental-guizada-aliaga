@@ -75,9 +75,6 @@
                   @for (item of mh.conditions; track item.code) {
                     <li class="record__tag" [title]="item.notes || ''">
                       {{ item.name }}
-                      @if (item.diagnosedAt) {
-                        ({{ item.diagnosedAt | date: 'dd/MM/yyyy' }})
-                      }
                     </li>
                   }
                 </ul>

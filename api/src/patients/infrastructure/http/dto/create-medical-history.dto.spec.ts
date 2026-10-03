@@ -11,16 +11,11 @@ import { CreateMedicalHistoryDto } from './create-medical-history.dto';
 import { INJECTION_PAYLOADS } from '../../../../shared/validators/__fixtures__/injection-payloads';
 
 const VALID_HISTORY = {
-  conditions: [
-    { code: 'diabetes', diagnosedAt: '2020-01-15', notes: 'Tipo 2' },
-    { code: 'asma' },
-  ],
+  conditions: [{ code: 'diabetes', notes: 'Tipo 2' }, { code: 'asma' }],
   otherDiseases: 'Migraña ocasional',
   gestationLmpDate: '2026-06-01',
   anesthesiaReactions: null,
-  medications: [
-    { drugName: 'Metformina', dose: '850mg', frequency: '1x día' },
-  ],
+  medications: [{ drugName: 'Metformina', dose: '850mg', frequency: '1x día' }],
 };
 
 async function validateHistory(overrides: Record<string, unknown>) {
@@ -55,18 +50,9 @@ describe('CreateMedicalHistoryDto', () => {
     expect(errors.some((e) => e.property === 'conditions')).toBe(true);
   });
 
-  it('rechaza diagnosedAt futura', async () => {
-    const errors = await validateHistory({
-      conditions: [{ code: 'diabetes', diagnosedAt: '2099-01-01' }],
-    });
-    expect(errors.some((e) => e.property === 'conditions')).toBe(true);
-  });
-
   it('rechaza HTML en las notas de una condición', async () => {
     const errors = await validateHistory({
-      conditions: [
-        { code: 'diabetes', notes: '<script>alert(1)</script>' },
-      ],
+      conditions: [{ code: 'diabetes', notes: '<script>alert(1)</script>' }],
     });
     expect(errors.some((e) => e.property === 'conditions')).toBe(true);
   });

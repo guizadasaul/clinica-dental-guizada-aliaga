@@ -56,7 +56,6 @@ export interface UpdatePatientRequest {
 
 export interface MedicalConditionEntryRequest {
   code: string;
-  diagnosedAt?: string;
   notes?: string;
 }
 
