@@ -204,6 +204,65 @@ describe('Alta de un paciente nuevo por el doctor (e2e) — CLI-171', () => {
     );
   });
 
+  // CLI-178: lugar de nacimiento, zona y ciudad se guardan unificados.
+  it('unifica lugar, zona y ciudad y los ofrece como sugerencias', async () => {
+    const first = await request(app.getHttpServer())
+      .post('/patients')
+      .set('Authorization', `Bearer ${doctor.token}`)
+      .send(
+        newPatientPayload({
+          dni: '4445556',
+          birthPlace: '  santa cruz de la sierra ',
+          zona: 'zona   central e2e',
+          ciudad: 'Cochabamba',
+        }),
+      )
+      .expect(201);
+    expect(first.body).toMatchObject({
+      birthPlace: 'Santa Cruz de la Sierra',
+      zona: 'Zona Central E2e',
+    });
+
+    const second = await request(app.getHttpServer())
+      .post('/patients')
+      .set('Authorization', `Bearer ${doctor.token}`)
+      .send(
+        newPatientPayload({
+          dni: '4445557',
+          birthPlace: 'SANTA CRUZ DE LA SIERRA',
+          zona: 'Zona Central E2E',
+          ciudad: 'cochabámba',
+        }),
+      )
+      .expect(201);
+    // Mismo lugar escrito distinto: se guarda igual que el ya usado.
+    expect(second.body).toMatchObject({
+      birthPlace: 'Santa Cruz de la Sierra',
+      zona: 'Zona Central E2e',
+      ciudad: 'Cochabamba',
+    });
+
+    const options = await request(app.getHttpServer())
+      .get('/patients/field-options')
+      .set('Authorization', `Bearer ${doctor.token}`)
+      .expect(200);
+    const body = options.body as {
+      birthPlaces: string[];
+      zonas: string[];
+      ciudades: string[];
+    };
+    expect(body.birthPlaces).toContain('Santa Cruz de la Sierra');
+    expect(body.zonas).toContain('Zona Central E2e');
+    expect(body.ciudades).toContain('Cochabamba');
+  });
+
+  it('las sugerencias son solo para odontólogos (403 para un paciente)', async () => {
+    await request(app.getHttpServer())
+      .get('/patients/field-options')
+      .set('Authorization', `Bearer ${patientUser.token}`)
+      .expect(403);
+  });
+
   it('un paciente no puede dar de alta a otro (403)', async () => {
     await request(app.getHttpServer())
       .post('/patients')

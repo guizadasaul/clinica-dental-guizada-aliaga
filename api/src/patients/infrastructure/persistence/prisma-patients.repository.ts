@@ -14,6 +14,7 @@ import {
   CreateDentalExamData,
 } from '../../domain/PatientRepository';
 import type { Patient } from '../../domain/Patient';
+import type { PatientFieldOptions } from '../../domain/place-names';
 import type { MedicalHistory } from '../../domain/MedicalHistory';
 import type { HygieneHabits } from '../../domain/HygieneHabits';
 import type { ClinicalExam } from '../../domain/ClinicalExam';
@@ -131,6 +132,31 @@ function toPatientCreateData(
 @Injectable()
 export class PrismaPatientsRepository implements IPatientRepository {
   constructor(private readonly prisma: PrismaService) {}
+
+  async findFieldOptions(): Promise<PatientFieldOptions> {
+    const [birthPlaces, zonas, ciudades] = await Promise.all([
+      this.distinctUsed('birth_place'),
+      this.distinctUsed('zona'),
+      this.distinctUsed('ciudad'),
+    ]);
+    return { birthPlaces, zonas, ciudades };
+  }
+
+  /** Valores no vacíos de una columna de texto, el más usado primero (y alfabético a igual uso). */
+  private async distinctUsed(
+    column: 'birth_place' | 'zona' | 'ciudad',
+  ): Promise<string[]> {
+    const rows = await this.prisma.patients.groupBy({
+      by: [column],
+      where: { [column]: { not: null } },
+      _count: { _all: true },
+    });
+    return rows
+      .map((r) => ({ value: r[column], count: r._count._all }))
+      .filter((r): r is { value: string; count: number } => !!r.value?.trim())
+      .sort((a, b) => b.count - a.count || a.value.localeCompare(b.value, 'es'))
+      .map((r) => r.value);
+  }
 
   async findAllWithUsers(doctorId?: string): Promise<PatientWithUser[]> {
     const records = await this.prisma.users.findMany({

@@ -66,7 +66,9 @@ export class CreatePatientDto {
   // no queda completa sin lugar de nacimiento, sexo, ocupación, DNI,
   // dirección ni contacto de emergencia.
   @EmptyToUndefined()
-  @Trim()
+  // CLI-178: mayúscula inicial por palabra; el servicio además reusa el
+  // valor ya guardado si coincide sin importar mayúsculas ni tildes.
+  @NormalizeName()
   @IsString()
   @IsNotEmpty({ message: 'birthPlace es obligatorio' })
   @MinLength(3)
@@ -105,7 +107,9 @@ export class CreatePatientDto {
   // CLI-54: separado de address para poder reportar por zona sin parsear
   // texto libre.
   @EmptyToUndefined()
-  @Trim()
+  // CLI-178: mayúscula inicial por palabra; el servicio además reusa el
+  // valor ya guardado si coincide sin importar mayúsculas ni tildes.
+  @NormalizeName()
   @IsString()
   @IsNotEmpty({ message: 'zona es obligatorio' })
   @MinLength(2)
@@ -114,7 +118,9 @@ export class CreatePatientDto {
   zona: string;
 
   @EmptyToUndefined()
-  @Trim()
+  // CLI-178: mayúscula inicial por palabra; el servicio además reusa el
+  // valor ya guardado si coincide sin importar mayúsculas ni tildes.
+  @NormalizeName()
   @IsString()
   @IsNotEmpty({ message: 'ciudad es obligatorio' })
   @MinLength(2)

@@ -125,3 +125,12 @@ export interface PatientInviteContact {
   phone: string | null;
   email: string | null;
 }
+
+/** Valores ya usados para sugerir en la ficha (CLI-178, GET /patients/field-options). */
+export interface PatientFieldOptions {
+  birthPlaces: string[];
+  zonas: string[];
+  ciudades: string[];
+}
+
+export const EMPTY_FIELD_OPTIONS: PatientFieldOptions = { birthPlaces: [], zonas: [], ciudades: [] };

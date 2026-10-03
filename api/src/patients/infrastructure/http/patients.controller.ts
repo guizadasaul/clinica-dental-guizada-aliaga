@@ -44,6 +44,13 @@ export class PatientsController {
     return this.patientsService.findMyPatient(currentUser.uid);
   }
 
+  /** Lugares de nacimiento, zonas y ciudades ya usados, para sugerirlos en la ficha (CLI-178). */
+  @Get('field-options')
+  @Roles(UserRole.ODONTOLOGIST)
+  findFieldOptions() {
+    return this.patientsService.findFieldOptions();
+  }
+
   @Get('me/status')
   getMyPatientStatus(@CurrentUser() currentUser: AuthenticatedUser) {
     return this.patientsService.findMyPatientStatus(currentUser.uid);

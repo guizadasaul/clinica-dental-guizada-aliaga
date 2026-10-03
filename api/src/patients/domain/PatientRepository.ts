@@ -1,3 +1,4 @@
+import type { PatientFieldOptions } from './place-names';
 import type { CreatePlaceholderUserData } from '../../auth/domain/UserRepository';
 import type { Patient } from './Patient';
 import type { MedicalHistory } from './MedicalHistory';
@@ -169,6 +170,8 @@ export interface CreateToothProcedureGroupData {
 export interface IPatientRepository {
   /** CLI-58: doctorId es un filtro de conveniencia, no de seguridad — sin él devuelve todos los pacientes, igual que siempre (visibilidad compartida). */
   findAllWithUsers(doctorId?: string): Promise<PatientWithUser[]>;
+  /** Lugares de nacimiento, zonas y ciudades ya usados, el más usado primero (CLI-178). */
+  findFieldOptions(): Promise<PatientFieldOptions>;
   findPatientById(id: string): Promise<Patient | null>;
   findByUserId(userId: string): Promise<Patient | null>;
   create(userId: string, data: CreatePatientData): Promise<Patient>;

@@ -23,7 +23,9 @@ import {
 } from '../../../../../../shared/validation/dni.validator';
 import { normalizeText, optionalTextError } from '../../../../../../shared/validation/text.validator';
 import { isNotFutureDate, isAgeWithin, isNotBefore } from '../../../../../../shared/validation/date.validator';
-import type { Patient } from '../../../../models/patient.model';
+import type { Patient, PatientFieldOptions } from '../../../../models/patient.model';
+import { EMPTY_FIELD_OPTIONS } from '../../../../models/patient.model';
+import { SuggestInputComponent } from '../../../../../../shared/ui/suggest-input/suggest-input';
 import type { CreatePatientRequest } from '../../../../models/patient.request';
 import { DOCUMENT_TYPES } from '../../../../../../shared/validation/clinical-options';
 
@@ -70,10 +72,10 @@ function dniFieldError(value: string, documentType: string): string | null {
 // Texto libre OBLIGATORIO del wizard (lugar de nacimiento, ocupación,
 // dirección, parentesco del contacto de emergencia) — mismo trío de reglas
 // que optionalTextError, pero exige presencia y respeta MIN_TEXT_LENGTH.
-function requiredTextFieldError(value: string, maxLength: number, label: string): string | null {
+function requiredTextFieldError(value: string, maxLength: number, label: string, minLength = MIN_TEXT_LENGTH): string | null {
   const trimmed = value.trim();
   if (!trimmed) return `${label} es obligatorio.`;
-  return optionalTextError(value, maxLength, MIN_TEXT_LENGTH);
+  return optionalTextError(value, maxLength, minLength);
 }
 
 /** "" (todavía no cambió) o "+591" (nada más que el indicativo, sin dígitos
@@ -86,7 +88,7 @@ function isBareCallingCode(e164: string): boolean {
   selector: 'app-step-patient-data',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [FormsModule, PhoneInputComponent],
+  imports: [FormsModule, PhoneInputComponent, SuggestInputComponent],
   templateUrl: './step-patient-data.html',
   styleUrl: './step-patient-data.scss',
 })
@@ -96,6 +98,8 @@ export class StepPatientDataComponent {
    * ("Registrar diagnóstico" en step 1) — precarga los campos en vez de
    * obligar a retipear nombre/apellido/fecha de nacimiento. */
   readonly existingPatient = input<Patient | null>(null);
+  /** Lugares de nacimiento, zonas y ciudades ya usados, para sugerirlos (CLI-178). */
+  readonly fieldOptions = input<PatientFieldOptions>(EMPTY_FIELD_OPTIONS);
   readonly submitStep = output<Omit<CreatePatientRequest, 'userId'>>();
 
   protected readonly personNameMaxLength = PERSON_NAME_MAX_LENGTH;
@@ -119,8 +123,9 @@ export class StepPatientDataComponent {
   // La extensión de la CI va dentro del número con guion (CLI-177): 1234567-LP.
   protected readonly dni = field<string>('', (v: string) => dniFieldError(v, this.documentType.value()));
   protected readonly address = field<string>('', (v: string) => requiredTextFieldError(v, 300, 'La dirección'));
-  protected readonly zona = field<string>('', (v: string) => requiredTextFieldError(v, 100, 'La zona'));
-  protected readonly ciudad = field<string>('', (v: string) => requiredTextFieldError(v, 100, 'La ciudad'));
+  // Mínimo 2, igual que la API (CLI-178).
+  protected readonly zona = field<string>('', (v: string) => requiredTextFieldError(v, 100, 'La zona', 2));
+  protected readonly ciudad = field<string>('', (v: string) => requiredTextFieldError(v, 100, 'La ciudad', 2));
   protected readonly emergencyContactFirstName = field<string>('', (v: string) =>
     requiredPersonNameError(v, 'El nombre del contacto'),
   );

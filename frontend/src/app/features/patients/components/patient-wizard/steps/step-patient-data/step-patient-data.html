@@ -78,19 +78,22 @@
       </div>
       <div class="step-form__field">
         <label class="step-form__label" for="birthPlace">Lugar de nacimiento <span class="step-form__req">*</span></label>
-        <input
-          id="birthPlace"
-          class="step-form__input"
-          [class.step-form__input--invalid]="birthPlace.showError()"
-          type="text"
-          [value]="birthPlace.value()"
-          (input)="birthPlace.set($any($event.target).value)"
-          (blur)="birthPlace.markTouched()"
-          maxlength="150"
-          placeholder="Ej: Cochabamba"
-          [attr.aria-invalid]="birthPlace.showError() || null"
-          [attr.aria-describedby]="birthPlace.showError() ? 'birthPlace-err' : null"
-        />
+        <app-suggest-input [suggestions]="fieldOptions().birthPlaces">
+          <input
+            #suggestField
+            id="birthPlace"
+            class="step-form__input"
+            [class.step-form__input--invalid]="birthPlace.showError()"
+            type="text"
+            [value]="birthPlace.value()"
+            (input)="birthPlace.set($any($event.target).value)"
+            (blur)="birthPlace.markTouched()"
+            maxlength="150"
+            placeholder="Ej: Cochabamba"
+            [attr.aria-invalid]="birthPlace.showError() || null"
+            [attr.aria-describedby]="birthPlace.showError() ? 'birthPlace-err' : null"
+          />
+        </app-suggest-input>
         @if (birthPlace.showError()) {
           <p class="step-form__field-error" id="birthPlace-err" role="alert">{{ birthPlace.error() }}</p>
         }
@@ -201,38 +204,44 @@
     </div>
     <div class="step-form__field">
       <label class="step-form__label" for="zona">Zona <span class="step-form__req">*</span></label>
-      <input
-        id="zona"
-        class="step-form__input"
-        [class.step-form__input--invalid]="zona.showError()"
-        type="text"
-        [value]="zona.value()"
-        (input)="zona.set($any($event.target).value)"
-        (blur)="zona.markTouched()"
-        maxlength="100"
-        placeholder="Ej: Zona Norte"
-        [attr.aria-invalid]="zona.showError() || null"
-        [attr.aria-describedby]="zona.showError() ? 'zona-err' : null"
-      />
+      <app-suggest-input [suggestions]="fieldOptions().zonas">
+        <input
+          #suggestField
+          id="zona"
+          class="step-form__input"
+          [class.step-form__input--invalid]="zona.showError()"
+          type="text"
+          [value]="zona.value()"
+          (input)="zona.set($any($event.target).value)"
+          (blur)="zona.markTouched()"
+          maxlength="100"
+          placeholder="Ej: Zona Norte"
+          [attr.aria-invalid]="zona.showError() || null"
+          [attr.aria-describedby]="zona.showError() ? 'zona-err' : null"
+        />
+      </app-suggest-input>
       @if (zona.showError()) {
         <p class="step-form__field-error" id="zona-err" role="alert">{{ zona.error() }}</p>
       }
     </div>
     <div class="step-form__field">
       <label class="step-form__label" for="ciudad">Ciudad <span class="step-form__req">*</span></label>
-      <input
-        id="ciudad"
-        class="step-form__input"
-        [class.step-form__input--invalid]="ciudad.showError()"
-        type="text"
-        [value]="ciudad.value()"
-        (input)="ciudad.set($any($event.target).value)"
-        (blur)="ciudad.markTouched()"
-        maxlength="100"
-        placeholder="Ej: Cochabamba"
-        [attr.aria-invalid]="ciudad.showError() || null"
-        [attr.aria-describedby]="ciudad.showError() ? 'ciudad-err' : null"
-      />
+      <app-suggest-input [suggestions]="fieldOptions().ciudades">
+        <input
+          #suggestField
+          id="ciudad"
+          class="step-form__input"
+          [class.step-form__input--invalid]="ciudad.showError()"
+          type="text"
+          [value]="ciudad.value()"
+          (input)="ciudad.set($any($event.target).value)"
+          (blur)="ciudad.markTouched()"
+          maxlength="100"
+          placeholder="Ej: Cochabamba"
+          [attr.aria-invalid]="ciudad.showError() || null"
+          [attr.aria-describedby]="ciudad.showError() ? 'ciudad-err' : null"
+        />
+      </app-suggest-input>
       @if (ciudad.showError()) {
         <p class="step-form__field-error" id="ciudad-err" role="alert">{{ ciudad.error() }}</p>
       }

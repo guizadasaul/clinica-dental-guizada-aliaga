@@ -13,6 +13,7 @@ import { PageHeaderComponent } from '../../../../shared/ui/page-header/page-head
 class Step1Stub {
   readonly loading = input(false);
   readonly existingPatient = input<unknown>(null);
+  readonly fieldOptions = input<unknown>(null);
   readonly submitStep = output<unknown>();
 }
 @Component({ selector: 'app-step-medical-history', standalone: true, template: 'paso 2' })
@@ -49,6 +50,7 @@ function httpError(message: unknown) {
 function setup(inputs: Record<string, unknown> = {}) {
   const patients = {
     createPatient: vi.fn().mockReturnValue(of({ id: 'patient-new' })),
+    getFieldOptions: vi.fn().mockReturnValue(of({ birthPlaces: ['Cochabamba'], zonas: [], ciudades: [] })),
     updatePatient: vi.fn().mockReturnValue(of({ id: 'patient-1' })),
     createMedicalHistory: vi.fn().mockReturnValue(of({})),
     createHygieneHabits: vi.fn().mockReturnValue(of({})),
@@ -103,6 +105,14 @@ function text(fixture: ReturnType<typeof setup>['fixture']): string {
 }
 
 describe('PatientWizardComponent', () => {
+  it('carga las sugerencias de lugar, zona y ciudad y se las pasa al paso 1 (CLI-178)', async () => {
+    const { fixture, patients } = setup({});
+    await settle(fixture);
+
+    expect(patients.getFieldOptions).toHaveBeenCalled();
+    expect(step(fixture, Step1Stub).fieldOptions()).toEqual({ birthPlaces: ['Cochabamba'], zonas: [], ciudades: [] });
+  });
+
   describe('paciente nuevo sin reserva previa (CLI-171)', () => {
     it('sin userId crea la ficha sin mandar ningún userId (el backend crea la persona)', async () => {
       const { fixture, patients } = setup({});

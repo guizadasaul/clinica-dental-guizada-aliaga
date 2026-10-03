@@ -120,6 +120,9 @@ const mockPatientRepo = {
   findByUserId: jest.fn(),
   create: jest.fn(),
   createWithPlaceholderUser: jest.fn(),
+  findFieldOptions: jest
+    .fn()
+    .mockResolvedValue({ birthPlaces: [], zonas: [], ciudades: [] }),
   findByDocument: jest.fn(),
   updatePatient: jest.fn(),
   upsertMedicalHistory: jest.fn(),
@@ -590,6 +593,96 @@ describe('PatientsService', () => {
       await service.findAll('doctor-a');
 
       expect(mockPatientRepo.findAllWithUsers).toHaveBeenCalledWith('doctor-a');
+    });
+  });
+
+  describe('lugar de nacimiento, zona y ciudad unificados (CLI-178)', () => {
+    beforeEach(() => {
+      mockPatientRepo.findFieldOptions.mockResolvedValue({
+        birthPlaces: ['Cochabamba'],
+        zonas: ['Zona Norte'],
+        ciudades: ['Santa Cruz de la Sierra'],
+      });
+    });
+
+    it('al crear reusa el valor ya guardado si coincide sin importar mayúsculas ni tildes', async () => {
+      mockUserRepo.findByAuthUserId.mockResolvedValue(
+        makeAppUser(UserRole.ODONTOLOGIST, 'doctor-id'),
+      );
+      mockPatientRepo.create.mockResolvedValue(fakePatient());
+
+      await service.createPatient(DOCTOR_AUTH_ID, 'some-user-id', {
+        firstName: 'A',
+        lastNamePaternal: 'B',
+        birthDate: new Date(),
+        birthPlace: 'cochabámba',
+        zona: 'ZONA NORTE',
+        ciudad: 'santa cruz de la sierra',
+      });
+
+      expect(mockPatientRepo.create).toHaveBeenCalledWith(
+        'some-user-id',
+        expect.objectContaining({
+          birthPlace: 'Cochabamba',
+          zona: 'Zona Norte',
+          ciudad: 'Santa Cruz de la Sierra',
+        }),
+      );
+    });
+
+    it('un valor nuevo queda con mayúscula inicial por palabra', async () => {
+      mockUserRepo.findByAuthUserId.mockResolvedValue(
+        makeAppUser(UserRole.ODONTOLOGIST, 'doctor-id'),
+      );
+      mockPatientRepo.create.mockResolvedValue(fakePatient());
+
+      await service.createPatient(DOCTOR_AUTH_ID, 'some-user-id', {
+        firstName: 'A',
+        lastNamePaternal: 'B',
+        birthDate: new Date(),
+        zona: 'villa   de la paz',
+      });
+
+      expect(mockPatientRepo.create).toHaveBeenCalledWith(
+        'some-user-id',
+        expect.objectContaining({ zona: 'Villa de la Paz' }),
+      );
+    });
+
+    it('sin lugar, zona ni ciudad no consulta los valores usados', async () => {
+      mockUserRepo.findByAuthUserId.mockResolvedValue(
+        makeAppUser(UserRole.ODONTOLOGIST, 'doctor-id'),
+      );
+      mockPatientRepo.create.mockResolvedValue(fakePatient());
+      mockPatientRepo.findFieldOptions.mockClear();
+
+      await service.createPatient(DOCTOR_AUTH_ID, 'some-user-id', {
+        firstName: 'A',
+        lastNamePaternal: 'B',
+        birthDate: new Date(),
+      });
+
+      expect(mockPatientRepo.findFieldOptions).not.toHaveBeenCalled();
+    });
+
+    it('al editar también unifica', async () => {
+      mockPatientRepo.updatePatient.mockResolvedValue(fakePatient());
+
+      await service.updatePatient('patient-1', {
+        ciudad: 'SANTA CRUZ DE LA SIERRA',
+      });
+
+      expect(mockPatientRepo.updatePatient).toHaveBeenCalledWith('patient-1', {
+        ciudad: 'Santa Cruz de la Sierra',
+      });
+    });
+
+    it('findFieldOptions delega en el repositorio', async () => {
+      await expect(service.findFieldOptions()).resolves.toEqual({
+        birthPlaces: ['Cochabamba'],
+        zonas: ['Zona Norte'],
+        ciudades: ['Santa Cruz de la Sierra'],
+      });
     });
   });
 

@@ -511,6 +511,44 @@ describe('PrismaPatientsRepository.createWithPlaceholderUser', () => {
   });
 });
 
+describe('PrismaPatientsRepository.findFieldOptions (CLI-178)', () => {
+  it('devuelve los valores usados de cada campo, el más usado primero y sin vacíos', async () => {
+    const groupBy = jest.fn(({ by }: { by: string[] }) => {
+      const column = by[0];
+      const rows: Record<string, { value: string | null; n: number }[]> = {
+        birth_place: [
+          { value: 'Oruro', n: 1 },
+          { value: 'Cochabamba', n: 3 },
+          { value: 'La Paz', n: 1 },
+        ],
+        zona: [
+          { value: 'Zona Norte', n: 2 },
+          { value: '  ', n: 4 },
+        ],
+        ciudad: [],
+      };
+      return Promise.resolve(
+        rows[column].map((r) => ({ [column]: r.value, _count: { _all: r.n } })),
+      );
+    });
+    const repo = new PrismaPatientsRepository({
+      patients: { groupBy },
+    } as never);
+
+    await expect(repo.findFieldOptions()).resolves.toEqual({
+      birthPlaces: ['Cochabamba', 'La Paz', 'Oruro'],
+      zonas: ['Zona Norte'],
+      ciudades: [],
+    });
+    expect(groupBy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        by: ['zona'],
+        where: { zona: { not: null } },
+      }),
+    );
+  });
+});
+
 describe('PrismaPatientsRepository.findByDocument', () => {
   it('busca por la clave única (tipo de documento, número)', async () => {
     const findUnique = jest.fn().mockResolvedValue(null);
