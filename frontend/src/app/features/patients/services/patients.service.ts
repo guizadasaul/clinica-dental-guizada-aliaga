@@ -2,7 +2,7 @@ import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import type { Observable } from 'rxjs';
 import { environment } from '../../../../environments/environment';
-import type { PatientWithUser, Patient, PatientProfileStatus, MedicalHistory, HygieneHabits, ClinicalExam, OdontogramEntry } from '../models/patient.model';
+import type { PatientWithUser, Patient, PatientFieldOptions, PatientProfileStatus, MedicalHistory, HygieneHabits, ClinicalExam, OdontogramEntry } from '../models/patient.model';
 import type { DentalExam, DentalExamVersionSummary } from '../models/dental-exam.model';
 import type {
   CreatePatientRequest,
@@ -32,6 +32,11 @@ export class PatientsService {
 
   getMyPatientStatus(): Observable<PatientProfileStatus> {
     return this.http.get<PatientProfileStatus>(`${this.base}/me/status`);
+  }
+
+  /** Lugares de nacimiento, zonas y ciudades ya usados (CLI-178). */
+  getFieldOptions(): Observable<PatientFieldOptions> {
+    return this.http.get<PatientFieldOptions>(`${this.base}/field-options`);
   }
 
   createPatient(data: CreatePatientRequest): Observable<Patient> {

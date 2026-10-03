@@ -19,7 +19,8 @@ import { StepMedicalHistoryComponent } from './steps/step-medical-history/step-m
 import { StepOralHygieneComponent } from './steps/step-oral-hygiene/step-oral-hygiene';
 import type { OralHygieneSubmit } from './steps/step-oral-hygiene/step-oral-hygiene';
 import { StepOdontogramComponent, type DentalExamMode } from './steps/step-odontogram/step-odontogram';
-import type { Patient } from '../../models/patient.model';
+import type { Patient, PatientFieldOptions } from '../../models/patient.model';
+import { EMPTY_FIELD_OPTIONS } from '../../models/patient.model';
 import type { DentalExam, DentalExamVersionSummary } from '../../models/dental-exam.model';
 import type { DiagnosisCategory } from '../../../diagnoses/models/diagnosis.model';
 import type { MedicalCondition } from '../../../medical-conditions/models/medical-condition.model';
@@ -128,6 +129,8 @@ export class PatientWizardComponent implements OnInit {
     { initialValue: [] as string[] },
   );
   protected readonly medicalConditionsCatalog = signal<MedicalCondition[]>([]);
+  /** Sugerencias de lugar de nacimiento, zona y ciudad para el paso 1 (CLI-178). */
+  protected readonly fieldOptions = signal<PatientFieldOptions>(EMPTY_FIELD_OPTIONS);
   protected readonly currentDentalExam = signal<DentalExam | null>(null);
   protected readonly dentalExamVersions = signal<DentalExamVersionSummary[]>([]);
 
@@ -145,6 +148,15 @@ export class PatientWizardComponent implements OnInit {
   ngOnInit(): void {
     void this.loadDiagnosisCatalog();
     void this.loadMedicalConditionsCatalog();
+    void this.loadFieldOptions();
+  }
+
+  private async loadFieldOptions(): Promise<void> {
+    try {
+      this.fieldOptions.set(await firstValueFrom(this.patientsService.getFieldOptions()));
+    } catch {
+      // no-op: los campos funcionan igual, solo que sin sugerencias
+    }
   }
 
   private async loadDiagnosisCatalog(): Promise<void> {

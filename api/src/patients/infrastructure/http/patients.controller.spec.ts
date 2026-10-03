@@ -16,6 +16,7 @@ describe('PatientsController', () => {
     findMyPatient: jest.fn(),
     findMyPatientStatus: jest.fn(),
     findMyToothProcedures: jest.fn(),
+    findFieldOptions: jest.fn(),
     createPatient: jest.fn(),
     updatePatient: jest.fn(),
     upsertMedicalHistory: jest.fn(),
@@ -60,6 +61,13 @@ describe('PatientsController', () => {
       expect(mockService.findMyPatientStatus).toHaveBeenCalledWith(
         'doctor-auth-1',
       );
+    });
+
+    it('field-options devuelve los lugares, zonas y ciudades ya usados (CLI-178)', async () => {
+      const options = { birthPlaces: ['Cochabamba'], zonas: [], ciudades: [] };
+      mockService.findFieldOptions.mockResolvedValue(options);
+
+      await expect(controller.findFieldOptions()).resolves.toBe(options);
     });
 
     it('me/tooth-procedures resuelve la ficha por el uid de la sesión (CLI-102)', async () => {

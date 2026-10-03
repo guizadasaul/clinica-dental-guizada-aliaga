@@ -237,6 +237,62 @@ describe('StepPatientDataComponent', () => {
     });
   });
 
+  describe('lugar de nacimiento, zona y ciudad con sugerencias (CLI-178)', () => {
+    it('sugiere los valores ya usados y elegir uno completa el campo', async () => {
+      const fixture = setup();
+      fixture.componentRef.setInput('fieldOptions', {
+        birthPlaces: ['Cochabamba', 'La Paz'],
+        zonas: ['Zona Norte', 'Zona Sur'],
+        ciudades: ['Quillacollo'],
+      });
+      await settle(fixture);
+      const emitted: Omit<CreatePatientRequest, 'userId'>[] = [];
+      fixture.componentInstance.submitStep.subscribe((v) => emitted.push(v));
+
+      fillRequiredFields(fixture);
+      type(el(fixture, ZONA), 'sur');
+      await settle(fixture);
+      const options = elAll<HTMLElement>(fixture, '[role="option"]');
+      expect(options.map((o) => o.textContent?.trim())).toEqual(['Zona Sur']);
+
+      options[0].dispatchEvent(new MouseEvent('mousedown', { cancelable: true }));
+      await settle(fixture);
+      submitForm(fixture);
+      await settle(fixture);
+
+      expect(emitted[0].zona).toBe('Zona Sur');
+    });
+
+    it('acepta un valor nuevo que no está entre las sugerencias', async () => {
+      const fixture = setup();
+      fixture.componentRef.setInput('fieldOptions', { birthPlaces: [], zonas: [], ciudades: ['Quillacollo'] });
+      await settle(fixture);
+      const emitted: Omit<CreatePatientRequest, 'userId'>[] = [];
+      fixture.componentInstance.submitStep.subscribe((v) => emitted.push(v));
+
+      fillRequiredFields(fixture);
+      type(el(fixture, CIUDAD), 'Sacaba');
+      submitForm(fixture);
+      await settle(fixture);
+
+      expect(emitted[0].ciudad).toBe('Sacaba');
+    });
+
+    it('zona y ciudad aceptan 2 caracteres, igual que la API', async () => {
+      const fixture = setup();
+      await settle(fixture);
+      const emitted: unknown[] = [];
+      fixture.componentInstance.submitStep.subscribe((v) => emitted.push(v));
+
+      fillRequiredFields(fixture);
+      type(el(fixture, ZONA), 'Z1');
+      submitForm(fixture);
+      await settle(fixture);
+
+      expect(emitted).toHaveLength(1);
+    });
+  });
+
   describe('número de documento (CLI-177)', () => {
     it('no hay campo aparte para la extensión de la CI', async () => {
       const fixture = setup();

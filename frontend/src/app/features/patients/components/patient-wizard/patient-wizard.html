@@ -74,6 +74,7 @@
         <app-step-patient-data
           [loading]="loading()"
           [existingPatient]="existingPatient()"
+          [fieldOptions]="fieldOptions()"
           (submitStep)="onStep1Submit($event)"
         />
       }

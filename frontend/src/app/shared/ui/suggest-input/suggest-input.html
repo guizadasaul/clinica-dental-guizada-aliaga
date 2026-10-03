@@ -1,0 +1,17 @@
+<ng-content />
+@if (expanded()) {
+  <ul class="suggest-input__list" role="listbox" [id]="listId">
+    @for (option of matches(); track option; let i = $index) {
+      <li
+        class="suggest-input__option"
+        role="option"
+        [id]="listId + '-' + i"
+        [class.suggest-input__option--active]="i === active()"
+        [attr.aria-selected]="i === active()"
+        (mousedown)="onOptionMousedown($event, option)"
+      >
+        {{ option }}
+      </li>
+    }
+  </ul>
+}

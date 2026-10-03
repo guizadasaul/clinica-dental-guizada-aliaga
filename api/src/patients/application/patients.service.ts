@@ -25,6 +25,8 @@ import { UserRole } from '../../auth/domain/value-objects/UserRole';
 import { PhoneLoginError } from '../../auth/domain/value-objects/PhoneLoginError';
 import { SupabaseAdminService } from '../../auth/infrastructure/SupabaseAdminService';
 import { toE164, toE164Bolivia } from '../../shared/phone.util';
+import { canonicalPlace } from '../domain/place-names';
+import type { PatientFieldOptions } from '../domain/place-names';
 import { TreatmentRepository } from '../../treatments/domain/TreatmentRepository';
 import type { ITreatmentRepository } from '../../treatments/domain/TreatmentRepository';
 import {
@@ -155,10 +157,39 @@ export class PatientsService {
    * target no puede ser simplemente "usar el propio id del caller". Un
    * odontólogo puede targetear cualquier userId; un paciente solo el suyo.
    */
+  /** Sugerencias para lugar de nacimiento, zona y ciudad (CLI-178). */
+  findFieldOptions(): Promise<PatientFieldOptions> {
+    return this.patientRepo.findFieldOptions();
+  }
+
+  /**
+   * Lugar de nacimiento, zona y ciudad se guardan unificados (CLI-178): si el
+   * valor coincide sin importar mayúsculas ni tildes con uno ya usado, se usa
+   * ese; si no, queda con mayúscula inicial por palabra.
+   */
+  private async withCanonicalPlaces<
+    T extends { birthPlace?: string; zona?: string; ciudad?: string },
+  >(data: T): Promise<T> {
+    if (!data.birthPlace && !data.zona && !data.ciudad) {
+      return data;
+    }
+    const known = await this.patientRepo.findFieldOptions();
+    return {
+      ...data,
+      ...(data.birthPlace && {
+        birthPlace: canonicalPlace(data.birthPlace, known.birthPlaces),
+      }),
+      ...(data.zona && { zona: canonicalPlace(data.zona, known.zonas) }),
+      ...(data.ciudad && {
+        ciudad: canonicalPlace(data.ciudad, known.ciudades),
+      }),
+    };
+  }
+
   async createPatient(
     callerAuthUserId: string,
     requestedUserId: string | undefined,
-    data: CreatePatientData,
+    rawData: CreatePatientData,
   ): Promise<Patient> {
     const caller = await this.userRepo.findByAuthUserId(callerAuthUserId);
     if (!caller) {
@@ -166,6 +197,7 @@ export class PatientsService {
         'Usuario autenticado no encontrado en la base de datos',
       );
     }
+    const data = await this.withCanonicalPlaces(rawData);
 
     // Un odontólogo sin userId registra a un paciente nuevo, que llegó a la
     // clínica sin reserva previa (CLI-171). Antes caía en caller.id, o sea,
@@ -265,8 +297,9 @@ export class PatientsService {
 
   async updatePatient(
     patientId: string,
-    data: UpdatePatientData & { email?: string },
+    rawData: UpdatePatientData & { email?: string },
   ): Promise<Patient> {
+    const data = await this.withCanonicalPlaces(rawData);
     const { email, ...patientFields } = data;
     const phone = patientFields.phone;
     // Antes de guardar nada: si el teléfono está en otra cuenta de Supabase
