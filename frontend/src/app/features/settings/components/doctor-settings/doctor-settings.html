@@ -1,0 +1,168 @@
+<div class="settings">
+  <header class="settings__header">
+    <h1 class="settings__title">Configuración</h1>
+    <p class="settings__subtitle">Tu perfil, tu color en la agenda y tu horario de atención.</p>
+  </header>
+
+  @if (loading()) {
+    <p class="settings__muted">Cargando tu configuración...</p>
+  } @else if (loadError()) {
+    <div class="settings__error" role="alert">
+      <p>No se pudo cargar tu configuración.</p>
+      <button type="button" class="settings__btn settings__btn--ghost" (click)="retry()">Reintentar</button>
+    </div>
+  } @else {
+    <form class="settings__form" novalidate (submit)="$event.preventDefault(); save()">
+      <section class="settings__section" aria-labelledby="settings-profile">
+        <h2 id="settings-profile" class="settings__section-title">Perfil</h2>
+
+        <div class="settings__field">
+          <label for="displayName">Nombre público <span class="settings__req">*</span></label>
+          <input
+            id="displayName"
+            type="text"
+            maxlength="200"
+            placeholder="Ej: Dra. Marylu Aliaga"
+            [class.settings__input--invalid]="displayName.showError()"
+            [value]="displayName.value()"
+            (input)="displayName.set($any($event.target).value)"
+            (blur)="displayName.markTouched(); tidy(displayName)"
+            [attr.aria-invalid]="displayName.showError() || null"
+            [attr.aria-describedby]="displayName.showError() ? 'displayName-err' : 'displayName-hint'"
+          />
+          <p id="displayName-hint" class="settings__hint">Es como te ven los pacientes al reservar.</p>
+          @if (displayName.showError()) {
+            <p class="settings__field-error" id="displayName-err" role="alert">{{ displayName.error() }}</p>
+          }
+        </div>
+
+        <div class="settings__grid">
+          <div class="settings__field">
+            <label for="firstName">Nombre</label>
+            <input
+              id="firstName"
+              type="text"
+              maxlength="100"
+              [class.settings__input--invalid]="firstName.showError()"
+              [value]="firstName.value()"
+              (input)="firstName.set($any($event.target).value)"
+              (blur)="firstName.markTouched(); tidy(firstName)"
+              [attr.aria-invalid]="firstName.showError() || null"
+              [attr.aria-describedby]="firstName.showError() ? 'firstName-err' : null"
+            />
+            @if (firstName.showError()) {
+              <p class="settings__field-error" id="firstName-err" role="alert">{{ firstName.error() }}</p>
+            }
+          </div>
+          <div class="settings__field">
+            <label for="lastNamePaternal">Apellido paterno</label>
+            <input
+              id="lastNamePaternal"
+              type="text"
+              maxlength="100"
+              [class.settings__input--invalid]="lastNamePaternal.showError()"
+              [value]="lastNamePaternal.value()"
+              (input)="lastNamePaternal.set($any($event.target).value)"
+              (blur)="lastNamePaternal.markTouched(); tidy(lastNamePaternal)"
+              [attr.aria-invalid]="lastNamePaternal.showError() || null"
+              [attr.aria-describedby]="lastNamePaternal.showError() ? 'lastNamePaternal-err' : null"
+            />
+            @if (lastNamePaternal.showError()) {
+              <p class="settings__field-error" id="lastNamePaternal-err" role="alert">{{ lastNamePaternal.error() }}</p>
+            }
+          </div>
+          <div class="settings__field">
+            <label for="lastNameMaternal">Apellido materno</label>
+            <input
+              id="lastNameMaternal"
+              type="text"
+              maxlength="100"
+              [class.settings__input--invalid]="lastNameMaternal.showError()"
+              [value]="lastNameMaternal.value()"
+              (input)="lastNameMaternal.set($any($event.target).value)"
+              (blur)="lastNameMaternal.markTouched(); tidy(lastNameMaternal)"
+              [attr.aria-invalid]="lastNameMaternal.showError() || null"
+              [attr.aria-describedby]="lastNameMaternal.showError() ? 'lastNameMaternal-err' : null"
+            />
+            @if (lastNameMaternal.showError()) {
+              <p class="settings__field-error" id="lastNameMaternal-err" role="alert">{{ lastNameMaternal.error() }}</p>
+            }
+          </div>
+          <div class="settings__field">
+            <label for="specialty">Especialidad</label>
+            <input
+              id="specialty"
+              type="text"
+              maxlength="150"
+              placeholder="Ej: Ortodoncia"
+              [class.settings__input--invalid]="specialty.showError()"
+              [value]="specialty.value()"
+              (input)="specialty.set($any($event.target).value)"
+              (blur)="specialty.markTouched(); tidy(specialty)"
+              [attr.aria-invalid]="specialty.showError() || null"
+              [attr.aria-describedby]="specialty.showError() ? 'specialty-err' : null"
+            />
+            @if (specialty.showError()) {
+              <p class="settings__field-error" id="specialty-err" role="alert">{{ specialty.error() }}</p>
+            }
+          </div>
+        </div>
+
+        <div class="settings__field">
+          <label for="bio">Descripción</label>
+          <textarea
+            id="bio"
+            rows="3"
+            maxlength="2000"
+            [class.settings__input--invalid]="bio.showError()"
+            [value]="bio.value()"
+            (input)="bio.set($any($event.target).value)"
+            (blur)="bio.markTouched()"
+            [attr.aria-invalid]="bio.showError() || null"
+            [attr.aria-describedby]="bio.showError() ? 'bio-err' : null"
+          ></textarea>
+          @if (bio.showError()) {
+            <p class="settings__field-error" id="bio-err" role="alert">{{ bio.error() }}</p>
+          }
+        </div>
+      </section>
+
+      <section class="settings__section" aria-labelledby="settings-contact">
+        <h2 id="settings-contact" class="settings__section-title">Contacto</h2>
+        <div class="settings__grid">
+          <div class="settings__field">
+            <span class="settings__label">Teléfono</span>
+            <app-phone-input [value]="phoneE164()" [disabled]="saving()" (changed)="onPhoneChanged($event)" />
+          </div>
+          <div class="settings__field">
+            <span class="settings__label">Correo</span>
+            <p class="settings__static">{{ email() ?? 'Sin correo' }}</p>
+            <p class="settings__hint">Es tu acceso al sistema; lo cambia el administrador.</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="settings__section" aria-labelledby="settings-agenda">
+        <h2 id="settings-agenda" class="settings__section-title">Agenda</h2>
+        <div class="settings__field">
+          <label for="agenda-color">Color en la agenda</label>
+          <app-color-picker inputId="agenda-color" [(value)]="color" />
+        </div>
+        <app-schedule-editor [(blocks)]="schedule" />
+      </section>
+
+      @if (saveError()) {
+        <p class="settings__error-banner" role="alert">{{ saveError() }}</p>
+      }
+      @if (saved()) {
+        <output class="settings__success">Cambios guardados.</output>
+      }
+
+      <div class="settings__actions">
+        <button type="submit" class="settings__btn settings__btn--primary" [disabled]="saving()">
+          {{ saving() ? 'Guardando...' : 'Guardar cambios' }}
+        </button>
+      </div>
+    </form>
+  }
+</div>

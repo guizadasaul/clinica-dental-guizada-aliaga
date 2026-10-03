@@ -1,0 +1,38 @@
+<div class="schedule">
+  <div class="schedule__header">
+    <span class="schedule__title">Horario de atención</span>
+    <button type="button" class="schedule__add" (click)="add()">
+      <span class="material-symbols-outlined" aria-hidden="true">add</span>
+      Agregar bloque
+    </button>
+  </div>
+
+  @if (blocks().length === 0) {
+    <p class="schedule__empty">Sin bloques de horario cargados: no se ofrecen citas.</p>
+  } @else {
+    <div class="schedule__list">
+      <span id="schedule-label-weekday" class="schedule__hidden">Día</span>
+      <span id="schedule-label-start" class="schedule__hidden">Desde</span>
+      <span id="schedule-label-end" class="schedule__hidden">Hasta</span>
+      @for (block of blocks(); track $index) {
+        <div class="schedule__row">
+          <select aria-labelledby="schedule-label-weekday" [value]="block.weekday" (change)="setWeekday($index, $event)">
+            @for (label of weekdayLabels; track $index) {
+              <option [value]="$index" [selected]="$index === block.weekday">{{ label }}</option>
+            }
+          </select>
+          <input type="time" aria-labelledby="schedule-label-start" [value]="block.start" (change)="setStart($index, $event)" />
+          <span>a</span>
+          <input type="time" aria-labelledby="schedule-label-end" [value]="block.end" (change)="setEnd($index, $event)" />
+          <button type="button" class="schedule__remove" aria-label="Quitar bloque" (click)="remove($index)">
+            <span class="material-symbols-outlined" aria-hidden="true">delete</span>
+          </button>
+        </div>
+      }
+    </div>
+  }
+
+  @if (error()) {
+    <p class="schedule__error" role="alert">{{ error() }}</p>
+  }
+</div>

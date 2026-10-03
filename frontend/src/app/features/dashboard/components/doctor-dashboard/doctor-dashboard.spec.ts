@@ -75,6 +75,9 @@ class QuoteBuilderStub {
 @Component({ selector: 'app-doctor-agenda', standalone: true, template: 'agenda' })
 class AgendaStub {}
 
+@Component({ selector: 'app-doctor-settings', standalone: true, template: 'configuración' })
+class SettingsStub {}
+
 
 const PATIENT = { id: 'patient-1', firstName: 'Ana' } as Patient;
 const INVITE: PatientInviteContact = {
@@ -142,6 +145,7 @@ function setup(
         ClinicalRecordStub,
         QuoteBuilderStub,
         AgendaStub,
+        SettingsStub,
       ],
     },
   });
@@ -269,6 +273,7 @@ describe('DoctorDashboardComponent', () => {
 
   it.each([
     ['schedule', 'agenda'],
+    ['settings', 'configuración'],
   ])('la sección "%s" muestra su pantalla', async (nav, content) => {
     const { fixture } = setup({ nav });
     await render(fixture);
