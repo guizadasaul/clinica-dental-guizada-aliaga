@@ -42,3 +42,13 @@ export interface PatientAppointment {
   doctorName: string | null;
   treatmentName: string | null;
 }
+
+/** Horario que el doctor aparta de su agenda (CLI-195): emergencia, curso, etc. GET /appointments/blocks. */
+export interface TimeBlock {
+  id: string;
+  doctorId: string;
+  /** ISO. */
+  startsAt: string;
+  endsAt: string;
+  reason: string | null;
+}

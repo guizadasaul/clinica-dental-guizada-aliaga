@@ -90,6 +90,10 @@ export class PrismaService implements OnModuleInit, OnModuleDestroy {
   get doctor_schedule_blocks() {
     return this._client.doctor_schedule_blocks;
   }
+
+  get doctor_time_blocks() {
+    return this._client.doctor_time_blocks;
+  }
   get chat_sessions() {
     return this._client.chat_sessions;
   }

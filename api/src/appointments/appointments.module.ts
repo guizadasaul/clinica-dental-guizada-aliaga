@@ -4,6 +4,8 @@ import { DoctorAppointmentsController } from './infrastructure/http/doctor-appoi
 import { AppointmentsService } from './application/appointments.service';
 import { AppointmentRepository } from './domain/AppointmentRepository';
 import { PrismaAppointmentsRepository } from './infrastructure/persistence/prisma-appointments.repository';
+import { DoctorTimeBlockRepository } from './domain/DoctorTimeBlockRepository';
+import { PrismaDoctorTimeBlocksRepository } from './infrastructure/persistence/prisma-doctor-time-blocks.repository';
 import { AuthModule } from '../auth/auth.module';
 import { TreatmentsModule } from '../treatments/treatments.module';
 import { DoctorsModule } from '../doctors/doctors.module';
@@ -14,6 +16,10 @@ import { DoctorsModule } from '../doctors/doctors.module';
   providers: [
     AppointmentsService,
     { provide: AppointmentRepository, useClass: PrismaAppointmentsRepository },
+    {
+      provide: DoctorTimeBlockRepository,
+      useClass: PrismaDoctorTimeBlocksRepository,
+    },
   ],
   exports: [AppointmentsService, AppointmentRepository],
 })

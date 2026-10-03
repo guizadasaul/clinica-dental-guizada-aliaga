@@ -25,10 +25,14 @@ import type {
   IAppointmentRepository,
 } from '../domain/AppointmentRepository.js';
 import type { AppointmentWithPatient } from '../domain/AppointmentWithPatient.js';
+import type { DoctorTimeBlock } from '../domain/DoctorTimeBlock.js';
+import { DoctorTimeBlockRepository } from '../domain/DoctorTimeBlockRepository.js';
+import type { IDoctorTimeBlockRepository } from '../domain/DoctorTimeBlockRepository.js';
 import type { PatientAppointment } from '../domain/PatientAppointment.js';
 import {
   buildSlotsForDate,
   groupBlocksByWeekday,
+  CLINIC_TIMEZONE,
   isValidSlot,
   SLOT_MINUTES,
 } from '../domain/ClinicSchedule.js';
@@ -65,6 +69,14 @@ function busyIntervals(
     start: a.appointmentDatetime.getTime(),
     end:
       a.appointmentDatetime.getTime() + Math.max(1, a.durationMinutes) * 60_000,
+  }));
+}
+
+/** Los horarios que el doctor reservó (CLI-195) ocupan la agenda igual que una cita. */
+function blockIntervals(blocks: readonly DoctorTimeBlock[]): BusyInterval[] {
+  return blocks.map((b) => ({
+    start: b.startsAt.getTime(),
+    end: b.endsAt.getTime(),
   }));
 }
 
@@ -107,6 +119,30 @@ export interface RescheduleInput {
 }
 
 const SLOT_TAKEN_MESSAGE = 'Ya tienes una cita en ese horario';
+const TIME_BLOCKED_MESSAGE =
+  'Ese horario lo tienes reservado en tu agenda. Quita la reserva o elige otro horario.';
+/** Un bloqueo no puede durar más que esto: evita apartar la agenda "para siempre" por un error de fecha. */
+const MAX_TIME_BLOCK_MS = 31 * 24 * 60 * 60 * 1000;
+
+const BLOCK_WHEN_FORMATTER = new Intl.DateTimeFormat('es-BO', {
+  timeZone: CLINIC_TIMEZONE,
+  weekday: 'short',
+  day: 'numeric',
+  month: 'short',
+  hour: '2-digit',
+  minute: '2-digit',
+  hour12: false,
+});
+
+function blockedByLabel(a: {
+  appointmentDatetime: Date;
+  durationMinutes: number;
+}): string {
+  const end = new Date(
+    a.appointmentDatetime.getTime() + a.durationMinutes * 60_000,
+  );
+  return `${BLOCK_WHEN_FORMATTER.format(a.appointmentDatetime)} a ${BLOCK_WHEN_FORMATTER.format(end).split(', ').pop()}`;
+}
 
 // Cuánto hacia atrás buscar citas que todavía podrían estar en curso al
 // empezar la nueva. Holgado a propósito: la duración más larga que se
@@ -132,6 +168,8 @@ export class AppointmentsService {
     private readonly doctorRepo: IDoctorRepository,
     @Inject(DoctorScheduleRepository)
     private readonly doctorScheduleRepo: IDoctorScheduleRepository,
+    @Inject(DoctorTimeBlockRepository)
+    private readonly timeBlockRepo: IDoctorTimeBlockRepository,
   ) {}
 
   // CLI-56: valida antes de tocar disponibilidad/agenda — un doctorId que no
@@ -171,7 +209,12 @@ export class AppointmentsService {
       now,
       doctorId,
     );
-    const busy = busyIntervals(active);
+    const blocks = await this.timeBlockRepo.findOverlapping(
+      doctorId,
+      dayStart,
+      dayEnd,
+    );
+    const busy = [...busyIntervals(active), ...blockIntervals(blocks)];
 
     const freeSlots = allSlots.filter(
       (slot) => !isSlotBusy(slot, busy) && slot.getTime() > now.getTime(),
@@ -218,7 +261,15 @@ export class AppointmentsService {
             doctorId,
           )
         : [];
-    const busy = busyIntervals(active);
+    const blocks =
+      rangeStart && rangeEnd
+        ? await this.timeBlockRepo.findOverlapping(
+            doctorId,
+            rangeStart,
+            rangeEnd,
+          )
+        : [];
+    const busy = [...busyIntervals(active), ...blockIntervals(blocks)];
 
     const slotsByDate: Record<string, string[]> = {};
     for (const date of dates) {
@@ -261,7 +312,16 @@ export class AppointmentsService {
     // Una cita del doctor que no empieza en la grilla (CLI-194) o más larga que
     // una franja puede tapar este slot sin tener su mismo instante de inicio,
     // y el índice único solo mira el instante exacto: se revisa por duración.
-    await this.assertNoOverlap(doctorId, slot, durationMinutes, new Date());
+    if (
+      (await this.overlapReason(
+        doctorId,
+        slot,
+        durationMinutes,
+        new Date(),
+      )) !== null
+    ) {
+      throw new ConflictException('Ese horario ya no está disponible');
+    }
 
     const holdExpiresAt = new Date(Date.now() + HOLD_TTL_MINUTES * 60 * 1000);
     try {
@@ -500,14 +560,15 @@ export class AppointmentsService {
   }
 
   // Choque por duración, no solo por hora de inicio: una cita anterior más
-  // larga todavía en curso, o una posterior que la nueva alcanza a pisar.
-  private async assertNoOverlap(
+  // larga todavía en curso, o una posterior que la nueva alcanza a pisar. Y
+  // un horario que el doctor reservó (CLI-195).
+  private async overlapReason(
     doctorId: string,
     start: Date,
     durationMinutes: number,
     now: Date,
     ignoreAppointmentId?: string,
-  ): Promise<void> {
+  ): Promise<'appointment' | 'block' | null> {
     const end = new Date(start.getTime() + durationMinutes * 60_000);
     const active = await this.appointmentRepo.findActiveBetween(
       new Date(start.getTime() - OVERLAP_LOOKBACK_MS),
@@ -522,7 +583,118 @@ export class AppointmentsService {
           start.getTime(),
     );
     if (overlaps) {
+      return 'appointment';
+    }
+    const blocks = await this.timeBlockRepo.findOverlapping(
+      doctorId,
+      start,
+      end,
+    );
+    return blocks.length > 0 ? 'block' : null;
+  }
+
+  private async assertNoOverlap(
+    doctorId: string,
+    start: Date,
+    durationMinutes: number,
+    now: Date,
+    ignoreAppointmentId?: string,
+  ): Promise<void> {
+    const reason = await this.overlapReason(
+      doctorId,
+      start,
+      durationMinutes,
+      now,
+      ignoreAppointmentId,
+    );
+    if (reason === 'appointment') {
       throw new ConflictException(SLOT_TAKEN_MESSAGE);
+    }
+    if (reason === 'block') {
+      throw new ConflictException(TIME_BLOCKED_MESSAGE);
+    }
+  }
+
+  /**
+   * CLI-195: el doctor aparta un horario de su agenda. Mismas reglas de hora
+   * que sus citas (de 5 en 5); no se puede apartar encima de citas que ya
+   * tiene — se rechaza diciendo cuáles, para que las mueva o cancele antes.
+   */
+  async createTimeBlock(
+    doctorId: string,
+    input: { startsAt: string; endsAt: string; reason?: string },
+  ): Promise<DoctorTimeBlock> {
+    const startsAt = new Date(input.startsAt);
+    const endsAt = new Date(input.endsAt);
+    const now = new Date();
+    const stepMs = DOCTOR_START_STEP_MINUTES * 60_000;
+    if (startsAt.getTime() % stepMs !== 0 || endsAt.getTime() % stepMs !== 0) {
+      throw new BadRequestException(
+        `El horario tiene que empezar y terminar en un múltiplo de ${DOCTOR_START_STEP_MINUTES} minutos`,
+      );
+    }
+    if (endsAt.getTime() <= startsAt.getTime()) {
+      throw new BadRequestException(
+        'La hora de fin tiene que ser posterior a la de inicio',
+      );
+    }
+    if (endsAt.getTime() <= now.getTime()) {
+      throw new BadRequestException(
+        'El horario reservado tiene que ser futuro',
+      );
+    }
+    if (endsAt.getTime() - startsAt.getTime() > MAX_TIME_BLOCK_MS) {
+      throw new BadRequestException(
+        'Un horario reservado no puede durar más de 31 días',
+      );
+    }
+
+    const active = await this.appointmentRepo.findActiveBetween(
+      new Date(startsAt.getTime() - OVERLAP_LOOKBACK_MS),
+      endsAt,
+      now,
+      doctorId,
+    );
+    const clashes = active
+      .filter(
+        (a) =>
+          a.appointmentDatetime.getTime() < endsAt.getTime() &&
+          a.appointmentDatetime.getTime() + a.durationMinutes * 60_000 >
+            startsAt.getTime(),
+      )
+      .sort(
+        (a, b) =>
+          a.appointmentDatetime.getTime() - b.appointmentDatetime.getTime(),
+      );
+    if (clashes.length > 0) {
+      const list = clashes.map(blockedByLabel).join('; ');
+      throw new ConflictException(
+        `No se puede reservar ese horario: ya tienes ${clashes.length === 1 ? '1 cita' : `${clashes.length} citas`} (${list}). Muévelas o cancélalas antes.`,
+      );
+    }
+
+    return this.timeBlockRepo.create({
+      doctorId,
+      startsAt,
+      endsAt,
+      reason: input.reason?.trim() || null,
+    });
+  }
+
+  /** CLI-195: los horarios reservados del doctor que tocan [from, to). */
+  listTimeBlocks(
+    doctorId: string,
+    from: Date,
+    to: Date,
+  ): Promise<DoctorTimeBlock[]> {
+    return this.timeBlockRepo.findOverlapping(doctorId, from, to);
+  }
+
+  /** CLI-195: quita un horario reservado propio; uno de otro doctor da 404, igual que uno inexistente. */
+  async deleteTimeBlock(doctorId: string, id: string): Promise<void> {
+    const deleted = await this.timeBlockRepo.deleteOwn(id, doctorId);
+    if (!deleted) {
+      throw new NotFoundException('Horario reservado no encontrado');
     }
   }
 

@@ -6,9 +6,11 @@ import type {
   AppointmentAgendaItem,
   DoctorScheduleBlock,
   PatientAppointment,
+  TimeBlock,
 } from '../models/appointment.model';
 import type {
   CreateDoctorAppointmentRequest,
+  CreateTimeBlockRequest,
   RescheduleDoctorAppointmentRequest,
 } from '../models/appointment.request';
 
@@ -45,6 +47,21 @@ export class AppointmentsService {
       params['scope'] = filters.scope;
     }
     return this.http.get<AppointmentAgendaItem[]>(this.base, { params });
+  }
+
+  /** CLI-195: los horarios que el doctor apartó, entre dos días de la clínica (YYYY-MM-DD). */
+  getTimeBlocks(from: string, to: string): Observable<TimeBlock[]> {
+    return this.http.get<TimeBlock[]>(`${this.base}/blocks`, { params: { from, to } });
+  }
+
+  /** CLI-195: aparta un horario de la agenda propia. */
+  createTimeBlock(request: CreateTimeBlockRequest): Observable<TimeBlock> {
+    return this.http.post<TimeBlock>(`${this.base}/blocks`, request);
+  }
+
+  /** CLI-195: quita un horario apartado propio. */
+  deleteTimeBlock(id: string): Observable<void> {
+    return this.http.delete<void>(`${this.base}/blocks/${id}`);
   }
 
   /** CLI-148: el doctor agenda una cita para un paciente con ficha. */
