@@ -75,6 +75,7 @@ const mockTreatmentRepo = {
 const mockPatientRepo = {
   findAllWithUsers: jest.fn(),
   findPatientById: jest.fn(),
+  findCurrentDentalExam: jest.fn(),
   findByUserId: jest.fn(),
   create: jest.fn(),
   updatePatient: jest.fn(),
@@ -98,6 +99,8 @@ describe('QuotesService', () => {
   beforeEach(async () => {
     jest.clearAllMocks();
     mockPatientRepo.findPatientById.mockResolvedValue({ id: 'patient-1' });
+    // Con diagnóstico terminado (CLI-189): sin examen no se crean presupuestos.
+    mockPatientRepo.findCurrentDentalExam.mockResolvedValue({ id: 'exam-1' });
     mockQuoteRepo.findById.mockResolvedValue(fakeQuote());
     mockQuoteRepo.addItems.mockResolvedValue(fakeQuote());
     mockQuoteRepo.addItemGroup.mockResolvedValue(fakeQuote());
@@ -498,6 +501,15 @@ describe('QuotesService', () => {
   });
 
   describe('presupuestos del paciente', () => {
+    it('createForPatient rechaza (409) a un paciente sin diagnóstico y no crea nada (CLI-189)', async () => {
+      mockPatientRepo.findCurrentDentalExam.mockResolvedValue(null);
+
+      await expect(service.createForPatient('patient-1')).rejects.toThrow(
+        'Primero termina el diagnóstico del paciente.',
+      );
+      expect(mockQuoteRepo.createForPatient).not.toHaveBeenCalled();
+    });
+
     it('createForPatient guarda las notas o null si no vinieron', async () => {
       mockQuoteRepo.createForPatient.mockResolvedValue(fakeQuote());
 

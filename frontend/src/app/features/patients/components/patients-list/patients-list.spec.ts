@@ -176,6 +176,8 @@ describe('PatientsListComponent', () => {
       expect.stringContaining('Nuevo diagnóstico'),
       expect.stringContaining('Corregir diagnóstico actual'),
       expect.stringContaining('Ver historia clínica'),
+      expect.stringContaining('Registrar tratamiento'),
+      expect.stringContaining('Hacer presupuesto'),
       expect.stringContaining('Eliminar paciente'),
     ]);
 
@@ -361,7 +363,7 @@ describe('PatientsListComponent — búsqueda, acciones y menú', () => {
     const confirmButton = (fixture: ReturnType<typeof setup>['fixture']) =>
       el<HTMLButtonElement>(fixture, '.delete-modal__btn--danger');
 
-    it('todas las filas tienen el menú ⋮, también una persona sin ficha, y ahí solo está "Eliminar paciente"', async () => {
+    it('todas las filas tienen el menú ⋮, también una persona sin ficha, con tratamiento y presupuesto deshabilitados', async () => {
       const { fixture } = setup([
         fakePatientWithUser(),
         fakePatientWithUser({ userId: 'user-3', patient: null, displayName: null }),
@@ -373,8 +375,13 @@ describe('PatientsListComponent — búsqueda, acciones y menú', () => {
       triggers[1].click();
       await settle(fixture);
       expect(menuItems(fixture).map((i) => i.textContent?.trim())).toEqual([
+        expect.stringContaining('Registrar tratamiento'),
+        expect.stringContaining('Hacer presupuesto'),
         expect.stringContaining('Eliminar paciente'),
       ]);
+      const [treatment, quote] = menuItems(fixture) as HTMLButtonElement[];
+      expect(treatment.disabled).toBe(true);
+      expect(quote.disabled).toBe(true);
     });
 
     it('en modo solo lectura (panel de admin) no hay menú ni opción de eliminar', async () => {
@@ -479,6 +486,68 @@ describe('PatientsListComponent — búsqueda, acciones y menú', () => {
       await settle(fixture);
       expect(el(fixture, '.delete-modal')).toBeNull();
       expect(patientsService.deletePatient).not.toHaveBeenCalled();
+    });
+  });
+
+  // CLI-189: tratamiento y presupuesto solo después de terminar el diagnóstico.
+  describe('tratamiento y presupuesto desde el menú ⋮ (CLI-189)', () => {
+    async function openRowMenu(patients: PatientWithUser[], row = 0) {
+      const context = setup(patients);
+      await settle(context.fixture);
+      const triggers = (context.fixture.nativeElement as HTMLElement).querySelectorAll<HTMLButtonElement>(
+        '.patients-list__menu-trigger',
+      );
+      triggers[row].click();
+      await settle(context.fixture);
+      const items = [
+        ...(context.fixture.nativeElement as HTMLElement).querySelectorAll<HTMLButtonElement>('.patients-list__menu-item'),
+      ];
+      const byLabel = (label: string) => items.find((i) => i.textContent?.includes(label))!;
+      return { ...context, byLabel };
+    }
+
+    const NO_DIAGNOSIS = fakePatientWithUser({ dentalExamsCount: 0 });
+
+    it('sin diagnóstico quedan deshabilitados, con la pista, y no emiten nada', async () => {
+      const { fixture, byLabel } = await openRowMenu([NO_DIAGNOSIS]);
+      const emitted: string[] = [];
+      fixture.componentInstance.registerTreatment.subscribe((id) => emitted.push(`t:${id}`));
+      fixture.componentInstance.buildQuote.subscribe((id) => emitted.push(`q:${id}`));
+
+      expect(byLabel('Registrar tratamiento').disabled).toBe(true);
+      expect(byLabel('Hacer presupuesto').disabled).toBe(true);
+      expect(el(fixture, '.patients-list__menu-hint')?.textContent).toContain('terminar el diagnóstico');
+      byLabel('Registrar tratamiento').click();
+      byLabel('Hacer presupuesto').click();
+      expect(emitted).toEqual([]);
+    });
+
+    it('con diagnóstico se habilitan, sin pista, y emiten el id de la ficha', async () => {
+      const { fixture, byLabel } = await openRowMenu([fakePatientWithUser()]);
+      const emitted: string[] = [];
+      fixture.componentInstance.registerTreatment.subscribe((id) => emitted.push(`t:${id}`));
+      fixture.componentInstance.buildQuote.subscribe((id) => emitted.push(`q:${id}`));
+
+      expect(byLabel('Registrar tratamiento').disabled).toBe(false);
+      expect(el(fixture, '.patients-list__menu-hint')).toBeNull();
+      byLabel('Registrar tratamiento').click();
+      fixture.detectChanges();
+      el<HTMLButtonElement>(fixture, '.patients-list__menu-trigger').click();
+      fixture.detectChanges();
+      [...(fixture.nativeElement as HTMLElement).querySelectorAll<HTMLButtonElement>('.patients-list__menu-item')]
+        .find((i) => i.textContent?.includes('Hacer presupuesto'))!
+        .click();
+      fixture.detectChanges();
+
+      expect(emitted).toEqual(['t:patient-1', 'q:patient-1']);
+      expect(el(fixture, '.patients-list__menu')).toBeNull();
+    });
+
+    it('un paciente pendiente de cuenta con diagnóstico también puede (no depende de la cuenta)', async () => {
+      const { byLabel } = await openRowMenu([fakePatientWithUser({ hasAccount: false })]);
+
+      expect(byLabel('Registrar tratamiento').disabled).toBe(false);
+      expect(byLabel('Hacer presupuesto').disabled).toBe(false);
     });
   });
 

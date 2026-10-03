@@ -196,6 +196,34 @@
                           Ver historia clínica
                         </button>
                       }
+                      <!-- Solo después de terminar el diagnóstico (CLI-189) -->
+                      <button
+                        type="button"
+                        class="patients-list__menu-item"
+                        role="menuitem"
+                        [disabled]="!canTreat(p)"
+                        [attr.aria-describedby]="canTreat(p) ? null : 'menu-treat-hint-' + p.userId"
+                        (click)="onMenuRegisterTreatment(p)"
+                      >
+                        <span class="material-symbols-outlined">healing</span>
+                        Registrar tratamiento
+                      </button>
+                      <button
+                        type="button"
+                        class="patients-list__menu-item"
+                        role="menuitem"
+                        [disabled]="!canTreat(p)"
+                        [attr.aria-describedby]="canTreat(p) ? null : 'menu-treat-hint-' + p.userId"
+                        (click)="onMenuBuildQuote(p)"
+                      >
+                        <span class="material-symbols-outlined">receipt_long</span>
+                        Hacer presupuesto
+                      </button>
+                      @if (!canTreat(p)) {
+                        <p class="patients-list__menu-hint" [id]="'menu-treat-hint-' + p.userId">
+                          Disponible al terminar el diagnóstico.
+                        </p>
+                      }
                       <button type="button" class="patients-list__menu-item patients-list__menu-item--danger" role="menuitem" (click)="askDelete(p)">
                         <span class="material-symbols-outlined">delete</span>
                         Eliminar paciente

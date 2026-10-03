@@ -131,6 +131,10 @@ function patientFullName(p: {
     .join(' ');
 }
 
+/** Mensaje al intentar tratar o presupuestar a un paciente sin diagnóstico (CLI-189). */
+export const NO_DIAGNOSIS_MESSAGE =
+  'Primero termina el diagnóstico del paciente.';
+
 @Injectable()
 export class PatientsService {
   constructor(
@@ -551,6 +555,7 @@ export class PatientsService {
     data: CreateToothProcedureInput,
   ): Promise<ToothProcedure[]> {
     await this.requirePatient(patientId);
+    await this.requireDiagnosis(patientId);
     const user = await this.userRepo.findByAuthUserId(authUserId);
     if (!user) {
       throw new NotFoundException(
@@ -853,6 +858,17 @@ export class PatientsService {
     }
     const patient = await this.patientRepo.findByUserId(user.id);
     return { exists: patient !== null, patient };
+  }
+
+  /**
+   * Un tratamiento solo se registra después de terminar el diagnóstico
+   * (CLI-189): sin un examen dental vigente se rechaza.
+   */
+  private async requireDiagnosis(patientId: string): Promise<void> {
+    const exam = await this.patientRepo.findCurrentDentalExam(patientId);
+    if (!exam) {
+      throw new ConflictException(NO_DIAGNOSIS_MESSAGE);
+    }
   }
 
   private async requirePatient(patientId: string): Promise<void> {

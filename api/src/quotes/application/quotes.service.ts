@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ConflictException,
   Inject,
   Injectable,
   NotFoundException,
@@ -69,6 +70,12 @@ export class QuotesService {
 
   async createForPatient(patientId: string, notes?: string): Promise<Quote> {
     await this.requirePatient(patientId);
+    // Solo después de terminar el diagnóstico (CLI-189).
+    if (!(await this.patientRepo.findCurrentDentalExam(patientId))) {
+      throw new ConflictException(
+        'Primero termina el diagnóstico del paciente.',
+      );
+    }
     return this.quoteRepo.createForPatient(patientId, notes ?? null);
   }
 
