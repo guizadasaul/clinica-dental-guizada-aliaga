@@ -177,6 +177,12 @@ export class PatientsService {
 
     const { futureAppointments, balance } =
       await this.patientRepo.findDeletionBlockers(userId);
+    // El nombre de la ficha, el mismo que ve el doctor en la lista; el de la
+    // cuenta (users.display_name) puede ser otro.
+    const ficha = await this.patientRepo.findByUserId(userId);
+    const name = ficha
+      ? patientFullName(ficha)
+      : (target.displayName ?? 'este paciente');
     const reasons: string[] = [];
     if (futureAppointments > 0) {
       reasons.push(
@@ -190,7 +196,7 @@ export class PatientsService {
     }
     if (reasons.length > 0) {
       throw new ConflictException(
-        `No se puede eliminar a ${target.displayName ?? 'este paciente'}: tiene ${reasons.join(' y ')}. Resuélvelo antes de eliminarlo.`,
+        `No se puede eliminar a ${name}: tiene ${reasons.join(' y ')}. Resuélvelo antes de eliminarlo.`,
       );
     }
 

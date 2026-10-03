@@ -393,6 +393,14 @@ describe('PatientsListComponent — búsqueda, acciones y menú', () => {
       expect(confirmButton(fixture).disabled).toBe(true);
     });
 
+    it('nombra al paciente con el nombre de la ficha, no con el de la cuenta', async () => {
+      const { fixture } = await openDialog([fakePatientWithUser({ displayName: 'Saul Ariel Guizada Aliaga' })]);
+
+      const text = el(fixture, '.delete-modal__text')?.textContent ?? '';
+      expect(text).toContain('Juana Perez');
+      expect(text).not.toContain('Saul Ariel');
+    });
+
     it('solo se habilita al escribir "eliminar" (sin importar mayúsculas ni espacios)', async () => {
       const { fixture } = await openDialog();
 
