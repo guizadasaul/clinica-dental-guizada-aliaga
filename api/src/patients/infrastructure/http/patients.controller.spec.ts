@@ -126,8 +126,7 @@ describe('PatientsController', () => {
       lastVisitTreatment: 'Limpieza',
       familyHistory: 'Diabetes',
       documentType: 'ci',
-      dni: '1234567',
-      documentExtension: 'LP',
+      dni: '1234567-LP',
     } as CreatePatientDto;
 
     it('convierte las fechas y pasa el resto de los campos tal cual', async () => {
@@ -157,8 +156,7 @@ describe('PatientsController', () => {
           lastVisitTreatment: 'Limpieza',
           familyHistory: 'Diabetes',
           documentType: 'ci',
-          dni: '1234567',
-          documentExtension: 'LP',
+          dni: '1234567-LP',
         },
       );
     });

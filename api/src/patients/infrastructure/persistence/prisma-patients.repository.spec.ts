@@ -631,8 +631,7 @@ describe('PrismaPatientsRepository.updatePatient', () => {
       lastVisitTreatment: 'Limpieza',
       familyHistory: 'Diabetes',
       documentType: 'ci',
-      dni: '1234567',
-      documentExtension: 'LP',
+      dni: '1234567-LP',
     });
 
     expect(update).toHaveBeenCalledWith(
@@ -658,8 +657,7 @@ describe('PrismaPatientsRepository.updatePatient', () => {
       last_visit_treatment: 'Limpieza',
       family_history: 'Diabetes',
       document_type: 'ci',
-      dni: '1234567',
-      document_extension: 'LP',
+      dni: '1234567-LP',
       updated_at: expect.any(Date) as Date,
     });
   });

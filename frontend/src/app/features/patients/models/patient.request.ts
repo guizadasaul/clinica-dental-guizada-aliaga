@@ -23,9 +23,8 @@ export interface CreatePatientRequest {
   lastVisitTreatment?: string;
   familyHistory?: string;
   documentType: string;
+  /** La extensión de la CI va dentro, con guion: 1234567-LP (CLI-177). */
   dni: string;
-  /** null = sin extensión (también la borra en un update). */
-  documentExtension: string | null;
 }
 
 export interface UpdatePatientRequest {
@@ -50,7 +49,6 @@ export interface UpdatePatientRequest {
   familyHistory?: string;
   documentType?: string;
   dni?: string;
-  documentExtension?: string | null;
   email?: string;
 }
 

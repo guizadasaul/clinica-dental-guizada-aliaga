@@ -81,7 +81,6 @@ const PATIENT_WITH_USER: PatientWithUser = {
     familyHistory: null,
     documentType: null,
     dni: null,
-    documentExtension: null,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
     assignedDoctorId: 'doctor-1',

@@ -166,8 +166,8 @@
           [value]="dni.value()"
           (input)="dni.set($any($event.target).value)"
           (blur)="dni.markTouched()"
-          maxlength="20"
-          placeholder="Ej: 12345678"
+          [attr.maxlength]="dniMaxLength"
+          [placeholder]="isCi() ? 'Ej: 1234567 o 1234567-LP' : 'Ej: 1234567'"
           [attr.aria-invalid]="dni.showError() || null"
           [attr.aria-describedby]="dni.showError() ? 'dni-err' : null"
         />
@@ -175,27 +175,6 @@
           <p class="step-form__field-error" id="dni-err" role="alert">{{ dni.error() }}</p>
         }
       </div>
-      @if (isCi()) {
-        <div class="step-form__field">
-          <label class="step-form__label" for="documentExtension">Extensión</label>
-          <input
-            id="documentExtension"
-            class="step-form__input"
-            [class.step-form__input--invalid]="documentExtension.showError()"
-            type="text"
-            [value]="documentExtension.value()"
-            (input)="documentExtension.set($any($event.target).value)"
-            (blur)="documentExtension.markTouched()"
-            [attr.maxlength]="documentExtensionMaxLength"
-            placeholder="Ej: LP o 1A"
-            [attr.aria-invalid]="documentExtension.showError() || null"
-            [attr.aria-describedby]="documentExtension.showError() ? 'documentExtension-err' : null"
-          />
-          @if (documentExtension.showError()) {
-            <p class="step-form__field-error" id="documentExtension-err" role="alert">{{ documentExtension.error() }}</p>
-          }
-        </div>
-      }
       <div class="step-form__field">
         <span class="step-form__label">Teléfono</span>
         <app-phone-input [value]="phoneE164()" [disabled]="loading()" (changed)="onPhoneChanged($event)" />

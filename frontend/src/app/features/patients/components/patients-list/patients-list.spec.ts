@@ -54,7 +54,6 @@ function fakePatientWithUser(overrides: Partial<PatientWithUser> = {}): PatientW
       familyHistory: null,
       documentType: null,
       dni: null,
-      documentExtension: null,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
       assignedDoctorId: 'doctor-a',

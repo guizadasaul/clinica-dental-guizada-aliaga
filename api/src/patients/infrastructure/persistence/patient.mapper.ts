@@ -55,7 +55,6 @@ export class PatientMapper {
       r.family_history ?? null,
       r.document_type ?? null,
       r.dni ?? null,
-      r.document_extension ?? null,
       r.created_at,
       r.updated_at,
       r.assigned_doctor_id ?? null,
