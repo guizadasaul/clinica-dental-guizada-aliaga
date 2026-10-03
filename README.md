@@ -606,8 +606,7 @@ workflows de cualquier contribuidor externo. Los deploys corren en runners de Gi
 - **Portal del paciente mínimo**: "Solicitar cita", "Mis documentos" y "Mi perfil" son maquetas y los
   contadores son fijos. El historial de tratamientos del paciente llama a un endpoint que solo permite el
   rol odontólogo, así que con la cuenta de paciente muestra un estado de error.
-- En el panel del doctor, los ítems **Reportes, Finanzas y Configuración** del menú todavía no tienen
-  contenido; los reportes existen solo para el administrador.
+- Los reportes existen solo para el administrador; el menú del doctor no los tiene.
 - Los **paneles internos están solo en español**; la i18n cubre landing, login y componentes compartidos.
 - Dar de baja a un usuario (`is_active`) **no revoca** su acceso: los guards de autenticación no consultan
   ese campo.
