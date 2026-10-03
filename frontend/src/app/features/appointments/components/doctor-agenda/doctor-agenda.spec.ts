@@ -3,7 +3,11 @@ import { TestBed, ComponentFixture } from '@angular/core/testing';
 import { of } from 'rxjs';
 import { DoctorAgendaComponent } from './doctor-agenda';
 import { AppointmentsService } from '../../services/appointments.service';
-import type { AppointmentAgendaItem, DoctorScheduleBlock } from '../../models/appointment.model';
+import type {
+  AppointmentAgendaItem,
+  DoctorScheduleBlock,
+  TimeBlock,
+} from '../../models/appointment.model';
 import { AuthService } from '../../../../auth/application/auth.service';
 import { PatientsService } from '../../../patients/services/patients.service';
 import { TreatmentsService } from '../../../treatments/services/treatments.service';
@@ -48,11 +52,13 @@ function fakeAppointment(overrides: Partial<AppointmentAgendaItem> = {}): Appoin
 function setup(
   appointments: AppointmentAgendaItem[] = [fakeAppointment()],
   schedule: DoctorScheduleBlock[] = [],
+  timeBlocks: TimeBlock[] = [],
 ) {
   const appointmentsService = {
     getAgenda: vi.fn().mockReturnValue(of(appointments)),
     getMySchedule: vi.fn().mockReturnValue(of(schedule)),
     createByDoctor: vi.fn(),
+    getTimeBlocks: vi.fn().mockReturnValue(of(timeBlocks)),
   };
   TestBed.configureTestingModule({
     imports: [DoctorAgendaComponent],
@@ -76,6 +82,71 @@ async function settle(fixture: ComponentFixture<DoctorAgendaComponent>): Promise
 }
 
 describe('DoctorAgendaComponent', () => {
+  describe('horarios reservados (CLI-195)', () => {
+    function blockToday(startHour: number, endHour: number): TimeBlock {
+      const day = todayAtLaPazMorning().slice(0, 10);
+      const iso = (h: number) => new Date(`${day}T${String(h).padStart(2, '0')}:00:00-04:00`).toISOString();
+      return {
+        id: 'block-1',
+        doctorId: 'doctor-a',
+        startsAt: iso(startHour),
+        endsAt: iso(endHour),
+        reason: 'Curso',
+      };
+    }
+
+    it('carga los horarios reservados de la semana y los dibuja con su motivo', async () => {
+      const { fixture, appointmentsService } = setup([], [], [blockToday(15, 17)]);
+      await settle(fixture);
+
+      expect(appointmentsService.getTimeBlocks).toHaveBeenCalled();
+      const blocks = fixture.nativeElement.querySelectorAll('.agenda-block');
+      expect(blocks).toHaveLength(1);
+      expect(blocks[0].textContent).toContain('Curso');
+    });
+
+    it('un horario reservado no se puede clickear para agendar', async () => {
+      const day = todayAtLaPazMorning().slice(0, 10);
+      const free = setup([], [], []);
+      await settle(free.fixture);
+      const freeCells = free.fixture.nativeElement.querySelectorAll('.agenda-cell:not(.agenda-cell--static)').length;
+      TestBed.resetTestingModule();
+
+      const { fixture } = setup([], [], [blockToday(0, 24)]);
+      await settle(fixture);
+      const cells = fixture.nativeElement.querySelectorAll('.agenda-cell:not(.agenda-cell--static)');
+
+      expect(day).toBeTruthy();
+      expect(cells.length).toBeLessThan(freeCells);
+    });
+
+    it('no pide los horarios reservados en la agenda de otro doctor (vista del admin)', async () => {
+      const { fixture, appointmentsService } = setup();
+      fixture.componentRef.setInput('doctorId', 'doctor-9');
+      await settle(fixture);
+
+      expect(appointmentsService.getTimeBlocks).not.toHaveBeenCalled();
+    });
+
+    it('"Reservar horario" abre el diálogo y al reservar recarga la agenda', async () => {
+      const { fixture, appointmentsService } = setup();
+      await settle(fixture);
+      const loads = appointmentsService.getAgenda.mock.calls.length;
+
+      (fixture.nativeElement.querySelector('.agenda__block-btn') as HTMLButtonElement).click();
+      await settle(fixture);
+      expect(fixture.nativeElement.querySelector('app-time-block-dialog')).not.toBeNull();
+
+      fixture.debugElement
+        .query((d) => d.name === 'app-time-block-dialog')
+        .triggerEventHandler('saved', {});
+      await settle(fixture);
+
+      expect(fixture.nativeElement.querySelector('app-time-block-dialog')).toBeNull();
+      expect(appointmentsService.getAgenda.mock.calls.length).toBe(loads + 1);
+    });
+  });
+
   it('loads its own agenda (no doctorId) by default', async () => {
     const { fixture, appointmentsService } = setup();
     await settle(fixture);

@@ -20,13 +20,18 @@ import { AppointmentsService } from '../../services/appointments.service';
 import { AuthService } from '../../../../auth/application/auth.service';
 import { FALLBACK_DOCTOR_COLOR } from '../../../../shared/constants/doctor-colors';
 import { PatientWizardComponent } from '../../../patients/components/patient-wizard/patient-wizard';
-import type { AppointmentAgendaItem, DoctorScheduleBlock } from '../../models/appointment.model';
+import type {
+  AppointmentAgendaItem,
+  DoctorScheduleBlock,
+  TimeBlock,
+} from '../../models/appointment.model';
 import { isWithinSchedule, minutesToHhmm } from '../../models/clinic-schedule.util';
 import {
   BookAppointmentDialogComponent,
   type AgendaSlot,
   type BusyInterval,
 } from '../book-appointment-dialog/book-appointment-dialog';
+import { TimeBlockDialogComponent } from '../time-block-dialog/time-block-dialog';
 import { AppointmentDetailDialogComponent } from '../appointment-detail-dialog/appointment-detail-dialog';
 import { appointmentPatientLabel } from '../../models/appointment-patient-label';
 import { PageHeaderComponent } from '../../../../shared/ui/page-header/page-header';
@@ -209,6 +214,7 @@ function assignLanes(
     PageHeaderComponent,
     PatientWizardComponent,
     BookAppointmentDialogComponent,
+    TimeBlockDialogComponent,
     AppointmentDetailDialogComponent,
     NgTemplateOutlet,
   ],
@@ -311,6 +317,10 @@ export class DoctorAgendaComponent {
   );
   /** Horario de atención del doctor — sombrea lo que queda fuera. */
   protected readonly schedule = signal<DoctorScheduleBlock[]>([]);
+  /** CLI-195: horarios que el doctor apartó, de la semana visible. */
+  protected readonly timeBlocks = signal<TimeBlock[]>([]);
+  /** CLI-195: con valor, el diálogo de reservar horario está abierto (un horario existente o uno nuevo). */
+  protected readonly blockDialog = signal<{ block: TimeBlock | null; date: string } | null>(null);
   /** Horario clickeado: con valor, el modal de "Agendar cita" está abierto. */
   protected readonly bookingSlot = signal<AgendaSlot | null>(null);
   /** CLI-151: turno propio clickeado — con valor, el detalle está abierto. */
@@ -430,6 +440,24 @@ export class DoctorAgendaComponent {
     return lanes;
   });
 
+  /** CLI-195: los horarios apartados, recortados a cada día visible (minutos desde las 00:00). */
+  protected readonly blockSegmentsByDate = computed(() => {
+    const result = new Map<string, { block: TimeBlock; start: number; end: number }[]>();
+    for (const date of this.visibleDates()) {
+      const dayStart = new Date(`${date}T00:00:00-04:00`).getTime();
+      const segments: { block: TimeBlock; start: number; end: number }[] = [];
+      for (const block of this.timeBlocks()) {
+        const start = Math.max(0, (new Date(block.startsAt).getTime() - dayStart) / 60000);
+        const end = Math.min(1440, (new Date(block.endsAt).getTime() - dayStart) / 60000);
+        if (end > start) {
+          segments.push({ block, start, end });
+        }
+      }
+      result.set(date, segments);
+    }
+    return result;
+  });
+
   /** Franjas de cada día visible, con qué está libre para agendar y qué cae fuera de horario. */
   protected readonly cellsByDate = computed(() => {
     const cells = new Map<string, AgendaCell[]>();
@@ -447,10 +475,13 @@ export class DoctorAgendaComponent {
         const start = hour * 60 + minute;
         return { start, end: start + this.durationOf(a) };
       });
+      const blocked = this.blockSegmentsByDate().get(date) ?? [];
       const dayCells: AgendaCell[] = [];
       for (let i = 0; i < this.totalSlots; i++) {
         const minutes = this.GRID_START_HOUR * 60 + i * this.SLOT_MINUTES;
-        const occupied = busy.some((b) => b.start < minutes + this.SLOT_MINUTES && minutes < b.end);
+        const occupied =
+          busy.some((b) => b.start < minutes + this.SLOT_MINUTES && minutes < b.end) ||
+          blocked.some((b) => b.start < minutes + this.SLOT_MINUTES && minutes < b.end);
         const past = new Date(`${date}T${minutesToHhmm(minutes)}:00-04:00`).getTime() <= now;
         dayCells.push({
           minutes,
@@ -477,13 +508,18 @@ export class DoctorAgendaComponent {
       return [];
     }
     const movingId = this.rescheduling()?.id;
-    return this.appointmentsFor(slot.date)
+    const appointments = this.appointmentsFor(slot.date)
       .filter((a) => a.id !== movingId)
       .map((a) => {
         const { hour, minute } = laPazHourMinute(a.appointmentDatetime);
         const start = hour * 60 + minute;
         return { start, end: start + this.durationOf(a) };
       });
+    const blocks = (this.blockSegmentsByDate().get(slot.date) ?? []).map((b) => ({
+      start: b.start,
+      end: b.end,
+    }));
+    return [...appointments, ...blocks];
   });
 
   private readonly injector = inject(Injector);
@@ -644,6 +680,8 @@ export class DoctorAgendaComponent {
     try {
       const from = this.selectedDate();
       const to = addDaysToDateString(from, this.VIEW_DAYS);
+      // Aparte de las citas: no demora ni rompe la carga de la agenda.
+      void this.loadTimeBlocks(from, to);
       const result = await firstValueFrom(
         this.appointmentsService.getAgenda({
           status: 'confirmed',
@@ -659,6 +697,55 @@ export class DoctorAgendaComponent {
     } finally {
       this.loading.set(false);
     }
+  }
+
+  /** CLI-195: solo en la agenda propia; si falla, la agenda se ve igual (el backend igual los respeta). */
+  private async loadTimeBlocks(from: string, to: string): Promise<void> {
+    if (!this.canBook()) {
+      this.timeBlocks.set([]);
+      return;
+    }
+    try {
+      this.timeBlocks.set(await firstValueFrom(this.appointmentsService.getTimeBlocks(from, to)));
+    } catch {
+      this.timeBlocks.set([]);
+    }
+  }
+
+  protected blockTopPx(start: number): number {
+    return ((start - this.GRID_START_HOUR * 60) / this.SLOT_MINUTES) * this.ROW_HEIGHT_PX;
+  }
+
+  protected blockHeightPx(start: number, end: number): number {
+    return ((end - start) / this.SLOT_MINUTES) * this.ROW_HEIGHT_PX;
+  }
+
+  protected blocksFor(date: string) {
+    return this.blockSegmentsByDate().get(date) ?? [];
+  }
+
+  protected onNewBlock(): void {
+    this.blockDialog.set({ block: null, date: this.selectedDate() });
+  }
+
+  protected onOpenBlock(block: TimeBlock, date: string): void {
+    this.blockDialog.set({ block, date });
+  }
+
+  protected onBlockClosed(): void {
+    this.blockDialog.set(null);
+  }
+
+  protected onBlockSaved(): void {
+    this.blockDialog.set(null);
+    this.showNotice('Horario reservado.');
+    void this.load();
+  }
+
+  protected onBlockRemoved(): void {
+    this.blockDialog.set(null);
+    this.showNotice('Reserva quitada.');
+    void this.load();
   }
 
   protected appointmentsFor(date: string): AppointmentAgendaItem[] {

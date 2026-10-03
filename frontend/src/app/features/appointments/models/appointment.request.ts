@@ -14,3 +14,11 @@ export interface RescheduleDoctorAppointmentRequest {
   durationMinutes?: number;
   notes?: string;
 }
+
+/** CLI-195: horario que el doctor aparta de su agenda (el doctor lo pone el backend). */
+export interface CreateTimeBlockRequest {
+  /** ISO con offset de Bolivia, ej. 2026-10-06T14:00:00-04:00. */
+  startsAt: string;
+  endsAt: string;
+  reason?: string;
+}

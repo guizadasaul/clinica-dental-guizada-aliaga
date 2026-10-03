@@ -19,6 +19,7 @@ import { TreatmentRepository } from '../../treatments/domain/TreatmentRepository
 import type { Treatment } from '../../treatments/domain/Treatment';
 import { DoctorRepository } from '../../doctors/domain/DoctorRepository';
 import { DoctorScheduleRepository } from '../../doctors/domain/DoctorScheduleRepository';
+import { DoctorTimeBlockRepository } from '../domain/DoctorTimeBlockRepository';
 
 const MONDAY = '2026-08-17';
 const VALID_SLOT_ISO = `${MONDAY}T09:00:00-04:00`;
@@ -71,6 +72,12 @@ const mockDoctorRepo = {
 
 const mockDoctorScheduleRepo = {
   findBlocksForDoctor: jest.fn(),
+};
+
+const mockTimeBlockRepo = {
+  create: jest.fn(),
+  findOverlapping: jest.fn(),
+  deleteOwn: jest.fn(),
 };
 
 function fakeTreatment(overrides: Partial<Treatment> = {}): Treatment {
@@ -138,6 +145,8 @@ describe('AppointmentsService', () => {
     mockDoctorScheduleRepo.findBlocksForDoctor.mockResolvedValue(
       CLINIC_HOURS_FIXTURE,
     );
+    // Sin horarios reservados por el doctor, salvo que el caso diga otra cosa (CLI-195).
+    mockTimeBlockRepo.findOverlapping.mockResolvedValue([]);
     const module = await Test.createTestingModule({
       providers: [
         AppointmentsService,
@@ -145,6 +154,7 @@ describe('AppointmentsService', () => {
         { provide: TreatmentRepository, useValue: mockTreatmentRepo },
         { provide: DoctorRepository, useValue: mockDoctorRepo },
         { provide: DoctorScheduleRepository, useValue: mockDoctorScheduleRepo },
+        { provide: DoctorTimeBlockRepository, useValue: mockTimeBlockRepo },
       ],
     }).compile();
     service = module.get(AppointmentsService);
@@ -606,6 +616,218 @@ describe('AppointmentsService', () => {
     });
   });
   // CLI-148: el doctor agenda la próxima cita de un paciente con ficha.
+  // CLI-195: horarios que el doctor aparta de su agenda.
+  describe('horarios reservados (CLI-195)', () => {
+    const block = (hhmm: string, endHhmm: string) => ({
+      id: 'block-1',
+      doctorId: DOCTOR_ID,
+      startsAt: new Date(`${MONDAY}T${hhmm}:00-04:00`),
+      endsAt: new Date(`${MONDAY}T${endHhmm}:00-04:00`),
+      reason: null,
+    });
+
+    beforeEach(() => {
+      mockRepo.findActiveBetween.mockResolvedValue([]);
+      mockTimeBlockRepo.create.mockImplementation(
+        (data: { startsAt: Date; endsAt: Date; reason: string | null }) =>
+          Promise.resolve({ id: 'block-new', doctorId: DOCTOR_ID, ...data }),
+      );
+    });
+
+    it('crea el bloqueo con el doctor de la sesión y el motivo sin espacios de más', async () => {
+      const created = await service.createTimeBlock(DOCTOR_ID, {
+        startsAt: `${MONDAY}T14:00:00-04:00`,
+        endsAt: `${MONDAY}T16:30:00-04:00`,
+        reason: '  curso de ortodoncia ',
+      });
+
+      expect(mockTimeBlockRepo.create).toHaveBeenCalledWith({
+        doctorId: DOCTOR_ID,
+        startsAt: new Date(`${MONDAY}T14:00:00-04:00`),
+        endsAt: new Date(`${MONDAY}T16:30:00-04:00`),
+        reason: 'curso de ortodoncia',
+      });
+      expect(created.id).toBe('block-new');
+    });
+
+    it('sin motivo guarda null', async () => {
+      await service.createTimeBlock(DOCTOR_ID, {
+        startsAt: `${MONDAY}T14:00:00-04:00`,
+        endsAt: `${MONDAY}T15:00:00-04:00`,
+        reason: '   ',
+      });
+
+      expect(mockTimeBlockRepo.create).toHaveBeenCalledWith(
+        expect.objectContaining({ reason: null }),
+      );
+    });
+
+    it.each([
+      [
+        'no es múltiplo de 5 minutos',
+        `${MONDAY}T14:03:00-04:00`,
+        `${MONDAY}T15:00:00-04:00`,
+      ],
+      [
+        'el fin es anterior al inicio',
+        `${MONDAY}T15:00:00-04:00`,
+        `${MONDAY}T14:00:00-04:00`,
+      ],
+      [
+        'el fin es igual al inicio',
+        `${MONDAY}T15:00:00-04:00`,
+        `${MONDAY}T15:00:00-04:00`,
+      ],
+      ['ya pasó', '2026-08-10T10:00:00-04:00', '2026-08-10T11:00:00-04:00'],
+      [
+        'dura más de 31 días',
+        `${MONDAY}T10:00:00-04:00`,
+        '2026-10-01T10:00:00-04:00',
+      ],
+    ])('rechaza (400) un horario que %s', async (_, startsAt, endsAt) => {
+      await expect(
+        service.createTimeBlock(DOCTOR_ID, { startsAt, endsAt }),
+      ).rejects.toThrow(BadRequestException);
+      expect(mockTimeBlockRepo.create).not.toHaveBeenCalled();
+    });
+
+    it('409 si ya tiene citas en ese rango, diciendo cuántas, y no crea nada', async () => {
+      mockRepo.findActiveBetween.mockResolvedValue([
+        {
+          id: 'a1',
+          appointmentDatetime: new Date(`${MONDAY}T14:30:00-04:00`),
+          durationMinutes: 30,
+        },
+        {
+          id: 'a2',
+          appointmentDatetime: new Date(`${MONDAY}T15:00:00-04:00`),
+          durationMinutes: 60,
+        },
+      ]);
+
+      await expect(
+        service.createTimeBlock(DOCTOR_ID, {
+          startsAt: `${MONDAY}T14:00:00-04:00`,
+          endsAt: `${MONDAY}T16:00:00-04:00`,
+        }),
+      ).rejects.toThrow(/ya tienes 2 citas/);
+      expect(mockTimeBlockRepo.create).not.toHaveBeenCalled();
+    });
+
+    it('una cita que termina justo cuando empieza el bloqueo no choca', async () => {
+      mockRepo.findActiveBetween.mockResolvedValue([
+        {
+          id: 'a1',
+          appointmentDatetime: new Date(`${MONDAY}T13:00:00-04:00`),
+          durationMinutes: 60,
+        },
+      ]);
+
+      await service.createTimeBlock(DOCTOR_ID, {
+        startsAt: `${MONDAY}T14:00:00-04:00`,
+        endsAt: `${MONDAY}T15:00:00-04:00`,
+      });
+
+      expect(mockTimeBlockRepo.create).toHaveBeenCalled();
+    });
+
+    it('listTimeBlocks pide solo los del doctor y el rango', async () => {
+      const from = new Date(`${MONDAY}T00:00:00-04:00`);
+      const to = new Date('2026-08-24T00:00:00-04:00');
+      mockTimeBlockRepo.findOverlapping.mockResolvedValue([
+        block('14:00', '15:00'),
+      ]);
+
+      await expect(
+        service.listTimeBlocks(DOCTOR_ID, from, to),
+      ).resolves.toHaveLength(1);
+      expect(mockTimeBlockRepo.findOverlapping).toHaveBeenCalledWith(
+        DOCTOR_ID,
+        from,
+        to,
+      );
+    });
+
+    it('deleteTimeBlock quita uno propio y da 404 si es ajeno o no existe', async () => {
+      mockTimeBlockRepo.deleteOwn.mockResolvedValueOnce(true);
+      await expect(
+        service.deleteTimeBlock(DOCTOR_ID, 'block-1'),
+      ).resolves.toBeUndefined();
+      expect(mockTimeBlockRepo.deleteOwn).toHaveBeenCalledWith(
+        'block-1',
+        DOCTOR_ID,
+      );
+
+      mockTimeBlockRepo.deleteOwn.mockResolvedValueOnce(false);
+      await expect(service.deleteTimeBlock(DOCTOR_ID, 'ajeno')).rejects.toThrow(
+        NotFoundException,
+      );
+    });
+
+    it('la disponibilidad pública no ofrece los slots que toca un horario reservado', async () => {
+      mockTimeBlockRepo.findOverlapping.mockResolvedValue([
+        block('09:45', '11:00'),
+      ]);
+
+      const result = await service.getAvailability(DOCTOR_ID, MONDAY);
+
+      for (const hhmm of ['09:30', '10:00', '10:30']) {
+        expect(result.slots).not.toContain(
+          new Date(`${MONDAY}T${hhmm}:00-04:00`).toISOString(),
+        );
+      }
+      expect(result.slots).toContain(
+        new Date(`${MONDAY}T09:00:00-04:00`).toISOString(),
+      );
+      expect(result.slots).toContain(
+        new Date(`${MONDAY}T11:00:00-04:00`).toISOString(),
+      );
+    });
+
+    it('el rango de disponibilidad también lo descuenta', async () => {
+      mockTimeBlockRepo.findOverlapping.mockResolvedValue([
+        block('09:00', '10:00'),
+      ]);
+
+      const result = await service.getAvailabilityRange(DOCTOR_ID, MONDAY, 1);
+
+      expect(result.slotsByDate[MONDAY]).not.toContain(
+        new Date(`${MONDAY}T09:00:00-04:00`).toISOString(),
+      );
+      expect(result.slotsByDate[MONDAY]).not.toContain(
+        new Date(`${MONDAY}T09:30:00-04:00`).toISOString(),
+      );
+      expect(result.slotsByDate[MONDAY]).toContain(
+        new Date(`${MONDAY}T10:00:00-04:00`).toISOString(),
+      );
+    });
+
+    it('un paciente no puede reservar (holdSlot) encima de un horario reservado: 409 genérico', async () => {
+      mockTimeBlockRepo.findOverlapping.mockResolvedValue([
+        block('09:00', '10:00'),
+      ]);
+
+      await expect(service.holdSlot(DOCTOR_ID, VALID_SLOT_ISO)).rejects.toThrow(
+        'Ese horario ya no está disponible',
+      );
+      expect(mockRepo.createHold).not.toHaveBeenCalled();
+    });
+
+    it('el doctor no puede agendar a un paciente encima de su propio bloqueo', async () => {
+      mockTimeBlockRepo.findOverlapping.mockResolvedValue([
+        block('09:00', '10:00'),
+      ]);
+
+      await expect(
+        service.createByDoctor(DOCTOR_ID, {
+          patientId: 'patient-1',
+          appointmentDatetime: VALID_SLOT_ISO,
+        }),
+      ).rejects.toThrow(/reservado en tu agenda/);
+      expect(mockRepo.createByDoctor).not.toHaveBeenCalled();
+    });
+  });
+
   describe('createByDoctor', () => {
     const PATIENT_ID = 'patient-1';
     const created = { id: 'appt-new' };

@@ -341,6 +341,26 @@ function cases(s: ReturnType<typeof services>): Case[] {
       body: {},
     },
     {
+      name: 'agenda: horarios reservados del rango (CLI-195)',
+      call: () => s.appointments.getTimeBlocks('2026-10-05', '2026-10-12'),
+      method: 'GET',
+      url: `${API}/appointments/blocks`,
+      params: { from: '2026-10-05', to: '2026-10-12' },
+    },
+    {
+      name: 'agenda: reservar un horario (CLI-195)',
+      call: () => s.appointments.createTimeBlock(body),
+      method: 'POST',
+      url: `${API}/appointments/blocks`,
+      body,
+    },
+    {
+      name: 'agenda: quitar un horario reservado (CLI-195)',
+      call: () => s.appointments.deleteTimeBlock('b1'),
+      method: 'DELETE',
+      url: `${API}/appointments/blocks/b1`,
+    },
+    {
       name: 'paciente: mis próximas citas (CLI-153)',
       call: () => s.appointments.getMyUpcoming(),
       method: 'GET',

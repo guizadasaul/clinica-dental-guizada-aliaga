@@ -702,6 +702,20 @@ model doctor_schedule_blocks {
   @@index([doctor_id, weekday])
 }
 
+/// Horario que el doctor aparta de su agenda (CLI-195): emergencia, curso, etc. Tiene CHECK ends_at > starts_at (doctor_time_blocks_range_check).
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model doctor_time_blocks {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  doctor_id  String   @db.Uuid
+  starts_at  DateTime @db.Timestamptz(6)
+  ends_at    DateTime @db.Timestamptz(6)
+  reason     String?  @db.VarChar(200)
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  users      users    @relation(fields: [doctor_id], references: [id], onDelete: Restrict, onUpdate: NoAction)
+
+  @@index([doctor_id, starts_at])
+}
+
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
 model users {
   id                      String                    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
@@ -725,6 +739,7 @@ model users {
   cancelled_appointments  appointments[]            @relation("AppointmentCancelledBy")
   doctor_profiles         doctor_profiles?
   doctor_schedule_blocks  doctor_schedule_blocks[]
+  doctor_time_blocks      doctor_time_blocks[]
   tooth_procedures        tooth_procedures[]
   dental_exams            dental_exams[]
   patient_invites         patient_invites[]

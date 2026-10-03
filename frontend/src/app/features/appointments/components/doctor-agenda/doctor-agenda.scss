@@ -540,3 +540,72 @@
     opacity: 1;
   }
 }
+
+// CLI-195: horario que el doctor apartó (emergencia, curso…): franja rayada sobre las celdas.
+.agenda-block {
+  position: absolute;
+  left: 2px;
+  right: 2px;
+  z-index: 3;
+  display: flex;
+  align-items: flex-start;
+  gap: 0.25rem;
+  padding: 0.25rem 0.5rem;
+  overflow: hidden;
+  border: 1px solid var(--color-gray-300);
+  border-radius: var(--radius-md);
+  background: repeating-linear-gradient(
+    45deg,
+    var(--color-surface-var),
+    var(--color-surface-var) 6px,
+    var(--color-surface) 6px,
+    var(--color-surface) 12px
+  );
+  font-family: var(--font-body);
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  color: var(--color-text);
+  text-align: left;
+  cursor: pointer;
+
+  &:focus-visible {
+    outline: 3px solid var(--color-primary);
+    outline-offset: 1px;
+  }
+}
+
+.agenda-block__icon {
+  flex: none;
+  font-size: 1rem;
+}
+
+.agenda-block__text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.agenda__block-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-left: auto;
+  padding: var(--space-2) var(--space-4);
+  border: 1px solid var(--color-gray-300);
+  border-radius: var(--radius-full);
+  background: transparent;
+  font-family: var(--font-body);
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  color: var(--color-text);
+  cursor: pointer;
+
+  &:hover {
+    background: var(--color-surface-var);
+  }
+
+  &:focus-visible {
+    outline: 3px solid var(--color-primary);
+    outline-offset: 2px;
+  }
+}
