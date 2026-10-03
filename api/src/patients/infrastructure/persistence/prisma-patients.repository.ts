@@ -36,8 +36,16 @@ const DENTAL_EXAM_INCLUDE = {
   users: true,
   dental_exam_findings: {
     include: { diagnoses: { include: { diagnosis_categories: true } } },
+    // Orden fijo (CLI-179): con varios diagnósticos en un diente, todas las
+    // pantallas pintan el mismo. Primero los de un solo diente, después los
+    // de varios dientes; dentro de cada uno, por diente y por id.
+    orderBy: [
+      { application_group_id: { sort: 'asc', nulls: 'first' } },
+      { tooth_number: 'asc' },
+      { id: 'asc' },
+    ],
   },
-} as const;
+} satisfies Prisma.dental_examsInclude;
 
 const TOOTH_PROCEDURE_INCLUDE = {
   tooth_procedure_surfaces: { include: { tooth_surfaces: true } },

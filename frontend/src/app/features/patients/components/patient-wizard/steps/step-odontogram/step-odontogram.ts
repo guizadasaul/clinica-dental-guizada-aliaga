@@ -1,3 +1,4 @@
+import { toothPaint as computeToothPaint } from '../../../../../../shared/utils/odontogram-paint.util';
 import {
   Component,
   ChangeDetectionStrategy,
@@ -179,15 +180,21 @@ export class StepOdontogramComponent {
   protected readonly toothFindings = computed(() => this.findings().filter((f) => f.scope !== 'general'));
   protected readonly generalFindings = computed(() => this.findings().filter((f) => f.scope === 'general'));
 
-  protected readonly toothColorMap = computed(() => {
-    const map = new Map<number, string>();
-    for (const f of this.toothFindings()) {
-      for (const n of f.toothNumbers) {
-        if (!map.has(n)) { map.set(n, f.color); }
-      }
-    }
-    return map;
-  });
+  /** Misma regla de pintado que el registro de tratamientos y la historia (CLI-179). */
+  private readonly toothPaint = computed(() =>
+    computeToothPaint(
+      this.toothFindings().flatMap((f) =>
+        f.toothNumbers.map((toothNumber) => ({
+          toothNumber,
+          color: f.color,
+          name: f.diagnosisName,
+          grouped: f.scope !== 'single_tooth',
+        })),
+      ),
+    ),
+  );
+  protected readonly toothColorMap = computed(() => this.toothPaint().colors);
+  protected readonly toothNames = computed(() => this.toothPaint().names);
 
   protected readonly hasPriorVersions = computed(() => this.versions().length > 0);
 

@@ -32,11 +32,11 @@ interface SeedTreatment {
 const TREATMENT_CATEGORIES: SeedTreatmentCategory[] = [
   { code: 'basicos', name: 'Básicos', color: '#334155' },
   { code: 'operatoria_dental', name: 'Operatoria dental', color: '#16a34a' },
-  { code: 'periodoncia', name: 'Periodoncia', color: '#0f766e' },
-  { code: 'endodoncia', name: 'Endodoncia', color: '#a21caf' },
+  { code: 'periodoncia', name: 'Periodoncia', color: '#3f6212' },
+  { code: 'endodoncia', name: 'Endodoncia', color: '#86198f' },
   { code: 'cirugia_oral', name: 'Cirugía oral', color: '#9f1239' },
   { code: 'protesis_removible', name: 'Prótesis removible', color: '#4338ca' },
-  { code: 'protesis_fija', name: 'Prótesis fija', color: '#0369a1' },
+  { code: 'protesis_fija', name: 'Prótesis fija', color: '#1e3a8a' },
   { code: 'ortodoncia', name: 'Ortodoncia', color: '#854d0e' },
 ];
 

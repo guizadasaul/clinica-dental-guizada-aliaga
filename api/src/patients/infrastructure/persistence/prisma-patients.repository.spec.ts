@@ -949,6 +949,26 @@ describe('PrismaPatientsRepository — lecturas', () => {
     );
   });
 
+  // CLI-179: con varios diagnósticos en un diente, todas las pantallas
+  // tienen que pintar el mismo — el orden de los hallazgos no puede depender
+  // de Postgres.
+  it('pide los hallazgos en orden fijo: primero los de un diente, después por diente e id', async () => {
+    jest.spyOn(DentalExamMapper, 'toDomain').mockReturnValue('exam' as never);
+    const findFirst = jest.fn().mockResolvedValue(ROW);
+    const repo = repoWith({ dental_exams: { findFirst } });
+
+    await repo.findCurrentDentalExam('patient-1');
+
+    const args = (findFirst.mock.calls as unknown[][])[0][0] as {
+      include: { dental_exam_findings: { orderBy: unknown } };
+    };
+    expect(args.include.dental_exam_findings.orderBy).toEqual([
+      { application_group_id: { sort: 'asc', nulls: 'first' } },
+      { tooth_number: 'asc' },
+      { id: 'asc' },
+    ]);
+  });
+
   it('findDentalExam acota el examen al paciente (no deja leer uno ajeno)', async () => {
     jest.spyOn(DentalExamMapper, 'toDomain').mockReturnValue('exam' as never);
     const findFirst = jest

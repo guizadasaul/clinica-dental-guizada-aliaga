@@ -5,7 +5,7 @@ import { PatientsService } from '../../services/patients.service';
 import type { DentalExam, DentalExamFinding, DentalExamVersionSummary } from '../../models/dental-exam.model';
 import { modifierLabel } from '../../models/dental-exam-display.util';
 import { OdontogramChartComponent } from '../../../../shared/ui/odontogram-chart/odontogram-chart';
-import { examLegendItems, examToothColorMap } from '../../../../shared/utils/odontogram-paint.util';
+import { examLegendItems, examToothColorMap, examToothNames } from '../../../../shared/utils/odontogram-paint.util';
 
 interface GroupedFinding {
   readonly key: string;
@@ -88,6 +88,7 @@ export class DentalExamHistoryComponent {
     return id ? (this.examsById().get(id) ?? null) : null;
   });
   protected readonly expandedToothColor = computed(() => examToothColorMap(this.expandedExam()?.findings ?? []));
+  protected readonly expandedToothNames = computed(() => examToothNames(this.expandedExam()?.findings ?? []));
   protected readonly expandedLegend = computed(() => examLegendItems(this.expandedExam()?.findings ?? []));
   protected readonly toothFindings = computed(() =>
     groupFindings(this.expandedExam()?.findings ?? []).filter((f) => f.toothNumbers.length > 0),

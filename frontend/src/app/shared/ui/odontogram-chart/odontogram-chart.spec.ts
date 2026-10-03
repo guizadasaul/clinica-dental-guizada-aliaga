@@ -8,7 +8,7 @@ function setup() {
 
 function cell(fixture: ReturnType<typeof setup>, toothNumber: number): HTMLElement {
   return (fixture.nativeElement as HTMLElement).querySelector(
-    `.odontogram-chart__cell[aria-label="Diente ${toothNumber}"]`,
+    `.odontogram-chart__cell[data-tooth="${toothNumber}"]`,
   ) as HTMLElement;
 }
 
@@ -62,6 +62,23 @@ describe('OdontogramChartComponent', () => {
     cell(fixture, 36).dispatchEvent(new Event('click'));
 
     expect(clicked).toEqual([36]);
+  });
+
+  it('con más de un diagnóstico en un diente muestra "+N" y los lista en la etiqueta (CLI-179)', () => {
+    const fixture = setup();
+    fixture.componentRef.setInput('toothColor', new Map([[16, '#dc2626']]));
+    fixture.componentRef.setInput('toothNames', new Map([[16, ['Caries', 'Periodontitis', 'Fractura']], [36, ['Caries']]]));
+    fixture.detectChanges();
+    const root = fixture.nativeElement as HTMLElement;
+    const cell16 = root.querySelector('.odontogram-chart__cell[data-tooth="16"]')!;
+    const cell36 = root.querySelector('.odontogram-chart__cell[data-tooth="36"]')!;
+
+    expect(cell16.querySelector('.odontogram-chart__cell-badge')?.textContent?.trim()).toBe('+2');
+    expect(cell16.getAttribute('aria-label')).toBe('Diente 16: Caries, Periodontitis, Fractura');
+    expect(cell16.querySelector('title')?.textContent).toBe('Diente 16: Caries, Periodontitis, Fractura');
+    // Un solo diagnóstico: sin indicador.
+    expect(cell36.querySelector('.odontogram-chart__cell-badge')).toBeNull();
+    expect(root.querySelector('.odontogram-chart__cell[data-tooth="21"]')?.getAttribute('aria-label')).toBe('Diente 21');
   });
 
   it('muestra la leyenda solo cuando hay ítems', () => {
