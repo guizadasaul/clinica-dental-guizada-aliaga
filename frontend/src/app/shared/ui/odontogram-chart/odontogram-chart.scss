@@ -127,6 +127,14 @@
     }
   }
 
+  // Indicador "+N": el diente tiene más de un diagnóstico (CLI-179).
+  &__cell-badge {
+    fill: #b91c1c;
+    font-family: Arial, sans-serif;
+    font-weight: 700;
+    pointer-events: none;
+  }
+
   // ── Legend ──────────────────────────────────────────────────────────────────
 
   &__legend {

@@ -40,10 +40,10 @@ async function settle(fixture: ReturnType<typeof setup>): Promise<void> {
   await fixture.whenStable();
 }
 
-/** Simula un clic en el diente #toothNumber del odontograma (aria-label="Diente N"). */
+/** Simula un clic en el diente #toothNumber del odontograma (atributo data-tooth). */
 function clickTooth(fixture: ReturnType<typeof setup>, toothNumber: number): void {
   const cell = (fixture.nativeElement as HTMLElement).querySelector(
-    `.odontogram-chart__cell[aria-label="Diente ${toothNumber}"]`,
+    `.odontogram-chart__cell[data-tooth="${toothNumber}"]`,
   );
   (cell as HTMLElement).dispatchEvent(new Event('click'));
 }
@@ -472,7 +472,7 @@ describe('StepOdontogramComponent', () => {
       await openHistory(fixture);
 
       expect(historyToggles(fixture)).toHaveLength(2);
-      const cell = el<HTMLElement>(fixture, 'app-dental-exam-history .odontogram-chart__cell[aria-label="Diente 16"]');
+      const cell = el<HTMLElement>(fixture, 'app-dental-exam-history .odontogram-chart__cell[data-tooth="16"]');
       expect(cell.getAttribute('role')).toBeNull();
     });
 

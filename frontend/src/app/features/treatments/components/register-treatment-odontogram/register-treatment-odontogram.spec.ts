@@ -39,10 +39,10 @@ async function settle(fixture: ReturnType<typeof setup>['fixture']): Promise<voi
   fixture.detectChanges();
 }
 
-/** Simula un clic en el diente #toothNumber del odontograma (aria-label="Diente N"). */
+/** Simula un clic en el diente #toothNumber del odontograma (atributo data-tooth). */
 function clickTooth(fixture: ReturnType<typeof setup>['fixture'], toothNumber: number): void {
   const cell = (fixture.nativeElement as HTMLElement).querySelector(
-    `.odontogram-chart__cell[aria-label="Diente ${toothNumber}"]`,
+    `.odontogram-chart__cell[data-tooth="${toothNumber}"]`,
   );
   (cell as HTMLElement).dispatchEvent(new Event('click'));
 }
@@ -131,13 +131,13 @@ const EXAM_WITH_CARIES_16: DentalExam = {
 };
 
 function toothFill(fixture: ReturnType<typeof setup>['fixture'], toothNumber: number): string | null {
-  return el<HTMLElement>(fixture, `.odontogram-chart__cell[aria-label="Diente ${toothNumber}"]`)
+  return el<HTMLElement>(fixture, `.odontogram-chart__cell[data-tooth="${toothNumber}"]`)
     .querySelector('.odontogram-chart__cell-shape')
     ?.getAttribute('fill') ?? null;
 }
 
 function toothPaint(fixture: ReturnType<typeof setup>['fixture'], toothNumber: number): Element {
-  return el<HTMLElement>(fixture, `.odontogram-chart__cell[aria-label="Diente ${toothNumber}"]`)
+  return el<HTMLElement>(fixture, `.odontogram-chart__cell[data-tooth="${toothNumber}"]`)
     .querySelector('.odontogram-chart__cell-paint') as Element;
 }
 
@@ -220,7 +220,7 @@ describe('RegisterTreatmentOdontogramComponent', () => {
     pickTreatment(fixture, 't-upper');
     await settle(fixture);
 
-    const cell = el<HTMLElement>(fixture, '.odontogram-chart__cell[aria-label="Diente 16"]');
+    const cell = el<HTMLElement>(fixture, '.odontogram-chart__cell[data-tooth="16"]');
     expect(cell.classList.contains('odontogram-chart__cell--selected')).toBe(true);
 
     cell.dispatchEvent(new Event('click'));
@@ -371,7 +371,7 @@ describe('RegisterTreatmentOdontogramComponent', () => {
     } satisfies DentalExam);
     await settle(fixture);
 
-    const cell = el<HTMLElement>(fixture, '.odontogram-chart__cell[aria-label="Diente 16"]');
+    const cell = el<HTMLElement>(fixture, '.odontogram-chart__cell[data-tooth="16"]');
     const path = cell.querySelector('.odontogram-chart__cell-shape') as SVGPathElement;
     expect(path.getAttribute('fill')).toBe('#dc2626');
   });
@@ -432,18 +432,63 @@ describe('RegisterTreatmentOdontogramComponent', () => {
       expect(toothFill(fixture, 16)).toBe('#0369a1');
     });
 
-    it('un tratamiento de arcada superior pinta toda la arcada', async () => {
+    // CLI-179: arcada y boca completa no pintan dientes (se ven en el historial).
+    it.each([['upper_arch'], ['lower_arch'], ['full_mouth']] as const)(
+      'un tratamiento %s no pinta dientes ni tapa el diagnóstico',
+      async (applicationType) => {
+        const { fixture } = setup();
+        fixture.componentRef.setInput('treatments', [fakeTreatment()]);
+        fixture.componentRef.setInput('currentExam', EXAM_WITH_CARIES_16);
+        fixture.componentRef.setInput('procedures', [
+          fakeProcedure({ toothNumber: null, applicationType, categoryColor: '#3f6212' }),
+        ]);
+        await settle(fixture);
+
+        // La caries del 16 se sigue viendo.
+        expect(toothFill(fixture, 16)).toBe('#dc2626');
+        for (const n of [18, 11, 21, 28, 36, 48]) {
+          expect(toothFill(fixture, n)).not.toBe('#3f6212');
+        }
+      },
+    );
+
+    it('un tratamiento de varios dientes pinta cada uno de sus dientes', async () => {
       const { fixture } = setup();
       fixture.componentRef.setInput('treatments', [fakeTreatment()]);
       fixture.componentRef.setInput('procedures', [
-        fakeProcedure({ toothNumber: null, applicationType: 'upper_arch', categoryColor: '#0f766e' }),
+        fakeProcedure({ id: 'g-16', toothNumber: 16, applicationType: 'multiple_teeth', applicationGroupId: 'grp-1', categoryColor: '#3f6212' }),
+        fakeProcedure({ id: 'g-17', toothNumber: 17, applicationType: 'multiple_teeth', applicationGroupId: 'grp-1', categoryColor: '#3f6212' }),
       ]);
       await settle(fixture);
 
-      for (const n of [18, 11, 21, 28]) {
-        expect(toothFill(fixture, n)).toBe('#0f766e');
-      }
-      expect(toothFill(fixture, 36)).toBe('transparent');
+      expect(toothFill(fixture, 16)).toBe('#3f6212');
+      expect(toothFill(fixture, 17)).toBe('#3f6212');
+    });
+
+    it('un diente con dos diagnósticos muestra "+1" y los lista en su etiqueta', async () => {
+      const { fixture } = setup();
+      fixture.componentRef.setInput('treatments', [fakeTreatment()]);
+      fixture.componentRef.setInput('currentExam', {
+        ...EXAM_WITH_CARIES_16,
+        findings: [
+          // El de varios dientes llega primero, pero gana el de un solo diente.
+          {
+            ...EXAM_WITH_CARIES_16.findings[0],
+            id: 'finding-perio',
+            diagnosisName: 'Periodontitis',
+            diagnosisColor: '#0d9488',
+            diagnosisScope: 'multiple_teeth',
+            applicationGroupId: 'grp-perio',
+          },
+          EXAM_WITH_CARIES_16.findings[0],
+        ],
+      });
+      await settle(fixture);
+
+      expect(toothFill(fixture, 16)).toBe('#dc2626');
+      const cell = (fixture.nativeElement as HTMLElement).querySelector('.odontogram-chart__cell[data-tooth="16"]')!;
+      expect(cell.querySelector('.odontogram-chart__cell-badge')?.textContent?.trim()).toBe('+1');
+      expect(cell.getAttribute('aria-label')).toBe('Diente 16: Caries de segundo grado, Periodontitis');
     });
 
     it('un tratamiento general no pinta ningún diente ni aparece en la leyenda', async () => {

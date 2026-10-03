@@ -17,7 +17,7 @@ import {
   OdontogramChartComponent,
   type OdontogramLegendItem,
 } from '../../../../shared/ui/odontogram-chart/odontogram-chart';
-import { examToothColorMap } from '../../../../shared/utils/odontogram-paint.util';
+import { examToothColorMap, examToothNames } from '../../../../shared/utils/odontogram-paint.util';
 import {
   CatalogPickerComponent,
   type CatalogPickerExtraGroup,
@@ -62,9 +62,15 @@ const SURFACE_LABELS: Record<ToothSurfaceCode, string> = {
  * de arcada (se guardan sin toothNumber). General, tejidos blandos, unidad,
  * etc. no pintan nada.
  */
+/**
+ * Dientes que pinta un tratamiento ya realizado (CLI-179): solo los de un
+ * diente o de varios dientes concretos (una fila por diente). Los de arcada y
+ * boca completa (y los de tejido blando, prótesis, etc.) no pintan: se ven en
+ * el historial. Antes una limpieza de boca completa tapaba todos los
+ * diagnósticos.
+ */
 function procedureTeeth(procedure: ToothProcedure): number[] {
-  if (procedure.toothNumber !== null) { return [procedure.toothNumber]; }
-  return teethForApplicationType(procedure.applicationType);
+  return procedure.toothNumber === null ? [] : [procedure.toothNumber];
 }
 
 /** Lo que emite un guardado exitoso — el padre lo agrega a su lista y muestra el mensaje. */
@@ -197,6 +203,9 @@ export class RegisterTreatmentOdontogramComponent {
   // odontogram_entries). Cada finding ya trae su propio toothNumber (los de
   // varios dientes se guardan como una fila por diente, ver DentalExamFinding).
   // Un tratamiento realizado pisa al diagnóstico del mismo diente (CLI-107).
+  /** Nombres de los diagnósticos por diente, para el indicador "+N" (CLI-179). */
+  protected readonly toothNames = computed(() => examToothNames(this.currentExam()?.findings ?? []));
+
   protected readonly toothColorMap = computed(() => {
     const map = examToothColorMap(this.currentExam()?.findings ?? []);
     for (const [n, color] of this.treatmentColorMap()) { map.set(n, color); }

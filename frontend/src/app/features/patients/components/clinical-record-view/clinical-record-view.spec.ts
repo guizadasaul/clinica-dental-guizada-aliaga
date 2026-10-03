@@ -110,7 +110,7 @@ async function settle(fixture: ReturnType<typeof setup>['fixture']): Promise<voi
 
 function fillOf(root: HTMLElement, toothNumber: number): string | null {
   return root
-    .querySelector(`.odontogram-chart__cell[aria-label="Diente ${toothNumber}"] .odontogram-chart__cell-shape`)
+    .querySelector(`.odontogram-chart__cell[data-tooth="${toothNumber}"] .odontogram-chart__cell-shape`)
     ?.getAttribute('fill') ?? null;
 }
 
@@ -132,7 +132,7 @@ describe('ClinicalRecordViewComponent — exámenes dentales', () => {
   it('el odontograma es de solo lectura: sin role=button ni tabindex', async () => {
     const { fixture } = setup();
     await settle(fixture);
-    const cell = (fixture.nativeElement as HTMLElement).querySelector('.odontogram-chart__cell[aria-label="Diente 16"]');
+    const cell = (fixture.nativeElement as HTMLElement).querySelector('.odontogram-chart__cell[data-tooth="16"]');
 
     expect(cell?.getAttribute('role')).toBeNull();
     expect(cell?.getAttribute('tabindex')).toBeNull();
