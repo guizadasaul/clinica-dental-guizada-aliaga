@@ -162,6 +162,10 @@ export class PatientWizardComponent implements OnInit {
       if (existingId) {
         this.patientId.set(existingId);
         this.currentStep.set(this.startStep());
+        // Directo, sin esperar al efecto de abajo: así el paso 1 no se monta de
+        // pasada (ni un instante) cuando se abre en otro paso, sin importar el
+        // orden en que corran los efectos.
+        this.visitedSteps.set([this.startStep()]);
         void this.loadDentalExam(existingId);
       }
     }, { allowSignalWrites: true });
