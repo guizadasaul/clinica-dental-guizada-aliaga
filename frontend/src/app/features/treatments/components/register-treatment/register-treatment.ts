@@ -5,6 +5,7 @@ import {
   input,
   output,
   signal,
+  computed,
   effect,
 } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
@@ -20,6 +21,14 @@ import {
   type ProcedureRegisteredEvent,
 } from '../register-treatment-odontogram/register-treatment-odontogram';
 import { PageHeaderComponent } from '../../../../shared/ui/page-header/page-header';
+
+/** Una aplicación de un tratamiento: un diente, varios dientes juntos o ninguno. */
+interface RegisteredGroup {
+  readonly key: string;
+  readonly toothNumbers: number[];
+  readonly treatmentId: string;
+  readonly totalPrice: number;
+}
 
 @Component({
   selector: 'app-register-treatment',
@@ -58,6 +67,26 @@ export class RegisterTreatmentComponent {
   protected readonly currentExam = signal<DentalExam | null>(null);
   protected readonly registeredProcedures = signal<ToothProcedure[]>([]);
   protected readonly successMessage = signal<string | null>(null);
+
+  /**
+   * Un tratamiento de varios dientes se guarda como una fila por diente con
+   * el mismo applicationGroupId (precio completo en una, 0 en las demás). Se
+   * muestra en una sola línea con el precio una vez, como en el historial
+   * (CLI-180): antes cada diente parecía un cobro aparte.
+   */
+  protected readonly registeredGroups = computed<RegisteredGroup[]>(() => {
+    const groups = new Map<string, ToothProcedure[]>();
+    for (const p of this.registeredProcedures()) {
+      const key = p.applicationGroupId ?? p.id;
+      groups.set(key, [...(groups.get(key) ?? []), p]);
+    }
+    return [...groups].map(([key, rows]) => ({
+      key,
+      toothNumbers: rows.map((r) => r.toothNumber).filter((n): n is number => n !== null),
+      treatmentId: rows[0].treatmentId,
+      totalPrice: rows.reduce((sum, r) => sum + r.priceCharged, 0),
+    }));
+  });
 
   constructor() {
     effect(() => {

@@ -20,19 +20,23 @@
   />
 
   <!-- Registered procedures list -->
-  @if (registeredProcedures().length > 0) {
+  @if (registeredGroups().length > 0) {
     <div class="reg-treatment__procedures">
       <h4 class="reg-treatment__procedures-title">Tratamientos registrados del paciente</h4>
       <ul class="reg-treatment__procedures-list">
-        @for (proc of registeredProcedures(); track proc.id) {
+        @for (group of registeredGroups(); track group.key) {
           <li class="reg-treatment__procedure-item">
             <span class="material-symbols-outlined reg-treatment__procedure-icon">check_circle</span>
             <span class="reg-treatment__procedure-tooth">
-              @if (proc.toothNumber !== null) { Diente #{{ proc.toothNumber }} } @else { Sin diente asociado }
+              @switch (group.toothNumbers.length) {
+                @case (0) { Sin diente asociado }
+                @case (1) { Diente #{{ group.toothNumbers[0] }} }
+                @default { Dientes #{{ group.toothNumbers.join(', #') }} }
+              }
             </span>
             <span class="reg-treatment__procedure-sep">—</span>
-            <span class="reg-treatment__procedure-name">{{ getTreatmentName(proc.treatmentId) }}</span>
-            <span class="reg-treatment__procedure-price">{{ getTreatmentCurrencySymbol(proc.treatmentId) }} {{ proc.priceCharged }}</span>
+            <span class="reg-treatment__procedure-name">{{ getTreatmentName(group.treatmentId) }}</span>
+            <span class="reg-treatment__procedure-price">{{ getTreatmentCurrencySymbol(group.treatmentId) }} {{ group.totalPrice }}</span>
           </li>
         }
       </ul>

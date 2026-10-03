@@ -5,9 +5,9 @@ import {
   IsOptional,
   IsPositive,
   IsUUID,
-  Max,
   Min,
 } from 'class-validator';
+import { IsFdiToothNumber } from '../../../../shared/validators/tooth.validator.js';
 
 export class AddQuoteItemDto {
   @IsUUID()
@@ -17,8 +17,7 @@ export class AddQuoteItemDto {
   @IsOptional()
   @IsArray()
   @IsInt({ each: true })
-  @Min(11, { each: true })
-  @Max(85, { each: true })
+  @IsFdiToothNumber({ each: true })
   toothNumbers?: number[];
 
   @IsOptional()

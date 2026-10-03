@@ -18,6 +18,7 @@ import {
   type OdontogramLegendItem,
 } from '../../../../shared/ui/odontogram-chart/odontogram-chart';
 import { examToothColorMap, examToothNames } from '../../../../shared/utils/odontogram-paint.util';
+import { clinicToday } from '../../../../shared/utils/clinic-date.util';
 import {
   CatalogPickerComponent,
   type CatalogPickerExtraGroup,
@@ -25,7 +26,6 @@ import {
 } from '../../../../shared/ui/catalog-picker/catalog-picker';
 import {
   teethForApplicationType,
-  applicationTypeImpliesTeeth,
 } from '../../../../shared/constants/dental-chart.constants';
 import {
   TOOTH_SURFACE_CODES,
@@ -57,11 +57,6 @@ const SURFACE_LABELS: Record<ToothSurfaceCode, string> = {
   incisal: 'Incisal',
 };
 
-/**
- * Dientes que pinta un tratamiento: el suyo, o toda la arcada/boca para los
- * de arcada (se guardan sin toothNumber). General, tejidos blandos, unidad,
- * etc. no pintan nada.
- */
 /**
  * Dientes que pinta un tratamiento ya realizado (CLI-179): solo los de un
  * diente o de varios dientes concretos (una fila por diente). Los de arcada y
@@ -216,11 +211,13 @@ export class RegisterTreatmentOdontogramComponent {
   protected readonly panelOpen = signal(false);
   protected readonly panelTreatmentId = signal('');
   protected readonly panelToothNumbers = signal<number[]>([]);
+  /** Último diente clicado: al pasar de varios dientes a uno, queda este (CLI-180). */
+  private readonly lastClickedTooth = signal<number | null>(null);
   /** Superficies por diente — cada diente seleccionado tiene su propio juego (CLI-41). */
   protected readonly panelSurfaces = signal<Map<number, ToothSurfaces>>(new Map());
   protected readonly panelPriceCharged = signal(0);
   protected readonly panelQuantity = signal(1);
-  protected readonly panelProcedureDate = signal(new Date().toISOString().substring(0, 10));
+  protected readonly panelProcedureDate = signal(clinicToday());
   protected readonly panelNotes = signal('');
   protected readonly saving = signal(false);
   protected readonly formError = signal<string | null>(null);
@@ -260,10 +257,13 @@ export class RegisterTreatmentOdontogramComponent {
       return;
     }
     const type = this.panelApplicationType();
-    if (type === 'single_tooth') {
+    if (type === null || type === 'single_tooth') {
+      // Sin tratamiento elegido todavía, el clic cambia el diente del panel.
+      this.lastClickedTooth.set(toothNumber);
       this.panelToothNumbers.set([toothNumber]);
       this.reconcileSurfaces();
     } else if (type === 'multiple_teeth') {
+      this.lastClickedTooth.set(toothNumber);
       this.panelToothNumbers.update((prev) =>
         prev.includes(toothNumber)
           ? prev.filter((n) => n !== toothNumber)
@@ -280,19 +280,21 @@ export class RegisterTreatmentOdontogramComponent {
     this.panelSurfaces.set(new Map());
     this.panelPriceCharged.set(0);
     this.panelQuantity.set(1);
-    this.panelProcedureDate.set(new Date().toISOString().substring(0, 10));
+    this.panelProcedureDate.set(clinicToday());
     this.panelNotes.set('');
     this.formError.set(null);
   }
 
   protected openPanelForTooth(toothNumber: number): void {
     this.resetPanelFields();
+    this.lastClickedTooth.set(toothNumber);
     this.panelToothNumbers.set([toothNumber]);
     this.panelOpen.set(true);
   }
 
   protected onAddTreatmentClick(): void {
     this.resetPanelFields();
+    this.lastClickedTooth.set(null);
     this.panelToothNumbers.set([]);
     this.panelOpen.set(true);
   }
@@ -320,11 +322,15 @@ export class RegisterTreatmentOdontogramComponent {
     this.panelPriceCharged.set(treatment.basePrice);
     this.panelQuantity.set(1);
 
+    // Arcadas, boca completa y tipos sin diente no llevan dientes elegidos: el
+    // panel deja de decir "Diente #36" (CLI-180).
     const type = treatment.applicationType;
-    if (!applicationTypeImpliesTeeth(type)) {
+    if (type !== 'single_tooth' && type !== 'multiple_teeth') {
       this.panelToothNumbers.set([]);
     } else if (type === 'single_tooth' && this.panelToothNumbers().length > 1) {
-      this.panelToothNumbers.set(this.panelToothNumbers().slice(0, 1));
+      const teeth = this.panelToothNumbers();
+      const keep = teeth.find((n) => n === this.lastClickedTooth()) ?? teeth.at(-1);
+      this.panelToothNumbers.set(keep === undefined ? [] : [keep]);
     }
     this.reconcileSurfaces();
   }

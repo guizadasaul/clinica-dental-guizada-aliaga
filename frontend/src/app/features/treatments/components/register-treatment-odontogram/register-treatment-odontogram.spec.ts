@@ -229,6 +229,81 @@ describe('RegisterTreatmentOdontogramComponent', () => {
     expect(el(fixture, '.rto__panel-hint')?.textContent).toContain('arcada superior');
   });
 
+  describe('el panel no arrastra datos (CLI-180)', () => {
+    type PanelInternals = { onPanelTreatmentChange(id: string): void };
+    const changeTreatment = (fixture: ReturnType<typeof setup>['fixture'], id: string) =>
+      (fixture.componentInstance as unknown as PanelInternals).onPanelTreatmentChange(id);
+    const badge = (fixture: ReturnType<typeof setup>['fixture']) =>
+      el(fixture, '.rto__panel-tooth-badge')?.textContent ?? '';
+
+    it('con el panel abierto y sin tratamiento, el clic en otro diente cambia el diente', async () => {
+      const { fixture } = setup();
+      fixture.componentRef.setInput('treatments', [fakeTreatment()]);
+      await settle(fixture);
+
+      clickTooth(fixture, 16);
+      await settle(fixture);
+      clickTooth(fixture, 36);
+      await settle(fixture);
+
+      expect(badge(fixture)).toContain('Diente #36');
+    });
+
+    it('al elegir un tratamiento de arcada deja de mostrar el diente clicado', async () => {
+      const { fixture } = setup();
+      fixture.componentRef.setInput('treatments', [
+        fakeTreatment({ id: 't-lower', applicationType: 'lower_arch' }),
+      ]);
+      await settle(fixture);
+
+      clickTooth(fixture, 36);
+      await settle(fixture);
+      changeTreatment(fixture, 't-lower');
+      await settle(fixture);
+
+      expect(badge(fixture)).not.toContain('Diente #36');
+    });
+
+    it('de varios dientes a uno solo queda el último clicado, no el menor', async () => {
+      const { fixture } = setup();
+      fixture.componentRef.setInput('treatments', [
+        fakeTreatment({ id: 't-multi', applicationType: 'multiple_teeth' }),
+        fakeTreatment({ id: 't-single', applicationType: 'single_tooth' }),
+      ]);
+      await settle(fixture);
+
+      clickTooth(fixture, 26);
+      await settle(fixture);
+      changeTreatment(fixture, 't-multi');
+      await settle(fixture);
+      clickTooth(fixture, 14);
+      await settle(fixture);
+      changeTreatment(fixture, 't-single');
+      await settle(fixture);
+
+      expect(badge(fixture)).toContain('Diente #14');
+    });
+
+    it('la fecha por defecto es la de hoy en la clínica, no la de UTC', async () => {
+      vi.useFakeTimers({ toFake: ['Date'] });
+      vi.setSystemTime(new Date('2026-10-04T01:30:00Z')); // 21:30 en Bolivia
+      try {
+        const { fixture } = setup();
+        fixture.componentRef.setInput('treatments', [fakeTreatment()]);
+        await settle(fixture);
+
+        clickTooth(fixture, 16);
+        await settle(fixture);
+        changeTreatment(fixture, 'treatment-1');
+        await settle(fixture);
+
+        expect(el<HTMLInputElement>(fixture, '.rto__panel input[type="date"]').value).toBe('2026-10-03');
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+  });
+
   it('general: "Agregar tratamiento" abre el panel sin diente y no muestra superficies', async () => {
     const { fixture } = setup();
     fixture.componentRef.setInput('treatments', [
