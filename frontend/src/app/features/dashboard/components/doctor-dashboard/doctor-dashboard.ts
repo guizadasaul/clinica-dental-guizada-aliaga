@@ -23,7 +23,6 @@ import { DoctorAgendaComponent } from '../../../appointments/components/doctor-a
 import { AppointmentsService } from '../../../appointments/services/appointments.service';
 import type { AppointmentAgendaItem } from '../../../appointments/models/appointment.model';
 import { appointmentPatientLabel } from '../../../appointments/models/appointment-patient-label';
-import { TestimonialReviewComponent } from '../../../testimonials/components/testimonial-review/testimonial-review';
 import type { Patient, PatientInviteContact } from '../../../patients/models/patient.model';
 import type { InviteChannel } from '../../../patient-invites/services/patient-invites.service';
 
@@ -70,7 +69,6 @@ interface AppointmentSlot {
     ClinicalRecordViewComponent,
     QuoteBuilderComponent,
     DoctorAgendaComponent,
-    TestimonialReviewComponent,
     FinancesPageComponent,
   ],
   templateUrl: './doctor-dashboard.html',

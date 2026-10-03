@@ -16,11 +16,12 @@ import { UserRole } from '../../../auth/domain/value-objects/UserRole.js';
 import { UpdateTestimonialStatusDto } from './dto/update-testimonial-status.dto.js';
 
 // Moderación de comentarios — distinto del TestimonialsController público
-// (mismo recurso, rutas separadas: acá solo entra el odontólogo logueado).
-@Controller('testimonials')
+// (mismo recurso, rutas separadas: acá solo entra el administrador logueado,
+// CLI-188; antes era del odontólogo).
+@Controller('admin/testimonials')
 @UseGuards(SupabaseAuthGuard, RolesGuard)
-@Roles(UserRole.ODONTOLOGIST)
-export class DoctorTestimonialsController {
+@Roles(UserRole.ADMIN)
+export class AdminTestimonialsController {
   constructor(private readonly testimonialsService: TestimonialsService) {}
 
   @Get('pending')

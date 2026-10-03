@@ -34,7 +34,6 @@ const DOCTOR_NAV: NavItem[] = [
   { icon: 'calendar_month', label: 'Agenda', key: 'schedule' },
   { icon: 'group', label: 'Pacientes', key: 'patients' },
   { icon: 'payments', label: 'Finanzas', key: 'finances' },
-  { icon: 'rate_review', label: 'Comentarios', key: 'testimonials' },
   { icon: 'settings', label: 'Configuración', key: 'settings' },
 ];
 
@@ -42,6 +41,7 @@ const ADMIN_NAV: NavItem[] = [
   { icon: 'home', label: 'Inicio', key: 'home' },
   { icon: 'group', label: 'Doctores', key: 'doctors' },
   { icon: 'bar_chart', label: 'Reportes', key: 'reports' },
+  { icon: 'rate_review', label: 'Comentarios', key: 'testimonials' },
 ];
 
 @Component({

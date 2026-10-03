@@ -503,7 +503,7 @@ Los formularios públicos de escritura tienen límite de peticiones por IP y hor
 | diagnoses, medical-conditions  | `GET /diagnoses`, `GET /medical-conditions`                                                                                                 | odontólogo                       |
 | quotes                         | `POST / GET /patients/:patientId/quotes`, `GET /quotes/:id`, `POST /quotes/:id/items`, `DELETE /quotes/:id/items/:itemId`, `POST /quotes/:id/payments` | odontólogo               |
 | appointments                   | `GET /appointments` (`status`, `from`, `to`; `doctorId` solo se respeta para admin)                                                         | odontólogo, admin                |
-| testimonials                   | `GET /testimonials/pending`, `PATCH /testimonials/:id/status`                                                                               | odontólogo                       |
+| testimonials                   | `GET /admin/testimonials/pending`, `PATCH /admin/testimonials/:id/status`                                                                   | administrador                    |
 | admin                          | `GET / POST /admin/doctors`, `GET / PATCH /admin/doctors/:id`, `PATCH /admin/doctors/:id/deactivate`                                        | admin                            |
 | reports                        | `GET /admin/reports/operational`, `GET /admin/reports/financial` (`from`, `to`, `doctorId?`)                                                | admin                            |
 

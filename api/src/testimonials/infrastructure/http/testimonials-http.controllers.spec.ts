@@ -2,7 +2,7 @@ import { THROTTLER_LIMIT } from '@nestjs/throttler/dist/throttler.constants';
 import { plainToInstance } from 'class-transformer';
 import { validate } from 'class-validator';
 import { TestimonialsController } from './testimonials.controller';
-import { DoctorTestimonialsController } from './doctor-testimonials.controller';
+import { AdminTestimonialsController } from './admin-testimonials.controller';
 import { TestimonialsService } from '../../application/testimonials.service';
 import { UpdateTestimonialStatusDto } from './dto/update-testimonial-status.dto';
 
@@ -60,8 +60,8 @@ describe('controllers de comentarios', () => {
     });
   });
 
-  describe('DoctorTestimonialsController (moderación)', () => {
-    const controller = new DoctorTestimonialsController(
+  describe('AdminTestimonialsController (moderación)', () => {
+    const controller = new AdminTestimonialsController(
       service as unknown as TestimonialsService,
     );
 

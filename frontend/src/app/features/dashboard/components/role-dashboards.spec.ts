@@ -20,6 +20,8 @@ class TreatmentHistoryStub {
 class AdminDoctorsStub {}
 @Component({ selector: 'app-reports-page', standalone: true, template: 'reportes' })
 class ReportsStub {}
+@Component({ selector: 'app-testimonial-review', standalone: true, template: 'comentarios' })
+class TestimonialReviewStub {}
 
 function auth(displayName: string | null) {
   return { provide: AuthService, useValue: { currentUser: signal({ displayName }) } };
@@ -158,7 +160,7 @@ describe('AdminDashboardComponent', () => {
   function setup(nav: string, name: string | null = 'Marylu Aliaga') {
     TestBed.configureTestingModule({ imports: [AdminDashboardComponent], providers: [auth(name)] });
     TestBed.overrideComponent(AdminDashboardComponent, {
-      set: { imports: [AdminDoctorsStub, ReportsStub, LogoComponent] },
+      set: { imports: [AdminDoctorsStub, ReportsStub, TestimonialReviewStub, LogoComponent] },
     });
     const fixture = TestBed.createComponent(AdminDashboardComponent);
     fixture.componentRef.setInput('activeNav', nav);
@@ -172,20 +174,22 @@ describe('AdminDashboardComponent', () => {
     expect(setup('home', null).root.textContent).toContain('Administrador');
   });
 
-  it('los accesos llevan a doctores y a reportes', () => {
+  it('los accesos llevan a doctores, a reportes y a comentarios', () => {
     const { fixture, root } = setup('home');
     const emitted: string[] = [];
     fixture.componentInstance.navChange.subscribe((nav) => emitted.push(nav));
 
     root.querySelector<HTMLButtonElement>('.action-card--primary')!.click();
     root.querySelector<HTMLButtonElement>('.action-card--tertiary')!.click();
+    root.querySelector<HTMLButtonElement>('.action-card--secondary')!.click();
 
-    expect(emitted).toEqual(['doctors', 'reports']);
+    expect(emitted).toEqual(['doctors', 'reports', 'testimonials']);
   });
 
   it.each([
     ['doctors', 'doctores'],
     ['reports', 'reportes'],
+    ['testimonials', 'comentarios'],
   ])('la sección "%s" muestra su pantalla', (nav, content) => {
     expect(setup(nav).root.textContent).toContain(content);
   });

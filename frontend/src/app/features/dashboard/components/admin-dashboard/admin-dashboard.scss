@@ -126,6 +126,12 @@
     &:hover { border-color: var(--color-tertiary); }
     .action-card__icon { color: var(--color-tertiary); background: rgb(0 104 121 / 0.08); }
   }
+
+  // Comentarios (CLI-188)
+  &--secondary {
+    &:hover { border-color: var(--color-primary-dark); }
+    .action-card__icon { color: var(--color-primary-dark); background: var(--color-primary-subtle); }
+  }
 }
 
 .action-card__icon {

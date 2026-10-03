@@ -75,8 +75,6 @@ class QuoteBuilderStub {
 @Component({ selector: 'app-doctor-agenda', standalone: true, template: 'agenda' })
 class AgendaStub {}
 
-@Component({ selector: 'app-testimonial-review', standalone: true, template: 'comentarios' })
-class TestimonialReviewStub {}
 
 const PATIENT = { id: 'patient-1', firstName: 'Ana' } as Patient;
 const INVITE: PatientInviteContact = {
@@ -144,7 +142,6 @@ function setup(
         ClinicalRecordStub,
         QuoteBuilderStub,
         AgendaStub,
-        TestimonialReviewStub,
       ],
     },
   });
@@ -272,7 +269,6 @@ describe('DoctorDashboardComponent', () => {
 
   it.each([
     ['schedule', 'agenda'],
-    ['testimonials', 'comentarios'],
   ])('la sección "%s" muestra su pantalla', async (nav, content) => {
     const { fixture } = setup({ nav });
     await render(fixture);
