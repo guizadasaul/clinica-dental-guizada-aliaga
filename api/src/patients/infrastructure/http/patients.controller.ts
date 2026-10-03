@@ -86,6 +86,7 @@ export class PatientsController {
       zona: dto.zona,
       ciudad: dto.ciudad,
       phone: dto.phone,
+      email: dto.email,
       emergencyContactFirstName: dto.emergencyContactFirstName,
       emergencyContactLastName: dto.emergencyContactLastName,
       emergencyContactPhone: dto.emergencyContactPhone,

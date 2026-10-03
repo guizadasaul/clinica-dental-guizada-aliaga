@@ -1,5 +1,6 @@
 import {
   IsDateString,
+  IsEmail,
   IsIn,
   IsNotEmpty,
   IsOptional,
@@ -11,6 +12,7 @@ import {
 import {
   EmptyToUndefined,
   NormalizeDni,
+  NormalizeEmail,
   NormalizeName,
   Trim,
 } from '../../../../shared/validators/transforms.js';
@@ -131,13 +133,23 @@ export class CreatePatientDto {
   // Salida siempre en E.164 (la emite <app-phone-input> en el frontend).
   // @MaxLength(20) por la columna VARCHAR(20), no por el formato en sí.
   // El teléfono del PACIENTE (a diferencia del de emergencia) sigue opcional
-  // — no estaba en la lista de campos que pasan a obligatorios.
+  // por sí solo: desde CLI-181 se exige al menos uno de teléfono o correo, y
+  // esa regla vive en PatientsService (también cuenta lo que el usuario ya
+  // tenga guardado).
   @IsOptional()
   @EmptyToUndefined()
   @Trim()
   @IsE164Phone()
   @MaxLength(20)
   phone?: string;
+
+  /** Correo de contacto (CLI-181): se guarda en users.email. */
+  @IsOptional()
+  @EmptyToUndefined()
+  @NormalizeEmail()
+  @IsEmail({}, { message: 'El correo electrónico no es válido.' })
+  @MaxLength(255)
+  email?: string;
 
   // Obligatorio: el contacto de emergencia completo (nombres, apellidos,
   // teléfono, parentesco) pasa a exigirse junto con los demás campos de la

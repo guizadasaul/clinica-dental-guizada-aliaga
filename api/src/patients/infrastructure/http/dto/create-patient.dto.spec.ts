@@ -167,6 +167,31 @@ describe('CreatePatientDto', () => {
     expect(errors.some((e) => e.property === 'phone')).toBe(true);
   });
 
+  // CLI-181: el correo es opcional en el DTO (la regla "teléfono o correo" la
+  // aplica el servicio) y llega normalizado.
+  it('acepta un correo válido y lo deja sin espacios y en minúsculas', async () => {
+    const dto = plainToInstance(CreatePatientDto, {
+      ...VALID_PATIENT,
+      email: '  Ana.Arce@Mail.COM ',
+    });
+    expect(await validate(dto)).toHaveLength(0);
+    expect(dto.email).toBe('ana.arce@mail.com');
+  });
+
+  it('rechaza un correo con formato inválido', async () => {
+    const errors = await validatePatient({ email: 'ana@' });
+    expect(errors.some((e) => e.property === 'email')).toBe(true);
+  });
+
+  it('un correo vacío se trata como no enviado', async () => {
+    const dto = plainToInstance(CreatePatientDto, {
+      ...VALID_PATIENT,
+      email: '',
+    });
+    expect(await validate(dto)).toHaveLength(0);
+    expect(dto.email).toBeUndefined();
+  });
+
   it('"" en un campo de texto opcional se trata como no enviado (EmptyToUndefined)', async () => {
     const dto = plainToInstance(CreatePatientDto, {
       ...VALID_PATIENT,

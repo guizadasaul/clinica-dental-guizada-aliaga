@@ -13,6 +13,8 @@ export interface Patient {
   zona: string | null;
   ciudad: string | null;
   phone: string | null;
+  /** Correo de contacto (CLI-181) — vive en users.email. */
+  email?: string | null;
   emergencyContactFirstName: string | null;
   emergencyContactLastName: string | null;
   emergencyContactPhone: string | null;

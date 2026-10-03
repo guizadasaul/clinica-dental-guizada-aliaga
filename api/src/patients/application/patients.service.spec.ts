@@ -147,6 +147,7 @@ const mockUserRepo = {
   findByAuthUserId: jest.fn(),
   findById: jest.fn(),
   findActiveByPhone: jest.fn(),
+  findByEmail: jest.fn(),
   upsertByAuthUserId: jest.fn(),
   createPlaceholder: jest.fn(),
   linkAuthIdentity: jest.fn(),
@@ -226,6 +227,17 @@ describe('PatientsService', () => {
   });
 
   describe('createPatient', () => {
+    beforeEach(() => {
+      // Una persona ya registrada, con correo: cumple la regla de contacto
+      // (CLI-181) aunque el alta no traiga teléfono ni correo.
+      mockUserRepo.findById.mockReset();
+      mockUserRepo.findById.mockResolvedValue(
+        makeAppUser(UserRole.PATIENT, 'target-user'),
+      );
+      mockUserRepo.findByEmail.mockReset();
+      mockUserRepo.findByEmail.mockResolvedValue(null);
+    });
+
     it('throws NotFoundException when the caller has no row in users', async () => {
       mockUserRepo.findByAuthUserId.mockResolvedValue(null);
 
@@ -313,6 +325,55 @@ describe('PatientsService', () => {
       );
     });
 
+    // CLI-181: con userId, vale el contacto que la persona ya tenga guardado.
+    it('con userId sin contacto en el alta ni en la persona se rechaza', async () => {
+      mockUserRepo.findByAuthUserId.mockResolvedValue(
+        makeAppUser(UserRole.ODONTOLOGIST, 'doctor-id'),
+      );
+      mockUserRepo.findById.mockResolvedValue(
+        new User(
+          'some-other-user-id',
+          null,
+          null,
+          UserRole.PATIENT,
+          'Name',
+          null,
+          null,
+          true,
+          new Date(),
+          new Date(),
+        ),
+      );
+
+      await expect(
+        service.createPatient(DOCTOR_AUTH_ID, 'some-other-user-id', {
+          firstName: 'A',
+          lastNamePaternal: 'B',
+          birthDate: new Date(),
+        }),
+      ).rejects.toThrow('Indica un teléfono o un correo electrónico');
+      expect(mockPatientRepo.create).not.toHaveBeenCalled();
+    });
+
+    it('con userId guarda el correo nuevo en el usuario antes de crear la ficha', async () => {
+      mockUserRepo.findByAuthUserId.mockResolvedValue(
+        makeAppUser(UserRole.ODONTOLOGIST, 'doctor-id'),
+      );
+      mockPatientRepo.create.mockResolvedValue(fakePatient());
+
+      await service.createPatient(DOCTOR_AUTH_ID, 'some-other-user-id', {
+        firstName: 'A',
+        lastNamePaternal: 'B',
+        birthDate: new Date(),
+        email: 'nuevo@mail.com',
+      });
+
+      expect(mockUserRepo.updateContactInfo).toHaveBeenCalledWith(
+        'some-other-user-id',
+        { email: 'nuevo@mail.com' },
+      );
+    });
+
     // CLI-58: el doctor asignado es quien hace el alta, cuando es odontólogo.
     it('assigns the doctor doing the alta as assignedDoctorId', async () => {
       mockUserRepo.findByAuthUserId.mockResolvedValue(
@@ -383,7 +444,7 @@ describe('PatientsService', () => {
         await service.createPatient(DOCTOR_AUTH_ID, undefined, NEW_PATIENT);
 
         expect(mockPatientRepo.createWithPlaceholderUser).toHaveBeenCalledWith(
-          { displayName: 'Ana Arce Rojas', phone: '71234567' },
+          { displayName: 'Ana Arce Rojas', phone: '71234567', email: null },
           expect.objectContaining({
             firstName: 'Ana',
             assignedDoctorId: 'doctor-id',
@@ -397,14 +458,55 @@ describe('PatientsService', () => {
           firstName: 'Ana',
           lastNamePaternal: 'Arce',
           birthDate: new Date(),
+          email: 'ana@mail.com',
         });
 
         expect(mockPatientRepo.findByDocument).not.toHaveBeenCalled();
         expect(mockUserRepo.findActiveByPhone).not.toHaveBeenCalled();
         expect(mockPatientRepo.createWithPlaceholderUser).toHaveBeenCalledWith(
-          { displayName: 'Ana Arce', phone: null },
+          { displayName: 'Ana Arce', phone: null, email: 'ana@mail.com' },
           expect.anything(),
         );
+      });
+
+      // CLI-181: teléfono o correo, al menos uno.
+      it('sin teléfono ni correo se rechaza y no crea nada', async () => {
+        await expect(
+          service.createPatient(DOCTOR_AUTH_ID, undefined, {
+            firstName: 'Ana',
+            lastNamePaternal: 'Arce',
+            birthDate: new Date(),
+          }),
+        ).rejects.toThrow('Indica un teléfono o un correo electrónico');
+        expect(
+          mockPatientRepo.createWithPlaceholderUser,
+        ).not.toHaveBeenCalled();
+      });
+
+      it('solo con teléfono alcanza', async () => {
+        await service.createPatient(DOCTOR_AUTH_ID, undefined, NEW_PATIENT);
+
+        expect(mockUserRepo.findByEmail).not.toHaveBeenCalled();
+        expect(mockPatientRepo.createWithPlaceholderUser).toHaveBeenCalledTimes(
+          1,
+        );
+      });
+
+      it('un correo que ya es de otra persona se bloquea y dice quién es', async () => {
+        mockUserRepo.findByEmail.mockResolvedValue({
+          ...makeAppUser(UserRole.PATIENT, 'someone'),
+          displayName: 'Carla Cruz',
+        });
+
+        await expect(
+          service.createPatient(DOCTOR_AUTH_ID, undefined, {
+            ...NEW_PATIENT,
+            email: 'carla@mail.com',
+          }),
+        ).rejects.toThrow('Ya existe Carla Cruz con ese correo');
+        expect(
+          mockPatientRepo.createWithPlaceholderUser,
+        ).not.toHaveBeenCalled();
       });
 
       it('un documento que ya tiene ficha se bloquea y dice quién es', async () => {
@@ -693,6 +795,11 @@ describe('PatientsService', () => {
       mockUserRepo.updateContactInfo.mockReset();
       mockUserRepo.findById.mockReset();
       mockPatientRepo.findPatientById.mockReset();
+      mockPatientRepo.findPatientById.mockResolvedValue(
+        fakePatient({ userId: 'user-1' }),
+      );
+      mockUserRepo.findByEmail.mockReset();
+      mockUserRepo.findByEmail.mockResolvedValue(null);
       mockSupabaseAdminService.setConfirmedPhone.mockReset();
     });
 
@@ -740,6 +847,37 @@ describe('PatientsService', () => {
       await expect(
         service.updatePatient('patient-1', { email: 'taken@example.com' }),
       ).rejects.toThrow(ConflictException);
+    });
+
+    // CLI-181: se revisa antes de guardar nada y dice quién tiene el correo.
+    it('un correo que ya es de otra persona se rechaza antes de guardar la ficha', async () => {
+      mockUserRepo.findByEmail.mockResolvedValue({
+        ...makeAppUser(UserRole.PATIENT, 'someone-else'),
+        displayName: 'Carla Cruz',
+      });
+
+      await expect(
+        service.updatePatient('patient-1', {
+          firstName: 'X',
+          email: 'carla@example.com',
+        }),
+      ).rejects.toThrow('Ya existe Carla Cruz con ese correo');
+      expect(mockPatientRepo.updatePatient).not.toHaveBeenCalled();
+    });
+
+    it('el propio correo del paciente no cuenta como repetido', async () => {
+      mockUserRepo.findByEmail.mockResolvedValue(
+        makeAppUser(UserRole.PATIENT, 'user-1'),
+      );
+      mockPatientRepo.updatePatient.mockResolvedValue(
+        fakePatient({ userId: 'user-1' }),
+      );
+
+      await service.updatePatient('patient-1', { email: 'same@example.com' });
+
+      expect(mockUserRepo.updateContactInfo).toHaveBeenCalledWith('user-1', {
+        email: 'same@example.com',
+      });
     });
 
     it('syncs the phone onto the linked user when provided', async () => {

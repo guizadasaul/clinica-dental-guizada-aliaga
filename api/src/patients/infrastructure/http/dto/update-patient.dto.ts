@@ -1,12 +1,7 @@
 import { OmitType, PartialType } from '@nestjs/mapped-types';
-import { IsEmail, IsOptional, MaxLength } from 'class-validator';
 import { CreatePatientDto } from './create-patient.dto.js';
 
+// El correo viene de CreatePatientDto (CLI-181), también opcional acá.
 export class UpdatePatientDto extends PartialType(
   OmitType(CreatePatientDto, ['userId'] as const),
-) {
-  @IsOptional()
-  @IsEmail()
-  @MaxLength(255)
-  email?: string;
-}
+) {}

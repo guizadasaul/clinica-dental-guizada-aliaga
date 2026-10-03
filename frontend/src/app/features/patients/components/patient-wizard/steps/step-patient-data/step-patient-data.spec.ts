@@ -47,6 +47,7 @@ const SEX = '#sex';
 const OCCUPATION = '#occupation';
 const DOCUMENT_TYPE = '#documentType';
 const DNI = '#dni';
+const EMAIL = '#email';
 const ADDRESS = '#address';
 const ZONA = '#zona';
 const CIUDAD = '#ciudad';
@@ -79,6 +80,7 @@ function fillRequiredFields(fixture: ReturnType<typeof setup>): void {
   type(el(fixture, OCCUPATION), 'Ingeniero');
   select(el<HTMLSelectElement>(fixture, DOCUMENT_TYPE), 'ci');
   type(el(fixture, DNI), '12345678');
+  type(el(fixture, EMAIL), 'juan@correo.com');
   type(el(fixture, ADDRESS), 'Av. Siempre Viva 123');
   type(el(fixture, ZONA), 'Zona Norte');
   type(el(fixture, CIUDAD), 'Cochabamba');
@@ -117,6 +119,69 @@ describe('StepPatientDataComponent', () => {
     expect(el(fixture, '#firstName-err')?.textContent).toContain('El nombre es obligatorio.');
     expect(el(fixture, '#dni-err')?.textContent).toContain('El número de documento es obligatorio.');
     expect(el(fixture, '#documentType-err')?.textContent).toContain('El tipo de documento es obligatorio.');
+  });
+
+  // CLI-181: teléfono o correo, al menos uno.
+  describe('teléfono o correo (CLI-181)', () => {
+    async function submitWith(
+      fixture: ReturnType<typeof setup>,
+      { email, phone }: { email?: string; phone?: string },
+    ) {
+      const emitted: Omit<CreatePatientRequest, 'userId'>[] = [];
+      fixture.componentInstance.submitStep.subscribe((value) => emitted.push(value));
+      fillRequiredFields(fixture);
+      type(el(fixture, EMAIL), email ?? '');
+      if (phone) {
+        const [patientPhone] = elAll<HTMLInputElement>(fixture, PHONE_NATIONAL_INPUTS);
+        type(patientPhone, phone);
+      }
+      await settle(fixture);
+      submitForm(fixture);
+      await settle(fixture);
+      return emitted;
+    }
+
+    it('sin teléfono ni correo no emite y lo dice debajo del correo', async () => {
+      const fixture = setup();
+      await settle(fixture);
+
+      const emitted = await submitWith(fixture, {});
+
+      expect(emitted).toHaveLength(0);
+      expect(el(fixture, '#email-err')?.textContent).toContain('teléfono o un correo');
+    });
+
+    it('con solo el correo emite, normalizado, y sin teléfono', async () => {
+      const fixture = setup();
+      await settle(fixture);
+
+      const emitted = await submitWith(fixture, { email: '  Ana@Correo.COM ' });
+
+      expect(emitted).toHaveLength(1);
+      expect(emitted[0].email).toBe('ana@correo.com');
+      expect(emitted[0].phone).toBeUndefined();
+    });
+
+    it('con solo el teléfono emite sin correo', async () => {
+      const fixture = setup();
+      await settle(fixture);
+
+      const emitted = await submitWith(fixture, { phone: '71234567' });
+
+      expect(emitted).toHaveLength(1);
+      expect(emitted[0].phone).toBe('+59171234567');
+      expect(emitted[0].email).toBeUndefined();
+    });
+
+    it('un correo con formato inválido no emite, aunque haya teléfono', async () => {
+      const fixture = setup();
+      await settle(fixture);
+
+      const emitted = await submitWith(fixture, { email: 'ana@', phone: '71234567' });
+
+      expect(emitted).toHaveLength(0);
+      expect(el(fixture, '#email-err')?.textContent).toContain('no es válido');
+    });
   });
 
   it('rechaza una fecha de nacimiento futura sin llegar a emitir', async () => {
@@ -224,6 +289,7 @@ describe('StepPatientDataComponent', () => {
       zona: 'Zona Norte',
       ciudad: 'Cochabamba',
       phone: undefined,
+      email: 'juan@correo.com',
       documentType: 'ci',
       dni: '12345678',
       emergencyContactFirstName: 'Maria',
@@ -397,6 +463,7 @@ describe('StepPatientDataComponent', () => {
       zona: 'Zona Sur',
       ciudad: 'La Paz',
       phone: null,
+      email: 'maria@correo.com',
       emergencyContactFirstName: 'Pedro',
       emergencyContactLastName: 'Lopez',
       emergencyContactPhone: '+59177001122',

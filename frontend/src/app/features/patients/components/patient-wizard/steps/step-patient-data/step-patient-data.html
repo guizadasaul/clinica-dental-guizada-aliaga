@@ -182,6 +182,28 @@
         <span class="step-form__label">Teléfono</span>
         <app-phone-input [value]="phoneE164()" [disabled]="loading()" (changed)="onPhoneChanged($event)" />
       </div>
+      <div class="step-form__field">
+        <label class="step-form__label" for="email">Correo electrónico</label>
+        <input
+          id="email"
+          class="step-form__input"
+          [class.step-form__input--invalid]="email.showError()"
+          type="email"
+          autocomplete="off"
+          [value]="email.value()"
+          (input)="email.set($any($event.target).value)"
+          (blur)="email.markTouched()"
+          maxlength="255"
+          placeholder="Ej: ana@correo.com"
+          [attr.aria-invalid]="email.showError() || null"
+          [attr.aria-describedby]="email.showError() ? 'email-err' : null"
+        />
+        @if (email.showError()) {
+          <p class="step-form__field-error" id="email-err" role="alert">{{ email.error() }}</p>
+        } @else {
+          <p class="step-form__hint">Teléfono o correo: con uno de los dos basta.</p>
+        }
+      </div>
     </div>
     <div class="step-form__field step-form__field--full">
       <label class="step-form__label" for="address">Dirección <span class="step-form__req">*</span></label>

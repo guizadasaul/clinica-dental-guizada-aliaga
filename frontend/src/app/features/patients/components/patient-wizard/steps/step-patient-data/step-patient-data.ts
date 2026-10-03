@@ -21,6 +21,7 @@ import {
   dniFormatMessage,
   DNI_MAX_LENGTH,
 } from '../../../../../../shared/validation/dni.validator';
+import { normalizeEmail, isValidEmail } from '../../../../../../shared/validation/email.validator';
 import { normalizeText, optionalTextError } from '../../../../../../shared/validation/text.validator';
 import { isNotFutureDate, isAgeWithin, isNotBefore } from '../../../../../../shared/validation/date.validator';
 import type { Patient, PatientFieldOptions } from '../../../../models/patient.model';
@@ -154,6 +155,16 @@ export class StepPatientDataComponent {
   protected readonly emergencyContactPhoneE164 = signal('');
   protected readonly emergencyContactPhoneOk = signal(false);
 
+  // CLI-181: el paciente necesita teléfono O correo (uno de los dos basta).
+  // El error de "falta contacto" cuelga del correo porque es un Field; el del
+  // teléfono sigue siendo solo el de formato de app-phone-input.
+  protected readonly email = field<string>('', (v: string) => {
+    if (v.trim()) {
+      return isValidEmail(v) ? null : 'El correo electrónico no es válido.';
+    }
+    return this.hasPhone() ? null : 'Indica un teléfono o un correo electrónico.';
+  });
+
   protected readonly formError = signal<string | null>(null);
   // <app-phone-input> no expone markTouched() — este campo no puede sumarse
   // al patrón field()/touchAll(), así que usamos un signal aparte para saber
@@ -170,6 +181,7 @@ export class StepPatientDataComponent {
     this.occupation,
     this.documentType,
     this.dni,
+    this.email,
     this.address,
     this.zona,
     this.ciudad,
@@ -212,6 +224,7 @@ export class StepPatientDataComponent {
         this.lastVisitTreatment.reset(patient.lastVisitTreatment ?? '');
         this.familyHistory.reset(patient.familyHistory ?? '');
         this.phoneE164.set(patient.phone ?? '');
+        this.email.reset(patient.email ?? '');
         this.emergencyContactPhoneE164.set(patient.emergencyContactPhone ?? '');
         // <app-phone-input> no re-emite `changed` cuando su `[value]` cambia
         // por prefill externo (solo al tipear) — sin esto, un paciente con
@@ -222,6 +235,10 @@ export class StepPatientDataComponent {
       },
       { allowSignalWrites: true },
     );
+  }
+
+  private hasPhone(): boolean {
+    return this.phoneE164() !== '' && !isBareCallingCode(this.phoneE164());
   }
 
   protected onPhoneChanged(event: { e164: string; valid: boolean }): void {
@@ -264,6 +281,7 @@ export class StepPatientDataComponent {
       zona: normalizeText(this.zona.value()),
       ciudad: normalizeText(this.ciudad.value()),
       phone: isBareCallingCode(this.phoneE164()) ? undefined : this.phoneE164(),
+      email: normalizeEmail(this.email.value()) || undefined,
       documentType: this.documentType.value(),
       dni: normalizeDni(this.dni.value()),
       emergencyContactFirstName: normalizeFullName(this.emergencyContactFirstName.value()),

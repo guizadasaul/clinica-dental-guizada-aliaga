@@ -37,5 +37,7 @@ export class Patient {
      * users.phone_login_error, igual que el teléfono vive en users.phone.
      */
     readonly phoneLoginError: PhoneLoginError | null = null,
+    /** Correo de contacto (CLI-181) — vive en users.email, igual que el teléfono. */
+    readonly email: string | null = null,
   ) {}
 }

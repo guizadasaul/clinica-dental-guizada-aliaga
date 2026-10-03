@@ -11,9 +11,10 @@ export interface CreatePatientRequest {
   address: string;
   zona: string;
   ciudad: string;
-  // El teléfono del PACIENTE sigue opcional — a diferencia del contacto de
-  // emergencia, no está en la lista de campos obligatorios.
+  // Teléfono o correo: hace falta al menos uno de los dos (CLI-181); cada uno
+  // por separado es opcional.
   phone?: string;
+  email?: string;
   emergencyContactFirstName: string;
   emergencyContactLastName: string;
   emergencyContactPhone: string;

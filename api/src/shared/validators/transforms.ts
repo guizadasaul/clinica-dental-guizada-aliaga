@@ -23,6 +23,13 @@ export function NormalizeName(): PropertyDecorator {
   );
 }
 
+/** Correo sin espacios y en minúsculas (CLI-181): "Ana@Mail.com " y "ana@mail.com" son el mismo. */
+export function NormalizeEmail(): PropertyDecorator {
+  return Transform(({ value }: { value: unknown }) =>
+    typeof value === 'string' ? value.trim().toLowerCase() : value,
+  );
+}
+
 /** normalizeDni() — ver dni.validator.ts. */
 export function NormalizeDni(): PropertyDecorator {
   return Transform(({ value }: { value: unknown }) =>
