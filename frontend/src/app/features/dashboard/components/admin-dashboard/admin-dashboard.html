@@ -26,6 +26,12 @@
           <p class="action-card__desc">Indicadores operativos y financieros</p>
           <span class="material-symbols-outlined action-card__arrow" aria-hidden="true">arrow_forward</span>
         </button>
+        <button type="button" class="action-card action-card--secondary" (click)="onGoTo('testimonials')">
+          <span class="material-symbols-outlined action-card__icon" aria-hidden="true">rate_review</span>
+          <p class="action-card__label">Comentarios</p>
+          <p class="action-card__desc">Aprobar o rechazar los comentarios de la landing</p>
+          <span class="material-symbols-outlined action-card__arrow" aria-hidden="true">arrow_forward</span>
+        </button>
       </div>
     </section>
   </div>
@@ -37,4 +43,8 @@
 
 @if (activeNav() === 'reports') {
   <div class="page"><app-reports-page /></div>
+}
+
+@if (activeNav() === 'testimonials') {
+  <div class="page"><app-testimonial-review /></div>
 }
