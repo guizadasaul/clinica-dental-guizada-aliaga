@@ -171,7 +171,7 @@ export class PatientsService {
       );
     }
     const target = await this.userRepo.findById(userId);
-    if (!target || target.role !== UserRole.PATIENT || !target.isActive) {
+    if (target?.role !== UserRole.PATIENT || !target.isActive) {
       throw new NotFoundException('Paciente no encontrado');
     }
 
