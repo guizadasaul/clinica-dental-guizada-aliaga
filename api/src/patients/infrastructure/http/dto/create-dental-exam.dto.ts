@@ -16,6 +16,7 @@ import {
 } from 'class-validator';
 import {
   EmptyToUndefined,
+  NormalizeText,
   Trim,
 } from '../../../../shared/validators/transforms.js';
 import { NoHtml } from '../../../../shared/validators/text-safety.validator.js';
@@ -68,7 +69,7 @@ export class CreateDentalExamFindingDto {
 
   @IsOptional()
   @EmptyToUndefined()
-  @Trim()
+  @NormalizeText()
   @IsString()
   @MinLength(3)
   @MaxLength(500)
@@ -81,7 +82,7 @@ export class CreateDentalExamFindingDto {
 
   @IsOptional()
   @EmptyToUndefined()
-  @Trim()
+  @NormalizeText()
   @IsString()
   @MinLength(3)
   @MaxLength(500)
@@ -108,7 +109,7 @@ export class CreateDentalExamDto {
   // examen — el primer guardado de un paciente no tiene nada que explicar.
   @IsOptional()
   @EmptyToUndefined()
-  @Trim()
+  @NormalizeText()
   @IsString()
   @MinLength(3)
   @MaxLength(500)
@@ -117,7 +118,7 @@ export class CreateDentalExamDto {
 
   @IsOptional()
   @EmptyToUndefined()
-  @Trim()
+  @NormalizeText()
   @IsString()
   @MinLength(3)
   @MaxLength(500)

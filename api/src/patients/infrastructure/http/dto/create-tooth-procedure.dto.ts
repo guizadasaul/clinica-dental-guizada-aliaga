@@ -18,7 +18,7 @@ import {
 } from 'class-validator';
 import {
   EmptyToUndefined,
-  Trim,
+  NormalizeText,
 } from '../../../../shared/validators/transforms.js';
 import { NoHtml } from '../../../../shared/validators/text-safety.validator.js';
 import { TOOTH_SURFACE_CODES } from '../../../../shared/validators/tooth-surface.validator.js';
@@ -87,7 +87,7 @@ export class CreateToothProcedureDto {
 
   @IsOptional()
   @EmptyToUndefined()
-  @Trim()
+  @NormalizeText()
   @IsString()
   @MinLength(3)
   @MaxLength(500)

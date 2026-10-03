@@ -23,6 +23,30 @@ export function NormalizeName(): PropertyDecorator {
   );
 }
 
+/**
+ * Texto libre sin espacios de más (CLI-183): cada tramo de espacios queda en
+ * uno solo y sin espacios al inicio ni al final de cada línea. Conserva los
+ * saltos de línea (un máximo de una línea en blanco seguida), porque las notas
+ * pueden ser de varios renglones. "  dolor   fuerte \n\n\n al frío " →
+ * "dolor fuerte\n\nal frío".
+ */
+export function collapseSpaces(value: string): string {
+  return value
+    .replace(/\r\n?/g, '\n')
+    .split('\n')
+    .map((line) => line.replace(/[^\S\n]+/g, ' ').trim())
+    .join('\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
+
+/** collapseSpaces() — para textos largos: no se toca la capitalización, solo los espacios. */
+export function NormalizeText(): PropertyDecorator {
+  return Transform(({ value }: { value: unknown }) =>
+    typeof value === 'string' ? collapseSpaces(value) : value,
+  );
+}
+
 /** Correo sin espacios y en minúsculas (CLI-181): "Ana@Mail.com " y "ana@mail.com" son el mismo. */
 export function NormalizeEmail(): PropertyDecorator {
   return Transform(({ value }: { value: unknown }) =>

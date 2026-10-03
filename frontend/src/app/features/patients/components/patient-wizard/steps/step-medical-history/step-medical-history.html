@@ -43,6 +43,7 @@
           [class.step-form__input--invalid]="medicationDrugNameError(row)"
           [value]="row.drugName"
           (input)="updateMedication($index, 'drugName', $any($event.target).value)"
+          (blur)="tidyDrugName($index)"
           placeholder="Fármaco"
           aria-label="Fármaco"
           maxlength="150"

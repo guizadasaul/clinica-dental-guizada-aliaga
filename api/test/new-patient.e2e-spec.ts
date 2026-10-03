@@ -268,6 +268,32 @@ describe('Alta de un paciente nuevo por el doctor (e2e) — CLI-171', () => {
     expect(body.ciudades).toContain('Cochabamba');
   });
 
+  // CLI-183: lo que se guarda va con mayúscula inicial y un solo espacio.
+  it('guarda los textos cortos con mayúscula inicial y un solo espacio, y los largos sin espacios de más', async () => {
+    const res = await request(app.getHttpServer())
+      .post('/patients')
+      .set('Authorization', `Bearer ${doctor.token}`)
+      .send(
+        newPatientPayload({
+          dni: '5556667',
+          firstName: ' juan   carlos ',
+          occupation: '  docente   de aula ',
+          address: 'av.  6 de agosto   y calle sucre',
+          emergencyContactRelationship: ' madre ',
+          consultationReason: '  dolor   en la muela  DERECHA ',
+        }),
+      )
+      .expect(201);
+
+    expect(res.body).toMatchObject({
+      firstName: 'Juan Carlos',
+      occupation: 'Docente de Aula',
+      address: 'Av. 6 de Agosto y Calle Sucre',
+      emergencyContactRelationship: 'Madre',
+      consultationReason: 'dolor en la muela DERECHA',
+    });
+  });
+
   it('las sugerencias son solo para odontólogos (403 para un paciente)', async () => {
     await request(app.getHttpServer())
       .get('/patients/field-options')

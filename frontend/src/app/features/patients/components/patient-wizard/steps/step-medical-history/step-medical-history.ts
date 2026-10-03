@@ -8,6 +8,7 @@ import {
 import { FormsModule } from '@angular/forms';
 import { field, allValid, touchAll } from '../../../../../../shared/validation/field';
 import { normalizeText, optionalTextError, requiredTextError } from '../../../../../../shared/validation/text.validator';
+import { normalizeFullName } from '../../../../../../shared/validation/full-name.validator';
 import { isNotFutureDate } from '../../../../../../shared/validation/date.validator';
 import type { MedicalCondition } from '../../../../../medical-conditions/models/medical-condition.model';
 import type { CreateMedicalHistoryRequest } from '../../../../models/patient.request';
@@ -92,6 +93,14 @@ export class StepMedicalHistoryComponent {
     this.medications.update((rows) => rows.filter((_, i) => i !== index));
   }
 
+  /** Al salir del campo, el fármaco queda como se va a guardar: "metformina" → "Metformina" (CLI-183). */
+  protected tidyDrugName(index: number): void {
+    const current = this.medications()[index]?.drugName ?? '';
+    if (current.trim()) {
+      this.updateMedication(index, 'drugName', normalizeFullName(current));
+    }
+  }
+
   protected updateMedication(index: number, key: keyof MedicationRow, value: string): void {
     this.medications.update((rows) =>
       rows.map((row, i) => (i === index ? { ...row, [key]: value } : row)),
@@ -124,7 +133,7 @@ export class StepMedicalHistoryComponent {
     const medications = this.medications()
       .filter((row) => normalizeText(row.drugName) !== '')
       .map((row) => ({
-        drugName: normalizeText(row.drugName),
+        drugName: normalizeFullName(row.drugName),
         dose: normalizeText(row.dose) || undefined,
         frequency: normalizeText(row.frequency) || undefined,
         startedAt: row.startedAt || undefined,
