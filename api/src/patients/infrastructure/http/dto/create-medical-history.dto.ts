@@ -37,11 +37,6 @@ export class MedicalConditionEntryDto {
   code: string;
 
   @IsOptional()
-  @IsDateString()
-  @IsNotFutureDate()
-  diagnosedAt?: string;
-
-  @IsOptional()
   @EmptyToUndefined()
   @Trim()
   @IsString()

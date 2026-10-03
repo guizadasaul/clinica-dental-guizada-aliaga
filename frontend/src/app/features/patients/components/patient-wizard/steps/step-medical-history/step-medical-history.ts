@@ -13,7 +13,6 @@ import type { MedicalCondition } from '../../../../../medical-conditions/models/
 import type { CreateMedicalHistoryRequest } from '../../../../models/patient.request';
 
 interface ConditionDetail {
-  diagnosedAt: string;
   notes: string;
 }
 
@@ -67,7 +66,7 @@ export class StepMedicalHistoryComponent {
     this.conditionDetails.update((prev) => {
       const next = new Map(prev);
       if (checked) {
-        next.set(code, { diagnosedAt: '', notes: '' });
+        next.set(code, { notes: '' });
       } else {
         next.delete(code);
       }
@@ -119,7 +118,6 @@ export class StepMedicalHistoryComponent {
 
     const conditions = [...this.conditionDetails().entries()].map(([code, detail]) => ({
       code,
-      diagnosedAt: detail.diagnosedAt || undefined,
       notes: normalizeText(detail.notes) || undefined,
     }));
 

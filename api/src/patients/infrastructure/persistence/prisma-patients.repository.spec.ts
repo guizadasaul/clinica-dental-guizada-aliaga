@@ -191,9 +191,7 @@ describe('PrismaPatientsRepository.upsertMedicalHistory', () => {
     const repo = new PrismaPatientsRepository(mockPrisma as never);
 
     await repo.upsertMedicalHistory('patient-1', {
-      conditions: [
-        { medicalConditionId: 'cond-1', diagnosedAt: new Date('2020-01-01') },
-      ],
+      conditions: [{ medicalConditionId: 'cond-1' }],
     });
 
     expect(mockTx.patient_medical_conditions.deleteMany).toHaveBeenCalledWith({
@@ -289,7 +287,7 @@ describe('PrismaPatientsRepository.findMedicalHistory', () => {
     const result = await repo.findMedicalHistory('patient-1');
 
     expect(result?.conditions).toEqual([
-      { code: 'diabetes', name: 'Diabetes', diagnosedAt: null, notes: null },
+      { code: 'diabetes', name: 'Diabetes', notes: null },
     ]);
   });
 });

@@ -215,12 +215,9 @@ describe('PatientsController', () => {
   });
 
   describe('upsertMedicalHistory', () => {
-    it('convierte las fechas de condiciones, gestación y medicación', async () => {
+    it('convierte las fechas de gestación y medicación (las condiciones ya no llevan fecha, CLI-176)', async () => {
       await controller.upsertMedicalHistory(PATIENT_ID, {
-        conditions: [
-          { code: 'diabetes', diagnosedAt: '2020-01-01', notes: 'tipo 2' },
-          { code: 'asma' },
-        ],
+        conditions: [{ code: 'diabetes', notes: 'tipo 2' }, { code: 'asma' }],
         otherDiseases: 'Ninguna',
         gestationLmpDate: '2026-06-01',
         anesthesiaReactions: 'No',
@@ -239,12 +236,8 @@ describe('PatientsController', () => {
         PATIENT_ID,
         {
           conditions: [
-            {
-              code: 'diabetes',
-              diagnosedAt: new Date('2020-01-01'),
-              notes: 'tipo 2',
-            },
-            { code: 'asma', diagnosedAt: undefined, notes: undefined },
+            { code: 'diabetes', notes: 'tipo 2' },
+            { code: 'asma', notes: undefined },
           ],
           otherDiseases: 'Ninguna',
           gestationLmpDate: new Date('2026-06-01'),

@@ -273,7 +273,6 @@ export class PrismaPatientsRepository implements IPatientRepository {
           data: data.conditions.map((c) => ({
             patient_id: patientId,
             medical_condition_id: c.medicalConditionId,
-            diagnosed_at: c.diagnosedAt ?? null,
             notes: c.notes ?? null,
           })),
         });

@@ -45,7 +45,6 @@ export interface PatientProfileStatus {
 export interface MedicalConditionEntry {
   code: string;
   name: string;
-  diagnosedAt: string | null;
   notes: string | null;
 }
 

@@ -140,7 +140,6 @@ export class PatientsController {
     return this.patientsService.upsertMedicalHistory(id, {
       conditions: dto.conditions?.map((c) => ({
         code: c.code,
-        diagnosedAt: c.diagnosedAt ? new Date(c.diagnosedAt) : undefined,
         notes: c.notes,
       })),
       otherDiseases: dto.otherDiseases,

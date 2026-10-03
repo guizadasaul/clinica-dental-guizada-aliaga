@@ -802,7 +802,7 @@ describe('PatientsService', () => {
 
       await service.upsertMedicalHistory('patient-1', {
         conditions: [
-          { code: 'diabetes', diagnosedAt: new Date('2020-01-01') },
+          { code: 'diabetes' },
           { code: 'asma', notes: 'Usa inhalador' },
         ],
       });
@@ -815,16 +815,8 @@ describe('PatientsService', () => {
         'patient-1',
         expect.objectContaining({
           conditions: [
-            {
-              medicalConditionId: 'cond-diabetes',
-              diagnosedAt: new Date('2020-01-01'),
-              notes: undefined,
-            },
-            {
-              medicalConditionId: 'cond-asma',
-              diagnosedAt: undefined,
-              notes: 'Usa inhalador',
-            },
+            { medicalConditionId: 'cond-diabetes', notes: undefined },
+            { medicalConditionId: 'cond-asma', notes: 'Usa inhalador' },
           ],
         }),
       );

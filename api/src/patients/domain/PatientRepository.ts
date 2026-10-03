@@ -69,7 +69,6 @@ export interface UpdatePatientData {
 /** Ya resuelta contra el catálogo (medicalConditionId, no el code) — el service hace esa resolución. */
 export interface MedicalConditionEntryData {
   medicalConditionId: string;
-  diagnosedAt?: Date;
   notes?: string;
 }
 
