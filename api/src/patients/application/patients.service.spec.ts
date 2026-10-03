@@ -831,6 +831,8 @@ describe('PatientsService', () => {
         futureAppointments: 0,
         balance: 0,
       });
+      mockPatientRepo.findByUserId.mockReset();
+      mockPatientRepo.findByUserId.mockResolvedValue(null);
       mockPatientRepo.softDeletePatient.mockReset();
     });
 
@@ -886,6 +888,19 @@ describe('PatientsService', () => {
       await expect(
         service.deletePatient(DOCTOR_AUTH_ID, 'patient-user'),
       ).rejects.toThrow(ConflictException);
+    });
+
+    it('el mensaje nombra al paciente con el nombre de la ficha, no con el de la cuenta', async () => {
+      // La cuenta es "Ana Arce"; la ficha (fakePatient) es "Juana Perez".
+      mockPatientRepo.findByUserId.mockResolvedValue(fakePatient());
+      mockPatientRepo.findDeletionBlockers.mockResolvedValue({
+        futureAppointments: 0,
+        balance: 130,
+      });
+
+      await expect(
+        service.deletePatient(DOCTOR_AUTH_ID, 'patient-user'),
+      ).rejects.toThrow('No se puede eliminar a Juana Perez: tiene');
     });
 
     it('404 si quien llama no existe en la base', async () => {

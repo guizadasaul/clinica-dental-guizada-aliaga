@@ -214,7 +214,7 @@
 
   @if (deleting(); as target) {
     <app-patient-delete-dialog
-      [patientName]="target.displayName ?? 'este paciente'"
+      [patientName]="fullName(target)"
       [busy]="deleteBusy()"
       [error]="deleteError()"
       (confirmed)="confirmDelete()"
