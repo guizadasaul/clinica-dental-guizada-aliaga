@@ -104,6 +104,24 @@ describe('RegisterTreatmentComponent', () => {
     expect(root.textContent).toContain('$');
   });
 
+  it('un tratamiento de varios dientes sale en una línea con el precio una sola vez (CLI-180)', () => {
+    const { fixture, root, odontogram } = setup();
+
+    odontogram.procedureRegistered.emit({
+      procedures: [
+        proc({ id: 'g-a', toothNumber: 14, applicationGroupId: 'g1', priceCharged: 300 }),
+        proc({ id: 'g-b', toothNumber: 15, applicationGroupId: 'g1', priceCharged: 0 }),
+      ],
+      message: 'ok',
+    });
+    fixture.detectChanges();
+
+    const items = [...root.querySelectorAll('.reg-treatment__procedure-item')];
+    expect(items).toHaveLength(2);
+    expect(items[1].textContent).toContain('Dientes #14, #15');
+    expect(items[1].querySelector('.reg-treatment__procedure-price')?.textContent).toContain('300');
+  });
+
   it('un tratamiento que ya no existe muestra su id', () => {
     const { fixture, root, odontogram } = setup();
 
