@@ -36,7 +36,6 @@ function patientRow(overrides: Partial<PatientRecord> = {}): PatientRecord {
     family_history: null,
     document_type: null,
     dni: null,
-    document_extension: null,
     created_at: CREATED,
     updated_at: UPDATED,
     assigned_doctor_id: null,

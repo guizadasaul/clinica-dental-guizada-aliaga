@@ -50,7 +50,6 @@ const DNI = '#dni';
 const ADDRESS = '#address';
 const ZONA = '#zona';
 const CIUDAD = '#ciudad';
-const DOCUMENT_EXTENSION = '#documentExtension';
 const EMERGENCY_CONTACT_FIRST_NAME = '#emergencyContactFirstName';
 const EMERGENCY_CONTACT_LAST_NAME = '#emergencyContactLastName';
 const EMERGENCY_CONTACT_RELATIONSHIP = '#emergencyContactRelationship';
@@ -116,7 +115,7 @@ describe('StepPatientDataComponent', () => {
     expect(el(fixture, `${EMERGENCY_CONTACT_LAST_NAME}.step-form__input--invalid`)).toBeTruthy();
     expect(el(fixture, `${EMERGENCY_CONTACT_RELATIONSHIP}.step-form__input--invalid`)).toBeTruthy();
     expect(el(fixture, '#firstName-err')?.textContent).toContain('El nombre es obligatorio.');
-    expect(el(fixture, '#dni-err')?.textContent).toContain('El DNI es obligatorio.');
+    expect(el(fixture, '#dni-err')?.textContent).toContain('El número de documento es obligatorio.');
     expect(el(fixture, '#documentType-err')?.textContent).toContain('El tipo de documento es obligatorio.');
   });
 
@@ -174,8 +173,8 @@ describe('StepPatientDataComponent', () => {
   });
 
   it(
-    'aserción central: normaliza nombre, DNI y teléfono al emitir ' +
-      '("  aDrIaN   mercado " + "12.345.678" + "77842665" → Adrian Mercado / 12345678 / +59177842665)',
+    'aserción central: normaliza nombre, documento y teléfono al emitir ' +
+      '("  aDrIaN   mercado " + " 1234567-lp " + "77842665" → Adrian Mercado / 1234567-LP / +59177842665)',
     async () => {
       const fixture = setup();
       await settle(fixture);
@@ -186,7 +185,7 @@ describe('StepPatientDataComponent', () => {
       fillRequiredFields(fixture);
       type(el(fixture, FIRST_NAME), '  aDrIaN   mercado ');
       type(el(fixture, LAST_NAME_PATERNAL), 'Claros');
-      type(el(fixture, DNI), '12.345.678');
+      type(el(fixture, DNI), ' 1234567-lp ');
       const [patientPhoneNational] = elAll<HTMLInputElement>(fixture, PHONE_NATIONAL_INPUTS);
       type(patientPhoneNational, '77842665');
       submitForm(fixture);
@@ -195,7 +194,7 @@ describe('StepPatientDataComponent', () => {
       expect(emitted).toHaveLength(1);
       expect(emitted[0]).toMatchObject({
         firstName: 'Adrian Mercado',
-        dni: '12345678',
+        dni: '1234567-LP',
         phone: '+59177842665',
       });
     },
@@ -227,7 +226,6 @@ describe('StepPatientDataComponent', () => {
       phone: undefined,
       documentType: 'ci',
       dni: '12345678',
-      documentExtension: null,
       emergencyContactFirstName: 'Maria',
       emergencyContactLastName: 'Perez',
       emergencyContactPhone: '+59177777777',
@@ -239,68 +237,50 @@ describe('StepPatientDataComponent', () => {
     });
   });
 
-  describe('extensión del CI', () => {
-    it('solo aparece cuando el tipo de documento es CI', async () => {
+  describe('número de documento (CLI-177)', () => {
+    it('no hay campo aparte para la extensión de la CI', async () => {
       const fixture = setup();
       await settle(fixture);
-      expect(el(fixture, DOCUMENT_EXTENSION)).toBeNull();
-
       select(el<HTMLSelectElement>(fixture, DOCUMENT_TYPE), 'ci');
       await settle(fixture);
-      expect(el(fixture, DOCUMENT_EXTENSION)).toBeTruthy();
 
+      expect(el(fixture, '#documentExtension')).toBeNull();
+      expect(el<HTMLInputElement>(fixture, DNI).getAttribute('maxlength')).toBe('12');
+    });
+
+    it.each([['12.345.678'], ['12 345 678']])(
+      'rechaza %p con un mensaje que nombra la CI, no "DNI"',
+      async (value) => {
+        const fixture = setup();
+        await settle(fixture);
+        const emitted: unknown[] = [];
+        fixture.componentInstance.submitStep.subscribe((v) => emitted.push(v));
+
+        fillRequiredFields(fixture);
+        select(el<HTMLSelectElement>(fixture, DOCUMENT_TYPE), 'ci');
+        type(el(fixture, DNI), value);
+        submitForm(fixture);
+        await settle(fixture);
+
+        expect(emitted).toHaveLength(0);
+        const message = el(fixture, '#dni-err')?.textContent ?? '';
+        expect(message).toContain('El número de CI');
+        expect(message).toContain('1234567-LP');
+        expect(message).not.toContain('DNI');
+      },
+    );
+
+    it('con pasaporte el mensaje habla del pasaporte', async () => {
+      const fixture = setup();
+      await settle(fixture);
+
+      fillRequiredFields(fixture);
       select(el<HTMLSelectElement>(fixture, DOCUMENT_TYPE), 'pasaporte');
-      await settle(fixture);
-      expect(el(fixture, DOCUMENT_EXTENSION)).toBeNull();
-    });
-
-    it('emite la extensión normalizada', async () => {
-      const fixture = setup();
-      await settle(fixture);
-      const emitted: Omit<CreatePatientRequest, 'userId'>[] = [];
-      fixture.componentInstance.submitStep.subscribe((value) => emitted.push(value));
-
-      fillRequiredFields(fixture);
-      await settle(fixture);
-      type(el(fixture, DOCUMENT_EXTENSION), ' 1-a ');
+      type(el(fixture, DNI), 'AB.123');
       submitForm(fixture);
       await settle(fixture);
 
-      expect(emitted).toHaveLength(1);
-      expect(emitted[0].documentExtension).toBe('1A');
-    });
-
-    it('bloquea el envío con caracteres inválidos', async () => {
-      const fixture = setup();
-      await settle(fixture);
-      const emitted: unknown[] = [];
-      fixture.componentInstance.submitStep.subscribe((value) => emitted.push(value));
-
-      fillRequiredFields(fixture);
-      await settle(fixture);
-      type(el(fixture, DOCUMENT_EXTENSION), 'L/P');
-      submitForm(fixture);
-      await settle(fixture);
-
-      expect(emitted).toHaveLength(0);
-      expect(el(fixture, '#documentExtension-err')?.textContent).toContain('solo puede tener letras y números');
-    });
-
-    it('no envía la extensión si el documento no es CI', async () => {
-      const fixture = setup();
-      await settle(fixture);
-      const emitted: Omit<CreatePatientRequest, 'userId'>[] = [];
-      fixture.componentInstance.submitStep.subscribe((value) => emitted.push(value));
-
-      fillRequiredFields(fixture);
-      await settle(fixture);
-      type(el(fixture, DOCUMENT_EXTENSION), 'LP');
-      select(el<HTMLSelectElement>(fixture, DOCUMENT_TYPE), 'pasaporte');
-      submitForm(fixture);
-      await settle(fixture);
-
-      expect(emitted).toHaveLength(1);
-      expect(emitted[0].documentExtension).toBeNull();
+      expect(el(fixture, '#dni-err')?.textContent).toContain('El número de pasaporte');
     });
   });
 
@@ -330,7 +310,6 @@ describe('StepPatientDataComponent', () => {
       familyHistory: null,
       documentType: null,
       dni: '87654321',
-      documentExtension: null,
       createdAt: '2020-01-01T00:00:00.000Z',
       updatedAt: '2020-01-01T00:00:00.000Z',
       assignedDoctorId: null,
@@ -372,7 +351,6 @@ describe('StepPatientDataComponent', () => {
       familyHistory: null,
       documentType: 'ci',
       dni: '87654321',
-      documentExtension: null,
       createdAt: '2020-01-01T00:00:00.000Z',
       updatedAt: '2020-01-01T00:00:00.000Z',
       assignedDoctorId: null,

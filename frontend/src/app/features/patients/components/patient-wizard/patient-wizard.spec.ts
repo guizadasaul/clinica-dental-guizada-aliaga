@@ -215,7 +215,7 @@ describe('PatientWizardComponent', () => {
 
   describe('errores del backend', () => {
     it.each([
-      ['el mensaje del backend', 'El DNI ya está registrado', 'El DNI ya está registrado'],
+      ['el mensaje del backend', 'Ya existe un paciente con ese documento', 'Ya existe un paciente con ese documento'],
       [
         'las reglas de class-validator unidas',
         ['firstName es obligatorio', '', 'dni inválido'],

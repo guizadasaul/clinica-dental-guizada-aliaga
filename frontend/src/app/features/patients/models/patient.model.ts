@@ -25,7 +25,6 @@ export interface Patient {
   documentType: string | null;
   dni: string | null;
   /** Extensión/complemento de la CI boliviana (ej. "LP", "1A") — solo con documentType 'ci'. */
-  documentExtension: string | null;
   createdAt: string;
   updatedAt: string;
   /**

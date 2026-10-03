@@ -79,7 +79,6 @@ const PATIENT_COLUMN_BY_FIELD = {
   familyHistory: 'family_history',
   documentType: 'document_type',
   dni: 'dni',
-  documentExtension: 'document_extension',
 } as const satisfies Record<
   Exclude<keyof UpdatePatientData, 'phone'>,
   keyof Prisma.patientsUpdateInput
@@ -125,7 +124,6 @@ function toPatientCreateData(
     family_history: data.familyHistory ?? null,
     document_type: data.documentType ?? null,
     dni: data.dni ?? null,
-    document_extension: data.documentExtension ?? null,
     assigned_doctor_id: data.assignedDoctorId ?? null,
   };
 }

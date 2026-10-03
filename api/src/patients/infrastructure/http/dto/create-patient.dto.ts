@@ -15,11 +15,7 @@ import {
   Trim,
 } from '../../../../shared/validators/transforms.js';
 import { IsPersonName } from '../../../../shared/validators/full-name.validator.js';
-import {
-  IsDni,
-  IsDocumentExtension,
-  IsOnlyForCi,
-} from '../../../../shared/validators/dni.validator.js';
+import { IsDni } from '../../../../shared/validators/dni.validator.js';
 import { IsE164Phone } from '../../../../shared/validators/phone.validator.js';
 import { NoHtml } from '../../../../shared/validators/text-safety.validator.js';
 import {
@@ -220,25 +216,13 @@ export class CreatePatientDto {
   @IsIn(DOCUMENT_TYPES)
   documentType: string;
 
-  // dni + documentType son @@unique en la base — normalizado (mayúsculas,
-  // sin puntos ni espacios ni guiones) para que "12.345.678" y "12345678"
-  // no convivan como pacientes distintos. Obligatorio (antes opcional);
-  // DNI_RE ya exige 5-15 caracteres, por encima del mínimo de 3 del resto
-  // del texto libre.
+  // Número de CI, NIT o pasaporte (CLI-177): (documentType, dni) es único en
+  // la base. Se recortan los bordes y se pasa a mayúsculas; el resto lo
+  // valida IsDni (5 a 12 caracteres, letras, números y guiones, sin espacios
+  // ni puntos). La extensión de la CI va dentro con guion (1234567-LP).
   @EmptyToUndefined()
   @NormalizeDni()
-  @IsNotEmpty({ message: 'dni es obligatorio' })
+  @IsNotEmpty({ message: 'El número de documento es obligatorio' })
   @IsDni()
-  @MaxLength(20)
   dni: string;
-
-  // Extensión/complemento de la CI boliviana (ej. "LP", "1A"). Opcional; null
-  // la borra en un update. Misma normalización que el dni.
-  @IsOptional()
-  @EmptyToUndefined()
-  @NormalizeDni()
-  @IsDocumentExtension()
-  @IsOnlyForCi()
-  @MaxLength(12)
-  documentExtension?: string | null;
 }

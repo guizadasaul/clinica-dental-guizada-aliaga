@@ -356,9 +356,8 @@ model patients {
   family_history                 String?
   /// CI/pasaporte/nit (CLI-54, ver DOCUMENT_TYPES) — null solo si dni también es null. La unicidad real es (document_type, dni), no dni solo: un pasaporte y una CI pueden coincidir en número sin ser la misma persona.
   document_type                  String?                      @db.VarChar(20)
-  dni                            String?                      @db.VarChar(20)
-  /// Extensión/complemento de la CI boliviana (ej. "LP", "1A") — solo con document_type = 'ci'. No entra en la unicidad: (document_type, dni) sigue siendo la clave.
-  document_extension             String?                      @db.VarChar(12)
+  /// Número de CI, NIT o pasaporte (CLI-177): 5 a 12 caracteres, letras en mayúscula, números y guiones (CHECK patients_dni_format_check). La extensión de la CI va dentro con guion (1234567-LP).
+  dni                            String?                      @db.VarChar(12)
   /// Doctor asignado (CLI-61) — informativo, no restringe acceso: cualquier
   /// odontólogo logueado sigue viendo y editando cualquier paciente (decisión
   /// de alcance de la épica). Nullable porque un paciente puede no tener

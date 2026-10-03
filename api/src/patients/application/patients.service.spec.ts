@@ -71,7 +71,6 @@ function fakePatient(
     null,
     null,
     null,
-    null,
     new Date(),
     new Date(),
     overrides.assignedDoctorId ?? null,

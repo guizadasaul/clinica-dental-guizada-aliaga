@@ -64,20 +64,34 @@ describe('CreatePatientDto', () => {
   });
 
   // Entrada real usada en la verificación manual del plan: espacios de más +
-  // mayúsculas mezcladas en el nombre, DNI con puntos.
-  it('normaliza nombre con espacios de más y mayúsculas mezcladas, y DNI con puntos', async () => {
+  // mayúsculas mezcladas en el nombre, documento en minúsculas con extensión.
+  it('normaliza nombre con espacios de más y mayúsculas mezcladas, y el documento a mayúsculas', async () => {
     const dto = plainToInstance(CreatePatientDto, {
       ...VALID_PATIENT,
       firstName: '  aDrIaN   ',
       lastNamePaternal: 'mercado',
-      dni: '12.345.678',
+      dni: ' 1234567-lp ',
     });
     const errors = await validate(dto);
     expect(errors).toHaveLength(0);
     expect(dto.firstName).toBe('Adrian');
     expect(dto.lastNamePaternal).toBe('Mercado');
-    expect(dto.dni).toBe('12345678');
+    expect(dto.dni).toBe('1234567-LP');
   });
+
+  // CLI-177: sin espacios ni puntos (se rechazan, no se borran) y hasta 12.
+  it.each([['12.345.678'], ['12 345 678'], ['1234567890123']])(
+    'rechaza el documento %p con un mensaje que nombra el tipo',
+    async (dni) => {
+      const errors = await validatePatient({ documentType: 'ci', dni });
+      const dniError = errors.find((e) => e.property === 'dni');
+      expect(dniError).toBeDefined();
+      expect(JSON.stringify(dniError?.constraints)).toContain(
+        'El número de CI',
+      );
+      expect(JSON.stringify(dniError?.constraints)).not.toContain('DNI');
+    },
+  );
 
   it('rechaza una fecha de nacimiento futura', async () => {
     const errors = await validatePatient({ birthDate: isoDaysFromNow(1) });
@@ -104,7 +118,7 @@ describe('CreatePatientDto', () => {
     expect(errors.some((e) => e.property === 'lastDentistVisit')).toBe(true);
   });
 
-  it('rechaza un DNI mal formado luego de normalizar (muy corto)', async () => {
+  it('rechaza un documento mal formado luego de normalizar (muy corto)', async () => {
     const errors = await validatePatient({ dni: '123' });
     expect(errors.some((e) => e.property === 'dni')).toBe(true);
   });
@@ -232,48 +246,18 @@ describe('CreatePatientDto', () => {
     },
   );
 
-  describe('documentExtension', () => {
-    it('es opcional', async () => {
-      expect(
-        await validatePatient({ documentExtension: undefined }),
-      ).toHaveLength(0);
-      expect(await validatePatient({ documentExtension: null })).toHaveLength(
-        0,
-      );
-      expect(await validatePatient({ documentExtension: '' })).toHaveLength(0);
+  // CLI-177: ya no hay campo de extensión; si llega, la API lo rechaza.
+  it('rechaza documentExtension (la extensión va dentro del número)', async () => {
+    // Mismas opciones que el ValidationPipe de la app (app.config.ts).
+    const dto = plainToInstance(CreatePatientDto, {
+      ...VALID_PATIENT,
+      documentExtension: 'LP',
     });
-
-    it('normaliza a mayúsculas sin espacios ni guiones', async () => {
-      const dto = plainToInstance(CreatePatientDto, {
-        ...VALID_PATIENT,
-        documentExtension: ' 1-a ',
-      });
-      expect(await validate(dto)).toHaveLength(0);
-      expect(dto.documentExtension).toBe('1A');
+    const errors = await validate(dto, {
+      whitelist: true,
+      forbidNonWhitelisted: true,
     });
-
-    it('acepta hasta 12 caracteres y rechaza 13', async () => {
-      expect(
-        await validatePatient({ documentExtension: 'A'.repeat(12) }),
-      ).toHaveLength(0);
-      const errors = await validatePatient({
-        documentExtension: 'A'.repeat(13),
-      });
-      expect(errors.some((e) => e.property === 'documentExtension')).toBe(true);
-    });
-
-    it('rechaza caracteres que no sean letras ni números', async () => {
-      const errors = await validatePatient({ documentExtension: 'L/P' });
-      expect(errors.some((e) => e.property === 'documentExtension')).toBe(true);
-    });
-
-    it('solo se acepta para una CI', async () => {
-      const errors = await validatePatient({
-        documentType: 'pasaporte',
-        documentExtension: 'LP',
-      });
-      expect(errors.some((e) => e.property === 'documentExtension')).toBe(true);
-    });
+    expect(errors.some((e) => e.property === 'documentExtension')).toBe(true);
   });
 
   // "admin'--" es, carácter por carácter, letras + apostrofo + guiones — la

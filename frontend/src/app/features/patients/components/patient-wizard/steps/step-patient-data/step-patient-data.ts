@@ -17,8 +17,9 @@ import {
 import {
   normalizeDni,
   isValidDni,
-  isValidDocumentExtension,
-  DOCUMENT_EXTENSION_MAX_LENGTH,
+  documentNumberLabel,
+  dniFormatMessage,
+  DNI_MAX_LENGTH,
 } from '../../../../../../shared/validation/dni.validator';
 import { normalizeText, optionalTextError } from '../../../../../../shared/validation/text.validator';
 import { isNotFutureDate, isAgeWithin, isNotBefore } from '../../../../../../shared/validation/date.validator';
@@ -59,17 +60,10 @@ function birthDateError(value: string): string | null {
   return null;
 }
 
-function dniFieldError(value: string): string | null {
-  if (!value.trim()) return 'El DNI es obligatorio.';
-  if (!isValidDni(value)) return 'El DNI solo puede tener letras y números (5 a 15 caracteres).';
-  return null;
-}
-
-function documentExtensionError(value: string): string | null {
-  if (!value.trim()) return null;
-  if (!isValidDocumentExtension(value)) {
-    return `La extensión solo puede tener letras y números (hasta ${DOCUMENT_EXTENSION_MAX_LENGTH} caracteres).`;
-  }
+/** Mensajes con el tipo de documento elegido (CI, NIT, pasaporte), nunca "DNI" (CLI-177). */
+function dniFieldError(value: string, documentType: string): string | null {
+  if (!value.trim()) return `${documentNumberLabel(documentType)} es obligatorio.`;
+  if (!isValidDni(value)) return dniFormatMessage(documentType);
   return null;
 }
 
@@ -105,7 +99,7 @@ export class StepPatientDataComponent {
   readonly submitStep = output<Omit<CreatePatientRequest, 'userId'>>();
 
   protected readonly personNameMaxLength = PERSON_NAME_MAX_LENGTH;
-  protected readonly documentExtensionMaxLength = DOCUMENT_EXTENSION_MAX_LENGTH;
+  protected readonly dniMaxLength = DNI_MAX_LENGTH;
   protected readonly documentTypes = DOCUMENT_TYPES;
 
   protected readonly firstName = field<string>('', (v: string) => requiredPersonNameError(v, 'El nombre'));
@@ -122,9 +116,8 @@ export class StepPatientDataComponent {
   protected readonly sex = field<string>('', (v: string) => (v ? null : 'El sexo es obligatorio.'));
   protected readonly occupation = field<string>('', (v: string) => requiredTextFieldError(v, 150, 'La ocupación'));
   protected readonly documentType = field<string>('', (v: string) => (v ? null : 'El tipo de documento es obligatorio.'));
-  protected readonly dni = field<string>('', dniFieldError);
-  // Solo aplica a CI — con otro tipo de documento el campo se oculta y no se envía.
-  protected readonly documentExtension = field<string>('', documentExtensionError);
+  // La extensión de la CI va dentro del número con guion (CLI-177): 1234567-LP.
+  protected readonly dni = field<string>('', (v: string) => dniFieldError(v, this.documentType.value()));
   protected readonly address = field<string>('', (v: string) => requiredTextFieldError(v, 300, 'La dirección'));
   protected readonly zona = field<string>('', (v: string) => requiredTextFieldError(v, 100, 'La zona'));
   protected readonly ciudad = field<string>('', (v: string) => requiredTextFieldError(v, 100, 'La ciudad'));
@@ -203,7 +196,6 @@ export class StepPatientDataComponent {
         this.occupation.reset(patient.occupation ?? '');
         this.documentType.reset(patient.documentType ?? '');
         this.dni.reset(patient.dni ?? '');
-        this.documentExtension.reset(patient.documentExtension ?? '');
         this.address.reset(patient.address ?? '');
         this.zona.reset(patient.zona ?? '');
         this.ciudad.reset(patient.ciudad ?? '');
@@ -245,7 +237,7 @@ export class StepPatientDataComponent {
   }
 
   protected onSubmit(): void {
-    const fields = this.isCi() ? [...this.fields, this.documentExtension] : this.fields;
+    const fields = this.fields;
     touchAll(...fields);
     this.submitted.set(true);
     if (!allValid(...fields) || !this.phoneOk() || !this.emergencyContactPhoneOk()) {
@@ -269,7 +261,6 @@ export class StepPatientDataComponent {
       phone: isBareCallingCode(this.phoneE164()) ? undefined : this.phoneE164(),
       documentType: this.documentType.value(),
       dni: normalizeDni(this.dni.value()),
-      documentExtension: (this.isCi() && normalizeDni(this.documentExtension.value())) || null,
       emergencyContactFirstName: normalizeFullName(this.emergencyContactFirstName.value()),
       emergencyContactLastName: normalizeFullName(this.emergencyContactLastName.value()),
       emergencyContactPhone: this.emergencyContactPhoneE164(),

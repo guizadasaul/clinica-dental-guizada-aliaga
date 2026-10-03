@@ -91,7 +91,6 @@ export class PatientsController {
       familyHistory: dto.familyHistory,
       documentType: dto.documentType,
       dni: dto.dni,
-      documentExtension: dto.documentExtension,
     });
   }
 
@@ -125,7 +124,6 @@ export class PatientsController {
       familyHistory: dto.familyHistory,
       documentType: dto.documentType,
       dni: dto.dni,
-      documentExtension: dto.documentExtension,
       email: dto.email,
     });
   }
