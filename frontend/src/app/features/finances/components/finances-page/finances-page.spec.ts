@@ -26,6 +26,7 @@ const PATIENTS: PatientBalance[] = [
     totalPaid: 200,
     balance: 500,
     sharedAt: null,
+    lastTreatmentAt: '2026-10-03T10:00:00Z',
   },
 ];
 
@@ -129,10 +130,49 @@ describe('FinancesPageComponent', () => {
     );
   });
 
-  it('sin pacientes con saldo muestra el vacío', () => {
+  // CLI-190: aparecen todos los pacientes, también los que no deben nada.
+  it('un paciente sin presupuesto activo aparece como "Al día", sin monto', () => {
+    const { root } = setup(
+      of([
+        ...PATIENTS,
+        {
+          patientId: 'p2',
+          patientName: 'Beto Bravo',
+          quoteId: null,
+          totalAmount: 0,
+          totalPaid: 0,
+          balance: 0,
+          sharedAt: null,
+          lastTreatmentAt: null,
+        },
+      ]),
+    );
+
+    const rows = [...root.querySelectorAll('.fin__patient')];
+    expect(rows).toHaveLength(2);
+    expect(rows[1].textContent).toContain('Beto Bravo');
+    expect(rows[1].textContent).toContain('Al día');
+    expect(rows[1].textContent).not.toContain('Debe');
+  });
+
+  it('respeta el orden que manda la API (últimos con tratamiento primero)', () => {
+    const { root } = setup(
+      of([
+        { ...PATIENTS[0], patientId: 'p9', patientName: 'Reciente Z' },
+        { ...PATIENTS[0], patientId: 'p8', patientName: 'Antiguo A', lastTreatmentAt: '2026-01-01T00:00:00Z' },
+      ]),
+    );
+
+    expect([...root.querySelectorAll('.fin__patient-name')].map((n) => n.textContent?.trim())).toEqual([
+      'Reciente Z',
+      'Antiguo A',
+    ]);
+  });
+
+  it('sin pacientes muestra el vacío', () => {
     const { root } = setup(of([]));
 
-    expect(root.textContent).toContain('No hay pacientes con saldo pendiente');
+    expect(root.textContent).toContain('Todavía no hay pacientes registrados');
   });
 
   it('buscar consulta con el término después del debounce', () => {

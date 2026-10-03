@@ -96,6 +96,12 @@
     font-size: var(--font-size-xs);
     font-weight: 600;
     color: var(--color-error);
+
+    // Sin saldo (CLI-190): no se marca en rojo.
+    &--clear {
+      color: var(--color-text-muted);
+      font-weight: 500;
+    }
   }
 
   &__patient-meta {
