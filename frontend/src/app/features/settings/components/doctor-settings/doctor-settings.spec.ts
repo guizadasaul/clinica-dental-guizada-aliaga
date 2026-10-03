@@ -116,7 +116,23 @@ describe('DoctorSettingsComponent (CLI-191)', () => {
     expect(el<HTMLInputElement>('#firstName').value).toBe('María José');
   });
 
-  it('un campo obligatorio vacío o un nombre con números bloquea el guardado y se marca en rojo', async () => {
+  // Doctores cargados antes de que existieran nombre y apellidos (CLI-76): no se
+  // les exige llenarlos para poder cambiar el color o el horario.
+  it('un perfil sin nombre ni apellidos se puede guardar sin mandarlos', async () => {
+    const { profile, settle, submit } = setup(
+      of({ ...PROFILE, firstName: null, lastNamePaternal: null }),
+    );
+    await settle();
+
+    await submit();
+
+    expect(profile.updateMine).toHaveBeenCalledTimes(1);
+    const [sent] = profile.updateMine.mock.calls[0] as [Record<string, unknown>];
+    expect(sent).not.toHaveProperty('firstName');
+    expect(sent).not.toHaveProperty('lastNamePaternal');
+  });
+
+  it('el nombre público es obligatorio y un nombre con números bloquea el guardado, marcado en rojo', async () => {
     const { profile, root, el, type, settle, submit } = setup();
     await settle();
 

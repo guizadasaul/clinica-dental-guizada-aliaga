@@ -81,8 +81,8 @@ export class DoctorSettingsComponent implements OnInit {
   protected readonly displayName = field<string>('', (v: string) =>
     requiredTextError(v, DISPLAY_NAME_MAX_LENGTH, { minLength: MIN_NAME_LENGTH }),
   );
-  protected readonly firstName = field<string>('', (v: string) => personNameError(v, 'El nombre', true));
-  protected readonly lastNamePaternal = field<string>('', (v: string) => personNameError(v, 'El apellido paterno', true));
+  protected readonly firstName = field<string>('', (v: string) => personNameError(v, 'El nombre', false));
+  protected readonly lastNamePaternal = field<string>('', (v: string) => personNameError(v, 'El apellido paterno', false));
   protected readonly lastNameMaternal = field<string>('', (v: string) => personNameError(v, 'El apellido materno', false));
   protected readonly specialty = field<string>('', (v: string) => optionalTextError(v, SPECIALTY_MAX_LENGTH, MIN_NAME_LENGTH));
   protected readonly bio = field<string>('', (v: string) => optionalTextError(v, BIO_MAX_LENGTH, MIN_NAME_LENGTH));
@@ -163,8 +163,12 @@ export class DoctorSettingsComponent implements OnInit {
       const updated = await firstValueFrom(
         this.profileService.updateMine({
           displayName: normalizeFullName(this.displayName.value()),
-          firstName: normalizeFullName(this.firstName.value()),
-          lastNamePaternal: normalizeFullName(this.lastNamePaternal.value()),
+          ...(this.firstName.value().trim() && {
+            firstName: normalizeFullName(this.firstName.value()),
+          }),
+          ...(this.lastNamePaternal.value().trim() && {
+            lastNamePaternal: normalizeFullName(this.lastNamePaternal.value()),
+          }),
           ...(this.lastNameMaternal.value().trim() && {
             lastNameMaternal: normalizeFullName(this.lastNameMaternal.value()),
           }),
