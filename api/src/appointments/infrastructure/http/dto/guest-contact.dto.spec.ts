@@ -84,15 +84,20 @@ describe('GuestContactDto', () => {
     });
   });
 
-  describe.each(NAME_PAYLOADS)('payload de inyección en nombre: %s', (payload) => {
-    it('rechaza el payload en firstName', async () => {
-      const errors = await validateContact({ firstName: payload });
-      expect(errors.some((e) => e.property === 'firstName')).toBe(true);
-    });
+  describe.each(NAME_PAYLOADS)(
+    'payload de inyección en nombre: %s',
+    (payload) => {
+      it('rechaza el payload en firstName', async () => {
+        const errors = await validateContact({ firstName: payload });
+        expect(errors.some((e) => e.property === 'firstName')).toBe(true);
+      });
 
-    it('rechaza el payload en lastNamePaternal', async () => {
-      const errors = await validateContact({ lastNamePaternal: payload });
-      expect(errors.some((e) => e.property === 'lastNamePaternal')).toBe(true);
-    });
-  });
+      it('rechaza el payload en lastNamePaternal', async () => {
+        const errors = await validateContact({ lastNamePaternal: payload });
+        expect(errors.some((e) => e.property === 'lastNamePaternal')).toBe(
+          true,
+        );
+      });
+    },
+  );
 });

@@ -52,15 +52,31 @@ function addDaysToDateString(date: string, days: number): string {
   return next.toISOString().slice(0, 10);
 }
 
-// CLI-47: una cita ocupa tantos slots de grilla como haga falta para cubrir
-// su duración real, no solo el de su instante de inicio — redondeando hacia
-// arriba (un tratamiento de 45 min bloquea 2 slots de 30, no 1.5).
-function occupiedSlotTimes(start: Date, durationMinutes: number): number[] {
-  const slotsOccupied = Math.max(1, Math.ceil(durationMinutes / SLOT_MINUTES));
-  return Array.from(
-    { length: slotsOccupied },
-    (_, i) => start.getTime() + i * SLOT_MINUTES * 60_000,
-  );
+/** Intervalo [inicio, fin) que ocupa una cita, en milisegundos. */
+interface BusyInterval {
+  start: number;
+  end: number;
+}
+
+function busyIntervals(
+  active: readonly { appointmentDatetime: Date; durationMinutes: number }[],
+): BusyInterval[] {
+  return active.map((a) => ({
+    start: a.appointmentDatetime.getTime(),
+    end:
+      a.appointmentDatetime.getTime() + Math.max(1, a.durationMinutes) * 60_000,
+  }));
+}
+
+// CLI-47, CLI-194: una cita ocupa todos los slots de grilla que su duración
+// real toca, no solo el de su instante de inicio. Se compara por intervalos y
+// no por franjas enteras: una cita de 45 min bloquea 2 slots de 30, y una de
+// 30 min que empieza a las 09:45 (el doctor agenda de a 5 min) bloquea el de
+// las 09:30 y el de las 10:00.
+function isSlotBusy(slot: Date, intervals: readonly BusyInterval[]): boolean {
+  const slotStart = slot.getTime();
+  const slotEnd = slotStart + SLOT_MINUTES * 60_000;
+  return intervals.some((i) => i.start < slotEnd && slotStart < i.end);
 }
 
 export interface AvailabilityResult {
@@ -96,6 +112,8 @@ const SLOT_TAKEN_MESSAGE = 'Ya tienes una cita en ese horario';
 // empezar la nueva. Holgado a propósito: la duración más larga que se
 // agenda son 4 h, pero una cita vieja puede tener otra congelada (CLI-47).
 const OVERLAP_LOOKBACK_MS = 24 * 60 * 60 * 1000;
+/** Paso de la hora de inicio de las citas que agenda el doctor (CLI-194). */
+export const DOCTOR_START_STEP_MINUTES = 5;
 
 export interface HoldResult {
   appointmentId: string;
@@ -153,15 +171,10 @@ export class AppointmentsService {
       now,
       doctorId,
     );
-    const takenTimes = new Set(
-      active.flatMap((a) =>
-        occupiedSlotTimes(a.appointmentDatetime, a.durationMinutes),
-      ),
-    );
+    const busy = busyIntervals(active);
 
     const freeSlots = allSlots.filter(
-      (slot) =>
-        !takenTimes.has(slot.getTime()) && slot.getTime() > now.getTime(),
+      (slot) => !isSlotBusy(slot, busy) && slot.getTime() > now.getTime(),
     );
     return { date, slots: freeSlots.map((s) => s.toISOString()) };
   }
@@ -205,18 +218,13 @@ export class AppointmentsService {
             doctorId,
           )
         : [];
-    const takenTimes = new Set(
-      active.flatMap((a) =>
-        occupiedSlotTimes(a.appointmentDatetime, a.durationMinutes),
-      ),
-    );
+    const busy = busyIntervals(active);
 
     const slotsByDate: Record<string, string[]> = {};
     for (const date of dates) {
       slotsByDate[date] = (slotsByDateRaw.get(date) ?? [])
         .filter(
-          (slot) =>
-            !takenTimes.has(slot.getTime()) && slot.getTime() > now.getTime(),
+          (slot) => !isSlotBusy(slot, busy) && slot.getTime() > now.getTime(),
         )
         .map((s) => s.toISOString());
     }
@@ -249,6 +257,11 @@ export class AppointmentsService {
       }
       durationMinutes = treatment.estimatedMinutes;
     }
+
+    // Una cita del doctor que no empieza en la grilla (CLI-194) o más larga que
+    // una franja puede tapar este slot sin tener su mismo instante de inicio,
+    // y el índice único solo mira el instante exacto: se revisa por duración.
+    await this.assertNoOverlap(doctorId, slot, durationMinutes, new Date());
 
     const holdExpiresAt = new Date(Date.now() + HOLD_TTL_MINUTES * 60 * 1000);
     try {
@@ -477,9 +490,11 @@ export class AppointmentsService {
     if (start.getTime() <= now.getTime()) {
       throw new BadRequestException('La cita tiene que ser en el futuro');
     }
-    if (start.getTime() % (SLOT_MINUTES * 60_000) !== 0) {
+    // El doctor agenda de a 5 minutos (CLI-194); la reserva pública sigue en
+    // la grilla de 30 (holdSlot / isValidSlot).
+    if (start.getTime() % (DOCTOR_START_STEP_MINUTES * 60_000) !== 0) {
       throw new BadRequestException(
-        `La cita tiene que empezar en un horario de la grilla (cada ${SLOT_MINUTES} min)`,
+        `La cita tiene que empezar en un horario múltiplo de ${DOCTOR_START_STEP_MINUTES} minutos`,
       );
     }
   }

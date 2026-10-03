@@ -369,6 +369,35 @@ describe('DoctorAgendaComponent', () => {
       expect(fixture.nativeElement.querySelector('app-book-appointment-dialog')).toBeTruthy();
     });
 
+    // CLI-194: el modal recibe las demás citas del día para avisar si la nueva las pisa.
+    it('pasa al modal las demás citas del día como intervalos, sin contar la que se reprograma', async () => {
+      const { fixture, appointmentsService } = setup([]);
+      await settle(fixture);
+      const monday = internals(fixture).visibleDates()[0];
+      const nextMonday = new Date(Date.parse(`${monday}T12:00:00Z`) + 7 * 86_400_000)
+        .toISOString()
+        .slice(0, 10);
+      appointmentsService.getAgenda.mockReturnValue(
+        of([
+          fakeAppointment({ id: 'a', appointmentDatetime: at(nextMonday, '09:45'), durationMinutes: 75 }),
+          fakeAppointment({ id: 'b', appointmentDatetime: at(nextMonday, '14:00'), durationMinutes: 30 }),
+        ]),
+      );
+      await nextWeek(fixture);
+      type Busy = { busyIntervals: () => { start: number; end: number }[] };
+      const slotCell = [
+        ...(fixture.nativeElement as HTMLElement).querySelectorAll<HTMLButtonElement>('button.agenda-cell'),
+      ].find((c) => c.getAttribute('aria-label')?.includes('a las 12:00'));
+      slotCell?.click();
+      await settle(fixture);
+
+      const intervals = (fixture.componentInstance as unknown as Busy).busyIntervals();
+      expect(intervals).toEqual([
+        { start: 9 * 60 + 45, end: 11 * 60 },
+        { start: 14 * 60, end: 14 * 60 + 30 },
+      ]);
+    });
+
     it('las franjas ocupadas por una cita (según su duración) no se pueden agendar', async () => {
       const { fixture, appointmentsService } = setup([]);
       await settle(fixture);

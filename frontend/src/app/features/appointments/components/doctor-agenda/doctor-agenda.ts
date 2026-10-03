@@ -25,6 +25,7 @@ import { isWithinSchedule, minutesToHhmm } from '../../models/clinic-schedule.ut
 import {
   BookAppointmentDialogComponent,
   type AgendaSlot,
+  type BusyInterval,
 } from '../book-appointment-dialog/book-appointment-dialog';
 import { AppointmentDetailDialogComponent } from '../appointment-detail-dialog/appointment-detail-dialog';
 import { appointmentPatientLabel } from '../../models/appointment-patient-label';
@@ -465,21 +466,24 @@ export class DoctorAgendaComponent {
     return cells;
   });
 
-  /** Minutos en que empieza la próxima cita del día después del horario elegido (el modal avisa si la duración la pisa). */
-  protected readonly nextBusyMinutes = computed(() => {
+  /**
+   * Las demás citas del día del horario elegido, como intervalos en minutos
+   * (CLI-194): el modal deja elegir la hora de inicio y la duración, y avisa si
+   * pisan alguna. La que se está reprogramando no cuenta.
+   */
+  protected readonly busyIntervals = computed<BusyInterval[]>(() => {
     const slot = this.bookingSlot();
     if (!slot) {
-      return null;
+      return [];
     }
     const movingId = this.rescheduling()?.id;
-    const starts = this.appointmentsFor(slot.date)
+    return this.appointmentsFor(slot.date)
       .filter((a) => a.id !== movingId)
       .map((a) => {
         const { hour, minute } = laPazHourMinute(a.appointmentDatetime);
-        return hour * 60 + minute;
-      })
-      .filter((start) => start > slot.minutes);
-    return starts.length > 0 ? Math.min(...starts) : null;
+        const start = hour * 60 + minute;
+        return { start, end: start + this.durationOf(a) };
+      });
   });
 
   private readonly injector = inject(Injector);

@@ -100,7 +100,13 @@ type Internals = {
   error: () => string | null;
   onPatientChange: (id: string) => void;
   onTreatmentChange: (id: string) => void;
-  onDurationChange: (event: Event) => void;
+  onDurationHoursChange: (event: Event) => void;
+  onDurationMinutesChange: (event: Event) => void;
+  onStartChange: (event: Event) => void;
+  startMinutes: () => number;
+  conflict: () => { start: number; end: number } | null;
+  crossesMidnight: () => boolean;
+  durationValid: () => boolean;
   onNotesInput: (event: Event) => void;
   onSubmit: () => Promise<void>;
 };
@@ -109,14 +115,15 @@ const internals = (fixture: ComponentFixture<BookAppointmentDialogComponent>) =>
 const eventWith = (value: string) => ({ target: { value } }) as unknown as Event;
 
 describe('BookAppointmentDialogComponent (CLI-150)', () => {
-  it('muestra el horario clickeado, sin poder editarlo', () => {
+  it('muestra el día clickeado (sin poder cambiarlo) con la hora de inicio editable', () => {
     const { fixture } = setup();
     fixture.detectChanges();
 
     expect(internals(fixture).whenLabel()).toBe('Lunes, 5 de octubre · 10:00 a 10:30');
-    expect(
-      fixture.nativeElement.querySelector('input[type="date"], input[type="time"]'),
-    ).toBeFalsy();
+    expect(fixture.nativeElement.querySelector('input[type="date"]')).toBeFalsy();
+    const start = fixture.nativeElement.querySelector('#book-modal-start') as HTMLInputElement;
+    expect(start.value).toBe('10:00');
+    expect(start.getAttribute('step')).toBe('300');
   });
 
   it('lista solo pacientes con ficha, primero ordenados y separados en míos y otros', () => {
@@ -129,7 +136,7 @@ describe('BookAppointmentDialogComponent (CLI-150)', () => {
     ]);
   });
 
-  it('solo ofrece tratamientos activos, y elegir uno propone su duración redondeada a la grilla', () => {
+  it('solo ofrece tratamientos activos, y elegir uno propone su duración de 5 en 5 (45 min, no 60)', () => {
     const { fixture } = setup();
     fixture.detectChanges();
 
@@ -139,7 +146,153 @@ describe('BookAppointmentDialogComponent (CLI-150)', () => {
         .map((t) => t.id),
     ).toEqual(['t-1']);
     internals(fixture).onTreatmentChange('t-1');
-    expect(internals(fixture).duration()).toBe(60);
+    expect(internals(fixture).duration()).toBe(45);
+  });
+
+  // CLI-194: duración libre en horas y minutos.
+  describe('duración en horas y minutos (CLI-194)', () => {
+    it('horas y minutos se combinan: 1 h + 15 min = 75 min', () => {
+      const { fixture } = setup();
+      fixture.detectChanges();
+
+      internals(fixture).onDurationHoursChange(eventWith('1'));
+      internals(fixture).onDurationMinutesChange(eventWith('15'));
+      fixture.detectChanges();
+
+      expect(internals(fixture).duration()).toBe(75);
+      expect(internals(fixture).whenLabel()).toContain('10:00 a 11:15');
+    });
+
+    it('ofrece minutos de 5 en 5 y de 0 a 8 horas', () => {
+      const { fixture } = setup();
+      fixture.detectChanges();
+
+      const hours = [
+        ...fixture.nativeElement.querySelectorAll('#book-modal-duration-hours option'),
+      ].map((o) => (o as HTMLOptionElement).value);
+      const minutes = [
+        ...fixture.nativeElement.querySelectorAll('#book-modal-duration-minutes option'),
+      ].map((o) => (o as HTMLOptionElement).value);
+      expect(hours).toEqual(['0', '1', '2', '3', '4', '5', '6', '7', '8']);
+      expect(minutes).toEqual(['0', '5', '10', '15', '20', '25', '30', '35', '40', '45', '50', '55']);
+    });
+
+    it('los selectores muestran la duración actual (45 min = 0 h 45 min)', () => {
+      const { fixture } = setup();
+      fixture.detectChanges();
+      internals(fixture).onTreatmentChange('t-1');
+      fixture.detectChanges();
+
+      const hours = fixture.nativeElement.querySelector('#book-modal-duration-hours') as HTMLSelectElement;
+      const minutes = fixture.nativeElement.querySelector('#book-modal-duration-minutes') as HTMLSelectElement;
+      expect(hours.value).toBe('0');
+      expect(minutes.value).toBe('45');
+    });
+
+    it('el máximo es 8 h en punto: elegir 8 h borra los minutos', () => {
+      const { fixture } = setup();
+      fixture.detectChanges();
+      internals(fixture).onDurationMinutesChange(eventWith('30'));
+
+      internals(fixture).onDurationHoursChange(eventWith('8'));
+
+      expect(internals(fixture).duration()).toBe(480);
+    });
+
+    it('0 h 0 min no se puede agendar: mínimo 5 minutos', () => {
+      const { fixture } = setup();
+      fixture.detectChanges();
+      internals(fixture).onPatientChange('p-1');
+
+      internals(fixture).onDurationMinutesChange(eventWith('0'));
+      internals(fixture).onDurationHoursChange(eventWith('0'));
+      fixture.detectChanges();
+
+      expect(internals(fixture).durationValid()).toBe(false);
+      expect(internals(fixture).canSubmit()).toBe(false);
+      expect(fixture.nativeElement.textContent).toContain('al menos 5 minutos');
+    });
+
+    it('no deja una cita que pase de las 24:00', () => {
+      const { fixture } = setup();
+      fixture.detectChanges();
+      internals(fixture).onPatientChange('p-1');
+
+      internals(fixture).onStartChange(eventWith('23:30'));
+      internals(fixture).onDurationHoursChange(eventWith('1'));
+      fixture.detectChanges();
+
+      expect(internals(fixture).crossesMidnight()).toBe(true);
+      expect(internals(fixture).canSubmit()).toBe(false);
+      expect(fixture.nativeElement.textContent).toContain('no puede pasar de las 24:00');
+    });
+  });
+
+  // CLI-194: la hora de inicio también se elige, de 5 en 5.
+  describe('hora de inicio editable (CLI-194)', () => {
+    it('cambiar la hora de inicio actualiza el resumen y la hora que se manda', async () => {
+      const { fixture, appointmentsService } = setup();
+      fixture.detectChanges();
+      internals(fixture).onPatientChange('p-1');
+
+      internals(fixture).onStartChange(eventWith('09:45'));
+      internals(fixture).onDurationHoursChange(eventWith('1'));
+      internals(fixture).onDurationMinutesChange(eventWith('15'));
+      fixture.detectChanges();
+      expect(internals(fixture).whenLabel()).toContain('09:45 a 11:00');
+
+      await internals(fixture).onSubmit();
+
+      expect(appointmentsService.createByDoctor).toHaveBeenCalledWith(
+        expect.objectContaining({
+          appointmentDatetime: '2026-10-05T09:45:00-04:00',
+          durationMinutes: 75,
+        }),
+      );
+    });
+
+    it('una hora de inicio inválida se ignora', () => {
+      const { fixture } = setup();
+      fixture.detectChanges();
+
+      internals(fixture).onStartChange(eventWith(''));
+      internals(fixture).onStartChange(eventWith('25:00'));
+
+      expect(internals(fixture).startMinutes()).toBe(10 * 60);
+    });
+
+    it('el aviso de fuera de horario sigue la hora elegida, no la clickeada', () => {
+      const { fixture } = setup();
+      fixture.detectChanges();
+      expect(internals(fixture).outsideSchedule()).toBe(false);
+
+      internals(fixture).onStartChange(eventWith('11:45'));
+      fixture.detectChanges();
+
+      expect(internals(fixture).outsideSchedule()).toBe(true);
+    });
+
+    it('reprogramar manda la nueva hora de inicio cada 5 minutos', async () => {
+      const { fixture, appointmentsService } = setup();
+      fixture.componentRef.setInput('appointment', {
+        id: 'appt-9',
+        patientId: 'p-1',
+        patientFirstName: 'Ana',
+        patientLastNamePaternal: 'Perez',
+        treatmentName: null,
+        durationMinutes: 30,
+        notes: null,
+      });
+      fixture.detectChanges();
+
+      internals(fixture).onStartChange(eventWith('10:35'));
+      await internals(fixture).onSubmit();
+
+      expect(appointmentsService.rescheduleByDoctor).toHaveBeenCalledWith(
+        'appt-9',
+        expect.objectContaining({ appointmentDatetime: '2026-10-05T10:35:00-04:00' }),
+      );
+    });
   });
 
   it('avisa (sin bloquear) si queda fuera del horario de atención', () => {
@@ -147,7 +300,8 @@ describe('BookAppointmentDialogComponent (CLI-150)', () => {
     fixture.detectChanges();
     expect(internals(fixture).outsideSchedule()).toBe(false);
 
-    internals(fixture).onDurationChange(eventWith('150'));
+    internals(fixture).onDurationHoursChange(eventWith('2'));
+    internals(fixture).onDurationMinutesChange(eventWith('30'));
     fixture.detectChanges();
 
     expect(internals(fixture).outsideSchedule()).toBe(true);
@@ -156,18 +310,33 @@ describe('BookAppointmentDialogComponent (CLI-150)', () => {
     expect(internals(fixture).canSubmit()).toBe(true);
   });
 
-  it('no deja agendar si la duración pisa la próxima cita del día', () => {
+  it('no deja agendar si la hora y la duración pisan otra cita del día', () => {
     const { fixture } = setup();
-    fixture.componentRef.setInput('nextBusyMinutes', 11 * 60);
+    fixture.componentRef.setInput('busyIntervals', [{ start: 11 * 60, end: 11 * 60 + 30 }]);
     fixture.detectChanges();
     internals(fixture).onPatientChange('p-1');
 
-    internals(fixture).onDurationChange(eventWith('90'));
+    internals(fixture).onDurationHoursChange(eventWith('1'));
+    internals(fixture).onDurationMinutesChange(eventWith('30'));
     fixture.detectChanges();
 
     expect(internals(fixture).overlapsNext()).toBe(true);
     expect(internals(fixture).canSubmit()).toBe(false);
-    expect(fixture.nativeElement.textContent).toContain('se superpone con tu cita de las 11:00');
+    expect(fixture.nativeElement.textContent).toContain('se superponen con tu cita de las 11:00');
+  });
+
+  it('el choque se calcula con la hora de inicio elegida, también contra una cita que ya empezó', () => {
+    const { fixture } = setup();
+    fixture.componentRef.setInput('busyIntervals', [{ start: 9 * 60, end: 10 * 60 + 15 }]);
+    fixture.detectChanges();
+    internals(fixture).onPatientChange('p-1');
+
+    // 10:00 cae dentro de la cita de 09:00–10:15.
+    expect(internals(fixture).conflict()).toEqual({ start: 9 * 60, end: 10 * 60 + 15 });
+
+    internals(fixture).onStartChange(eventWith('10:15'));
+    expect(internals(fixture).conflict()).toBeNull();
+    expect(internals(fixture).canSubmit()).toBe(true);
   });
 
   it('sin paciente no se puede agendar', () => {
@@ -192,7 +361,7 @@ describe('BookAppointmentDialogComponent (CLI-150)', () => {
       patientId: 'p-1',
       appointmentDatetime: '2026-10-05T10:00:00-04:00',
       treatmentId: 't-1',
-      durationMinutes: 60,
+      durationMinutes: 45,
       notes: 'control',
     });
     expect(booked).toHaveBeenCalledWith({ id: 'new' });
@@ -275,11 +444,15 @@ describe('BookAppointmentDialogComponent (CLI-150)', () => {
       expect(fixture.nativeElement.querySelector('app-catalog-picker')).toBeFalsy();
       expect(internals(fixture).duration()).toBe(90);
       expect(internals(fixture).canSubmit()).toBe(true);
-      // El <select> muestra la duración de la cita, no la primera opción.
-      const select = fixture.nativeElement.querySelector(
-        '#book-modal-duration',
+      // Los <select> muestran la duración de la cita (1 h 30 min), no la primera opción.
+      const hours = fixture.nativeElement.querySelector(
+        '#book-modal-duration-hours',
       ) as HTMLSelectElement;
-      expect(select.value).toBe('90');
+      const minutes = fixture.nativeElement.querySelector(
+        '#book-modal-duration-minutes',
+      ) as HTMLSelectElement;
+      expect(hours.value).toBe('1');
+      expect(minutes.value).toBe('30');
     });
 
     it('reprograma al horario clickeado, mandando duración y notas', async () => {
@@ -301,16 +474,16 @@ describe('BookAppointmentDialogComponent (CLI-150)', () => {
       expect(booked).toHaveBeenCalledWith({ id: 'moved' });
     });
 
-    it('una duración fuera de la lista se lleva a la grilla', () => {
+    it('una duración que no es múltiplo de 5 se lleva al siguiente múltiplo de 5', () => {
       const { fixture } = setup();
       fixture.componentRef.setInput('appointment', {
         ...existing,
-        durationMinutes: 45,
+        durationMinutes: 47,
         notes: null,
       });
       fixture.detectChanges();
 
-      expect(internals(fixture).duration()).toBe(60);
+      expect(internals(fixture).duration()).toBe(50);
     });
   });
 

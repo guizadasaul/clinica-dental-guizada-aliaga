@@ -223,6 +223,29 @@ describe('AppointmentsService', () => {
       );
     });
 
+    // CLI-194: el doctor agenda de a 5 minutos; esa cita puede empezar fuera de
+    // la grilla de 30 y tapa todos los slots que su intervalo toca.
+    it('una cita que empieza fuera de la grilla bloquea los slots que su intervalo toca', async () => {
+      const start = new Date(`${MONDAY}T09:45:00-04:00`);
+      const taken = fakeAppointment({ slot: start, durationMinutes: 75 });
+      mockRepo.findActiveBetween.mockResolvedValue([taken]);
+
+      const result = await service.getAvailability(DOCTOR_ID, MONDAY);
+
+      // 09:45–11:00 toca los slots de 09:30, 10:00, 10:30 (11:00 empieza justo al terminar).
+      for (const hhmm of ['09:30', '10:00', '10:30']) {
+        expect(result.slots).not.toContain(
+          new Date(`${MONDAY}T${hhmm}:00-04:00`).toISOString(),
+        );
+      }
+      expect(result.slots).toContain(
+        new Date(`${MONDAY}T09:00:00-04:00`).toISOString(),
+      );
+      expect(result.slots).toContain(
+        new Date(`${MONDAY}T11:00:00-04:00`).toISOString(),
+      );
+    });
+
     it('rounds a non-multiple-of-30 duration up to the next full slot', async () => {
       const taken = fakeAppointment({
         slot: new Date(VALID_SLOT_ISO),
@@ -300,6 +323,27 @@ describe('AppointmentsService', () => {
   });
 
   describe('holdSlot', () => {
+    beforeEach(() => {
+      // Sin citas activas que se solapen, salvo que el caso diga otra cosa.
+      mockRepo.findActiveBetween.mockResolvedValue([]);
+    });
+
+    // CLI-194: una cita del doctor fuera de la grilla de 30 puede tapar el slot.
+    it('409 si una cita del doctor (a las 09:45, de 30 min) pisa el slot de las 10:00', async () => {
+      mockRepo.findActiveBetween.mockResolvedValue([
+        {
+          id: 'doctor-appt',
+          appointmentDatetime: new Date(`${MONDAY}T09:45:00-04:00`),
+          durationMinutes: 30,
+        },
+      ]);
+
+      await expect(
+        service.holdSlot(DOCTOR_ID, `${MONDAY}T10:00:00-04:00`),
+      ).rejects.toThrow(ConflictException);
+      expect(mockRepo.createHold).not.toHaveBeenCalled();
+    });
+
     it('rejects an off-grid slot without touching the repo', async () => {
       await expect(
         service.holdSlot(DOCTOR_ID, `${MONDAY}T09:15:00-04:00`),
@@ -659,14 +703,30 @@ describe('AppointmentsService', () => {
       expect(mockRepo.createByDoctor).not.toHaveBeenCalled();
     });
 
-    it('400 si no empieza en una franja de la grilla', async () => {
+    // CLI-194: el doctor agenda de a 5 minutos, ya no solo de a 30.
+    it('400 si no empieza en un múltiplo de 5 minutos', async () => {
       await expect(
         service.createByDoctor(DOCTOR_ID, {
           patientId: PATIENT_ID,
-          appointmentDatetime: `${MONDAY}T09:15:00-04:00`,
+          appointmentDatetime: `${MONDAY}T09:12:00-04:00`,
         }),
       ).rejects.toThrow(BadRequestException);
       expect(mockRepo.createByDoctor).not.toHaveBeenCalled();
+    });
+
+    it('acepta empezar a las 09:45 con una duración de 75 minutos', async () => {
+      await service.createByDoctor(DOCTOR_ID, {
+        patientId: PATIENT_ID,
+        appointmentDatetime: `${MONDAY}T09:45:00-04:00`,
+        durationMinutes: 75,
+      });
+
+      expect(mockRepo.createByDoctor).toHaveBeenCalledWith(
+        expect.objectContaining({
+          appointmentDatetime: new Date(`${MONDAY}T09:45:00-04:00`),
+          durationMinutes: 75,
+        }),
+      );
     });
 
     it('busca choques solo en la agenda de ese doctor', async () => {
@@ -883,7 +943,7 @@ describe('AppointmentsService', () => {
       ).rejects.toThrow(ConflictException);
     });
 
-    it('400 si el nuevo horario es pasado o está fuera de la grilla', async () => {
+    it('400 si el nuevo horario es pasado o no es múltiplo de 5 minutos', async () => {
       await expect(
         service.rescheduleByDoctor(DOCTOR_ID, APPT_ID, {
           appointmentDatetime: '2026-08-13T09:00:00-04:00',
@@ -891,7 +951,7 @@ describe('AppointmentsService', () => {
       ).rejects.toThrow(BadRequestException);
       await expect(
         service.rescheduleByDoctor(DOCTOR_ID, APPT_ID, {
-          appointmentDatetime: `${MONDAY}T09:10:00-04:00`,
+          appointmentDatetime: `${MONDAY}T09:12:00-04:00`,
         }),
       ).rejects.toThrow(BadRequestException);
     });

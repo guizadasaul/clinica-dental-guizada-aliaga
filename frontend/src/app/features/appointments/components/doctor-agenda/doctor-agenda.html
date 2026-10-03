@@ -80,7 +80,7 @@
     <app-book-appointment-dialog
       [slot]="slot"
       [schedule]="schedule()"
-      [nextBusyMinutes]="nextBusyMinutes()"
+      [busyIntervals]="busyIntervals()"
       [appointment]="rescheduling()"
       [followUpOf]="followUpPick()"
       (booked)="onBooked($event)"
