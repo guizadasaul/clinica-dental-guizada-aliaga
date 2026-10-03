@@ -100,6 +100,16 @@ function step<T>(
   return fixture.debugElement.query(By.directive(type)).componentInstance as T;
 }
 
+/** Recorre el asistente de un paciente nuevo hasta quedar parado en el paso 3, sin enviarlo. */
+async function advanceToStep3(fixture: ReturnType<typeof setup>['fixture']): Promise<void> {
+  step(fixture, Step1Stub).submitStep.emit({ firstName: 'Ana' });
+  await settle(fixture);
+  step(fixture, Step2Stub).submitStep.emit({ conditions: [] });
+  await settle(fixture);
+}
+
+const HYGIENE = { hygieneHabits: { a: 1 }, clinicalExam: { b: 2 } };
+
 function text(fixture: ReturnType<typeof setup>['fixture']): string {
   return (fixture.nativeElement as HTMLElement).textContent ?? '';
 }
@@ -118,23 +128,162 @@ describe('PatientWizardComponent', () => {
       const { fixture, patients } = setup({});
       await settle(fixture);
 
-      step(fixture, Step1Stub).submitStep.emit({ firstName: 'Ana' });
+      await advanceToStep3(fixture);
+      step(fixture, Step3Stub).submitStep.emit(HYGIENE);
       await settle(fixture);
 
       expect(patients.createPatient).toHaveBeenCalledWith({ firstName: 'Ana' });
-      expect(text(fixture)).toContain('Paso 2 de 4');
+      expect(text(fixture)).toContain('Paso 4 de 4');
     });
 
-    it('si el backend dice que ya existe (409), muestra el motivo y no avanza', async () => {
+    it('si el backend dice que ya existe (409), muestra el motivo y vuelve al paso 1 para corregirlo', async () => {
       const { fixture, patients } = setup({});
-      patients.createPatient.mockReturnValue(httpError('Ya existe Beto Bravo con ese documento'));
+      patients.createPatient.mockReturnValue(
+        throwError(() => ({ status: 409, error: { message: 'Ya existe Beto Bravo con ese documento' } })),
+      );
       await settle(fixture);
 
-      step(fixture, Step1Stub).submitStep.emit({ firstName: 'Ana' });
+      await advanceToStep3(fixture);
+      step(fixture, Step3Stub).submitStep.emit(HYGIENE);
       await settle(fixture);
 
       expect(text(fixture)).toContain('Ya existe Beto Bravo con ese documento');
       expect(text(fixture)).toContain('Paso 1 de 4');
+      expect(patients.createHygieneHabits).not.toHaveBeenCalled();
+    });
+  });
+
+  // CLI-182: el paciente nuevo se crea recién al terminar el paso 3.
+  describe('el paciente nuevo se crea al terminar el paso 3 (CLI-182)', () => {
+    it('los pasos 1 y 2 no crean nada: cerrar el asistente ahí no deja ningún paciente', async () => {
+      const { fixture, patients, events } = setup({});
+      await settle(fixture);
+
+      step(fixture, Step1Stub).submitStep.emit({ firstName: 'Ana' });
+      await settle(fixture);
+      step(fixture, Step2Stub).submitStep.emit({ conditions: [] });
+      await settle(fixture);
+      (fixture.componentInstance as unknown as { onCancel(): void }).onCancel();
+
+      expect(text(fixture)).toContain('Paso 3 de 4');
+      expect(patients.createPatient).not.toHaveBeenCalled();
+      expect(patients.createMedicalHistory).not.toHaveBeenCalled();
+      expect(events.cancelled).toBe(1);
+    });
+
+    it('al terminar el paso 3 crea el paciente, sus antecedentes y la higiene bucal, en ese orden', async () => {
+      const { fixture, patients } = setup({});
+      const calls: string[] = [];
+      patients.createPatient.mockImplementation(() => {
+        calls.push('paciente');
+        return of({ id: 'patient-new' });
+      });
+      patients.createMedicalHistory.mockImplementation(() => {
+        calls.push('antecedentes');
+        return of({});
+      });
+      patients.createHygieneHabits.mockImplementation(() => {
+        calls.push('higiene');
+        return of({});
+      });
+      await settle(fixture);
+
+      await advanceToStep3(fixture);
+      step(fixture, Step3Stub).submitStep.emit(HYGIENE);
+      await settle(fixture);
+
+      expect(calls).toEqual(['paciente', 'antecedentes', 'higiene']);
+      expect(patients.createMedicalHistory).toHaveBeenCalledWith('patient-new', { conditions: [] });
+    });
+
+    it('si falla algo a medias, reintentar no duplica al paciente ni sus antecedentes', async () => {
+      const { fixture, patients } = setup({});
+      patients.createHygieneHabits.mockReturnValueOnce(throwError(() => new Error('500')));
+      await settle(fixture);
+
+      await advanceToStep3(fixture);
+      step(fixture, Step3Stub).submitStep.emit(HYGIENE);
+      await settle(fixture);
+      expect(text(fixture)).toContain('Error al guardar la higiene bucal');
+      expect(text(fixture)).toContain('Paso 3 de 4');
+
+      step(fixture, Step3Stub).submitStep.emit(HYGIENE);
+      await settle(fixture);
+
+      expect(patients.createPatient).toHaveBeenCalledTimes(1);
+      expect(patients.createMedicalHistory).toHaveBeenCalledTimes(1);
+      expect(text(fixture)).toContain('Paso 4 de 4');
+    });
+
+    it('si falla un antecedente tras crear al paciente, reintenta solo los antecedentes', async () => {
+      const { fixture, patients } = setup({});
+      patients.createMedicalHistory.mockReturnValueOnce(httpError('Condición desconocida'));
+      await settle(fixture);
+
+      await advanceToStep3(fixture);
+      step(fixture, Step3Stub).submitStep.emit(HYGIENE);
+      await settle(fixture);
+      expect(text(fixture)).toContain('Condición desconocida');
+      expect(patients.createHygieneHabits).not.toHaveBeenCalled();
+
+      step(fixture, Step3Stub).submitStep.emit(HYGIENE);
+      await settle(fixture);
+
+      expect(patients.createPatient).toHaveBeenCalledTimes(1);
+      expect(patients.createMedicalHistory).toHaveBeenCalledTimes(2);
+      expect(patients.createHygieneHabits).toHaveBeenCalledTimes(1);
+    });
+
+    it('un error de red al crear se queda en el paso 3 para reintentar', async () => {
+      const { fixture, patients } = setup({});
+      patients.createPatient.mockReturnValueOnce(throwError(() => ({ status: 0 })));
+      await settle(fixture);
+
+      await advanceToStep3(fixture);
+      step(fixture, Step3Stub).submitStep.emit(HYGIENE);
+      await settle(fixture);
+      expect(text(fixture)).toContain('Paso 3 de 4');
+
+      step(fixture, Step3Stub).submitStep.emit(HYGIENE);
+      await settle(fixture);
+      expect(patients.createPatient).toHaveBeenCalledTimes(2);
+      expect(text(fixture)).toContain('Paso 4 de 4');
+    });
+
+    it('volver atrás no vacía los pasos anteriores (quedan montados, solo ocultos)', async () => {
+      const { fixture } = setup({});
+      await settle(fixture);
+      await advanceToStep3(fixture);
+
+      step(fixture, Step3Stub).back.emit();
+      fixture.detectChanges();
+
+      expect(text(fixture)).toContain('Paso 2 de 4');
+      expect(fixture.debugElement.query(By.directive(Step1Stub))).toBeTruthy();
+      expect(fixture.debugElement.query(By.directive(Step3Stub))).toBeTruthy();
+      // El paso 1 y el 3 siguen en el DOM, ocultos; solo se ve el 2.
+      expect((fixture.nativeElement as HTMLElement).querySelectorAll('.wizard__body > div[hidden]')).toHaveLength(2);
+    });
+
+    it('al corregir el paso 1 tras un rechazo, vuelve a crear con los datos corregidos', async () => {
+      const { fixture, patients } = setup({});
+      patients.createPatient.mockReturnValueOnce(
+        throwError(() => ({ status: 409, error: { message: 'Ya existe Beto Bravo con ese documento' } })),
+      );
+      await settle(fixture);
+      await advanceToStep3(fixture);
+      step(fixture, Step3Stub).submitStep.emit(HYGIENE);
+      await settle(fixture);
+
+      step(fixture, Step1Stub).submitStep.emit({ firstName: 'Ana', dni: '999' });
+      await settle(fixture);
+      step(fixture, Step2Stub).submitStep.emit({ conditions: [] });
+      await settle(fixture);
+      step(fixture, Step3Stub).submitStep.emit(HYGIENE);
+      await settle(fixture);
+
+      expect(patients.createPatient).toHaveBeenLastCalledWith({ firstName: 'Ana', dni: '999' });
+      expect(text(fixture)).toContain('Paso 4 de 4');
     });
   });
 
@@ -147,16 +296,18 @@ describe('PatientWizardComponent', () => {
 
       step(fixture, Step1Stub).submitStep.emit({ firstName: 'Ana' });
       await settle(fixture);
-      expect(patients.createPatient).toHaveBeenCalledWith({ firstName: 'Ana', userId: 'user-1' });
+      expect(patients.createPatient).not.toHaveBeenCalled();
       expect(text(fixture)).toContain('Paso 2 de 4');
       expect(step(fixture, Step2Stub).catalog()).toEqual([{ id: 'cond-1' }]);
 
       step(fixture, Step2Stub).submitStep.emit({ conditions: [] });
       await settle(fixture);
-      expect(patients.createMedicalHistory).toHaveBeenCalledWith('patient-new', { conditions: [] });
+      expect(patients.createMedicalHistory).not.toHaveBeenCalled();
 
       step(fixture, Step3Stub).submitStep.emit({ hygieneHabits: { a: 1 }, clinicalExam: { b: 2 } });
       await settle(fixture);
+      expect(patients.createPatient).toHaveBeenCalledWith({ firstName: 'Ana', userId: 'user-1' });
+      expect(patients.createMedicalHistory).toHaveBeenCalledWith('patient-new', { conditions: [] });
       expect(patients.createHygieneHabits).toHaveBeenCalledWith('patient-new', { a: 1 });
       expect(patients.createClinicalExam).toHaveBeenCalledWith('patient-new', { b: 2 });
       expect(step(fixture, Step4Stub).catalog()).toEqual([{ id: 'cat-1' }]);
@@ -234,18 +385,19 @@ describe('PatientWizardComponent', () => {
       ['el genérico si el mensaje viene vacío', '   ', 'Error al guardar los datos del paciente'],
       ['el genérico si la lista viene vacía', [''], 'Error al guardar los datos del paciente'],
       ['el genérico si el mensaje no es texto', 42, 'Error al guardar los datos del paciente'],
-    ])('en el paso 1 muestra %s', async (_, message, expected) => {
+    ])('al crear el paciente muestra %s', async (_, message, expected) => {
       const { fixture, patients } = setup({ userId: 'user-1' });
       patients.createPatient.mockReturnValue(httpError(message));
       await settle(fixture);
 
-      step(fixture, Step1Stub).submitStep.emit({});
+      await advanceToStep3(fixture);
+      step(fixture, Step3Stub).submitStep.emit(HYGIENE);
       await settle(fixture);
 
       expect(
         (fixture.nativeElement as HTMLElement).querySelector('.wizard__error')?.textContent,
       ).toContain(expected);
-      expect(text(fixture)).toContain('Paso 1 de 4');
+      expect(text(fixture)).toContain('Paso 3 de 4');
     });
 
     it.each([[null], ['texto plano'], [{ error: null }], [{ error: { sinMessage: true } }]])(
@@ -255,7 +407,8 @@ describe('PatientWizardComponent', () => {
         patients.createPatient.mockReturnValue(throwError(() => err));
         await settle(fixture);
 
-        step(fixture, Step1Stub).submitStep.emit({});
+        await advanceToStep3(fixture);
+        step(fixture, Step3Stub).submitStep.emit(HYGIENE);
         await settle(fixture);
 
         expect(text(fixture)).toContain('Error al guardar los datos del paciente');
@@ -334,6 +487,14 @@ describe('PatientWizardComponent', () => {
 
       expect(patients.updatePatient).toHaveBeenCalledWith('patient-1', { firstName: 'Ana María' });
       expect(patients.createPatient).not.toHaveBeenCalled();
+    });
+
+    it('al editar solo monta el paso donde arranca, sin pasar por el paso 1 (CLI-182)', async () => {
+      const { fixture } = setup({ existingPatientId: 'patient-1', startStep: 2 });
+      await settle(fixture);
+
+      expect(fixture.debugElement.query(By.directive(Step2Stub))).toBeTruthy();
+      expect(fixture.debugElement.query(By.directive(Step1Stub))).toBeNull();
     });
 
     it('desde la agenda abre el historial clínico (paso 2)', async () => {

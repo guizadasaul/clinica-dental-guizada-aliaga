@@ -57,6 +57,12 @@ function backendMessage(err: unknown): string | null {
   return messageText((body as { message?: unknown }).message);
 }
 
+/** El backend rechazó el pedido (400, 409, 422): hay algo que corregir, reintentar igual no sirve. */
+function isClientError(err: unknown): boolean {
+  const status = err && typeof err === 'object' ? (err as { status?: unknown }).status : undefined;
+  return status === 400 || status === 409 || status === 422;
+}
+
 function messageText(message: unknown): string | null {
   if (typeof message === 'string') {
     return message.trim() ? message : null;
@@ -106,6 +112,22 @@ export class PatientWizardComponent implements OnInit {
   protected readonly error = signal<string | null>(null);
   protected readonly done = signal(false);
 
+  /**
+   * Pasos que ya se abrieron (CLI-182). Los pasos 1 a 3 quedan montados (solo
+   * se ocultan) para conservar lo que el doctor escribió: el paciente nuevo
+   * recién se crea al terminar el paso 3, así que volver atrás no puede
+   * vaciar los formularios.
+   */
+  protected readonly visitedSteps = signal<number[]>([]);
+
+  /**
+   * Alta de un paciente nuevo (CLI-182): los pasos 1 y 2 se guardan acá y
+   * recién al terminar el paso 3 se crea el paciente, con sus antecedentes.
+   * Cerrar el asistente antes no deja nada creado.
+   */
+  private pendingPatient: Omit<CreatePatientRequest, 'userId'> | null = null;
+  private pendingMedicalHistory: CreateMedicalHistoryRequest | null = null;
+
   protected readonly isEditMode = computed(() => !!this.existingPatientId());
   /** Se entró directo al examen dental (nuevo diagnóstico o corrección): no se tocó el resto de la ficha. */
   protected readonly onlyDentalExam = computed(() => this.isEditMode() && this.startStep() === 4);
@@ -143,6 +165,12 @@ export class PatientWizardComponent implements OnInit {
         void this.loadDentalExam(existingId);
       }
     }, { allowSignalWrites: true });
+    // Después del efecto de arriba: al editar un paciente existente el primer
+    // paso visible es startStep, y el paso 1 no debe montarse de pasada.
+    effect(() => {
+      const step = this.currentStep();
+      this.visitedSteps.update((visited) => (visited.includes(step) ? visited : [...visited, step]));
+    });
   }
 
   ngOnInit(): void {
@@ -206,15 +234,18 @@ export class PatientWizardComponent implements OnInit {
   }
 
   protected async onStep1Submit(data: Omit<CreatePatientRequest, 'userId'>): Promise<void> {
+    const existingId = this.patientId();
+    if (!existingId) {
+      // Paciente nuevo: todavía no se crea (CLI-182), se guarda al terminar el paso 3.
+      this.pendingPatient = data;
+      this.error.set(null);
+      this.currentStep.set(2);
+      return;
+    }
     this.loading.set(true);
     this.error.set(null);
     try {
-      const existingId = this.existingPatientId();
-      const patient = await firstValueFrom(
-        existingId
-          ? this.patientsService.updatePatient(existingId, data)
-          : this.patientsService.createPatient({ ...data, ...(this.userId() && { userId: this.userId() }) }),
-      );
+      const patient = await firstValueFrom(this.patientsService.updatePatient(existingId, data));
       this.patientId.set(patient.id);
       this.currentStep.set(2);
     } catch (err) {
@@ -226,7 +257,12 @@ export class PatientWizardComponent implements OnInit {
 
   protected async onStep2Submit(data: CreateMedicalHistoryRequest): Promise<void> {
     const id = this.patientId();
-    if (!id) { return; }
+    if (!id) {
+      this.pendingMedicalHistory = data;
+      this.error.set(null);
+      this.currentStep.set(3);
+      return;
+    }
     this.loading.set(true);
     this.error.set(null);
     try {
@@ -241,20 +277,54 @@ export class PatientWizardComponent implements OnInit {
 
   /** "Higiene bucal" (CLI-40) manda dos POST — el paso fusiona dos pasos viejos, el backend no cambió. */
   protected async onStep3Submit(data: OralHygieneSubmit): Promise<void> {
-    const id = this.patientId();
-    if (!id) { return; }
     this.loading.set(true);
     this.error.set(null);
     try {
-      await Promise.all([
-        firstValueFrom(this.patientsService.createHygieneHabits(id, data.hygieneHabits)),
-        firstValueFrom(this.patientsService.createClinicalExam(id, data.clinicalExam)),
-      ]);
-      this.currentStep.set(4);
-    } catch (err) {
-      this.error.set(this.extractErrorMessage(err, 'Error al guardar la higiene bucal. Intente nuevamente.'));
+      try {
+        await this.persistPendingPatient();
+      } catch (err) {
+        // Un rechazo del backend al crear (documento, teléfono o correo repetido,
+        // un dato inválido) se corrige en el paso 1; un error de red se reintenta acá.
+        if (!this.patientId() && isClientError(err)) {
+          this.currentStep.set(1);
+        }
+        this.error.set(this.extractErrorMessage(err, 'Error al guardar los datos del paciente. Intente nuevamente.'));
+        return;
+      }
+      const id = this.patientId();
+      if (!id) { return; }
+      try {
+        await Promise.all([
+          firstValueFrom(this.patientsService.createHygieneHabits(id, data.hygieneHabits)),
+          firstValueFrom(this.patientsService.createClinicalExam(id, data.clinicalExam)),
+        ]);
+        this.currentStep.set(4);
+      } catch (err) {
+        this.error.set(this.extractErrorMessage(err, 'Error al guardar la higiene bucal. Intente nuevamente.'));
+      }
     } finally {
       this.loading.set(false);
+    }
+  }
+
+  /**
+   * Crea el paciente nuevo con los datos de los pasos 1 y 2 (CLI-182). Cada
+   * parte se da por hecha apenas se guarda, así que reintentar tras un fallo
+   * a medias no duplica al paciente ni sus antecedentes.
+   */
+  private async persistPendingPatient(): Promise<void> {
+    if (!this.patientId() && this.pendingPatient) {
+      const userId = this.userId();
+      const patient = await firstValueFrom(
+        this.patientsService.createPatient({ ...this.pendingPatient, ...(userId && { userId }) }),
+      );
+      this.patientId.set(patient.id);
+      this.pendingPatient = null;
+    }
+    const id = this.patientId();
+    if (id && this.pendingMedicalHistory) {
+      await firstValueFrom(this.patientsService.createMedicalHistory(id, this.pendingMedicalHistory));
+      this.pendingMedicalHistory = null;
     }
   }
 
