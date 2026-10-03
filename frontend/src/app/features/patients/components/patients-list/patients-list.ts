@@ -18,12 +18,13 @@ import { AuthService } from '../../../../auth/application/auth.service';
 import type { Patient, PatientWithUser, PatientInviteContact } from '../../models/patient.model';
 import type { Doctor } from '../../../booking/models/booking.model';
 import { PageHeaderComponent } from '../../../../shared/ui/page-header/page-header';
+import { PatientDeleteDialogComponent } from '../patient-delete-dialog/patient-delete-dialog';
 
 @Component({
   selector: 'app-patients-list',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [PageHeaderComponent],
+  imports: [PageHeaderComponent, PatientDeleteDialogComponent],
   templateUrl: './patients-list.html',
   styleUrl: './patients-list.scss',
 })
@@ -83,6 +84,11 @@ export class PatientsListComponent implements OnInit {
     }
   }
 
+  // Baja lógica (CLI-184): el paciente que se está por eliminar y el estado de la llamada.
+  protected readonly deleting = signal<PatientWithUser | null>(null);
+  protected readonly deleteBusy = signal(false);
+  protected readonly deleteError = signal<string | null>(null);
+
   protected readonly patients = signal<PatientWithUser[]>([]);
   protected readonly doctors = signal<Doctor[]>([]);
   // Conveniencia de UI, no de seguridad — sin filtrar, la lista sigue
@@ -104,6 +110,42 @@ export class PatientsListComponent implements OnInit {
 
   ngOnInit(): void {
     void this.loadDoctors();
+  }
+
+  protected askDelete(patient: PatientWithUser): void {
+    this.openMenuFor.set(null);
+    this.menuPosition.set(null);
+    this.deleteError.set(null);
+    this.deleting.set(patient);
+  }
+
+  protected cancelDelete(): void {
+    this.deleting.set(null);
+    this.deleteError.set(null);
+  }
+
+  protected async confirmDelete(): Promise<void> {
+    const target = this.deleting();
+    if (!target || this.deleteBusy()) {
+      return;
+    }
+    this.deleteBusy.set(true);
+    this.deleteError.set(null);
+    try {
+      await firstValueFrom(this.patientsService.deletePatient(target.userId));
+      this.deleting.set(null);
+      await this.loadPatients();
+    } catch (err) {
+      // Los rechazos (citas futuras, saldo) traen el motivo en el mensaje de la API.
+      const message = (err as { error?: { message?: unknown } })?.error?.message;
+      this.deleteError.set(
+        typeof message === 'string' && message.trim()
+          ? message
+          : 'No se pudo eliminar al paciente. Intenta de nuevo.',
+      );
+    } finally {
+      this.deleteBusy.set(false);
+    }
   }
 
   private async loadPatients(): Promise<void> {

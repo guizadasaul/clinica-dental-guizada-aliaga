@@ -96,6 +96,22 @@ describe('RolesGuard', () => {
     expect(request.appUser?.role).toBe(UserRole.ODONTOLOGIST);
   });
 
+  it('rechaza a una cuenta dada de baja aunque el rol coincida (CLI-184)', async () => {
+    mockReflector.getAllAndOverride.mockReturnValue([UserRole.PATIENT]);
+    mockUserRepo.findByAuthUserId.mockResolvedValue({
+      ...makeUser(UserRole.PATIENT),
+      isActive: false,
+    });
+    const { context } = contextWithReflectorMetadata(
+      [UserRole.PATIENT],
+      authUser,
+    );
+
+    await expect(guard.canActivate(context)).rejects.toThrow(
+      'Tu cuenta fue dada de baja.',
+    );
+  });
+
   it('throws ForbiddenException when the resolved role does not match', async () => {
     mockReflector.getAllAndOverride.mockReturnValue([UserRole.ODONTOLOGIST]);
     mockUserRepo.findByAuthUserId.mockResolvedValue(makeUser(UserRole.PATIENT));

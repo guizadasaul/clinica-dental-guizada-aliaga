@@ -367,6 +367,9 @@ model patients {
   assigned_doctor_id             String?                      @db.Uuid
   created_at                     DateTime                     @default(now()) @db.Timestamptz(6)
   updated_at                     DateTime                     @default(now()) @db.Timestamptz(6)
+  /// Baja lógica (CLI-184): la ficha eliminada no se borra, queda marcada con quién y cuándo. La persona queda con users.is_active = false.
+  deleted_at                     DateTime?                    @db.Timestamptz(6)
+  deleted_by                     String?                      @db.Uuid
   appointments                   appointments[]
   clinical_exams                 clinical_exams[]
   hygiene_habits                 hygiene_habits?
@@ -381,12 +384,14 @@ model patients {
   // cuenta se maneja con users.is_active, no con borrado físico.
   users                          users                        @relation("PatientAccount", fields: [user_id], references: [id], onDelete: Restrict, onUpdate: NoAction)
   assigned_doctor                users?                       @relation("PatientAssignedDoctor", fields: [assigned_doctor_id], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  deleted_by_user                users?                       @relation("PatientDeletedBy", fields: [deleted_by], references: [id], onDelete: SetNull, onUpdate: NoAction)
   quotes                         quotes[]
   tooth_procedures               tooth_procedures[]
   xray_documents                 xray_documents[]
   patient_invites                patient_invites[]
 
-  @@unique([document_type, dni], map: "patients_document_type_dni_key")
+  // Parcial (CLI-184): un documento eliminado se puede volver a registrar.
+  @@unique([document_type, dni], map: "patients_document_type_dni_key", where: raw("(deleted_at IS NULL)"))
 }
 
 model patient_invites {
@@ -701,7 +706,8 @@ model doctor_schedule_blocks {
 model users {
   id                      String                    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   auth_user_id            String?                   @unique @db.Uuid
-  email                   String?                   @unique @db.VarChar(255)
+  /// Único solo entre los activos (CLI-184): el correo de un paciente eliminado se puede volver a registrar.
+  email                   String?                   @unique(map: "users_email_key", where: raw("is_active")) @db.VarChar(255)
   display_name            String?                   @db.VarChar(255)
   photo_url               String?
   phone                   String?                   @db.VarChar(20)
@@ -714,6 +720,7 @@ model users {
   role                    UserRole                  @unique(map: "idx_one_admin_user", where: raw("(role = 'admin'::\"UserRole\")")) @default(patient)
   patients                patients?                 @relation("PatientAccount")
   assigned_patients       patients[]                @relation("PatientAssignedDoctor")
+  deleted_patients        patients[]                @relation("PatientDeletedBy")
   appointments            appointments[]            @relation("AppointmentDoctor")
   cancelled_appointments  appointments[]            @relation("AppointmentCancelledBy")
   doctor_profiles         doctor_profiles?

@@ -3,6 +3,7 @@ import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../../shared/prisma/prisma.service';
 import {
   IPatientRepository,
+  PatientDeletionBlockers,
   CreatePatientData,
   UpdatePatientData,
   MedicalHistoryData,
@@ -156,7 +157,7 @@ export class PrismaPatientsRepository implements IPatientRepository {
   ): Promise<string[]> {
     const rows = await this.prisma.patients.groupBy({
       by: [column],
-      where: { [column]: { not: null } },
+      where: { [column]: { not: null }, deleted_at: null },
       _count: { _all: true },
     });
     return rows
@@ -170,6 +171,8 @@ export class PrismaPatientsRepository implements IPatientRepository {
     const records = await this.prisma.users.findMany({
       where: {
         role: 'patient',
+        // Los pacientes eliminados (baja lógica, CLI-184) no se listan.
+        is_active: true,
         ...(doctorId && { patients: { assigned_doctor_id: doctorId } }),
       },
       include: {
@@ -186,7 +189,7 @@ export class PrismaPatientsRepository implements IPatientRepository {
 
   async findPatientById(id: string): Promise<Patient | null> {
     const record = await this.prisma.patients.findUnique({
-      where: { id },
+      where: { id, deleted_at: null },
       include: { users: true },
     });
     return record ? PatientMapper.toDomainPatient(record) : null;
@@ -194,7 +197,7 @@ export class PrismaPatientsRepository implements IPatientRepository {
 
   async findByUserId(userId: string): Promise<Patient | null> {
     const record = await this.prisma.patients.findUnique({
-      where: { user_id: userId },
+      where: { user_id: userId, deleted_at: null },
       include: { users: true },
     });
     return record ? PatientMapper.toDomainPatient(record) : null;
@@ -235,11 +238,71 @@ export class PrismaPatientsRepository implements IPatientRepository {
     documentType: string,
     dni: string,
   ): Promise<Patient | null> {
-    const record = await this.prisma.patients.findUnique({
-      where: { document_type_dni: { document_type: documentType, dni } },
+    // findFirst y no findUnique: la unicidad es parcial (solo entre fichas no
+    // eliminadas, CLI-184), así que puede haber una eliminada con el mismo documento.
+    const record = await this.prisma.patients.findFirst({
+      where: { document_type: documentType, dni, deleted_at: null },
       include: { users: true },
     });
     return record ? PatientMapper.toDomainPatient(record) : null;
+  }
+
+  async findDeletionBlockers(userId: string): Promise<PatientDeletionBlockers> {
+    const patient = await this.prisma.patients.findUnique({
+      where: { user_id: userId },
+      select: { id: true },
+    });
+    if (!patient) {
+      return { futureAppointments: 0, balance: 0 };
+    }
+    const [futureAppointments, quotes] = await Promise.all([
+      this.prisma.appointments.count({
+        where: {
+          patient_id: patient.id,
+          status: { in: ['held', 'confirmed'] },
+          appointment_datetime: { gt: new Date() },
+        },
+      }),
+      // Mismo criterio que la lista de saldos de Finanzas.
+      this.prisma.quotes.findMany({
+        where: {
+          patient_id: patient.id,
+          status: { in: ['pending', 'partially_paid'] },
+          total_amount: { gt: 0 },
+        },
+        select: { total_amount: true, total_paid: true },
+      }),
+    ]);
+    const balance = quotes.reduce(
+      (sum, q) =>
+        sum + Math.max(0, Number(q.total_amount) - Number(q.total_paid)),
+      0,
+    );
+    return { futureAppointments, balance: Math.round(balance * 100) / 100 };
+  }
+
+  async softDeletePatient(userId: string, deletedBy: string): Promise<void> {
+    const now = new Date();
+    await this.prisma.transaction(async (tx) => {
+      await tx.users.update({
+        where: { id: userId },
+        data: { is_active: false, updated_at: now },
+      });
+      await tx.patients.updateMany({
+        where: { user_id: userId, deleted_at: null },
+        data: { deleted_at: now, deleted_by: deletedBy, updated_at: now },
+      });
+      // Deja de ser él por WhatsApp (como la baja de un doctor, CLI-100).
+      await tx.chat_channel_identities.updateMany({
+        where: { user_id: userId, revoked_at: null },
+        data: { revoked_at: now },
+      });
+      // Una invitación sin usar ya no sirve: la ficha está dada de baja.
+      await tx.patient_invites.updateMany({
+        where: { user_id: userId, used_at: null },
+        data: { used_at: now },
+      });
+    });
   }
 
   // El teléfono NO se escribe acá tampoco — PatientsService.updatePatient ya
@@ -250,7 +313,7 @@ export class PrismaPatientsRepository implements IPatientRepository {
   ): Promise<Patient | null> {
     try {
       const record = await this.prisma.patients.update({
-        where: { id },
+        where: { id, deleted_at: null },
         data: {
           ...toPatientUpdateData(data),
           updated_at: new Date(),

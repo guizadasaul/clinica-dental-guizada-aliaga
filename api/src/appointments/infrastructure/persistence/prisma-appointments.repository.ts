@@ -266,15 +266,16 @@ export class PrismaAppointmentsRepository implements IAppointmentRepository {
     // atada a la cuenta de otra persona (o, sin el fix de confirmación, en
     // un hold trabado para siempre — ver prisma-booking-confirmation).
     if (data.email) {
-      const emailOwner = await this.prisma.users.findUnique({
-        where: { email: data.email },
+      // Solo cuentas activas: un paciente eliminado (CLI-184) no bloquea la reserva.
+      const emailOwner = await this.prisma.users.findFirst({
+        where: { email: data.email, is_active: true },
       });
       if (emailOwner) {
         throw new GuestEmailBelongsToAccountError();
       }
     }
     const phoneOwner = await this.prisma.users.findFirst({
-      where: { phone: data.phone },
+      where: { phone: data.phone, is_active: true },
     });
     if (phoneOwner) {
       throw new GuestPhoneBelongsToAccountError();

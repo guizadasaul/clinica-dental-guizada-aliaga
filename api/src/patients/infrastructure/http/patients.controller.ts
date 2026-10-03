@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   HttpCode,
   HttpStatus,
@@ -100,6 +101,21 @@ export class PatientsController {
       documentType: dto.documentType,
       dni: dto.dni,
     });
+  }
+
+  /**
+   * Baja lógica de un paciente de la lista (CLI-184): no borra nada, la ficha
+   * y la cuenta quedan dadas de baja. Se identifica por users.id porque la
+   * lista también trae personas sin ficha.
+   */
+  @Delete('users/:userId')
+  @Roles(UserRole.ODONTOLOGIST)
+  @HttpCode(HttpStatus.NO_CONTENT)
+  async deletePatient(
+    @CurrentUser() currentUser: AuthenticatedUser,
+    @Param('userId', ParseUUIDPipe) userId: string,
+  ): Promise<void> {
+    await this.patientsService.deletePatient(currentUser.uid, userId);
   }
 
   @Patch(':id')

@@ -1,0 +1,117 @@
+.delete-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-4);
+  background: rgb(0 0 0 / 0.5);
+}
+
+.delete-modal__panel {
+  // <dialog open> (no modal): sin el margen, borde y alto que pone el navegador.
+  margin: 0;
+  border: 0;
+  color: inherit;
+  height: auto;
+  width: 100%;
+  max-width: 28rem;
+  max-height: 90vh;
+  overflow-y: auto;
+  padding: var(--space-6);
+  border-radius: var(--radius-xl);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-xl);
+}
+
+.delete-modal__title {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0 0 var(--space-3);
+  font-family: var(--font-headline);
+  font-size: var(--font-size-xl);
+  color: #991b1b;
+
+  .material-symbols-outlined {
+    font-size: 1.5rem;
+  }
+}
+
+.delete-modal__text {
+  margin: 0 0 var(--space-4);
+  color: var(--color-text);
+}
+
+.delete-modal__label {
+  display: block;
+  margin-bottom: var(--space-2);
+  font-size: var(--font-size-sm);
+  color: var(--color-text);
+}
+
+.delete-modal__input {
+  width: 100%;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-gray-300);
+  border-radius: var(--radius-md);
+  background: #fff;
+  font-family: var(--font-body);
+  font-size: var(--font-size-sm);
+  color: var(--color-text);
+
+  &:focus-visible {
+    outline: 2px solid #b91c1c;
+    outline-offset: 1px;
+  }
+}
+
+.delete-modal__error {
+  margin: var(--space-3) 0 0;
+  padding: var(--space-3);
+  border: 1px solid #fecaca;
+  border-radius: var(--radius-md);
+  background: #fef2f2;
+  font-size: var(--font-size-sm);
+  color: #b91c1c;
+}
+
+.delete-modal__actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: var(--space-3);
+  margin-top: var(--space-5);
+}
+
+.delete-modal__btn {
+  padding: var(--space-2) var(--space-5);
+  border-radius: var(--radius-full);
+  font-family: var(--font-body);
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  cursor: pointer;
+
+  &:focus-visible {
+    outline: 3px solid var(--color-primary);
+    outline-offset: 2px;
+  }
+
+  &:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+  }
+
+  &--ghost {
+    border: 1px solid var(--color-gray-300);
+    background: transparent;
+    color: var(--color-text);
+  }
+
+  &--danger {
+    border: none;
+    background: #b91c1c;
+    color: #fff;
+  }
+}

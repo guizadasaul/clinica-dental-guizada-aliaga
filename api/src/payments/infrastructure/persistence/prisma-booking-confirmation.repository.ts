@@ -52,7 +52,9 @@ export class PrismaBookingConfirmationRepository implements IBookingConfirmation
       // chequear antes de intentar el create, no reaccionar después.
       const user =
         (data.guestEmail &&
-          (await tx.users.findUnique({ where: { email: data.guestEmail } }))) ||
+          (await tx.users.findFirst({
+            where: { email: data.guestEmail, is_active: true },
+          }))) ||
         (await tx.users.create({
           data: UserMapper.toPlaceholderCreateInput({
             displayName,

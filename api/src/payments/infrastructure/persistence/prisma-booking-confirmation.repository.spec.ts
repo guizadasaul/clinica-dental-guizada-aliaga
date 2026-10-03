@@ -10,7 +10,7 @@ describe('PrismaBookingConfirmationRepository', () => {
       update: jest.Mock;
       findUniqueOrThrow: jest.Mock;
     };
-    users: { create: jest.Mock; findUnique: jest.Mock };
+    users: { create: jest.Mock; findFirst: jest.Mock };
     patients: { create: jest.Mock; findUnique: jest.Mock };
     transaction: jest.Mock;
   };
@@ -25,7 +25,7 @@ describe('PrismaBookingConfirmationRepository', () => {
           .fn()
           .mockResolvedValue({ doctor_id: 'doctor-1' }),
       },
-      users: { create: jest.fn(), findUnique: jest.fn() },
+      users: { create: jest.fn(), findFirst: jest.fn() },
       patients: {
         create: jest.fn(),
         findUnique: jest.fn().mockResolvedValue(null),
@@ -209,7 +209,7 @@ describe('PrismaBookingConfirmationRepository', () => {
 
   it('does not touch assigned_doctor_id when reusing an existing patient', async () => {
     prismaMock.appointments.updateMany.mockResolvedValue({ count: 1 });
-    prismaMock.users.findUnique.mockResolvedValue({ id: 'existing-user' });
+    prismaMock.users.findFirst.mockResolvedValue({ id: 'existing-user' });
     prismaMock.patients.findUnique.mockResolvedValue({
       id: 'existing-patient',
     });
@@ -237,7 +237,7 @@ describe('PrismaBookingConfirmationRepository', () => {
   // paciente existentes en vez de intentar crear otros.
   it('reuses the existing user and patient when the guest email already belongs to an account', async () => {
     prismaMock.appointments.updateMany.mockResolvedValue({ count: 1 });
-    prismaMock.users.findUnique.mockResolvedValue({ id: 'existing-user' });
+    prismaMock.users.findFirst.mockResolvedValue({ id: 'existing-user' });
     prismaMock.patients.findUnique.mockResolvedValue({
       id: 'existing-patient',
     });
@@ -254,8 +254,8 @@ describe('PrismaBookingConfirmationRepository', () => {
       guestEmail: 'ya@existe.com',
     });
 
-    expect(prismaMock.users.findUnique).toHaveBeenCalledWith({
-      where: { email: 'ya@existe.com' },
+    expect(prismaMock.users.findFirst).toHaveBeenCalledWith({
+      where: { email: 'ya@existe.com', is_active: true },
     });
     expect(prismaMock.users.create).not.toHaveBeenCalled();
     expect(prismaMock.patients.create).not.toHaveBeenCalled();
