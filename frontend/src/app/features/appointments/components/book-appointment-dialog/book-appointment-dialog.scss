@@ -98,9 +98,6 @@
   margin: 0;
   padding: 0;
   border: 0;
-}
-
-.book-modal__fieldset {
   // El gap del flex no separa a la <legend> del contenido: se separa a mano
   // para que las listas de duración queden a la altura del campo de inicio.
   display: block;
