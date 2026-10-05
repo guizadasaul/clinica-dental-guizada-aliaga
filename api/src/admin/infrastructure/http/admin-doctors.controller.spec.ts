@@ -11,6 +11,7 @@ describe('AdminDoctorsController', () => {
     updateDoctor: jest.fn(),
     inviteDoctor: jest.fn(),
     deactivateDoctor: jest.fn(),
+    reactivateDoctor: jest.fn(),
   };
 
   beforeEach(() => {
@@ -142,6 +143,15 @@ describe('AdminDoctorsController', () => {
       id: 'doctor-1',
     });
     expect(mockService.findById).toHaveBeenCalledWith('doctor-1');
+  });
+
+  it('reactivate vuelve a habilitar al doctor (CLI-201)', async () => {
+    mockService.reactivateDoctor.mockResolvedValue({ id: 'doctor-1' });
+
+    await expect(controller.reactivate('doctor-1')).resolves.toEqual({
+      id: 'doctor-1',
+    });
+    expect(mockService.reactivateDoctor).toHaveBeenCalledWith('doctor-1');
   });
 
   it('deactivate da de baja al doctor', async () => {

@@ -97,6 +97,19 @@ export class AdminDoctorsService {
     return doctor;
   }
 
+  /** CLI-201: solo un doctor dado de baja se puede volver a habilitar. */
+  async reactivateDoctor(id: string): Promise<AdminDoctorDetail> {
+    const current = await this.findById(id);
+    if (current.isActive) {
+      throw new ConflictException('El doctor ya está habilitado');
+    }
+    const doctor = await this.adminDoctorRepo.reactivate(id);
+    if (!doctor) {
+      throw new NotFoundException('Doctor no encontrado');
+    }
+    return doctor;
+  }
+
   async deactivateDoctor(id: string): Promise<AdminDoctorDetail> {
     const doctor = await this.adminDoctorRepo.deactivate(id);
     if (!doctor) {

@@ -33,6 +33,11 @@ export class AdminDoctorsService {
     return this.http.post<CreateInviteResponse>(`${this.base}/${id}/invites`, { channel });
   }
 
+  /** CLI-201: vuelve a habilitar a un doctor dado de baja. */
+  reactivate(id: string): Observable<AdminDoctorDetail> {
+    return this.http.patch<AdminDoctorDetail>(`${this.base}/${id}/reactivate`, {});
+  }
+
   deactivate(id: string): Observable<AdminDoctorDetail> {
     return this.http.patch<AdminDoctorDetail>(`${this.base}/${id}/deactivate`, {});
   }
