@@ -505,6 +505,57 @@ describe('AdminDoctorsComponent', () => {
     });
   });
 
+  describe('deactivated doctors (CLI-198)', () => {
+    const DEACTIVATED: AdminDoctorSummary = { ...DOCTOR_SUMMARY, isActive: false, isBookable: false };
+
+    it('a deactivated doctor can no longer be edited, but its agenda and patients can still be viewed', async () => {
+      const { fixture } = setup([DEACTIVATED]);
+      await settle(fixture);
+
+      const actions = el(fixture, '.admin-doctors__cell--actions')!.textContent;
+      expect(actions).not.toContain('Editar');
+      expect(actions).not.toContain('Dar de baja');
+      expect(actions).toContain('Ver agenda y pacientes');
+    });
+
+    it('does not open the edit form if the doctor was deactivated meanwhile', async () => {
+      const { fixture, adminDoctorsService } = setup();
+      adminDoctorsService.getById.mockReturnValue(of({ ...DOCTOR_DETAIL, isActive: false, isBookable: false }));
+      await settle(fixture);
+
+      allEls<HTMLButtonElement>(fixture, '.admin-doctors__cell--actions .admin-doctors__btn')
+        .find((b) => b.textContent?.includes('Editar'))!
+        .click();
+      await settle(fixture);
+
+      expect(el(fixture, '.admin-doctors__form')).toBeFalsy();
+      expect(el(fixture, '.admin-doctors__banner--error')?.textContent).toContain(
+        'El doctor está dado de baja y ya no se puede editar.',
+      );
+    });
+
+    it('shows the deactivated message when the API rejects the edit with 409', async () => {
+      const { fixture, adminDoctorsService } = setup();
+      adminDoctorsService.update.mockReturnValue(
+        throwError(
+          () => new HttpErrorResponse({ status: 409, error: { message: 'El doctor está dado de baja' } }),
+        ),
+      );
+      await settle(fixture);
+
+      allEls<HTMLButtonElement>(fixture, '.admin-doctors__cell--actions .admin-doctors__btn')
+        .find((b) => b.textContent?.includes('Editar'))!
+        .click();
+      await settle(fixture);
+      submitForm(fixture);
+      await settle(fixture);
+
+      expect(el(fixture, '.admin-doctors__banner--error')?.textContent).toContain(
+        'El doctor está dado de baja y ya no se puede editar.',
+      );
+    });
+  });
+
   it('deactivating a doctor requires a two-step confirmation before calling the service', async () => {
     const { fixture, adminDoctorsService } = setup();
     await settle(fixture);
@@ -523,17 +574,16 @@ describe('AdminDoctorsComponent', () => {
 
   // CLI-64: vista de solo lectura de agenda/pacientes de cualquier doctor.
   describe('doctor detail view', () => {
-    it('opens the picker without a preselected doctor from the header shortcut', async () => {
-      const { fixture, bookingService } = setup();
+    it('the header only offers "Nuevo doctor": the agenda is opened from each doctor row (CLI-198)', async () => {
+      const { fixture } = setup();
       await settle(fixture);
 
-      el<HTMLButtonElement>(fixture, '.admin-doctors__header-actions .admin-doctors__btn--outline').click();
-      await settle(fixture);
-
-      expect(bookingService.getDoctors).toHaveBeenCalled();
-      expect(el(fixture, 'app-doctor-picker')).toBeTruthy();
-      expect(el(fixture, 'app-doctor-agenda')).toBeFalsy();
-      expect(el(fixture, 'app-patients-list')).toBeFalsy();
+      const headerButtons = allEls<HTMLButtonElement>(fixture, '.admin-doctors__header-actions button');
+      expect(headerButtons).toHaveLength(1);
+      expect(headerButtons[0].textContent).toContain('Nuevo doctor');
+      expect(el(fixture, '.admin-doctors__cell--actions .admin-doctors__btn--outline')?.textContent).toContain(
+        'Ver agenda y pacientes',
+      );
     });
 
     it('opening the detail from a doctor row preselects that doctor and shows the read-only agenda', async () => {
@@ -570,7 +620,7 @@ describe('AdminDoctorsComponent', () => {
       const { fixture, appointmentsService } = setup([DOCTOR_SUMMARY], [PICKER_DOCTOR]);
       await settle(fixture);
 
-      el<HTMLButtonElement>(fixture, '.admin-doctors__header-actions .admin-doctors__btn--outline').click();
+      el<HTMLButtonElement>(fixture, '.admin-doctors__cell--actions .admin-doctors__btn--outline').click();
       await settle(fixture);
       allEls<HTMLButtonElement>(fixture, '.admin-doctors__tab')
         .find((t) => t.textContent?.includes('Todos los doctores'))!
@@ -589,7 +639,7 @@ describe('AdminDoctorsComponent', () => {
       );
       await settle(fixture);
 
-      el<HTMLButtonElement>(fixture, '.admin-doctors__header-actions .admin-doctors__btn--outline').click();
+      el<HTMLButtonElement>(fixture, '.admin-doctors__cell--actions .admin-doctors__btn--outline').click();
       await settle(fixture);
 
       const cards = allEls<HTMLButtonElement>(fixture, '.doctor-picker__card');
@@ -605,7 +655,7 @@ describe('AdminDoctorsComponent', () => {
       const { fixture } = setup();
       await settle(fixture);
 
-      el<HTMLButtonElement>(fixture, '.admin-doctors__header-actions .admin-doctors__btn--outline').click();
+      el<HTMLButtonElement>(fixture, '.admin-doctors__cell--actions .admin-doctors__btn--outline').click();
       await settle(fixture);
       expect(el(fixture, '.admin-doctors__detail')).toBeTruthy();
 

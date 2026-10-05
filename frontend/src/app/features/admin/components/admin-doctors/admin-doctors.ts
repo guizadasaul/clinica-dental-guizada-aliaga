@@ -27,6 +27,7 @@ import { PageHeaderComponent } from '../../../../shared/ui/page-header/page-head
 const WEEKDAY_LABELS = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
 
 const DISPLAY_NAME_MAX_LENGTH = 200;
+const DEACTIVATED_DOCTOR_MESSAGE = 'El doctor está dado de baja y ya no se puede editar.';
 const SPECIALTY_MAX_LENGTH = 150;
 const BIO_MAX_LENGTH = 2000;
 
@@ -196,9 +197,9 @@ export class AdminDoctorsComponent implements OnInit {
     }
   }
 
-  protected openDetail(doctorId?: string): void {
+  protected openDetail(doctorId: string): void {
     this.confirmingDeactivateFor.set(null);
-    this.selectedDoctorId.set(doctorId ?? null);
+    this.selectedDoctorId.set(doctorId);
     this.detailTab.set('agenda');
     this.detailView.set('doctor');
     this.mode.set('detail');
@@ -237,6 +238,11 @@ export class AdminDoctorsComponent implements OnInit {
     this.formError.set(null);
     try {
       const detail = await firstValueFrom(this.adminDoctorsService.getById(doctorId));
+      // CLI-198: un doctor dado de baja queda como historial, no se edita (la API también lo rechaza).
+      if (!detail.isActive) {
+        this.loadError.set(DEACTIVATED_DOCTOR_MESSAGE);
+        return;
+      }
       this.resetForm();
       this.firstNameField.reset(detail.firstName ?? '');
       this.lastNamePaternalField.reset(detail.lastNamePaternal ?? '');
@@ -466,7 +472,9 @@ export class AdminDoctorsComponent implements OnInit {
 
   private messageFor(error: unknown): string {
     if (error instanceof HttpErrorResponse && error.status === 409) {
-      return 'Ya existe un usuario con ese email.';
+      return error.error?.message === 'El doctor está dado de baja'
+        ? DEACTIVATED_DOCTOR_MESSAGE
+        : 'Ya existe un usuario con ese email.';
     }
     return 'Ocurrió un error. Intenta nuevamente.';
   }

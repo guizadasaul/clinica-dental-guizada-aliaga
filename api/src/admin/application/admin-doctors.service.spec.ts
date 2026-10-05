@@ -199,15 +199,39 @@ describe('AdminDoctorsService', () => {
   });
 
   describe('updateDoctor', () => {
-    it('throws NotFoundException when the repository returns null', async () => {
-      mockAdminDoctorRepo.update.mockResolvedValue(null);
+    it('throws NotFoundException when the doctor does not exist', async () => {
+      mockAdminDoctorRepo.findById.mockResolvedValue(null);
 
       await expect(
         service.updateDoctor('missing', { displayName: 'X' }),
       ).rejects.toThrow(NotFoundException);
+      expect(mockAdminDoctorRepo.update).not.toHaveBeenCalled();
+    });
+
+    it('throws NotFoundException when the repository update returns null', async () => {
+      mockAdminDoctorRepo.findById.mockResolvedValue(DOCTOR);
+      mockAdminDoctorRepo.update.mockResolvedValue(null);
+
+      await expect(
+        service.updateDoctor('doctor-1', { displayName: 'X' }),
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it('throws ConflictException and does not update a deactivated doctor (CLI-198)', async () => {
+      mockAdminDoctorRepo.findById.mockResolvedValue({
+        ...DOCTOR,
+        isActive: false,
+        isBookable: false,
+      });
+
+      await expect(
+        service.updateDoctor('doctor-1', { isBookable: true }),
+      ).rejects.toThrow(new ConflictException('El doctor está dado de baja'));
+      expect(mockAdminDoctorRepo.update).not.toHaveBeenCalled();
     });
 
     it('returns the updated doctor on the happy path', async () => {
+      mockAdminDoctorRepo.findById.mockResolvedValue(DOCTOR);
       mockAdminDoctorRepo.update.mockResolvedValue(DOCTOR);
 
       const result = await service.updateDoctor('doctor-1', {

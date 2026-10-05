@@ -12,14 +12,6 @@
       [subtitle]="doctors().length + (doctors().length === 1 ? ' doctor' : ' doctores')"
     >
       <div actions class="admin-doctors__header-actions">
-        <button
-          type="button"
-          class="admin-doctors__btn admin-doctors__btn--outline"
-          (click)="openDetail()"
-        >
-          <span class="material-symbols-outlined">calendar_month</span>
-          Ver agenda y pacientes
-        </button>
         <button type="button" class="admin-doctors__btn admin-doctors__btn--primary" (click)="openCreate()">
           <span class="material-symbols-outlined">person_add</span>
           Nuevo doctor
@@ -117,11 +109,11 @@
                         Enviar invitación
                       </button>
                     }
-                    <button type="button" class="admin-doctors__btn" (click)="openEdit(doctor.id)">
-                      <span class="material-symbols-outlined">edit</span>
-                      Editar
-                    </button>
                     @if (doctor.isActive) {
+                      <button type="button" class="admin-doctors__btn" (click)="openEdit(doctor.id)">
+                        <span class="material-symbols-outlined">edit</span>
+                        Editar
+                      </button>
                       <button
                         type="button"
                         class="admin-doctors__btn admin-doctors__btn--ghost"
