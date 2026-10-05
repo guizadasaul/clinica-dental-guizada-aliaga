@@ -9,6 +9,7 @@ import { UserRole } from '../../../auth/domain/value-objects/UserRole.js';
 import { ReportQueryDto } from './dto/report-query.dto.js';
 import { TopTreatmentsQueryDto } from './dto/top-treatments-query.dto.js';
 import type { TopTreatmentsReport } from '../../domain/TopTreatmentsReport.js';
+import type { TrendsReport } from '../../domain/TrendsReport.js';
 
 // Toda la ruta es exclusiva de admin (CLI-65), mismo criterio que
 // AdminDoctorsController: ninguna de estas rutas la debe poder tocar un
@@ -49,6 +50,16 @@ export class AdminReportsController {
       from: query.from,
       to: query.to,
       limit: query.limit ?? DEFAULT_TOP_TREATMENTS,
+      ...(query.doctorId && { doctorId: query.doctorId }),
+    });
+  }
+
+  // CLI-199: serie diaria para los gráficos de evolución de Reportes.
+  @Get('trends')
+  getTrends(@Query() query: ReportQueryDto): Promise<TrendsReport> {
+    return this.reportsService.getTrends({
+      from: query.from,
+      to: query.to,
       ...(query.doctorId && { doctorId: query.doctorId }),
     });
   }

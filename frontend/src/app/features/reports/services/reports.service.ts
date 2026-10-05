@@ -2,7 +2,12 @@ import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import type { Observable } from 'rxjs';
 import { environment } from '../../../../environments/environment';
-import type { FinancialReport, OperationalReport } from '../models/report.model';
+import type {
+  FinancialReport,
+  OperationalReport,
+  TopTreatmentsReport,
+  TrendsReport,
+} from '../models/report.model';
 
 export interface ReportFilters {
   /** YYYY-MM-DD, inclusive. */
@@ -25,6 +30,18 @@ export class ReportsService {
 
   getFinancial(filters: ReportFilters): Observable<FinancialReport> {
     return this.http.get<FinancialReport>(`${this.base}/financial`, {
+      params: this.toParams(filters),
+    });
+  }
+
+  getTopTreatments(filters: ReportFilters, limit: number): Observable<TopTreatmentsReport> {
+    return this.http.get<TopTreatmentsReport>(`${this.base}/top-treatments`, {
+      params: { ...this.toParams(filters), limit: String(limit) },
+    });
+  }
+
+  getTrends(filters: ReportFilters): Observable<TrendsReport> {
+    return this.http.get<TrendsReport>(`${this.base}/trends`, {
       params: this.toParams(filters),
     });
   }

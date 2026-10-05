@@ -21,6 +21,7 @@ import type {
 } from '../../domain/FinancialReport.js';
 import type { IReportsRepository } from '../../domain/ReportsRepository.js';
 import type { TopTreatmentsReport } from '../../domain/TopTreatmentsReport.js';
+import type { TrendDay, TrendsReport } from '../../domain/TrendsReport.js';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -346,5 +347,68 @@ export class PrismaReportsRepository implements IReportsRepository {
         count: g._count._all,
       })),
     };
+  }
+
+  /**
+   * Serie diaria (CLI-199): citas por estado según la fecha de la cita, y
+   * cobrado según la fecha del pago — ambas en el huso de la clínica. El
+   * filtro por doctor sigue el mismo criterio que los otros reportes: la cita
+   * por su doctor, el pago por el doctor asignado al paciente del presupuesto.
+   */
+  async getTrends(params: ReportParams): Promise<TrendsReport> {
+    const from = toClinicDateString(params.from);
+    const to = lastInclusiveDateString(params.to);
+
+    const [appointments, payments] = await Promise.all([
+      this.prisma.appointments.findMany({
+        where: {
+          appointment_datetime: { gte: params.from, lt: params.to },
+          ...(params.doctorId && { doctor_id: params.doctorId }),
+        },
+        select: { appointment_datetime: true, status: true },
+      }),
+      this.prisma.payments.findMany({
+        where: { payment_date: { gte: params.from, lt: params.to } },
+        select: {
+          payment_date: true,
+          amount: true,
+          quotes: {
+            select: { patients: { select: { assigned_doctor_id: true } } },
+          },
+        },
+      }),
+    ]);
+
+    const days = new Map<string, TrendDay>(
+      enumerateDateStrings(params.from, params.to).map((date) => [
+        date,
+        { date, appointmentsByStatus: {}, collected: 0 },
+      ]),
+    );
+
+    for (const appointment of appointments) {
+      const day = days.get(
+        toClinicDateString(appointment.appointment_datetime),
+      );
+      if (day) {
+        day.appointmentsByStatus[appointment.status] =
+          (day.appointmentsByStatus[appointment.status] ?? 0) + 1;
+      }
+    }
+
+    for (const payment of payments) {
+      const doctorId = payment.quotes.patients.assigned_doctor_id;
+      if (params.doctorId && doctorId !== params.doctorId) {
+        continue;
+      }
+      const day = days.get(toClinicDateString(payment.payment_date));
+      if (day) {
+        // Redondeo a centavos: sumar Decimals como number acumula error binario.
+        day.collected =
+          Math.round((day.collected + Number(payment.amount)) * 100) / 100;
+      }
+    }
+
+    return { from, to, days: [...days.values()] };
   }
 }
