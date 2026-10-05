@@ -138,6 +138,9 @@ export class AdminDoctorsComponent implements OnInit {
 
   protected readonly confirmingDeactivateFor = signal<string | null>(null);
   protected readonly deactivating = signal(false);
+  // CLI-201: misma confirmación en dos pasos para volver a habilitar.
+  protected readonly confirmingReactivateFor = signal<string | null>(null);
+  protected readonly reactivating = signal(false);
 
   // CLI-64: vista de detalle de solo lectura — agenda y pacientes de un
   // doctor elegido, reusando el mismo picker que alimenta /reservar.
@@ -438,7 +441,32 @@ export class AdminDoctorsComponent implements OnInit {
   }
 
   protected requestDeactivate(doctorId: string): void {
+    this.confirmingReactivateFor.set(null);
     this.confirmingDeactivateFor.set(doctorId);
+  }
+
+  protected requestReactivate(doctorId: string): void {
+    this.confirmingDeactivateFor.set(null);
+    this.confirmingReactivateFor.set(doctorId);
+  }
+
+  protected cancelReactivate(): void {
+    this.confirmingReactivateFor.set(null);
+  }
+
+  protected async confirmReactivate(doctorId: string): Promise<void> {
+    this.reactivating.set(true);
+    this.loadError.set(null);
+    try {
+      await firstValueFrom(this.adminDoctorsService.reactivate(doctorId));
+      this.confirmingReactivateFor.set(null);
+      await this.loadDoctors();
+      this.showSuccess('Doctor habilitado de nuevo.');
+    } catch {
+      this.loadError.set('No se pudo volver a habilitar al doctor.');
+    } finally {
+      this.reactivating.set(false);
+    }
   }
 
   protected cancelDeactivate(): void {

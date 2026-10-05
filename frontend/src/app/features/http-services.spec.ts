@@ -473,6 +473,13 @@ function cases(s: ReturnType<typeof services>): Case[] {
       url: `${API}/admin/doctors/d1/deactivate`,
       body: {},
     },
+    {
+      name: 'admin: volver a habilitar (CLI-201)',
+      call: () => s.admin.reactivate('d1'),
+      method: 'PATCH',
+      url: `${API}/admin/doctors/d1/reactivate`,
+      body: {},
+    },
   ];
 }
 

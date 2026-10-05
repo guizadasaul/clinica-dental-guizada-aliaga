@@ -449,4 +449,55 @@ describe('PrismaAdminDoctorRepository', () => {
       expect(result?.isBookable).toBe(false);
     });
   });
+
+  describe('reactivate (CLI-201)', () => {
+    it('returns null when the doctor does not exist', async () => {
+      prismaMock.doctor_profiles.findUnique.mockResolvedValue(null);
+
+      expect(await repo.reactivate('missing')).toBeNull();
+      expect(prismaMock.users.update).not.toHaveBeenCalled();
+    });
+
+    it.each([
+      ['un doctor ya registrado vuelve a ser reservable', 'auth-1', true],
+      [
+        'un doctor con la invitación pendiente sigue sin ser reservable',
+        null,
+        false,
+      ],
+    ])('%s', async (_name, authUserId, bookable) => {
+      prismaMock.doctor_profiles.findUnique.mockResolvedValue({
+        ...PROFILE_RECORD,
+        is_bookable: false,
+        users: { auth_user_id: authUserId },
+      });
+      prismaMock.users.update.mockResolvedValue({
+        ...USER_RECORD,
+        auth_user_id: authUserId,
+        is_active: true,
+      });
+      prismaMock.doctor_profiles.update.mockResolvedValue({
+        ...PROFILE_RECORD,
+        is_bookable: bookable,
+      });
+      prismaMock.doctor_schedule_blocks.findMany.mockResolvedValue([]);
+
+      const result = await repo.reactivate('doctor-1');
+
+      expect(prismaMock.users.update).toHaveBeenCalledWith({
+        where: { id: 'doctor-1' },
+        data: { is_active: true, updated_at: expect.any(Date) as Date },
+      });
+      expect(prismaMock.doctor_profiles.update).toHaveBeenCalledWith({
+        where: { user_id: 'doctor-1' },
+        data: { is_bookable: bookable, updated_at: expect.any(Date) as Date },
+      });
+      // Las identidades de WhatsApp revocadas en la baja no se restauran.
+      expect(
+        prismaMock.chat_channel_identities.updateMany,
+      ).not.toHaveBeenCalled();
+      expect(result?.isActive).toBe(true);
+      expect(result?.isBookable).toBe(bookable);
+    });
+  });
 });

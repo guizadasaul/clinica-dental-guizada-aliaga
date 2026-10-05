@@ -90,6 +90,19 @@
                     <button type="button" class="admin-doctors__btn admin-doctors__btn--ghost" (click)="cancelDeactivate()">
                       Cancelar
                     </button>
+                  } @else if (confirmingReactivateFor() === doctor.id) {
+                    <span class="admin-doctors__confirm">¿Volver a habilitar?</span>
+                    <button
+                      type="button"
+                      class="admin-doctors__btn admin-doctors__btn--primary"
+                      [disabled]="reactivating()"
+                      (click)="confirmReactivate(doctor.id)"
+                    >
+                      Sí, habilitar
+                    </button>
+                    <button type="button" class="admin-doctors__btn admin-doctors__btn--ghost" (click)="cancelReactivate()">
+                      Cancelar
+                    </button>
                   } @else {
                     <button
                       type="button"
@@ -121,6 +134,15 @@
                       >
                         <span class="material-symbols-outlined">person_off</span>
                         Dar de baja
+                      </button>
+                    } @else {
+                      <button
+                        type="button"
+                        class="admin-doctors__btn admin-doctors__btn--ghost"
+                        (click)="requestReactivate(doctor.id)"
+                      >
+                        <span class="material-symbols-outlined">person_check</span>
+                        Volver a habilitar
                       </button>
                     }
                   }

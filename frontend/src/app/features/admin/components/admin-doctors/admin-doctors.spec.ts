@@ -98,6 +98,7 @@ function setup(
     create: vi.fn().mockReturnValue(of({ doctor: DOCTOR_DETAIL })),
     update: vi.fn().mockReturnValue(of(DOCTOR_DETAIL)),
     deactivate: vi.fn().mockReturnValue(of({ ...DOCTOR_DETAIL, isActive: false, isBookable: false })),
+    reactivate: vi.fn().mockReturnValue(of(DOCTOR_DETAIL)),
     createInvite: vi.fn().mockReturnValue(of({})),
   };
   const bookingService = { getDoctors: vi.fn().mockReturnValue(of(pickerDoctors)) };
@@ -552,6 +553,82 @@ describe('AdminDoctorsComponent', () => {
 
       expect(el(fixture, '.admin-doctors__banner--error')?.textContent).toContain(
         'El doctor está dado de baja y ya no se puede editar.',
+      );
+    });
+  });
+
+  describe('volver a habilitar (CLI-201)', () => {
+    const DEACTIVATED: AdminDoctorSummary = { ...DOCTOR_SUMMARY, isActive: false, isBookable: false };
+
+    function reactivateButton(fixture: ReturnType<typeof setup>['fixture']): HTMLButtonElement | undefined {
+      return allEls<HTMLButtonElement>(fixture, '.admin-doctors__cell--actions .admin-doctors__btn').find((b) =>
+        b.textContent?.includes('Volver a habilitar'),
+      );
+    }
+
+    it('solo un doctor dado de baja ofrece "Volver a habilitar"', async () => {
+      const { fixture } = setup([DOCTOR_SUMMARY]);
+      await settle(fixture);
+      expect(reactivateButton(fixture)).toBeUndefined();
+
+      TestBed.resetTestingModule();
+      const second = setup([DEACTIVATED]);
+      await settle(second.fixture);
+      expect(reactivateButton(second.fixture)).toBeTruthy();
+    });
+
+    it('pide confirmación, habilita, recarga la lista y avisa', async () => {
+      const { fixture, adminDoctorsService } = setup([DEACTIVATED]);
+      await settle(fixture);
+
+      reactivateButton(fixture)!.click();
+      await settle(fixture);
+      expect(adminDoctorsService.reactivate).not.toHaveBeenCalled();
+      expect(el(fixture, '.admin-doctors__confirm')?.textContent).toContain('¿Volver a habilitar?');
+
+      adminDoctorsService.getAll.mockReturnValue(of([DOCTOR_SUMMARY]));
+      allEls<HTMLButtonElement>(fixture, '.admin-doctors__btn')
+        .find((b) => b.textContent?.includes('Sí, habilitar'))!
+        .click();
+      // Habilitar y recargar la lista son dos pedidos encadenados.
+      await settle(fixture);
+      await settle(fixture);
+
+      expect(adminDoctorsService.reactivate).toHaveBeenCalledWith('doctor-1');
+      expect(adminDoctorsService.getAll).toHaveBeenCalledTimes(2);
+      expect(el(fixture, '.admin-doctors__banner--success')?.textContent).toContain('Doctor habilitado de nuevo.');
+      expect(el(fixture, '.admin-doctors__cell--actions')?.textContent).toContain('Editar');
+    });
+
+    it('cancelar no habilita', async () => {
+      const { fixture, adminDoctorsService } = setup([DEACTIVATED]);
+      await settle(fixture);
+
+      reactivateButton(fixture)!.click();
+      await settle(fixture);
+      allEls<HTMLButtonElement>(fixture, '.admin-doctors__btn')
+        .find((b) => b.textContent?.includes('Cancelar'))!
+        .click();
+      await settle(fixture);
+
+      expect(adminDoctorsService.reactivate).not.toHaveBeenCalled();
+      expect(reactivateButton(fixture)).toBeTruthy();
+    });
+
+    it('si falla, lo dice', async () => {
+      const { fixture, adminDoctorsService } = setup([DEACTIVATED]);
+      adminDoctorsService.reactivate.mockReturnValue(throwError(() => new Error('boom')));
+      await settle(fixture);
+
+      reactivateButton(fixture)!.click();
+      await settle(fixture);
+      allEls<HTMLButtonElement>(fixture, '.admin-doctors__btn')
+        .find((b) => b.textContent?.includes('Sí, habilitar'))!
+        .click();
+      await settle(fixture);
+
+      expect(el(fixture, '.admin-doctors__banner--error')?.textContent).toContain(
+        'No se pudo volver a habilitar al doctor.',
       );
     });
   });

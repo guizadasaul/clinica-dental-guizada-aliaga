@@ -235,4 +235,41 @@ export class PrismaAdminDoctorRepository implements IAdminDoctorRepository {
     }
     return error;
   }
+
+  async reactivate(id: string): Promise<AdminDoctorDetail | null> {
+    return this.prisma.transaction(async (tx) => {
+      const existingProfile = await tx.doctor_profiles.findUnique({
+        where: { user_id: id },
+        include: { users: { select: { auth_user_id: true } } },
+      });
+      if (!existingProfile) {
+        return null;
+      }
+
+      // Un doctor que no canjeó su invitación sigue sin ser reservable, igual
+      // que recién dado de alta. Las identidades de WhatsApp revocadas en la
+      // baja no se restauran: las vuelve a vincular él.
+      const registered = existingProfile.users.auth_user_id !== null;
+      const [updatedUser, updatedProfile] = await Promise.all([
+        tx.users.update({
+          where: { id },
+          data: { is_active: true, updated_at: new Date() },
+        }),
+        tx.doctor_profiles.update({
+          where: { user_id: id },
+          data: { is_bookable: registered, updated_at: new Date() },
+        }),
+      ]);
+
+      const scheduleBlocks = await tx.doctor_schedule_blocks.findMany({
+        where: { doctor_id: id },
+        orderBy: SCHEDULE_ORDER_BY,
+      });
+
+      return AdminDoctorMapper.toDetail(
+        { ...updatedProfile, users: updatedUser },
+        scheduleBlocks,
+      );
+    });
+  }
 }
