@@ -98,10 +98,14 @@
   margin: 0;
   padding: 0;
   border: 0;
+  // El gap del flex no separa a la <legend> del contenido: se separa a mano
+  // para que las listas de duración queden a la altura del campo de inicio.
+  display: block;
 }
 
 .book-modal__fieldset legend {
   padding: 0;
+  margin-bottom: var(--space-2);
 }
 
 .book-modal__duration {
@@ -159,6 +163,8 @@
 }
 
 .book-modal__input {
+  box-sizing: border-box;
+  height: 2.5rem;
   width: 100%;
   padding: var(--space-2) var(--space-3);
   border: 1px solid var(--color-gray-300);
