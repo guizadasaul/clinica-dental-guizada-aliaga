@@ -20,6 +20,7 @@ describe('KpiCardComponent', () => {
     expect(root.textContent).toContain('Citas');
     expect(root.querySelector('.kpi-card__value')!.textContent).toBe('12');
     expect(root.querySelector('.kpi-card__delta')).toBeNull();
+    expect(root.textContent).toContain('Sin datos del período anterior');
   });
 
   it('una subida se muestra con signo y en verde', () => {

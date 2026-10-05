@@ -21,7 +21,7 @@ export class KpiCardComponent {
   readonly delta = input<number | null>(null);
   /** true cuando que el número baje es lo bueno (ej. canceladas). */
   readonly lowerIsBetter = input(false);
-  /** Texto bajo el valor cuando no hay variación que mostrar. */
+  /** Texto bajo el valor cuando no hay variación que mostrar (por defecto, que no hay con qué comparar). */
   readonly hint = input<string | null>(null);
 
   protected readonly trend = computed<DeltaTrend | null>(() => {

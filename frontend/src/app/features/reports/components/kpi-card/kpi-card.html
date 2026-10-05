@@ -14,7 +14,7 @@
       <span>{{ deltaText() }}</span>
       <span class="kpi-card__delta-hint">vs. período anterior</span>
     </p>
-  } @else if (hint()) {
-    <p class="kpi-card__hint">{{ hint() }}</p>
+  } @else {
+    <p class="kpi-card__hint">{{ hint() ?? 'Sin datos del período anterior' }}</p>
   }
 </article>
