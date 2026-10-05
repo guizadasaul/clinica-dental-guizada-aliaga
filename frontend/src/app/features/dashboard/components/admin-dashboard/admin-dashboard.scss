@@ -86,90 +86,105 @@
   gap: var(--space-4);
 }
 
-// ─── Quick actions ────────────────────────────────────────────────────────────
+// ─── Reportes rápidos (CLI-197) ──────────────────────────────────────────────
 
-.actions-grid {
+.admin__section-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: var(--space-4);
+  flex-wrap: wrap;
+
+  .section-title {
+    margin: 0;
+  }
+}
+
+.admin__section-sub {
+  margin: var(--space-1) 0 0;
+  font-family: var(--font-body);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
+
+.admin__link {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-full);
+  background: #fff;
+  font-family: var(--font-body);
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  color: var(--color-tertiary);
+  cursor: pointer;
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+
+  .material-symbols-outlined {
+    font-size: 18px;
+  }
+
+  &:hover {
+    border-color: var(--color-tertiary);
+    box-shadow: var(--shadow-sm);
+  }
+}
+
+.kpi-grid {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
+  grid-template-columns: repeat(3, 1fr);
   gap: var(--space-4);
 
-  @media (max-width: 600px) {
+  @media (max-width: 900px) {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  @media (max-width: 480px) {
     grid-template-columns: 1fr;
   }
 }
 
-.action-card {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: var(--space-1);
-  padding: var(--space-6);
+.kpi-skeleton {
+  height: 128px;
   border-radius: var(--radius-xl);
-  border: 1px solid var(--color-border);
-  background: #fff;
-  text-align: left;
-  cursor: pointer;
-  transition: transform var(--transition-fast), box-shadow var(--transition-fast), border-color var(--transition-fast);
+  background: linear-gradient(90deg, var(--color-surface-dim) 0%, var(--color-surface) 50%, var(--color-surface-dim) 100%);
+  background-size: 200% 100%;
+  animation: kpi-shimmer 1.4s ease-in-out infinite;
 
-  &:hover {
-    transform: translateY(-2px);
-    box-shadow: var(--shadow-md);
-  }
-
-  &--primary {
-    &:hover { border-color: var(--color-primary); }
-    .action-card__icon { color: var(--color-primary-dark); background: var(--color-primary-subtle); }
-  }
-
-  &--tertiary {
-    &:hover { border-color: var(--color-tertiary); }
-    .action-card__icon { color: var(--color-tertiary); background: rgb(0 104 121 / 0.08); }
-  }
-
-  // Comentarios (CLI-188)
-  &--secondary {
-    &:hover { border-color: var(--color-primary-dark); }
-    .action-card__icon { color: var(--color-primary-dark); background: var(--color-primary-subtle); }
+  @media (prefers-reduced-motion: reduce) {
+    animation: none;
   }
 }
 
-.action-card__icon {
-  font-size: 24px;
-  padding: var(--space-2) var(--space-2);
+@keyframes kpi-shimmer {
+  from { background-position: 100% 0; }
+  to { background-position: -100% 0; }
+}
+
+.admin__banner {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
   border-radius: var(--radius-lg);
-  margin-bottom: var(--space-2);
+  background: var(--color-error-light);
+  color: var(--color-error);
+  font-family: var(--font-body);
+  font-size: var(--font-size-sm);
 }
 
-.action-card__label {
+.admin__retry {
+  margin-left: auto;
+  border: none;
+  background: transparent;
   font-family: var(--font-body);
-  font-size: var(--font-size-base);
+  font-size: var(--font-size-sm);
   font-weight: 700;
-  color: var(--color-text);
-  margin: 0;
-}
-
-.action-card__desc {
-  font-family: var(--font-body);
-  font-size: var(--font-size-xs);
-  color: var(--color-text-muted);
-  margin: 0;
-  line-height: 1.4;
-}
-
-.action-card__arrow {
-  position: absolute;
-  right: var(--space-4);
-  top: 50%;
-  transform: translateY(-50%);
-  font-size: 18px;
-  color: var(--color-gray-300);
-  transition: color var(--transition-fast), right var(--transition-fast);
-
-  .action-card:hover & {
-    color: var(--color-text-muted);
-    right: var(--space-3);
-  }
+  color: var(--color-error);
+  text-decoration: underline;
+  cursor: pointer;
 }
 
 // ─── Coming soon ─────────────────────────────────────────────────────────────
