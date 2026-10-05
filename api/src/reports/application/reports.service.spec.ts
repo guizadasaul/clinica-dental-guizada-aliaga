@@ -9,6 +9,7 @@ const mockReportsRepo = {
   getOperationalReport: jest.fn(),
   getFinancialReport: jest.fn(),
   getTopTreatments: jest.fn(),
+  getTrends: jest.fn(),
 };
 
 const OPERATIONAL_REPORT: OperationalReport = {
@@ -135,6 +136,49 @@ describe('ReportsService', () => {
           to: '2026-09-01',
           limit: 5,
         }),
+      ).rejects.toBeInstanceOf(BadRequestException);
+    });
+  });
+
+  describe('getTrends (CLI-199)', () => {
+    it('normaliza el rango como los otros reportes y pasa el doctor', async () => {
+      mockReportsRepo.getTrends.mockResolvedValue({
+        from: '2026-09-01',
+        to: '2026-09-30',
+        days: [],
+      });
+
+      await service.getTrends({
+        from: '2026-09-01',
+        to: '2026-09-30',
+        doctorId: 'doc-1',
+      });
+
+      expect(mockReportsRepo.getTrends).toHaveBeenCalledWith({
+        from: new Date('2026-09-01T04:00:00.000Z'),
+        to: new Date('2026-10-01T04:00:00.000Z'),
+        doctorId: 'doc-1',
+      });
+    });
+
+    it('acepta un año completo', async () => {
+      mockReportsRepo.getTrends.mockResolvedValue({ days: [] });
+
+      await service.getTrends({ from: '2025-10-01', to: '2026-09-30' });
+
+      expect(mockReportsRepo.getTrends).toHaveBeenCalled();
+    });
+
+    it('rechaza un rango de más de 400 días sin consultar el repositorio', async () => {
+      await expect(
+        service.getTrends({ from: '2024-01-01', to: '2026-09-30' }),
+      ).rejects.toBeInstanceOf(BadRequestException);
+      expect(mockReportsRepo.getTrends).not.toHaveBeenCalled();
+    });
+
+    it('rechaza un rango invertido', async () => {
+      await expect(
+        service.getTrends({ from: '2026-09-30', to: '2026-09-01' }),
       ).rejects.toBeInstanceOf(BadRequestException);
     });
   });

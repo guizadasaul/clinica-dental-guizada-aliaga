@@ -188,6 +188,20 @@ function cases(s: ReturnType<typeof services>): Case[] {
       params: { from: '2026-09-01', to: '2026-09-30', doctorId: 'doctor-1' },
     },
     {
+      name: 'reportes: serie diaria (CLI-199)',
+      call: () => s.reports.getTrends({ from: '2026-09-01', to: '2026-09-30', doctorId: 'doctor-1' }),
+      method: 'GET',
+      url: `${API}/admin/reports/trends`,
+      params: { from: '2026-09-01', to: '2026-09-30', doctorId: 'doctor-1' },
+    },
+    {
+      name: 'reportes: tratamientos más realizados',
+      call: () => s.reports.getTopTreatments({ from: '2026-09-01', to: '2026-09-30' }, 8),
+      method: 'GET',
+      url: `${API}/admin/reports/top-treatments`,
+      params: { from: '2026-09-01', to: '2026-09-30', limit: '8' },
+    },
+    {
       name: 'presupuestos: crear sin notas',
       call: () => s.quotes.createForPatient('p1'),
       method: 'POST',

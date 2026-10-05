@@ -51,3 +51,31 @@ export interface FinancialReport {
   to: string;
   doctors: DoctorFinancialRow[];
 }
+
+/** GET /admin/reports/top-treatments (CLI-93): cada pieza tratada cuenta una vez. */
+export interface TopTreatmentRow {
+  treatmentId: string;
+  name: string;
+  count: number;
+}
+
+export interface TopTreatmentsReport {
+  from: string;
+  to: string;
+  treatments: TopTreatmentRow[];
+}
+
+/** Un día del rango en el huso de la clínica (CLI-199). */
+export interface TrendDay {
+  /** YYYY-MM-DD. */
+  date: string;
+  appointmentsByStatus: AppointmentStatusCounts;
+  collected: number;
+}
+
+/** GET /admin/reports/trends: un elemento por día del rango, también los vacíos. */
+export interface TrendsReport {
+  from: string;
+  to: string;
+  days: TrendDay[];
+}
