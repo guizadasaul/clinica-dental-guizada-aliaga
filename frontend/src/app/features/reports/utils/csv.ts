@@ -4,7 +4,7 @@ export interface CsvColumn<T> {
   value: (row: T) => string | number | null;
 }
 
-// Excel en español usa ";" como separador de listas: con "," abre todo en una columna.
+// Excel en español usa ";" como separador de listas: con "," cada fila queda en una sola columna.
 const SEPARATOR = ';';
 
 function escapeCell(value: string | number | null): string {
