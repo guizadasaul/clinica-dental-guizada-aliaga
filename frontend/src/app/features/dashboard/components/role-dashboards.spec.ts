@@ -9,6 +9,9 @@ import { PatientsService } from '../../patients/services/patients.service';
 import { AppointmentsService } from '../../appointments/services/appointments.service';
 import type { PatientAppointment } from '../../appointments/models/appointment.model';
 import { LogoComponent } from '../../../shared/ui/logo/logo';
+import { ReportsService } from '../../reports/services/reports.service';
+import { KpiCardComponent } from '../../reports/components/kpi-card/kpi-card';
+import type { FinancialReport, OperationalReport } from '../../reports/models/report.model';
 
 @Component({ selector: 'app-treatment-history', standalone: true, template: 'historial' })
 class TreatmentHistoryStub {
@@ -157,15 +160,65 @@ describe('PatientDashboardComponent', () => {
 });
 
 describe('AdminDashboardComponent', () => {
-  function setup(nav: string, name: string | null = 'Marylu Aliaga') {
-    TestBed.configureTestingModule({ imports: [AdminDashboardComponent], providers: [auth(name)] });
+  function operational(total: number, cancelled: number, confirmed: number): OperationalReport {
+    return {
+      from: '2026-09-01',
+      to: '2026-09-30',
+      cancellations: [],
+      doctors: [
+        {
+          doctorId: 'doctor-1',
+          doctorName: 'Juan Perez',
+          appointmentsByStatus: { confirmed, cancelled },
+          totalAppointments: total,
+          newPatients: 2,
+          theoreticalSlots: 10,
+          confirmedAppointments: confirmed,
+          occupancyRate: confirmed / 10,
+        },
+      ],
+    };
+  }
+
+  function financial(collected: number): FinancialReport {
+    return {
+      from: '2026-09-01',
+      to: '2026-09-30',
+      doctors: [{ doctorId: 'doctor-1', doctorName: 'Juan Perez', collected, pending: 250 }],
+    };
+  }
+
+  function reportsService(fails = false) {
+    // Primera llamada = últimos 30 días; segunda = los 30 anteriores.
+    const getOperational = vi
+      .fn()
+      .mockReturnValueOnce(of(operational(8, 1, 4)))
+      .mockReturnValueOnce(of(operational(4, 2, 2)));
+    const getFinancial = vi
+      .fn()
+      .mockReturnValueOnce(fails ? throwError(() => new Error('boom')) : of(financial(1500)))
+      .mockReturnValue(of(financial(1000)));
+    return { getOperational, getFinancial };
+  }
+
+  function setup(nav: string, name: string | null = 'Marylu Aliaga', service = reportsService()) {
+    TestBed.configureTestingModule({
+      imports: [AdminDashboardComponent],
+      providers: [auth(name), { provide: ReportsService, useValue: service }],
+    });
     TestBed.overrideComponent(AdminDashboardComponent, {
-      set: { imports: [AdminDoctorsStub, ReportsStub, TestimonialReviewStub, LogoComponent] },
+      set: { imports: [AdminDoctorsStub, ReportsStub, TestimonialReviewStub, LogoComponent, KpiCardComponent] },
     });
     const fixture = TestBed.createComponent(AdminDashboardComponent);
     fixture.componentRef.setInput('activeNav', nav);
     fixture.detectChanges();
-    return { fixture, root: fixture.nativeElement as HTMLElement };
+    return { fixture, root: fixture.nativeElement as HTMLElement, service };
+  }
+
+  // loadKpis encadena varios firstValueFrom: dejar correr las microtareas antes de mirar el DOM.
+  async function settle(fixture: { detectChanges: () => void }) {
+    await new Promise((resolve) => setTimeout(resolve));
+    fixture.detectChanges();
   }
 
   it('en el inicio saluda por el primer nombre, o como "Administrador"', () => {
@@ -174,16 +227,55 @@ describe('AdminDashboardComponent', () => {
     expect(setup('home', null).root.textContent).toContain('Administrador');
   });
 
-  it('los accesos llevan a doctores, a reportes y a comentarios', () => {
+  it('ya no muestra los accesos rápidos', () => {
+    const { root } = setup('home');
+    expect(root.querySelector('.action-card')).toBeNull();
+    expect(root.textContent).not.toContain('Accesos rápidos');
+  });
+
+  it('muestra los KPI de los últimos 30 días con la variación contra el período anterior', async () => {
+    const { fixture, root, service } = setup('home');
+    await settle(fixture);
+
+    const cards = Array.from(root.querySelectorAll('app-kpi-card')).map((c) => c.textContent ?? '');
+    expect(cards).toHaveLength(6);
+    expect(cards[0]).toContain('Citas');
+    expect(cards[0]).toContain('8');
+    expect(cards[0]).toContain('+100%');
+    expect(cards[1]).toContain('Bs. 1.500,00');
+    expect(cards[1]).toContain('+50%');
+    expect(cards[2]).toContain('Saldo actual por cobrar');
+    expect(cards[3]).toContain('40%');
+    expect(cards[5]).toContain('-50%');
+
+    const [current, previous] = service.getOperational.mock.calls.map((call) => call[0]);
+    expect(previous.to < current.from).toBe(true);
+  });
+
+  it('las canceladas que bajan se marcan como buena noticia', async () => {
+    const { fixture, root } = setup('home');
+    await settle(fixture);
+    const cancelled = root.querySelectorAll('app-kpi-card')[5];
+    expect(cancelled.querySelector('.kpi-card__delta--good')).not.toBeNull();
+  });
+
+  it('si falla la carga muestra el error y permite reintentar', async () => {
+    const { fixture, root, service } = setup('home', 'Marylu Aliaga', reportsService(true));
+    await settle(fixture);
+    expect(root.textContent).toContain('No se pudieron cargar los reportes rápidos.');
+
+    service.getOperational.mockReturnValue(of(operational(8, 1, 4)));
+    root.querySelector<HTMLButtonElement>('.admin__retry')!.click();
+    await settle(fixture);
+    expect(root.querySelectorAll('app-kpi-card')).toHaveLength(6);
+  });
+
+  it('"Ver todos los reportes" lleva a la sección Reportes', () => {
     const { fixture, root } = setup('home');
     const emitted: string[] = [];
     fixture.componentInstance.navChange.subscribe((nav) => emitted.push(nav));
-
-    root.querySelector<HTMLButtonElement>('.action-card--primary')!.click();
-    root.querySelector<HTMLButtonElement>('.action-card--tertiary')!.click();
-    root.querySelector<HTMLButtonElement>('.action-card--secondary')!.click();
-
-    expect(emitted).toEqual(['doctors', 'reports', 'testimonials']);
+    root.querySelector<HTMLButtonElement>('.admin__link')!.click();
+    expect(emitted).toEqual(['reports']);
   });
 
   it.each([
