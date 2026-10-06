@@ -22,9 +22,9 @@ import type { QrCharge } from '../../quotes/domain/QrCharge';
 import {
   PaymentGateway,
   QrStatus,
+  type PaymentGateway as IPaymentGateway,
   type QrStatusResult,
 } from '../../payments/domain/PaymentGateway';
-import type { PaymentGateway as IPaymentGateway } from '../../payments/domain/PaymentGateway';
 import { FinancesReadRepository } from '../domain/FinancesReadRepository';
 import type { IFinancesReadRepository } from '../domain/FinancesReadRepository';
 import type { PatientBalance } from '../domain/PatientBalance';
