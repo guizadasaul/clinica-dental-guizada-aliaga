@@ -74,9 +74,14 @@ export class PrismaAppointmentsRepository implements IAppointmentRepository {
     const records = await this.prisma.appointments.findMany({
       where: {
         patient_id: patientId,
-        // CLI-208: `attended` también es una visita; `no_show` no.
+        // CLI-208: `attended` también es una visita; `no_show` no, salvo
+        // que se pida para el registro de visitas (CLI-209).
         status: {
-          in: [AppointmentStatus.CONFIRMED, AppointmentStatus.ATTENDED],
+          in: [
+            AppointmentStatus.CONFIRMED,
+            AppointmentStatus.ATTENDED,
+            ...(filters.includeNoShow ? [AppointmentStatus.NO_SHOW] : []),
+          ],
         },
         ...((filters.from || filters.to) && {
           appointment_datetime: {

@@ -8,4 +8,6 @@ export interface PatientAppointment {
   durationMinutes: number;
   doctorName: string | null;
   treatmentName: string | null;
+  /** CLI-209: `confirmed`/`attended` = visita; `no_show` solo aparece en el registro de visitas del paciente. */
+  status: string;
 }

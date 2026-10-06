@@ -106,7 +106,10 @@ export interface PatientAppointmentFilters {
   from?: Date;
   to?: Date;
   order: 'asc' | 'desc';
-  limit: number;
+  /** Sin límite trae todas (registro de visitas del paciente, CLI-209). */
+  limit?: number;
+  /** CLI-209: incluir también las `no_show` (para mostrarlas como "No asististe"). */
+  includeNoShow?: boolean;
 }
 
 export interface IAppointmentRepository {

@@ -41,6 +41,8 @@ export interface PatientAppointment {
   durationMinutes: number;
   doctorName: string | null;
   treatmentName: string | null;
+  /** CLI-209: `confirmed`/`attended` = visita; `no_show` = el doctor marcó que no vino. */
+  status: string;
 }
 
 /** Horario que el doctor aparta de su agenda (CLI-195): emergencia, curso, etc. GET /appointments/blocks. */

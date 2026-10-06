@@ -1,420 +1,467 @@
-// ─── Patient Dashboard ────────────────────────────────────────────────────────
+@use 'patient-portal' as portal;
+@use 'breakpoints' as bp;
 
-.patient {
-  padding: var(--space-8) var(--space-8) var(--space-12);
-  max-width: 1000px;
+// ─── Inicio del paciente (CLI-209, mockup de Stitch) ─────────────────────────
+
+.home {
+  @include portal.page;
+}
+
+.home__date {
   display: flex;
-  flex-direction: column;
-  gap: var(--space-8);
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0 0 var(--space-2);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
 
-  @media (max-width: 767px) {
-    padding: var(--space-6) var(--space-4) var(--space-10);
-    gap: var(--space-6);
+  &::first-letter {
+    text-transform: uppercase;
+  }
+
+  .material-symbols-outlined {
+    font-size: 1rem;
+    color: var(--color-tertiary);
   }
 }
 
-// ─── Header ──────────────────────────────────────────────────────────────────
+.home__title {
+  @include portal.page-title;
+}
 
-.patient__header {
+.home__subtitle {
+  @include portal.page-subtitle;
+}
+
+.home__loading {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
+
+.home__grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-6);
+
+  @include bp.down('md') {
+    grid-template-columns: 1fr;
+    gap: var(--space-4);
+  }
+}
+
+// ─── Próxima cita ────────────────────────────────────────────────────────────
+
+.next {
+  @include portal.card;
+
   position: relative;
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  padding: var(--space-8) var(--space-8);
-  background: var(--color-navy);
-  border-radius: var(--radius-xl);
   overflow: hidden;
+  padding: var(--space-8) var(--space-10);
 
+  // Acento cálido a la izquierda, como en el mockup.
   &::before {
     content: '';
     position: absolute;
-    inset: 0;
-    background: radial-gradient(ellipse at 80% 50%, rgb(232 152 88 / 0.15) 0%, transparent 60%);
-    pointer-events: none;
+    inset: 0 auto 0 0;
+    width: 0.5rem;
+    background: linear-gradient(180deg, var(--color-primary-light), var(--color-primary));
+  }
+
+  @include bp.down('md') {
+    padding: var(--space-6) var(--space-5) var(--space-6) var(--space-6);
   }
 }
 
-.patient__greeting {
-  position: relative;
-  z-index: 1;
+.next__eyebrow {
+  @include portal.pill(var(--color-primary-subtle), var(--color-primary-dark));
+
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  border: 1px solid var(--color-primary-light);
 }
 
-.patient__date {
-  font-family: var(--font-body);
-  font-size: var(--font-size-xs);
-  color: var(--color-primary-light);
-  text-transform: capitalize;
-  letter-spacing: 0.04em;
-  margin: 0 0 var(--space-2);
+.next__dot {
+  width: 0.375rem;
+  height: 0.375rem;
+  border-radius: var(--radius-full);
+  background: var(--color-primary);
 }
 
-.patient__title {
-  font-family: var(--font-headline);
-  font-size: var(--font-size-3xl);
-  color: #fff;
-  margin: 0 0 var(--space-2);
-  line-height: 1.2;
-
-  @media (max-width: 767px) {
-    font-size: var(--font-size-2xl);
-  }
-}
-
-.patient__subtitle {
-  font-family: var(--font-body);
-  font-size: var(--font-size-sm);
-  color: rgb(255 255 255 / 0.55);
-  margin: 0;
-}
-
-.patient__header-deco {
-  height: 4rem;
-  opacity: 0.3;
-  align-self: center;
-  flex-shrink: 0;
-
-  @media (max-width: 600px) {
-    display: none;
-  }
-}
-
-// ─── Stats ────────────────────────────────────────────────────────────────────
-
-.patient__stats {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: var(--space-4);
-
-  @media (max-width: 600px) {
-    grid-template-columns: 1fr;
-    gap: var(--space-3);
-  }
-}
-
-.stat-card {
+.next__body {
   display: flex;
-  align-items: center;
-  gap: var(--space-4);
-  background: #fff;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-xl);
-  padding: var(--space-5) var(--space-5);
-  box-shadow: var(--shadow-sm);
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: var(--space-4) var(--space-8);
+  margin-top: var(--space-4);
 }
 
-.stat-card__icon {
-  font-size: 28px;
-  flex-shrink: 0;
-  padding: var(--space-3);
-  border-radius: var(--radius-lg);
-
-  &--primary {
-    color: var(--color-primary-dark);
-    background: var(--color-primary-subtle);
-  }
-
-  &--tertiary {
-    color: var(--color-tertiary);
-    background: rgb(0 104 121 / 0.08);
-  }
-
-  &--navy {
-    color: var(--color-navy);
-    background: rgb(26 43 75 / 0.08);
-  }
-}
-
-.stat-card__value {
-  font-family: var(--font-headline);
-  font-size: var(--font-size-2xl);
-  color: var(--color-text);
+.next__date {
   margin: 0;
-  line-height: 1;
+  font-family: var(--font-display);
+  font-size: var(--font-size-4xl);
+  line-height: 1.15;
+  color: var(--color-navy);
+
+  @include bp.down('md') {
+    font-size: var(--font-size-3xl);
+  }
 }
 
-.stat-card__label {
-  font-family: var(--font-body);
-  font-size: var(--font-size-xs);
-  color: var(--color-text-muted);
-  margin: var(--space-1) 0 0;
-}
-
-// ─── Section ─────────────────────────────────────────────────────────────────
-
-.patient__section {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-4);
-}
-
-.patient__section-title {
+.next__time {
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  font-family: var(--font-headline);
+  margin: var(--space-2) 0 0;
   font-size: var(--font-size-lg);
   color: var(--color-text);
-  margin: 0;
 
   .material-symbols-outlined {
-    font-size: 20px;
-    color: var(--color-primary-dark);
+    font-size: 1.25rem;
+    color: var(--color-tertiary);
   }
 }
 
-// ─── Appointment empty ────────────────────────────────────────────────────────
-
-.appointment-empty {
+.next__chips {
   display: flex;
   flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: var(--space-12) var(--space-8);
-  background: #fff;
-  border: 1.5px dashed var(--color-border);
-  border-radius: var(--radius-xl);
-  text-align: center;
+  align-items: flex-end;
   gap: var(--space-2);
-}
+  margin: 0;
+  padding: 0;
+  list-style: none;
 
-.appointment-empty__icon {
-  width: 64px;
-  height: 64px;
-  border-radius: 50%;
-  background: var(--color-primary-subtle);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin-bottom: var(--space-2);
-
-  .material-symbols-outlined {
-    font-size: 32px;
-    color: var(--color-primary);
+  @include bp.down('md') {
+    align-items: flex-start;
   }
 }
 
-.appointment-empty__text {
-  font-family: var(--font-body);
-  font-size: var(--font-size-base);
+.next__chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-4);
+  border: 1px solid var(--color-border-warm);
+  border-radius: var(--radius-full);
+  background: var(--color-surface);
+  font-size: var(--font-size-sm);
   font-weight: 600;
   color: var(--color-text);
-  margin: 0;
 }
 
-.appointment-empty__sub {
-  font-family: var(--font-body);
-  font-size: var(--font-size-sm);
-  color: var(--color-text-muted);
-  margin: 0;
-}
+.next__chip-icon {
+  font-size: 1.125rem;
+  color: var(--color-primary);
 
-.appointment-empty__cta {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  margin-top: var(--space-4);
-  padding: var(--space-3) var(--space-6);
-  background: var(--color-primary);
-  color: #fff;
-  border: none;
-  border-radius: var(--radius-full);
-  font-family: var(--font-body);
-  font-size: var(--font-size-sm);
-  font-weight: 600;
-  cursor: pointer;
-  transition: background var(--transition-fast);
-
-  .material-symbols-outlined {
-    font-size: 18px;
-  }
-
-  &:hover {
-    background: var(--color-primary-dark);
+  &--teal {
+    color: var(--color-tertiary);
   }
 }
 
-// ─── Quick actions ────────────────────────────────────────────────────────────
-
-.actions-grid {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: var(--space-4);
-
-  @media (max-width: 600px) {
-    grid-template-columns: 1fr;
-  }
-}
-
-.action-card {
-  position: relative;
+.next__later {
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
-  gap: var(--space-1);
-  padding: var(--space-6);
-  border-radius: var(--radius-xl);
-  border: 1px solid var(--color-border);
-  background: #fff;
-  text-align: left;
-  cursor: pointer;
-  transition: transform var(--transition-fast), box-shadow var(--transition-fast), border-color var(--transition-fast);
+  gap: var(--space-2);
+  margin: var(--space-6) 0 0;
+  padding: var(--space-4) 0 0;
+  border-top: 1px solid var(--color-border-warm);
+  list-style: none;
 
-  &:hover {
-    transform: translateY(-2px);
-    box-shadow: var(--shadow-md);
+  li {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-1) var(--space-2);
+    font-size: var(--font-size-sm);
+    color: var(--color-text-muted);
+  }
+
+  strong {
+    color: var(--color-text);
+  }
+
+  .material-symbols-outlined {
+    font-size: 1rem;
+  }
+}
+
+.next__later-treatment {
+  margin-left: auto;
+  font-size: var(--font-size-xs);
+}
+
+.next__empty {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  margin-top: var(--space-4);
+
+  > .material-symbols-outlined {
+    @include portal.icon-badge(var(--color-primary-subtle), var(--color-primary));
+  }
+}
+
+.next__empty-title {
+  margin: 0;
+  font-family: var(--font-headline);
+  font-size: var(--font-size-xl);
+  color: var(--color-navy);
+}
+
+.next__empty-sub {
+  margin: var(--space-1) 0 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
+
+// ─── Tarjetas de visitas y saldo ─────────────────────────────────────────────
+
+.stat {
+  @include portal.card;
+
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+  padding: var(--space-6) var(--space-8);
+
+  @include bp.down('md') {
+    padding: var(--space-5) var(--space-5);
+  }
+}
+
+.stat__head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: var(--space-4);
+}
+
+.stat__eyebrow {
+  @include portal.eyebrow;
+}
+
+.stat__title {
+  margin: var(--space-1) 0 0;
+  font-family: var(--font-body);
+  font-size: var(--font-size-lg);
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.stat__icon {
+  &--teal {
+    @include portal.icon-badge(color-mix(in srgb, var(--color-tertiary) 10%, #fff), var(--color-tertiary));
   }
 
   &--primary {
-    &:hover { border-color: var(--color-primary); }
-    .action-card__icon { color: var(--color-primary-dark); background: var(--color-primary-subtle); }
-  }
-
-  &--tertiary {
-    &:hover { border-color: var(--color-tertiary); }
-    .action-card__icon { color: var(--color-tertiary); background: rgb(0 104 121 / 0.08); }
-  }
-
-  &--navy {
-    &:hover { border-color: var(--color-navy); }
-    .action-card__icon { color: var(--color-navy); background: rgb(26 43 75 / 0.08); }
-  }
-
-  &--muted {
-    &:hover { border-color: var(--color-gray-400); }
-    .action-card__icon { color: var(--color-gray-600); background: var(--color-gray-100); }
+    @include portal.icon-badge(var(--color-primary-subtle), var(--color-primary));
   }
 }
 
-.action-card__icon {
-  font-size: 24px;
-  padding: var(--space-2) var(--space-2);
-  border-radius: var(--radius-lg);
-  margin-bottom: var(--space-2);
+.stat__figure {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-3);
+  margin: 0;
+
+  &--money {
+    flex-wrap: wrap;
+    justify-content: space-between;
+    align-items: center;
+  }
 }
 
-.action-card__label {
+.stat__value {
+  font-family: var(--font-display);
+  font-size: var(--font-size-5xl);
+  font-weight: 600;
+  line-height: 1;
+  color: var(--color-navy);
+
+  .stat__figure--money & {
+    font-size: var(--font-size-4xl);
+  }
+}
+
+.stat__unit {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
+
+.stat__pill {
+  @include portal.pill(color-mix(in srgb, var(--color-tertiary) 10%, #fff), var(--color-tertiary));
+
+  &--done {
+    background: var(--color-success-light);
+    color: color-mix(in srgb, var(--color-success) 60%, #000);
+  }
+}
+
+.stat__bar {
+  width: 100%;
+  height: 0.5rem;
+  border: none;
+  border-radius: var(--radius-full);
+  background: var(--color-surface-dim);
+  overflow: hidden;
+  appearance: none;
+
+  &::-webkit-progress-bar {
+    background: var(--color-surface-dim);
+    border-radius: var(--radius-full);
+  }
+
+  &::-webkit-progress-value {
+    background: var(--color-tertiary);
+    border-radius: var(--radius-full);
+  }
+
+  &::-moz-progress-bar {
+    background: var(--color-tertiary);
+    border-radius: var(--radius-full);
+  }
+}
+
+.stat__empty {
+  margin: 0;
+  font-size: var(--font-size-base);
+  color: var(--color-text-muted);
+}
+
+.stat__foot {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: auto 0 0;
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--color-border-warm);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+
+  .material-symbols-outlined {
+    font-size: 1.125rem;
+    color: var(--color-tertiary);
+  }
+
+  &::first-letter {
+    text-transform: uppercase;
+  }
+
+  &--action {
+    justify-content: flex-end;
+  }
+}
+
+.stat__link {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: 0;
+  border: none;
+  background: none;
+  font-family: var(--font-body);
+  font-size: var(--font-size-sm);
+  font-weight: 700;
+  color: var(--color-primary-dark);
+  cursor: pointer;
+
+  .material-symbols-outlined {
+    color: inherit;
+    transition: transform var(--transition-fast);
+  }
+
+  &:hover .material-symbols-outlined {
+    transform: translateX(2px);
+  }
+}
+
+// ─── Contacto por WhatsApp ───────────────────────────────────────────────────
+
+.contact {
+  @include portal.card;
+
+  display: flex;
+  align-items: center;
+  gap: var(--space-5);
+  padding: var(--space-6) var(--space-8);
+
+  @include bp.down('md') {
+    flex-direction: column;
+    align-items: flex-start;
+    padding: var(--space-5);
+  }
+}
+
+.contact__icon {
+  @include portal.icon-badge(var(--color-primary-subtle), var(--color-primary));
+
+  width: 3.25rem;
+  height: 3.25rem;
+}
+
+.contact__text {
+  flex: 1;
+}
+
+.contact__title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: var(--font-size-xl);
+  font-weight: 600;
+  color: var(--color-navy);
+}
+
+.contact__sub {
+  margin: var(--space-1) 0 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
+
+.contact__btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-6);
+  border-radius: var(--radius-xl);
+  background: var(--color-whatsapp);
   font-family: var(--font-body);
   font-size: var(--font-size-base);
   font-weight: 700;
-  color: var(--color-text);
-  margin: 0;
-}
+  color: #fff;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: background var(--transition-fast);
 
-.action-card__desc {
-  font-family: var(--font-body);
-  font-size: var(--font-size-xs);
-  color: var(--color-text-muted);
-  margin: 0;
-  line-height: 1.4;
-}
+  &:hover {
+    background: var(--color-whatsapp-dark);
+  }
 
-.action-card__arrow {
-  position: absolute;
-  right: var(--space-4);
-  top: 50%;
-  transform: translateY(-50%);
-  font-size: 18px;
-  color: var(--color-gray-300);
-  transition: color var(--transition-fast), right var(--transition-fast);
-
-  .action-card:hover & {
-    color: var(--color-text-muted);
-    right: var(--space-3);
+  @include bp.down('md') {
+    width: 100%;
+    justify-content: center;
   }
 }
 
-// ─── No profile state ─────────────────────────────────────────────────────────
+// ─── Sin ficha ───────────────────────────────────────────────────────────────
 
 .patient__no-profile {
   display: flex;
-  flex-direction: column;
   align-items: center;
-  gap: 0.75rem;
-  padding: 3rem 1.5rem;
-  color: #6b7280;
-  text-align: center;
+  gap: var(--space-3);
+  max-width: 640px;
+  margin: var(--space-8);
+  padding: var(--space-6);
+  border: 1px solid var(--color-border-warm);
+  border-radius: var(--radius-2xl);
+  background: #fff;
+  color: var(--color-text-muted);
 
-  p { margin: 0; font-size: 0.9375rem; }
+  p {
+    margin: 0;
+  }
 }
 
 .patient__no-profile-icon {
-  font-size: 2.5rem;
-  color: #d1d5db;
-}
-
-// CLI-153: próxima cita real del paciente.
-.appointment-next {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-4);
-  padding: var(--space-5);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-xl);
-  background: #fff;
-}
-
-.appointment-next__when {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-
-  .material-symbols-outlined {
-    font-size: 2rem;
-    color: var(--color-tertiary);
-  }
-}
-
-.appointment-next__date {
-  margin: 0;
-  font-family: var(--font-headline);
-  font-size: var(--font-size-lg);
-  color: var(--color-text);
-}
-
-.appointment-next__time {
-  margin: 0;
-  font-weight: 600;
-  color: var(--color-text-muted);
-}
-
-.appointment-next__facts {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-3) var(--space-8);
-  margin: 0;
-
-  dt {
-    font-size: var(--font-size-xs);
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-    color: var(--color-text-muted);
-  }
-
-  dd {
-    margin: 0;
-    color: var(--color-text);
-  }
-}
-
-.appointment-next__later {
-  padding-top: var(--space-3);
-  border-top: 1px solid var(--color-border);
-  font-size: var(--font-size-sm);
-  color: var(--color-text);
-
-  ul {
-    margin: var(--space-1) 0 0;
-    padding-left: var(--space-5);
-  }
-}
-
-.appointment-next__later-title {
-  margin: 0;
-  font-weight: 600;
-}
-
-.appointment-next__loading {
-  color: var(--color-text-muted);
-  font-size: var(--font-size-sm);
+  color: var(--color-tertiary);
 }

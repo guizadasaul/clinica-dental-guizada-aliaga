@@ -225,6 +225,7 @@ describe('PrismaAppointmentsRepository', () => {
           durationMinutes: 60,
           doctorName: 'Dr. Ariel Guizada',
           treatmentName: 'Limpieza',
+          status: 'confirmed',
         },
       ]);
     });
@@ -252,6 +253,23 @@ describe('PrismaAppointmentsRepository', () => {
       };
       expect(args.where).toMatchObject({ appointment_datetime: { lt: to } });
       expect(item).toMatchObject({ doctorName: null, treatmentName: null });
+    });
+
+    it('con includeNoShow suma las "No asistió" y sin limit trae todas (CLI-209)', async () => {
+      prismaMock.appointments.findMany.mockResolvedValue([]);
+
+      await repo.findForPatient('patient-1', {
+        order: 'desc',
+        includeNoShow: true,
+      });
+
+      const args = (
+        prismaMock.appointments.findMany.mock.calls as unknown[][]
+      )[0][0] as { where: Record<string, unknown>; take?: number };
+      expect(args.where.status).toEqual({
+        in: ['confirmed', 'attended', 'no_show'],
+      });
+      expect(args.take).toBeUndefined();
     });
 
     it('sin rango no filtra por fecha', async () => {

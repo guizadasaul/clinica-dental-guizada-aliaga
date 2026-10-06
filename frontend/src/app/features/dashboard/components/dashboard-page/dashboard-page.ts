@@ -23,7 +23,6 @@ interface NavItem {
 const PATIENT_NAV: NavItem[] = [
   { icon: 'home', label: 'Inicio', key: 'home' },
   { icon: 'calendar_month', label: 'Mis Citas', key: 'appointments' },
-  { icon: 'add_circle', label: 'Solicitar Cita', key: 'request' },
   { icon: 'history', label: 'Mi Historial', key: 'history' },
   { icon: 'request_quote', label: 'Mi Presupuesto', key: 'quote' },
   { icon: 'person', label: 'Mi Perfil', key: 'profile' },

@@ -606,6 +606,34 @@ describe('AppointmentsService', () => {
     });
   });
 
+  // CLI-209
+  describe('getPatientVisits', () => {
+    it('todas las pasadas, la más reciente primero, incluidas las "No asistió"', async () => {
+      const now = new Date('2026-09-25T12:00:00Z');
+      mockRepo.findForPatient.mockResolvedValue([]);
+
+      await service.getPatientVisits('patient-1', now);
+
+      expect(mockRepo.findForPatient).toHaveBeenCalledWith('patient-1', {
+        to: now,
+        order: 'desc',
+        includeNoShow: true,
+      });
+    });
+
+    it('usa la hora actual por defecto', async () => {
+      mockRepo.findForPatient.mockResolvedValue([]);
+      const before = Date.now();
+
+      await service.getPatientVisits('patient-1');
+
+      const filters = (
+        mockRepo.findForPatient.mock.calls as unknown[][]
+      )[0][1] as { to: Date };
+      expect(filters.to.getTime()).toBeGreaterThanOrEqual(before);
+    });
+  });
+
   describe('getAgenda', () => {
     it('delegates the filters straight to the repository', async () => {
       mockRepo.findForAgenda.mockResolvedValue([]);
