@@ -18,13 +18,15 @@ import { AuthService } from '../../../../auth/application/auth.service';
 import type { Patient, PatientWithUser, PatientInviteContact } from '../../models/patient.model';
 import type { Doctor } from '../../../booking/models/booking.model';
 import { PageHeaderComponent } from '../../../../shared/ui/page-header/page-header';
+import { PaginationComponent, PAGE_SIZE } from '../../../../shared/ui/pagination/pagination';
+import { clampPage, pageSlice } from '../../../../shared/utils/pagination.util';
 import { PatientDeleteDialogComponent } from '../patient-delete-dialog/patient-delete-dialog';
 
 @Component({
   selector: 'app-patients-list',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [PageHeaderComponent, PatientDeleteDialogComponent],
+  imports: [PageHeaderComponent, PatientDeleteDialogComponent, PaginationComponent],
   templateUrl: './patients-list.html',
   styleUrl: './patients-list.scss',
 })
@@ -167,6 +169,7 @@ export class PatientsListComponent implements OnInit {
 
   protected toggleOnlyMine(): void {
     this.onlyMine.update((v) => !v);
+    this.requestedPage.set(1);
     void this.loadPatients();
   }
 
@@ -188,6 +191,25 @@ export class PatientsListComponent implements OnInit {
       return name.includes(q) || phone.includes(q);
     });
   });
+
+  /** Página pedida; la que se ve (`currentPage`) se ajusta si la lista se achicó (CLI-204). */
+  private readonly requestedPage = signal(1);
+  protected readonly currentPage = computed(() =>
+    clampPage(this.requestedPage(), this.filtered().length, PAGE_SIZE),
+  );
+  protected readonly visible = computed(() =>
+    pageSlice(this.filtered(), this.currentPage(), PAGE_SIZE),
+  );
+
+  protected onFilter(value: string): void {
+    this.filter.set(value);
+    this.requestedPage.set(1);
+  }
+
+  protected goToPage(page: number): void {
+    this.closeMenu();
+    this.requestedPage.set(page);
+  }
 
   protected fullName(p: PatientWithUser): string {
     if (p.patient) {

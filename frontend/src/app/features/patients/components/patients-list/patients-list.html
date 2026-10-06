@@ -13,7 +13,7 @@
           placeholder="Buscar por nombre o teléfono..."
           aria-label="Buscar paciente por nombre o teléfono"
           [value]="filter()"
-          (input)="filter.set($any($event.target).value)"
+          (input)="onFilter($any($event.target).value)"
         />
       </div>
       @if (!readOnly()) {
@@ -74,7 +74,7 @@
           </tr>
         </thead>
         <tbody>
-          @for (p of filtered(); track p.userId) {
+          @for (p of visible(); track p.userId) {
             <tr class="patients-list__row">
               <td class="patients-list__cell patients-list__cell--name">
                 <div class="patients-list__avatar-wrap">
@@ -238,6 +238,7 @@
         </tbody>
       </table>
     </div>
+    <app-pagination [total]="filtered().length" [page]="currentPage()" (pageChange)="goToPage($event)" />
   }
 
   @if (deleting(); as target) {

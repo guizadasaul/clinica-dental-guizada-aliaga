@@ -11,7 +11,7 @@
           placeholder="Buscar paciente..."
           aria-label="Buscar paciente"
           [value]="search()"
-          (input)="search.set($any($event.target).value)"
+          (input)="onSearch($any($event.target).value)"
         />
       </div>
 
@@ -24,7 +24,7 @@
         }
         @default {
           <ul class="fin__patients">
-            @for (p of patients(); track p.patientId) {
+            @for (p of visiblePatients(); track p.patientId) {
               <li>
                 <button
                   type="button"
@@ -48,6 +48,7 @@
               </li>
             }
           </ul>
+          <app-pagination [total]="patients().length" [page]="currentPage()" (pageChange)="goToPage($event)" />
         }
       }
     </section>

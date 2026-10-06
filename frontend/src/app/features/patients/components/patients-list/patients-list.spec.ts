@@ -626,3 +626,68 @@ describe('PatientsListComponent — búsqueda, acciones y menú', () => {
     });
   });
 });
+
+describe('PatientsListComponent — paginación (CLI-204)', () => {
+  const many = Array.from({ length: 23 }, (_, i) =>
+    fakePatientWithUser({
+      userId: `user-${i}`,
+      patient: {
+        ...fakePatientWithUser().patient!,
+        id: `patient-${i}`,
+        firstName: `Paciente${String(i + 1).padStart(2, '0')}`,
+      },
+    }),
+  );
+
+  const root = (fixture: ReturnType<typeof setup>['fixture']) => fixture.nativeElement as HTMLElement;
+  const rowCount = (fixture: ReturnType<typeof setup>['fixture']) =>
+    root(fixture).querySelectorAll('.patients-list__row').length;
+  const click = (fixture: ReturnType<typeof setup>['fixture'], label: string) => {
+    root(fixture).querySelector<HTMLButtonElement>(`button[aria-label="${label}"]`)!.click();
+    fixture.detectChanges();
+  };
+
+  it('muestra como máximo 10 por página y recorre las páginas', async () => {
+    const { fixture } = setup(many);
+    await settle(fixture);
+
+    expect(rowCount(fixture)).toBe(10);
+    expect(root(fixture).textContent).toContain('Página 1 de 3');
+    expect(root(fixture).textContent).toContain('Paciente01');
+
+    click(fixture, 'Página siguiente');
+    click(fixture, 'Página siguiente');
+    expect(rowCount(fixture)).toBe(3);
+    expect(root(fixture).textContent).toContain('Paciente21');
+
+    click(fixture, 'Página anterior');
+    expect(rowCount(fixture)).toBe(10);
+  });
+
+  it('el subtítulo cuenta todos los pacientes, no solo los de la página', async () => {
+    const { fixture } = setup(many);
+    await settle(fixture);
+
+    expect(root(fixture).textContent).toContain('23 pacientes');
+  });
+
+  it('con 10 o menos no muestra la paginación', async () => {
+    const { fixture } = setup(many.slice(0, 10));
+    await settle(fixture);
+
+    expect(root(fixture).querySelector('.pagination')).toBeNull();
+  });
+
+  it('al buscar vuelve a la página 1', async () => {
+    const { fixture } = setup(many);
+    await settle(fixture);
+    click(fixture, 'Página siguiente');
+
+    const search = el<HTMLInputElement>(fixture, '.patients-list__search');
+    search.value = 'Paciente';
+    search.dispatchEvent(new Event('input'));
+    fixture.detectChanges();
+
+    expect(root(fixture).textContent).toContain('Página 1 de 3');
+  });
+});
