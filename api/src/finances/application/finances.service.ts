@@ -104,7 +104,7 @@ export class FinancesService {
   // suyo (o un borrador) da el mismo 404 que uno inexistente.
 
   /**
-   * Genera el QR por todo lo pendiente de los tratamientos que eligió. Un solo
+   * Genera el QR por el saldo completo de los tratamientos que eligió. Un solo
    * QR pendiente a la vez: si ya tiene uno, que lo pague o lo anule.
    */
   async createPatientQrCharge(
@@ -175,7 +175,7 @@ export class FinancesService {
     quoteId: string,
   ): Promise<Quote> {
     const quote = await this.quoteRepo.findById(quoteId);
-    if (!quote || quote.patientId !== patientId || !quote.sharedAt) {
+    if (quote?.patientId !== patientId || !quote.sharedAt) {
       throw new NotFoundException('Presupuesto no encontrado');
     }
     return quote;
@@ -187,7 +187,7 @@ export class FinancesService {
   ): Promise<void> {
     const charge = await this.quoteRepo.findQrCharge(chargeId);
     const quote = charge ? await this.quoteRepo.findById(charge.quoteId) : null;
-    if (!quote || quote.patientId !== patientId) {
+    if (quote?.patientId !== patientId) {
       throw new NotFoundException('Cobro QR no encontrado');
     }
   }

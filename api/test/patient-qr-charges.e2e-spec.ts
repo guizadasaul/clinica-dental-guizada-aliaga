@@ -14,7 +14,7 @@ import { FakeAccessTokenVerifier } from './support/fake-access-token-verifier';
 
 /**
  * El paciente paga con QR BANECO los tratamientos que elige (CLI-218):
- * solo sobre sus presupuestos compartidos, por todo lo pendiente de lo que
+ * solo sobre sus presupuestos compartidos, por el saldo completo de lo que
  * eligió, y el pago queda asignado a esos tratamientos.
  */
 
