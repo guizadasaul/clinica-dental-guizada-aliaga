@@ -68,7 +68,7 @@ function setup(response: Observable<Quote[]>, pending: Observable<QrCharge | nul
     getMyPendingQrCharge: vi.fn(() => pending),
     createMyQrCharge: vi.fn(() => of(charge())),
     verifyMyQrCharge: vi.fn(() => of({ status: 'pending' })),
-    cancelMyQrCharge: vi.fn(() => of(undefined)),
+    cancelMyQrCharge: vi.fn(() => of({ status: 'cancelled' })),
   };
   TestBed.configureTestingModule({
     imports: [MyQuoteComponent],
@@ -209,12 +209,10 @@ describe('MyQuoteComponent', () => {
     });
 
     it('verificar: pendiente lo avisa; pagado cierra, avisa y recarga el presupuesto', async () => {
-      const { fixture, root, service } = setup(of([quote()]), of(charge()));
+      const { fixture, root, service } = setup(of([quote()]));
+      check(root, 0);
       await settle(fixture);
-
-      // Retoma el QR pendiente.
-      expect(root.querySelector('.mq__pending')?.textContent).toContain('Bs. 700,00');
-      button(root, 'Ver QR').click();
+      button(root, 'Pagar con QR').click();
       await settle(fixture);
 
       button(root, 'Ya pagué, verificar').click();
@@ -231,45 +229,102 @@ describe('MyQuoteComponent', () => {
       expect(service.getMine).toHaveBeenCalledTimes(2);
     });
 
-    it('si BANECO lo anuló, lo dice y deja generar otro', async () => {
-      const { fixture, root, service } = setup(of([quote()]), of(charge()));
-      await settle(fixture);
-      service.verifyMyQrCharge.mockReturnValue(of({ status: 'cancelled' }));
-      button(root, 'Ver QR').click();
-      await settle(fixture);
+    // CLI-220: un QR que quedó vivo se verifica solo al entrar.
+    describe('al entrar con un QR sin pagar', () => {
+      it('si ya se pagó, lo confirma sin que presione verificar', async () => {
+        const { fixture, root, service } = setup(of([quote()]), of(charge()));
+        service.verifyMyQrCharge.mockReturnValue(of({ status: 'paid', quote: quote() }));
+        await settle(fixture);
+        await settle(fixture);
 
-      button(root, 'Ya pagué, verificar').click();
-      await settle(fixture);
+        expect(service.verifyMyQrCharge).toHaveBeenCalledWith('charge-1');
+        expect(root.querySelector('.mq__success')?.textContent).toContain('¡Pago confirmado!');
+        expect(root.querySelector('.qr-modal')).toBeNull();
+      });
 
-      expect(root.querySelector('.mq__success')?.textContent).toContain('El QR fue anulado');
-      expect(root.querySelector('.mq__pending')).toBeNull();
+      it('si sigue sin pagar, vuelve a mostrar el QR con un aviso', async () => {
+        const { fixture, root } = setup(of([quote()]), of(charge()));
+        await settle(fixture);
+        await settle(fixture);
+
+        expect(root.querySelector('.qr-modal__message')?.textContent).toContain('Tienes un QR sin pagar');
+        expect(root.querySelector('.qr-modal__amount')?.textContent).toContain('Bs. 700,00');
+      });
+
+      it('si BANECO lo anuló, no muestra nada', async () => {
+        const { fixture, root, service } = setup(of([quote()]), of(charge()));
+        service.verifyMyQrCharge.mockReturnValue(of({ status: 'cancelled' }));
+        await settle(fixture);
+        await settle(fixture);
+
+        expect(root.querySelector('.qr-modal')).toBeNull();
+      });
     });
 
-    it('anular cierra el QR y lo avisa', async () => {
-      const { fixture, root, service } = setup(of([quote()]), of(charge()));
-      await settle(fixture);
-      button(root, 'Ver QR').click();
-      await settle(fixture);
+    describe('cerrar el QR lo anula (CLI-220)', () => {
+      async function withOpenQr() {
+        const ctx = setup(of([quote()]));
+        check(ctx.root, 0);
+        await settle(ctx.fixture);
+        button(ctx.root, 'Pagar con QR').click();
+        await settle(ctx.fixture);
+        return ctx;
+      }
 
-      button(root, 'Anular QR').click();
-      await settle(fixture);
+      it('la X anula el QR y lo avisa', async () => {
+        const { fixture, root, service } = await withOpenQr();
 
-      expect(service.cancelMyQrCharge).toHaveBeenCalledWith('charge-1');
-      expect(root.querySelector('.qr-modal')).toBeNull();
-      expect(root.querySelector('.mq__success')?.textContent).toContain('Anulaste el QR');
-    });
+        root.querySelector<HTMLButtonElement>('.qr-modal__close')!.click();
+        await settle(fixture);
 
-    it('cerrar deja el QR pendiente para retomarlo', async () => {
-      const { fixture, root } = setup(of([quote()]), of(charge()));
-      await settle(fixture);
-      button(root, 'Ver QR').click();
-      await settle(fixture);
+        expect(service.cancelMyQrCharge).toHaveBeenCalledWith('charge-1');
+        expect(root.querySelector('.qr-modal')).toBeNull();
+        expect(root.querySelector('.mq__success')?.textContent).toContain('Cerraste el QR y quedó anulado');
+      });
 
-      root.querySelector<HTMLButtonElement>('.qr-modal__close')!.click();
-      await settle(fixture);
+      it('el clic en el fondo también lo anula; dentro del panel no', async () => {
+        const { fixture, root, service } = await withOpenQr();
 
-      expect(root.querySelector('.qr-modal')).toBeNull();
-      expect(root.querySelector('.mq__pending')).not.toBeNull();
+        root.querySelector<HTMLElement>('.qr-modal__panel')!.click();
+        await settle(fixture);
+        expect(service.cancelMyQrCharge).not.toHaveBeenCalled();
+
+        root.querySelector<HTMLElement>('.qr-modal')!.click();
+        await settle(fixture);
+        expect(service.cancelMyQrCharge).toHaveBeenCalledWith('charge-1');
+      });
+
+      it('si al cerrar resulta que ya había pagado, confirma el pago en vez de anular', async () => {
+        const { fixture, root, service } = await withOpenQr();
+        service.cancelMyQrCharge.mockReturnValue(of({ status: 'paid', quote: quote() }));
+
+        root.querySelector<HTMLButtonElement>('.qr-modal__close')!.click();
+        await settle(fixture);
+
+        expect(root.querySelector('.mq__success')?.textContent).toContain('¡Pago confirmado!');
+        expect(service.getMine).toHaveBeenCalledTimes(2);
+      });
+
+      it('si no se pudo anular, el QR sigue abierto y lo dice', async () => {
+        const { fixture, root, service } = await withOpenQr();
+        service.cancelMyQrCharge.mockReturnValue(throwError(() => new HttpErrorResponse({ status: 503 })));
+
+        root.querySelector<HTMLButtonElement>('.qr-modal__close')!.click();
+        await settle(fixture);
+
+        expect(root.querySelector('.qr-modal')).not.toBeNull();
+        expect(root.querySelector('.qr-modal__message')?.textContent).toContain('No pudimos anular el QR');
+      });
+
+      it('"Anular QR" hace lo mismo', async () => {
+        const { fixture, root, service } = await withOpenQr();
+
+        button(root, 'Anular QR').click();
+        await settle(fixture);
+
+        expect(service.cancelMyQrCharge).toHaveBeenCalledWith('charge-1');
+        expect(root.querySelector('.mq__success')?.textContent).toContain('Anulaste el QR');
+      });
     });
 
     it('si ya tenía un QR pendiente (409), le muestra ese', async () => {
@@ -284,7 +339,7 @@ describe('MyQuoteComponent', () => {
       // Pide el QR pendiente después del 409: una espera más.
       await settle(fixture);
 
-      expect(root.querySelector('.qr-modal__message')?.textContent).toContain('Ya tenías un QR pendiente');
+      expect(root.querySelector('.qr-modal__message')?.textContent).toContain('Ya tenías un QR sin pagar');
       expect(root.querySelector('.qr-modal__amount')?.textContent).toContain('Bs. 300,00');
     });
 

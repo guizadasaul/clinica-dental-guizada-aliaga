@@ -36,6 +36,9 @@ export interface QrCharge {
   lines: { lineKey: string; amount: number }[];
 }
 
+/** CLI-220: anular nunca pierde un pago — si BANECO ya lo había cobrado, vuelve 'paid' con el presupuesto. */
+export type CancelQrChargeResult = { status: 'cancelled' } | { status: 'paid'; quote: Quote };
+
 export type VerifyQrChargeResult =
   | { status: 'pending' }
   | { status: 'cancelled' }

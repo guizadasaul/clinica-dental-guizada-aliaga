@@ -8,7 +8,11 @@ import type {
   AddQuoteItemRequest,
   AddPaymentRequest,
 } from '../models/quote.request';
-import type { QrCharge, VerifyQrChargeResult } from '../../finances/models/finance.model';
+import type {
+  CancelQrChargeResult,
+  QrCharge,
+  VerifyQrChargeResult,
+} from '../../finances/models/finance.model';
 
 @Injectable({ providedIn: 'root' })
 export class QuotesService {
@@ -46,8 +50,9 @@ export class QuotesService {
     return this.http.post<VerifyQrChargeResult>(`${this.patientsBase}/me/qr-charges/${chargeId}/verify`, {});
   }
 
-  cancelMyQrCharge(chargeId: string): Observable<void> {
-    return this.http.post<void>(`${this.patientsBase}/me/qr-charges/${chargeId}/cancel`, {});
+  /** Anulación segura (CLI-220): si BANECO ya lo había cobrado, registra el pago y devuelve 'paid'. */
+  cancelMyQrCharge(chargeId: string): Observable<CancelQrChargeResult> {
+    return this.http.post<CancelQrChargeResult>(`${this.patientsBase}/me/qr-charges/${chargeId}/cancel`, {});
   }
 
   getById(quoteId: string): Observable<Quote> {

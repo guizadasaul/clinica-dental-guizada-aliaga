@@ -201,27 +201,6 @@
   color: #15803d;
 }
 
-.mq__pending {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-3);
-  padding: var(--space-3) var(--space-4);
-  border: 1px solid var(--color-primary-light);
-  border-radius: 0.5rem;
-  background: var(--color-primary-subtle);
-  font-size: var(--font-size-sm);
-  color: var(--color-text);
-
-  .material-symbols-outlined {
-    color: var(--color-primary-dark);
-  }
-}
-
-.mq__pending-text {
-  flex: 1;
-}
-
 .mq__hint {
   margin: 0;
   font-size: var(--font-size-sm);

@@ -198,7 +198,19 @@ export class MyQuoteComponent implements OnInit {
   });
 
   ngOnInit(): void {
-    void this.loadPendingCharge();
+    void this.resumePendingCharge();
+  }
+
+  /**
+   * CLI-220: un QR que quedó vivo (p. ej. se cerró la pestaña con el QR
+   * abierto) se verifica solo al entrar: si ya se pagó se confirma; si no,
+   * se vuelve a mostrar para que lo pague o lo cierre (y muera).
+   */
+  private async resumePendingCharge(): Promise<void> {
+    await this.loadPendingCharge();
+    if (this.charge()) {
+      await this.verifyQr('Tienes un QR sin pagar. Págalo o ciérralo para anularlo.');
+    }
   }
 
   private async loadPendingCharge(): Promise<void> {
@@ -227,7 +239,7 @@ export class MyQuoteComponent implements OnInit {
       if (err instanceof HttpErrorResponse && err.status === 409) {
         // Ya tenía uno sin pagar: se lo mostramos para que lo pague o lo anule.
         await this.loadPendingCharge();
-        this.qrMessage.set('Ya tenías un QR pendiente. Págalo o anúlalo para generar otro.');
+        this.qrMessage.set('Ya tenías un QR sin pagar. Págalo o ciérralo para generar otro.');
         this.qrOpen.set(this.charge() !== null);
       } else {
         this.error.set('No pudimos generar el QR. Intenta de nuevo en un momento.');
@@ -237,13 +249,13 @@ export class MyQuoteComponent implements OnInit {
     }
   }
 
-  protected openQr(): void {
-    this.qrMessage.set(null);
-    this.qrOpen.set(true);
-  }
-
+  /**
+   * CLI-220: cerrar el QR (X, clic afuera o Escape) lo anula — no queda vivo.
+   * La anulación es segura: si BANECO ya lo había cobrado, se registra el
+   * pago y se confirma en vez de anular.
+   */
   protected closeQr(): void {
-    this.qrOpen.set(false);
+    void this.cancelQr('Cerraste el QR y quedó anulado. Puedes generar uno nuevo cuando quieras.');
   }
 
   /** Cierra solo si el clic cae en el fondo oscuro, no dentro del panel. */
@@ -253,7 +265,8 @@ export class MyQuoteComponent implements OnInit {
     }
   }
 
-  protected async verifyQr(): Promise<void> {
+  /** Consulta a BANECO una sola vez. Con `pendingMessage`, si sigue sin pagar abre el QR con ese aviso. */
+  protected async verifyQr(pendingMessage?: string): Promise<void> {
     const charge = this.charge();
     if (!charge || this.busy()) {
       return;
@@ -263,21 +276,26 @@ export class MyQuoteComponent implements OnInit {
     try {
       const result = await firstValueFrom(this.quotesService.verifyMyQrCharge(charge.chargeId));
       if (result.status === 'paid') {
-        this.finishCharge(`¡Pago confirmado! Registramos ${this.bs(charge.amount)}.`);
-        this.reload.update((n) => n + 1);
+        this.confirmPaid(charge);
       } else if (result.status === 'cancelled') {
         this.finishCharge('El QR fue anulado en BANECO. Puedes generar uno nuevo.');
       } else {
-        this.qrMessage.set('Todavía no recibimos el pago. Si ya pagaste, espera unos segundos y vuelve a verificar.');
+        this.qrMessage.set(
+          pendingMessage ?? 'Todavía no recibimos el pago. Si ya pagaste, espera unos segundos y vuelve a verificar.',
+        );
+        this.qrOpen.set(true);
       }
     } catch {
       this.qrMessage.set('No pudimos consultar el pago. Intenta de nuevo en un momento.');
+      this.qrOpen.set(true);
     } finally {
       this.busy.set(false);
     }
   }
 
-  protected async cancelQr(): Promise<void> {
+  protected async cancelQr(
+    notice = 'Anulaste el QR. Puedes generar uno nuevo cuando quieras.',
+  ): Promise<void> {
     const charge = this.charge();
     if (!charge || this.busy()) {
       return;
@@ -285,13 +303,25 @@ export class MyQuoteComponent implements OnInit {
     this.busy.set(true);
     this.qrMessage.set(null);
     try {
-      await firstValueFrom(this.quotesService.cancelMyQrCharge(charge.chargeId));
-      this.finishCharge('Anulaste el QR. Puedes generar uno nuevo cuando quieras.');
+      const result = await firstValueFrom(this.quotesService.cancelMyQrCharge(charge.chargeId));
+      if (result.status === 'paid') {
+        // Ya había pagado: no se anuló, se registró el pago.
+        this.confirmPaid(charge);
+      } else {
+        this.finishCharge(notice);
+      }
     } catch {
-      this.qrMessage.set('No pudimos anular el QR. Intenta de nuevo en un momento.');
+      // Nunca se da por anulado sin confirmación: el QR sigue abierto.
+      this.qrMessage.set('No pudimos anular el QR. Si ya pagaste, presiona "Ya pagué, verificar".');
+      this.qrOpen.set(true);
     } finally {
       this.busy.set(false);
     }
+  }
+
+  private confirmPaid(charge: QrCharge): void {
+    this.finishCharge(`¡Pago confirmado! Registramos ${this.bs(charge.amount)}.`);
+    this.reload.update((n) => n + 1);
   }
 
   private finishCharge(notice: string): void {
