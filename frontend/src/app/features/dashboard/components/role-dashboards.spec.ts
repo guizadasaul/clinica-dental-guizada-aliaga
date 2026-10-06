@@ -21,6 +21,8 @@ class TreatmentHistoryStub {
   readonly mine = input(false);
   readonly closed = output<void>();
 }
+@Component({ selector: 'app-my-visits', standalone: true, template: 'mis citas' })
+class MyVisitsStub {}
 @Component({ selector: 'app-admin-doctors', standalone: true, template: 'doctores' })
 class AdminDoctorsStub {}
 @Component({ selector: 'app-reports-page', standalone: true, template: 'reportes' })
@@ -62,7 +64,7 @@ describe('PatientDashboardComponent', () => {
       ],
     });
     TestBed.overrideComponent(PatientDashboardComponent, {
-      set: { imports: [TreatmentHistoryStub] },
+      set: { imports: [TreatmentHistoryStub, MyVisitsStub] },
     });
     const fixture = TestBed.createComponent(PatientDashboardComponent);
     fixture.componentRef.setInput('activeNav', nav);
@@ -217,6 +219,12 @@ describe('PatientDashboardComponent', () => {
       'Hola, soy Ana Pérez. Quisiera hacer una consulta sobre mi atención en la clínica.',
     );
     expect(link.target).toBe('_blank');
+  });
+
+  it('"Mis citas" muestra el registro de visitas (CLI-210)', () => {
+    const { fixture } = setup('appointments');
+
+    expect(fixture.debugElement.query(By.directive(MyVisitsStub))).toBeTruthy();
   });
 
   it('el historial muestra los tratamientos de su propia ficha y al cerrarlo vuelve al inicio', () => {

@@ -1,0 +1,142 @@
+<div class="visits">
+  <header>
+    <p class="visits__eyebrow"><span class="visits__dot" aria-hidden="true"></span>Tu agenda dental</p>
+    <h1 class="visits__title">Mis citas</h1>
+    <p class="visits__subtitle">Tu registro de visitas a la clínica y tus próximas citas.</p>
+  </header>
+
+  @if (loading()) {
+    <p class="visits__loading">Cargando tus citas...</p>
+  } @else {
+    <section class="summary" aria-label="Resumen">
+      <div class="summary__card">
+        <span class="summary__icon summary__icon--primary" aria-hidden="true">
+          <span class="material-symbols-outlined">medical_services</span>
+        </span>
+        <div>
+          <p class="summary__label">Total acumulado</p>
+          <p class="summary__value">
+            {{ visitsCount() }} {{ visitsCount() === 1 ? 'visita realizada' : 'visitas realizadas' }}
+          </p>
+        </div>
+      </div>
+      <div class="summary__card">
+        <span class="summary__icon summary__icon--teal" aria-hidden="true">
+          <span class="material-symbols-outlined">calendar_month</span>
+        </span>
+        <div>
+          <p class="summary__label">Historial con nosotros</p>
+          <p class="summary__value">
+            @if (firstVisit(); as first) {
+              Primera visita: {{ first }}
+            } @else {
+              Aún sin visitas
+            }
+          </p>
+        </div>
+      </div>
+      <div class="summary__card">
+        <span class="summary__icon summary__icon--strong" aria-hidden="true">
+          <span class="material-symbols-outlined">notifications_active</span>
+        </span>
+        <div>
+          <p class="summary__label">Próxima atención</p>
+          <p class="summary__value">{{ nextIn() ?? 'Sin citas programadas' }}</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="block" aria-labelledby="upcoming-title">
+      <h2 id="upcoming-title" class="block__title">
+        <span class="visits__dot" aria-hidden="true"></span>
+        Próximas citas
+        @if (upcoming().length > 0) {
+          <span class="block__count">{{ upcoming().length }} {{ upcoming().length === 1 ? 'agendada' : 'agendadas' }}</span>
+        }
+      </h2>
+      @for (u of upcoming(); track u.id) {
+        <article class="upcoming">
+          <div class="upcoming__date">
+            <span class="upcoming__weekday">{{ u.weekday }}</span>
+            <span class="upcoming__day">{{ u.day }}</span>
+            <span class="upcoming__month">{{ u.month }}</span>
+            <span class="upcoming__time">
+              <span class="material-symbols-outlined" aria-hidden="true">schedule</span>{{ u.time }}
+            </span>
+            <span class="upcoming__duration">({{ u.duration }} min)</span>
+          </div>
+          <div class="upcoming__body">
+            <span class="chip chip--confirmed">Confirmada</span>
+            <h3 class="upcoming__title">{{ u.title }}</h3>
+            @if (u.doctorName) {
+              <p class="upcoming__doctor">
+                <span class="material-symbols-outlined" aria-hidden="true">stethoscope</span>
+                Especialista: <strong>{{ u.doctorName }}</strong>
+              </p>
+            }
+          </div>
+        </article>
+      } @empty {
+        <p class="block__empty">No tienes citas programadas. Cuando la clínica te agende una, la verás aquí.</p>
+      }
+    </section>
+
+    <section class="block" aria-labelledby="history-title">
+      <div class="block__head">
+        <div>
+          <h2 id="history-title" class="block__title block__title--serif">Historial de visitas</h2>
+          <p class="block__sub">Todas las veces que viniste a la clínica, de la más reciente a la más antigua.</p>
+        </div>
+        <ul class="legend" aria-label="Leyenda">
+          <li><span class="legend__dot legend__dot--ok" aria-hidden="true"></span>Asististe</li>
+          <li><span class="legend__dot legend__dot--miss" aria-hidden="true"></span>No asististe</li>
+        </ul>
+      </div>
+
+      @for (group of months(); track group.label) {
+        <div class="month">
+          <h3 class="month__label">
+            <span class="month__icon" aria-hidden="true"><span class="material-symbols-outlined">event_note</span></span>
+            <span class="month__name">{{ group.label }}</span>
+          </h3>
+          <ol class="month__list">
+            @for (v of group.visits; track v.id) {
+              <li class="visit" [class.visit--missed]="v.noShow">
+                <div class="visit__badge" aria-hidden="true">
+                  <span class="visit__badge-month">{{ v.month }}</span>
+                  <span class="visit__badge-day">{{ v.day }}</span>
+                  <span class="visit__badge-time">{{ v.time }}</span>
+                </div>
+                <div class="visit__body">
+                  <p class="visit__meta">
+                    @if (v.noShow) {
+                      <span class="chip chip--missed">
+                        <span class="material-symbols-outlined" aria-hidden="true">close</span>No asististe
+                      </span>
+                    } @else {
+                      <span class="chip chip--attended">
+                        <span class="material-symbols-outlined" aria-hidden="true">check</span>Asististe
+                      </span>
+                    }
+                    <span>{{ v.when }} · {{ v.time }}</span>
+                  </p>
+                  <h4 class="visit__title">{{ v.title }}</h4>
+                  @if (v.doctorName) {
+                    <p class="visit__doctor">
+                      <span class="material-symbols-outlined" aria-hidden="true">person</span>{{ v.doctorName }}
+                    </p>
+                  }
+                </div>
+              </li>
+            }
+          </ol>
+        </div>
+      } @empty {
+        <div class="block__empty block__empty--card">
+          <span class="material-symbols-outlined" aria-hidden="true">history</span>
+          <p>Todavía no tienes visitas registradas. Después de tu primera cita la verás aquí.</p>
+        </div>
+      }
+    </section>
+  }
+</div>
