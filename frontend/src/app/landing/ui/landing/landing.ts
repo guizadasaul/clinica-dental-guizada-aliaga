@@ -247,11 +247,11 @@ export class LandingComponent implements OnInit, AfterViewInit, OnDestroy {
   // Los dos odontólogos de la clínica, mostrados de a uno en una tarjeta
   // grande que se navega con flechas/puntos (ver activeDoctorIndex).
   protected readonly doctors = ['ariel', 'marylu'] as const;
-  // Fotos recortadas (fondo transparente); null mientras no haya foto real
-  // todavía — cae al ícono de placeholder.
+  // Foto de cada odontólogo; null cae al ícono de placeholder (por si se suma
+  // alguien antes de tener su foto).
   protected readonly doctorPhotos: Record<(typeof this.doctors)[number], string | null> = {
     ariel: 'assets/images/doctors/DrArielGuizada.png',
-    marylu: null,
+    marylu: 'assets/images/doctors/DraMaryluAliaga.png',
   };
   protected readonly activeDoctorIndex = signal(0);
 
