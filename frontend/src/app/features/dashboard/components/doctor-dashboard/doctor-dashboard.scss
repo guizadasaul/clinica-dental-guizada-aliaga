@@ -218,79 +218,55 @@
   }
 }
 
-// ─── Quick actions ────────────────────────────────────────────────────────────
+// ─── KPIs ─────────────────────────────────────────────────────────────────────
 
-.doctor__actions {
+.kpis {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
+  grid-template-columns: repeat(4, 1fr);
   gap: var(--space-4);
 
-  @media (max-width: 600px) {
+  @media (max-width: 900px) {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  @media (max-width: 480px) {
     grid-template-columns: 1fr;
   }
 }
 
-.doctor-action {
-  position: relative;
+.kpi {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
   gap: var(--space-1);
-  padding: var(--space-6);
+  padding: var(--space-5);
   border-radius: var(--radius-xl);
   border: 1px solid var(--color-border);
   background: #fff;
-  text-align: left;
-  cursor: pointer;
-  transition: transform var(--transition-fast), box-shadow var(--transition-fast), border-color var(--transition-fast);
-
-  &:hover {
-    transform: translateY(-2px);
-    box-shadow: var(--shadow-md);
-  }
-
-  &--primary {
-    &:hover { border-color: var(--color-primary); }
-    .doctor-action__icon { color: var(--color-primary-dark); background: var(--color-primary-subtle); }
-  }
 }
 
-.doctor-action__icon {
+.kpi__icon {
   font-size: 24px;
-  padding: var(--space-2) var(--space-2);
+  padding: var(--space-2);
   border-radius: var(--radius-lg);
   margin-bottom: var(--space-2);
+  color: var(--color-primary-dark);
+  background: var(--color-primary-subtle);
 }
 
-.doctor-action__label {
-  font-family: var(--font-body);
-  font-size: var(--font-size-base);
+.kpi__value {
+  font-family: var(--font-headline);
+  font-size: var(--font-size-2xl);
   font-weight: 700;
   color: var(--color-text);
-  margin: 0;
+  line-height: 1.1;
 }
 
-.doctor-action__desc {
+.kpi__label {
   font-family: var(--font-body);
-  font-size: var(--font-size-xs);
+  font-size: var(--font-size-sm);
   color: var(--color-text-muted);
-  margin: 0;
   line-height: 1.4;
-}
-
-.doctor-action__arrow {
-  position: absolute;
-  right: var(--space-4);
-  top: 50%;
-  transform: translateY(-50%);
-  font-size: 18px;
-  color: var(--color-gray-300);
-  transition: color var(--transition-fast), right var(--transition-fast);
-
-  .doctor-action:hover & {
-    color: var(--color-text-muted);
-    right: var(--space-3);
-  }
 }
 
 // ─── Invite success toast ──────────────────────────────────────────────────

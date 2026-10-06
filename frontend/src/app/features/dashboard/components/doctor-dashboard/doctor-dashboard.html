@@ -66,22 +66,41 @@
       }
     </section>
 
-    <!-- Quick actions -->
+    <!-- KPIs básicas (CLI-205) -->
     <section class="doctor__section">
-      <h2 class="section-title">Acciones rápidas</h2>
-      <div class="doctor__actions">
-        <button type="button" class="doctor-action doctor-action--primary" (click)="onGoToPatients()">
-          <span class="material-symbols-outlined doctor-action__icon" aria-hidden="true">add_box</span>
-          <p class="doctor-action__label">Nueva Consulta</p>
-          <p class="doctor-action__desc">Elige un paciente para registrar su diagnóstico</p>
-          <span class="material-symbols-outlined doctor-action__arrow" aria-hidden="true">arrow_forward</span>
-        </button>
-        <button type="button" class="doctor-action doctor-action--primary" (click)="onGoToPatients()">
-          <span class="material-symbols-outlined doctor-action__icon" aria-hidden="true">healing</span>
-          <p class="doctor-action__label">Registrar Tratamiento</p>
-          <p class="doctor-action__desc">Elige un paciente para registrar un tratamiento</p>
-          <span class="material-symbols-outlined doctor-action__arrow" aria-hidden="true">arrow_forward</span>
-        </button>
+      <h2 class="section-title">Resumen</h2>
+      <div class="kpis">
+        <div class="kpi">
+          <span class="material-symbols-outlined kpi__icon" aria-hidden="true">today</span>
+          <span class="kpi__value">{{ kpis().todayAppointments ?? '—' }}</span>
+          <span class="kpi__label">Citas hoy</span>
+        </div>
+        <div class="kpi">
+          <span class="material-symbols-outlined kpi__icon" aria-hidden="true">date_range</span>
+          <span class="kpi__value">{{ kpis().weekAppointments ?? '—' }}</span>
+          <span class="kpi__label">Citas en los próximos 7 días</span>
+        </div>
+        <div class="kpi">
+          <span class="material-symbols-outlined kpi__icon" aria-hidden="true">groups</span>
+          <span class="kpi__value">{{ kpis().myPatients ?? '—' }}</span>
+          <span class="kpi__label">Mis pacientes</span>
+        </div>
+        <div class="kpi">
+          <span class="material-symbols-outlined kpi__icon" aria-hidden="true">payments</span>
+          <span class="kpi__value">
+            @if (kpis().pendingBalance !== null) {
+              Bs. {{ kpis().pendingBalance | number: '1.2-2' }}
+            } @else {
+              —
+            }
+          </span>
+          <span class="kpi__label">
+            Por cobrar
+            @if (kpis().debtors !== null) {
+              · {{ kpis().debtors }} {{ kpis().debtors === 1 ? 'paciente' : 'pacientes' }}
+            }
+          </span>
+        </div>
       </div>
     </section>
   </div>
