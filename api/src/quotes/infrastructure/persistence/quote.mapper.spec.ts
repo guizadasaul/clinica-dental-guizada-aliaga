@@ -68,7 +68,13 @@ describe('QuoteMapper', () => {
         paymentDate: CREATED,
         notes: null,
         createdAt: CREATED,
+        allocations: [],
+        covered: [{ lineKey: 'item-1', treatmentName: 'Resina', amount: 100 }],
       },
+    ]);
+    // CLI-218: lo pagado y lo pendiente por tratamiento.
+    expect(quote.lines).toEqual([
+      expect.objectContaining({ key: 'item-1', paid: 100 }) as object,
     ]);
   });
 
@@ -175,6 +181,24 @@ describe('QuoteMapper', () => {
       status: 'pending',
       paymentId: null,
       createdAt: CREATED,
+      lines: [],
     });
+  });
+
+  // CLI-218
+  it('las líneas del QR se vuelven asignaciones por fila suelta o grupo', () => {
+    expect(
+      QuoteMapper.linesToAllocations([
+        { quote_item_id: 'item-1', application_group_id: null, amount: '100' },
+        {
+          quote_item_id: null,
+          application_group_id: 'group-1',
+          amount: '50.5',
+        },
+      ] as unknown as Parameters<typeof QuoteMapper.linesToAllocations>[0]),
+    ).toEqual([
+      { lineKey: 'item-1', amount: 100 },
+      { lineKey: 'group-1', amount: 50.5 },
+    ]);
   });
 });

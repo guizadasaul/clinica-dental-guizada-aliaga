@@ -4,25 +4,38 @@ import type {
   application_groups,
   payments,
   quote_qr_charges,
+  quote_qr_charge_lines,
 } from '@prisma/client';
 import type { Quote } from '../../domain/Quote';
 import type { QuoteItem } from '../../domain/QuoteItem';
 import type { Payment } from '../../domain/Payment';
 import type { QrCharge, QrChargeStatus } from '../../domain/QrCharge';
+import {
+  computeQuoteBalance,
+  type PaymentAllocation,
+} from '../../domain/QuoteBalance';
 
 type QuoteItemRecordWithGroup = quote_items & {
   application_groups: application_groups | null;
   treatments: { name: string };
 };
+type PaymentRecord = payments & {
+  qr_charge?: { lines: quote_qr_charge_lines[] } | null;
+};
 type QuoteRecordWithItems = quotes & {
   quote_items: QuoteItemRecordWithGroup[];
-  payments: payments[];
+  payments: PaymentRecord[];
 };
+type QrChargeRecord = quote_qr_charges & { lines?: quote_qr_charge_lines[] };
 
 export class QuoteMapper {
   static toDomain(record: QuoteRecordWithItems): Quote {
     const totalAmount = Number(record.total_amount);
     const totalPaid = Number(record.total_paid);
+    const items = record.quote_items.map((i) => QuoteMapper.itemToDomain(i));
+    const payments = record.payments.map((p) => QuoteMapper.paymentToDomain(p));
+    // CLI-218: lo pagado/pendiente por tratamiento y qué cubrió cada pago.
+    const { lines, coverage } = computeQuoteBalance(items, payments);
     return {
       id: record.id,
       patientId: record.patient_id,
@@ -34,8 +47,12 @@ export class QuoteMapper {
       createdAt: record.created_at,
       updatedAt: record.updated_at,
       sharedAt: record.shared_at ?? null,
-      items: record.quote_items.map((i) => QuoteMapper.itemToDomain(i)),
-      payments: record.payments.map((p) => QuoteMapper.paymentToDomain(p)),
+      items,
+      payments: payments.map((p) => ({
+        ...p,
+        covered: coverage.get(p.id) ?? [],
+      })),
+      lines,
     };
   }
 
@@ -62,7 +79,7 @@ export class QuoteMapper {
     };
   }
 
-  static paymentToDomain(record: payments): Payment {
+  static paymentToDomain(record: PaymentRecord): Payment {
     return {
       id: record.id,
       quoteId: record.quote_id,
@@ -72,10 +89,23 @@ export class QuoteMapper {
       paymentDate: record.payment_date,
       notes: record.notes ?? null,
       createdAt: record.created_at,
+      allocations: QuoteMapper.linesToAllocations(
+        record.qr_charge?.lines ?? [],
+      ),
+      covered: [],
     };
   }
 
-  static qrChargeToDomain(record: quote_qr_charges): QrCharge {
+  static linesToAllocations(
+    lines: quote_qr_charge_lines[],
+  ): PaymentAllocation[] {
+    return lines.map((l) => ({
+      lineKey: l.application_group_id ?? l.quote_item_id ?? '',
+      amount: Number(l.amount),
+    }));
+  }
+
+  static qrChargeToDomain(record: QrChargeRecord): QrCharge {
     return {
       id: record.id,
       quoteId: record.quote_id,
@@ -86,6 +116,7 @@ export class QuoteMapper {
       status: record.status as QrChargeStatus,
       paymentId: record.payment_id,
       createdAt: record.created_at,
+      lines: QuoteMapper.linesToAllocations(record.lines ?? []),
     };
   }
 }

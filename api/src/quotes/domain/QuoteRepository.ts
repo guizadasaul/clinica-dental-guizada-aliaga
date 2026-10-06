@@ -30,12 +30,21 @@ export interface NewPaymentData {
   notes?: string | null;
 }
 
+/** CLI-218: un tratamiento que cubre el QR — fila suelta o grupo multi-diente, nunca las dos. */
+export interface NewQrChargeLineData {
+  quoteItemId?: string;
+  applicationGroupId?: string;
+  amount: number;
+}
+
 export interface NewQrChargeData {
   quoteId: string;
   amount: number;
   qrId: string;
   transactionId: string;
   qrImageBase64: string;
+  /** CLI-218: solo en los QR que genera el paciente eligiendo tratamientos. */
+  lines?: NewQrChargeLineData[];
 }
 
 export interface IQuoteRepository {
@@ -62,6 +71,8 @@ export interface IQuoteRepository {
   addPayment(quoteId: string, data: NewPaymentData): Promise<Quote>;
   createQrCharge(data: NewQrChargeData): Promise<QrCharge>;
   findQrCharge(chargeId: string): Promise<QrCharge | null>;
+  /** CLI-218: el QR pendiente más reciente que generó el paciente (con líneas) en alguno de sus presupuestos. */
+  findPendingPatientQrCharge(patientId: string): Promise<QrCharge | null>;
   /**
    * pending → paid, crea el pago qr_baneco por el monto del cobro y recalcula
    * total_paid + status, en una sola transacción. El cambio de estado va

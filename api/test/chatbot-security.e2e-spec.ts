@@ -309,20 +309,31 @@ describe('Chatbot: autorización (e2e) — CLI-95', () => {
         },
       );
 
-      expect(turn.result['data']).toMatchObject({
-        totals: {
-          collectedBob: A_QUOTE.paid,
-          pendingBob: A_QUOTE.total - A_QUOTE.paid + B_QUOTE.total,
-        },
-        doctors: expect.arrayContaining([
+      const data = turn.result['data'] as {
+        totals: { collectedBob: number; pendingBob: number };
+        doctors: { doctor: string; collectedBob: number; pendingBob: number }[];
+      };
+      expect(data.doctors).toEqual(
+        expect.arrayContaining([
           {
             doctor: DOCTOR_1_NAME,
             collectedBob: A_QUOTE.paid,
             pendingBob: A_QUOTE.total - A_QUOTE.paid,
           },
           { doctor: DOCTOR_2_NAME, collectedBob: 0, pendingBob: B_QUOTE.total },
-        ]) as unknown,
-      });
+        ]),
+      );
+      // Los totales son la suma de todas las filas. No se comparan contra
+      // números fijos: los e2e corren en paralelo y otras suites crean
+      // presupuestos de pacientes sin doctor asignado (CLI-218).
+      expect(data.totals.collectedBob).toBeCloseTo(
+        data.doctors.reduce((sum, d) => sum + d.collectedBob, 0),
+        2,
+      );
+      expect(data.totals.pendingBob).toBeCloseTo(
+        data.doctors.reduce((sum, d) => sum + d.pendingBob, 0),
+        2,
+      );
     });
   });
 

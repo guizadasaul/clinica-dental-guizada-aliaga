@@ -2,6 +2,7 @@ import {
   BadRequestException,
   ConflictException,
   NotFoundException,
+  UnprocessableEntityException,
 } from '@nestjs/common';
 import { FinancesService } from './finances.service';
 import type { QuotesService } from '../../quotes/application/quotes.service';
@@ -25,6 +26,7 @@ function quote(overrides: Partial<Quote> = {}): Quote {
     sharedAt: null,
     items: [],
     payments: [],
+    lines: [],
     ...overrides,
   };
 }
@@ -40,6 +42,7 @@ function charge(overrides: Partial<QrCharge> = {}): QrCharge {
     status: 'pending',
     paymentId: null,
     createdAt: NOW,
+    lines: [],
     ...overrides,
   };
 }
@@ -49,6 +52,8 @@ describe('FinancesService', () => {
   const quoteRepo = {
     createQrCharge: jest.fn(),
     findQrCharge: jest.fn(),
+    findById: jest.fn(),
+    findPendingPatientQrCharge: jest.fn(),
     settleQrCharge: jest.fn(),
     cancelQrCharge: jest.fn(),
   };
@@ -128,6 +133,7 @@ describe('FinancesService', () => {
         amount: 150,
         qrImageBase64: 'img',
         status: 'pending',
+        lines: [],
       });
 
       const [[params]] = gateway.generateQr.mock.calls as [
@@ -141,6 +147,7 @@ describe('FinancesService', () => {
         qrId: 'qr-1',
         transactionId: params.transactionId,
         qrImageBase64: 'img',
+        lines: undefined,
       });
     });
 
@@ -263,6 +270,169 @@ describe('FinancesService', () => {
 
       expect(gateway.cancelQr).not.toHaveBeenCalled();
       expect(quoteRepo.cancelQrCharge).not.toHaveBeenCalled();
+    });
+  });
+
+  // CLI-218: el paciente paga con QR los tratamientos que elige.
+  describe('QR del paciente', () => {
+    const shared = (overrides: Partial<Quote> = {}) =>
+      quote({
+        sharedAt: NOW,
+        items: [
+          { id: 'item-1', applicationGroupId: null } as Quote['items'][number],
+          {
+            id: 'item-2',
+            applicationGroupId: 'group-1',
+          } as Quote['items'][number],
+          {
+            id: 'item-3',
+            applicationGroupId: 'group-1',
+          } as Quote['items'][number],
+        ],
+        lines: [
+          {
+            key: 'item-1',
+            treatmentName: 'Resina',
+            toothNumbers: [16],
+            total: 300,
+            paid: 0,
+            pending: 300,
+          },
+          {
+            key: 'group-1',
+            treatmentName: 'Corona',
+            toothNumbers: [21, 22],
+            total: 400,
+            paid: 199.5,
+            pending: 200.5,
+          },
+          {
+            key: 'item-9',
+            treatmentName: 'Limpieza',
+            toothNumbers: [],
+            total: 200,
+            paid: 200,
+            pending: 0,
+          },
+        ],
+        ...overrides,
+      });
+
+    beforeEach(() => {
+      gateway.generateQr.mockResolvedValue({
+        qrId: 'qr-1',
+        qrImageBase64: 'img',
+      });
+      quoteRepo.findPendingPatientQrCharge.mockResolvedValue(null);
+      quoteRepo.createQrCharge.mockImplementation((data: { lines: unknown }) =>
+        Promise.resolve(
+          charge({ amount: 500.5, lines: data.lines as QrCharge['lines'] }),
+        ),
+      );
+    });
+
+    it('genera el QR por todo lo pendiente de los tratamientos elegidos, fila o grupo', async () => {
+      quoteRepo.findById.mockResolvedValue(shared());
+
+      await service.createPatientQrCharge('patient-1', 'quote-1', [
+        'item-1',
+        'group-1',
+        'item-1',
+      ]);
+
+      const [[params]] = gateway.generateQr.mock.calls as [
+        [{ amount: number }],
+      ];
+      expect(params.amount).toBe(500.5);
+      expect(quoteRepo.createQrCharge).toHaveBeenCalledWith(
+        expect.objectContaining({
+          quoteId: 'quote-1',
+          amount: 500.5,
+          lines: [
+            { quoteItemId: 'item-1', amount: 300 },
+            { applicationGroupId: 'group-1', amount: 200.5 },
+          ],
+        }),
+      );
+    });
+
+    it.each([
+      ['no existe', null],
+      ['es de otro paciente', { patientId: 'patient-2' }],
+      ['todavía es un borrador', { sharedAt: null }],
+    ])('404 si el presupuesto %s', async (_case, overrides) => {
+      quoteRepo.findById.mockResolvedValue(
+        overrides === null ? null : shared(overrides),
+      );
+
+      await expect(
+        service.createPatientQrCharge('patient-1', 'quote-1', ['item-1']),
+      ).rejects.toThrow(NotFoundException);
+      expect(gateway.generateQr).not.toHaveBeenCalled();
+    });
+
+    it('409 si ya tiene un QR pendiente', async () => {
+      quoteRepo.findById.mockResolvedValue(shared());
+      quoteRepo.findPendingPatientQrCharge.mockResolvedValue(charge());
+
+      await expect(
+        service.createPatientQrCharge('patient-1', 'quote-1', ['item-1']),
+      ).rejects.toThrow(ConflictException);
+    });
+
+    it.each([
+      ['un tratamiento que no está en el presupuesto', ['item-1', 'otro']],
+      ['un tratamiento ya pagado', ['item-9']],
+    ])('422 si elige %s', async (_case, keys) => {
+      quoteRepo.findById.mockResolvedValue(shared());
+
+      await expect(
+        service.createPatientQrCharge('patient-1', 'quote-1', keys),
+      ).rejects.toThrow(UnprocessableEntityException);
+      expect(gateway.generateQr).not.toHaveBeenCalled();
+    });
+
+    it('devuelve el QR pendiente para retomarlo, o null', async () => {
+      quoteRepo.findPendingPatientQrCharge
+        .mockResolvedValueOnce(
+          charge({ lines: [{ lineKey: 'item-1', amount: 150 }] }),
+        )
+        .mockResolvedValueOnce(null);
+
+      await expect(
+        service.getPendingPatientQrCharge('patient-1'),
+      ).resolves.toMatchObject({
+        chargeId: 'charge-1',
+        lines: [{ lineKey: 'item-1', amount: 150 }],
+      });
+      await expect(
+        service.getPendingPatientQrCharge('patient-1'),
+      ).resolves.toBeNull();
+    });
+
+    it('verifica y anula solo QR de sus propios presupuestos', async () => {
+      quoteRepo.findQrCharge.mockResolvedValue(charge());
+      quoteRepo.findById.mockResolvedValue(shared());
+      gateway.getQrStatus.mockResolvedValue({ status: 'pending' });
+
+      await expect(
+        service.verifyPatientQrCharge('patient-1', 'charge-1'),
+      ).resolves.toEqual({
+        status: 'pending',
+      });
+      await service.cancelPatientQrCharge('patient-1', 'charge-1');
+      expect(gateway.cancelQr).toHaveBeenCalledWith('qr-1');
+
+      await expect(
+        service.verifyPatientQrCharge('patient-2', 'charge-1'),
+      ).rejects.toThrow(NotFoundException);
+      await expect(
+        service.cancelPatientQrCharge('patient-2', 'charge-1'),
+      ).rejects.toThrow(NotFoundException);
+      quoteRepo.findQrCharge.mockResolvedValue(null);
+      await expect(
+        service.verifyPatientQrCharge('patient-1', 'missing'),
+      ).rejects.toThrow(NotFoundException);
     });
   });
 });
