@@ -16,6 +16,12 @@
       <span class="material-symbols-outlined" aria-hidden="true">event</span>
       {{ when() }}
     </p>
+    @if (isNoShow()) {
+      <p class="detail-modal__no-show">
+        <span class="material-symbols-outlined" aria-hidden="true">person_off</span>
+        El paciente no asistió a esta cita.
+      </p>
+    }
 
     <dl class="detail-modal__facts">
       @if (phone(); as tel) {
@@ -81,7 +87,28 @@
         </div>
       </fieldset>
     } @else {
+      @if (error()) {
+        <p class="detail-modal__error" role="alert">{{ error() }}</p>
+      }
       <div class="detail-modal__actions">
+        @if (canMarkNoShow() || isNoShow()) {
+          <button
+            type="button"
+            class="detail-modal__btn"
+            [class.detail-modal__btn--danger-ghost]="canMarkNoShow()"
+            [class.detail-modal__btn--ghost]="isNoShow()"
+            [disabled]="savingAttendance()"
+            (click)="changeAttendance()"
+          >
+            @if (savingAttendance()) {
+              Guardando...
+            } @else if (isNoShow()) {
+              Deshacer "No asistió"
+            } @else {
+              No asistió
+            }
+          </button>
+        }
         @if (editable()) {
           <button
             type="button"

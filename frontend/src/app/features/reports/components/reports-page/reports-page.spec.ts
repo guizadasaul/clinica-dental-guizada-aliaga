@@ -223,9 +223,9 @@ describe('ReportsPageComponent', () => {
     const cells = Array.from(root.querySelectorAll('.reports-page__table tbody tr')[0].querySelectorAll('td')).map(
       (c) => c.textContent?.trim(),
     );
-    // Confirmadas, En espera, Vencidas, Canceladas, Total, Pacientes nuevos, Ocupación
-    expect(cells.slice(0, 6)).toEqual(['3', '1', '2', '2', '6', '4']);
-    expect(cells[6]).toContain('30%');
+    // Confirmadas, En espera, Vencidas, Canceladas, No asistió (CLI-208), Total, Pacientes nuevos, Ocupación
+    expect(cells.slice(0, 7)).toEqual(['3', '1', '2', '2', '0', '6', '4']);
+    expect(cells[7]).toContain('30%');
   });
 
   it('lista las canceladas con cita, paciente, quién canceló y el motivo (CLI-103)', async () => {
@@ -315,7 +315,7 @@ describe('ReportsPageComponent', () => {
 
     expect((click.mock.contexts[0] as HTMLAnchorElement).download).toBe('reporte-operativo_2026-09-06_a_2026-10-05.csv');
     const content = await (createObjectURL.mock.calls[0][0] as Blob).text();
-    expect(content.replace('\uFEFF', '').split('\r\n')[1]).toBe('Juan Perez;3;1;2;2;6;4;30');
+    expect(content.replace('\uFEFF', '').split('\r\n')[1]).toBe('Juan Perez;3;1;2;2;0;6;4;30');
     click.mockRestore();
     vi.unstubAllGlobals();
   });

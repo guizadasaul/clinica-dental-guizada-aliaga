@@ -24,6 +24,7 @@ export const CHART_STATUSES = [
   { key: 'held', label: 'En espera', color: CHART_COLORS.series2 },
   { key: 'expired', label: 'Vencidas', color: CHART_COLORS.series3 },
   { key: 'cancelled', label: 'Canceladas', color: CHART_COLORS.series4 },
+  { key: 'no_show', label: 'No asistió', color: CHART_COLORS.series5 },
 ] as const;
 
 /** Más de esto en barras diarias ya no se lee: se agrupa por semana. */

@@ -190,7 +190,7 @@ describe('PrismaAppointmentsRepository', () => {
   });
 
   describe('findForPatient (CLI-91)', () => {
-    it('trae solo citas confirmadas de ESE paciente, con doctor y tratamiento', async () => {
+    it('trae solo citas confirmadas (o attended) de ESE paciente, con doctor y tratamiento', async () => {
       const from = new Date('2026-09-25T12:00:00Z');
       prismaMock.appointments.findMany.mockResolvedValue([
         fakeAppointmentRecord({
@@ -211,7 +211,7 @@ describe('PrismaAppointmentsRepository', () => {
       expect(prismaMock.appointments.findMany).toHaveBeenCalledWith({
         where: {
           patient_id: 'patient-1',
-          status: 'confirmed',
+          status: { in: ['confirmed', 'attended'] },
           appointment_datetime: { gte: from },
         },
         include: { users: true, treatments: true },
@@ -566,6 +566,66 @@ describe('PrismaAppointmentsRepository', () => {
         repo.cancel('appt-1', 'doctor-1', 'doctor-1', null),
       ).resolves.toBeNull();
       expect(prismaMock.appointments.findFirst).not.toHaveBeenCalled();
+    });
+  });
+
+  // CLI-208
+  describe('setAttendance', () => {
+    it('mueve el estado solo si la cita del doctor está en `from`', async () => {
+      prismaMock.appointments.updateMany.mockResolvedValue({ count: 1 });
+      prismaMock.appointments.findFirst.mockResolvedValueOnce(
+        fakeAppointmentRecord({
+          status: 'no_show',
+          doctor_id: 'doctor-1',
+          patients: null,
+          users: { display_name: 'Dr. Saul', doctor_profiles: null },
+          treatments: null,
+          cancelled_by_user: null,
+        }),
+      );
+
+      const result = await repo.setAttendance(
+        'appt-1',
+        'doctor-1',
+        'confirmed',
+        'no_show',
+      );
+
+      expect(prismaMock.appointments.updateMany).toHaveBeenCalledWith({
+        where: { id: 'appt-1', doctor_id: 'doctor-1', status: 'confirmed' },
+        data: { status: 'no_show' },
+      });
+      expect(result).toMatchObject({ status: 'no_show' });
+    });
+
+    it('null si ya no estaba en `from`', async () => {
+      prismaMock.appointments.updateMany.mockResolvedValue({ count: 0 });
+
+      await expect(
+        repo.setAttendance('appt-1', 'doctor-1', 'no_show', 'confirmed'),
+      ).resolves.toBeNull();
+      expect(prismaMock.appointments.findFirst).not.toHaveBeenCalled();
+    });
+
+    it('traduce el choque del índice único a SlotUnavailableError', async () => {
+      prismaMock.appointments.updateMany.mockRejectedValue(
+        new Prisma.PrismaClientKnownRequestError('unique', {
+          code: 'P2002',
+          clientVersion: 'test',
+        }),
+      );
+
+      await expect(
+        repo.setAttendance('appt-1', 'doctor-1', 'no_show', 'confirmed'),
+      ).rejects.toThrow(SlotUnavailableError);
+    });
+
+    it('propaga cualquier otro error', async () => {
+      prismaMock.appointments.updateMany.mockRejectedValue(new Error('boom'));
+
+      await expect(
+        repo.setAttendance('appt-1', 'doctor-1', 'confirmed', 'no_show'),
+      ).rejects.toThrow('boom');
     });
   });
 

@@ -22,6 +22,7 @@ import {
 } from '../domain/AppointmentRepository.js';
 import type {
   AgendaFilters,
+  AttendanceStatus,
   IAppointmentRepository,
 } from '../domain/AppointmentRepository.js';
 import type { AppointmentWithPatient } from '../domain/AppointmentWithPatient.js';
@@ -119,6 +120,8 @@ export interface RescheduleInput {
 }
 
 const SLOT_TAKEN_MESSAGE = 'Ya tienes una cita en ese horario';
+const ATTENDANCE_STATUS_MESSAGE =
+  'Solo se puede marcar "No asistió" en una cita confirmada';
 const TIME_BLOCKED_MESSAGE =
   'Ese horario lo tienes reservado en tu agenda. Quita la reserva o elige otro horario.';
 /** Un bloqueo no puede durar más que esto: evita apartar la agenda "para siempre" por un error de fecha. */
@@ -528,6 +531,88 @@ export class AppointmentsService {
       return latest;
     }
     throw new ConflictException('Solo se puede cancelar una cita confirmada');
+  }
+
+  /**
+   * CLI-208: el doctor marca que el paciente no vino a una cita confirmada
+   * propia que ya pasó. Deja de contar como visita en el panel del paciente.
+   * Idempotente: marcar una que ya está como "No asistió" la devuelve tal cual.
+   */
+  markNoShow(
+    doctorId: string,
+    appointmentId: string,
+    now: Date = new Date(),
+  ): Promise<AppointmentWithPatient> {
+    return this.changeAttendance(
+      doctorId,
+      appointmentId,
+      AppointmentStatus.CONFIRMED,
+      AppointmentStatus.NO_SHOW,
+      now,
+    );
+  }
+
+  /** CLI-208: deshace "No asistió" — la cita vuelve a confirmada. */
+  undoNoShow(
+    doctorId: string,
+    appointmentId: string,
+    now: Date = new Date(),
+  ): Promise<AppointmentWithPatient> {
+    return this.changeAttendance(
+      doctorId,
+      appointmentId,
+      AppointmentStatus.NO_SHOW,
+      AppointmentStatus.CONFIRMED,
+      now,
+    );
+  }
+
+  private async changeAttendance(
+    doctorId: string,
+    appointmentId: string,
+    from: AttendanceStatus,
+    to: AttendanceStatus,
+    now: Date,
+  ): Promise<AppointmentWithPatient> {
+    const current = await this.requireOwnAppointment(doctorId, appointmentId);
+    if (current.status === to) {
+      return current;
+    }
+    if (current.status !== from) {
+      throw new ConflictException(ATTENDANCE_STATUS_MESSAGE);
+    }
+    if (current.appointmentDatetime.getTime() > now.getTime()) {
+      throw new ConflictException(
+        'Solo se puede marcar la asistencia de una cita que ya pasó',
+      );
+    }
+
+    let updated: AppointmentWithPatient | null;
+    try {
+      updated = await this.appointmentRepo.setAttendance(
+        appointmentId,
+        doctorId,
+        from,
+        to,
+      );
+    } catch (error) {
+      if (error instanceof SlotUnavailableError) {
+        throw new ConflictException(
+          'No se puede deshacer: ya hay otra cita activa que choca con esta',
+        );
+      }
+      throw error;
+    }
+    if (updated) {
+      return updated;
+    }
+    // Cambió entre la lectura y el UPDATE: si ya quedó como se pedía, es el
+    // mismo resultado (idempotente).
+    const latest = await this.requireOwnAppointment(doctorId, appointmentId);
+    if (latest.status === to) {
+      return latest;
+    }
+    throw new ConflictException(ATTENDANCE_STATUS_MESSAGE);
   }
 
   // Una cita de otro doctor da el mismo 404 que una inexistente: no se

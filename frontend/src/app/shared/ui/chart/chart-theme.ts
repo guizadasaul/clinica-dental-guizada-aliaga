@@ -9,6 +9,8 @@ export const CHART_COLORS = {
   series2: '#d9731f',
   series3: '#6b5fd3',
   series4: '#d93b3b',
+  /** CLI-208 "No asistió": neutro oscuro (contraste 7:1), se separa del rojo de al lado por luminosidad. */
+  series5: '#5c5550',
   ink: '#1c1b1f',
   inkMuted: '#5c5550',
   grid: '#ece6da',

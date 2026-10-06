@@ -104,6 +104,26 @@ export class DoctorAppointmentsController {
     return this.appointmentsService.cancelByDoctor(appUser.id, id, dto.reason);
   }
 
+  // CLI-208: "No asistió" — solo citas propias que ya pasaron.
+  @Post('doctor/:id/no-show')
+  @HttpCode(200)
+  @Roles(UserRole.ODONTOLOGIST)
+  markNoShow(
+    @CurrentAppUser() appUser: User,
+    @Param('id', ParseUUIDPipe) id: string,
+  ): Promise<AppointmentWithPatient> {
+    return this.appointmentsService.markNoShow(appUser.id, id);
+  }
+
+  @Delete('doctor/:id/no-show')
+  @Roles(UserRole.ODONTOLOGIST)
+  undoNoShow(
+    @CurrentAppUser() appUser: User,
+    @Param('id', ParseUUIDPipe) id: string,
+  ): Promise<AppointmentWithPatient> {
+    return this.appointmentsService.undoNoShow(appUser.id, id);
+  }
+
   // CLI-195: horarios que el doctor aparta de su agenda. Siempre los propios:
   // el doctor sale del token y uno ajeno da 404 al quitarlo.
   @Post('blocks')

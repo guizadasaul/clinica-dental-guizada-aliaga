@@ -52,6 +52,8 @@ describe('DoctorAppointmentsController', () => {
     getDoctorSchedule: jest.fn(),
     rescheduleByDoctor: jest.fn(),
     cancelByDoctor: jest.fn(),
+    markNoShow: jest.fn(),
+    undoNoShow: jest.fn(),
   };
 
   beforeEach(() => {
@@ -237,6 +239,22 @@ describe('DoctorAppointmentsController', () => {
     it('solo los pueden usar odontólogos, no el admin', () => {
       expect(rolesOf('rescheduleByDoctor')).toEqual([UserRole.ODONTOLOGIST]);
       expect(rolesOf('cancelByDoctor')).toEqual([UserRole.ODONTOLOGIST]);
+    });
+  });
+
+  // CLI-208
+  describe('markNoShow / undoNoShow', () => {
+    it('marca y deshace "No asistió" en la agenda del doctor autenticado', async () => {
+      await controller.markNoShow(fakeDoctor('doctor-a'), 'appt-1');
+      await controller.undoNoShow(fakeDoctor('doctor-a'), 'appt-1');
+
+      expect(mockService.markNoShow).toHaveBeenCalledWith('doctor-a', 'appt-1');
+      expect(mockService.undoNoShow).toHaveBeenCalledWith('doctor-a', 'appt-1');
+    });
+
+    it('solo los pueden usar odontólogos, no el admin', () => {
+      expect(rolesOf('markNoShow')).toEqual([UserRole.ODONTOLOGIST]);
+      expect(rolesOf('undoNoShow')).toEqual([UserRole.ODONTOLOGIST]);
     });
   });
 

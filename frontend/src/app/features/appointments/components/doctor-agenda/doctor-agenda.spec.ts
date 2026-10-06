@@ -49,13 +49,25 @@ function fakeAppointment(overrides: Partial<AppointmentAgendaItem> = {}): Appoin
   };
 }
 
+// CLI-208: la agenda pide aparte las "No asistió" — en estos tests no hay ninguna.
+function agendaOf(appointments: AppointmentAgendaItem[]) {
+  return (filters?: { status?: string }) => of(filters?.status === 'no_show' ? [] : appointments);
+}
+
+/** Cuántas veces se cargó la agenda (cada carga pide confirmadas y "No asistió"). */
+function agendaLoads(service: { getAgenda: { mock: { calls: unknown[][] } } }): number {
+  return service.getAgenda.mock.calls.filter(
+    (call) => (call[0] as { status?: string } | undefined)?.status === 'confirmed',
+  ).length;
+}
+
 function setup(
   appointments: AppointmentAgendaItem[] = [fakeAppointment()],
   schedule: DoctorScheduleBlock[] = [],
   timeBlocks: TimeBlock[] = [],
 ) {
   const appointmentsService = {
-    getAgenda: vi.fn().mockReturnValue(of(appointments)),
+    getAgenda: vi.fn(agendaOf(appointments)),
     getMySchedule: vi.fn().mockReturnValue(of(schedule)),
     createByDoctor: vi.fn(),
     getTimeBlocks: vi.fn().mockReturnValue(of(timeBlocks)),
@@ -131,7 +143,7 @@ describe('DoctorAgendaComponent', () => {
     it('"Reservar horario" abre el diálogo y al reservar recarga la agenda', async () => {
       const { fixture, appointmentsService } = setup();
       await settle(fixture);
-      const loads = appointmentsService.getAgenda.mock.calls.length;
+      const loads = agendaLoads(appointmentsService);
 
       (fixture.nativeElement.querySelector('.agenda__block-btn') as HTMLButtonElement).click();
       await settle(fixture);
@@ -143,7 +155,7 @@ describe('DoctorAgendaComponent', () => {
       await settle(fixture);
 
       expect(fixture.nativeElement.querySelector('app-time-block-dialog')).toBeNull();
-      expect(appointmentsService.getAgenda.mock.calls.length).toBe(loads + 1);
+      expect(agendaLoads(appointmentsService)).toBe(loads + 1);
     });
   });
 
@@ -378,8 +390,7 @@ describe('DoctorAgendaComponent', () => {
         .toISOString()
         .slice(0, 10);
       const at = (hhmm: string) => new Date(`${nextMonday}T${hhmm}:00-04:00`).toISOString();
-      appointmentsService.getAgenda.mockReturnValue(
-        of([
+      appointmentsService.getAgenda.mockImplementation(agendaOf([
           fakeAppointment({ id: 'madrugada', appointmentDatetime: at('03:00') }),
           fakeAppointment({ id: 'noche', appointmentDatetime: at('23:00') }),
         ]),
@@ -448,8 +459,7 @@ describe('DoctorAgendaComponent', () => {
       const nextMonday = new Date(Date.parse(`${monday}T12:00:00Z`) + 7 * 86_400_000)
         .toISOString()
         .slice(0, 10);
-      appointmentsService.getAgenda.mockReturnValue(
-        of([
+      appointmentsService.getAgenda.mockImplementation(agendaOf([
           fakeAppointment({ id: 'a', appointmentDatetime: at(nextMonday, '09:45'), durationMinutes: 75 }),
           fakeAppointment({ id: 'b', appointmentDatetime: at(nextMonday, '14:00'), durationMinutes: 30 }),
         ]),
@@ -476,8 +486,7 @@ describe('DoctorAgendaComponent', () => {
       const nextMonday = new Date(Date.parse(`${monday}T12:00:00Z`) + 7 * 86_400_000)
         .toISOString()
         .slice(0, 10);
-      appointmentsService.getAgenda.mockReturnValue(
-        of([
+      appointmentsService.getAgenda.mockImplementation(agendaOf([
           fakeAppointment({ appointmentDatetime: at(nextMonday, '10:00'), durationMinutes: 60 }),
         ]),
       );
@@ -557,14 +566,14 @@ describe('DoctorAgendaComponent', () => {
       await nextWeek(fixture);
       (fixture.nativeElement.querySelector('button.agenda-cell') as HTMLButtonElement).click();
       await settle(fixture);
-      const loads = appointmentsService.getAgenda.mock.calls.length;
+      const loads = agendaLoads(appointmentsService);
 
       internals(fixture).onBooked(fakeAppointment({ source: 'doctor' }));
       await settle(fixture);
 
       expect(internals(fixture).bookingSlot()).toBeNull();
       expect(internals(fixture).notice()).toContain('Cita agendada: Juana Perez');
-      expect(appointmentsService.getAgenda.mock.calls.length).toBe(loads + 1);
+      expect(agendaLoads(appointmentsService)).toBe(loads + 1);
     });
   });
 
@@ -581,6 +590,7 @@ describe('DoctorAgendaComponent', () => {
       onStartReschedule: (a: AppointmentAgendaItem) => void;
       onBooked: (a: AppointmentAgendaItem) => void;
       onCancelled: (a: AppointmentAgendaItem) => void;
+      onAttendanceChanged: (a: AppointmentAgendaItem) => void;
       onEscape: () => void;
     };
     const internals = (fixture: ComponentFixture<DoctorAgendaComponent>) =>
@@ -598,7 +608,7 @@ describe('DoctorAgendaComponent', () => {
         appointmentDatetime: new Date(`${nextMonday}T10:00:00-04:00`).toISOString(),
         durationMinutes,
       });
-      ctx.appointmentsService.getAgenda.mockReturnValue(of([appt]));
+      ctx.appointmentsService.getAgenda.mockImplementation(agendaOf([appt]));
       (ctx.fixture.nativeElement.querySelector('[aria-label="Página siguiente"]') as HTMLButtonElement).click();
       await settle(ctx.fixture);
       return { ...ctx, appt, nextMonday };
@@ -666,26 +676,68 @@ describe('DoctorAgendaComponent', () => {
     it('al guardar la reprogramación sale del modo, avisa y recarga', async () => {
       const { fixture, appt, appointmentsService } = await withAppointmentNextWeek();
       internals(fixture).onStartReschedule(appt);
-      const loads = appointmentsService.getAgenda.mock.calls.length;
+      const loads = agendaLoads(appointmentsService);
 
       internals(fixture).onBooked(appt);
 
       expect(internals(fixture).rescheduling()).toBeNull();
       expect(internals(fixture).notice()).toContain('Cita reprogramada: Juana Perez');
-      expect(appointmentsService.getAgenda.mock.calls.length).toBe(loads + 1);
+      expect(agendaLoads(appointmentsService)).toBe(loads + 1);
     });
 
     it('al cancelar cierra el detalle, avisa y recarga', async () => {
       const { fixture, appt, appointmentsService } = await withAppointmentNextWeek();
       (fixture.nativeElement.querySelector('.agenda-slot') as HTMLButtonElement).click();
       await settle(fixture);
-      const loads = appointmentsService.getAgenda.mock.calls.length;
+      const loads = agendaLoads(appointmentsService);
 
       internals(fixture).onCancelled({ ...appt, status: 'cancelled' });
 
       expect(internals(fixture).detailAppointment()).toBeNull();
       expect(internals(fixture).notice()).toBe('Cita cancelada: Juana Perez');
-      expect(appointmentsService.getAgenda.mock.calls.length).toBe(loads + 1);
+      expect(agendaLoads(appointmentsService)).toBe(loads + 1);
+    });
+  });
+
+  // CLI-208
+  describe('"No asistió"', () => {
+    it('pide también las "No asistió" y las dibuja atenuadas con su etiqueta', async () => {
+      const noShow = fakeAppointment({ id: 'appt-ns', status: 'no_show' });
+      const { fixture, appointmentsService } = setup([]);
+      appointmentsService.getAgenda.mockImplementation((filters?: { status?: string }) =>
+        of(filters?.status === 'no_show' ? [noShow] : []),
+      );
+      await settle(fixture);
+
+      expect(appointmentsService.getAgenda).toHaveBeenCalledWith(
+        expect.objectContaining({ status: 'no_show' }),
+      );
+      const slot = fixture.nativeElement.querySelector('.agenda-slot--no-show') as HTMLElement;
+      expect(slot.textContent).toContain('No asistió');
+      expect(slot.getAttribute('title')).toContain('No asistió');
+    });
+
+    it('al marcar o deshacer actualiza el turno en su lugar y avisa, sin recargar', async () => {
+      const appt = fakeAppointment();
+      const { fixture, appointmentsService } = setup([appt]);
+      await settle(fixture);
+      const loads = agendaLoads(appointmentsService);
+      const component = fixture.componentInstance as unknown as {
+        onAttendanceChanged: (a: AppointmentAgendaItem) => void;
+        notice: () => string | null;
+        detailAppointment: () => AppointmentAgendaItem | null;
+      };
+
+      component.onAttendanceChanged({ ...appt, status: 'no_show' });
+      await settle(fixture);
+
+      expect(component.detailAppointment()).toBeNull();
+      expect(component.notice()).toContain('Marcada como "No asistió"');
+      expect(fixture.nativeElement.querySelector('.agenda-slot--no-show')).toBeTruthy();
+      expect(agendaLoads(appointmentsService)).toBe(loads);
+
+      component.onAttendanceChanged({ ...appt, status: 'confirmed' });
+      expect(component.notice()).toContain('Se deshizo "No asistió"');
     });
   });
 
@@ -759,7 +811,7 @@ describe('DoctorAgendaComponent', () => {
         appointmentDatetime: new Date(Date.now() + 5 * 86_400_000).toISOString(),
       });
       const { fixture, appointmentsService } = await openRecordFromToday();
-      appointmentsService.getAgenda.mockReturnValue(of([justAttended(), upcoming]));
+      appointmentsService.getAgenda.mockImplementation(agendaOf([justAttended(), upcoming]));
 
       internals(fixture).onHistoryComplete();
       await settle(fixture);

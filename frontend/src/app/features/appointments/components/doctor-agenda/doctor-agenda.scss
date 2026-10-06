@@ -458,6 +458,23 @@
     cursor: default;
   }
 
+  // CLI-208: el paciente no vino — atenuada y tachada, pero se puede abrir para deshacerlo.
+  &--no-show {
+    border-left-style: dashed;
+    background: repeating-linear-gradient(
+      -45deg,
+      var(--color-gray-50),
+      var(--color-gray-50) 6px,
+      #fff 6px,
+      #fff 12px
+    );
+
+    .agenda-slot__patient {
+      color: var(--color-text-muted);
+      text-decoration: line-through;
+    }
+  }
+
   // CLI-151: la cita que se está reprogramando deja libres sus franjas.
   &--moving {
     opacity: 0.45;
@@ -488,6 +505,18 @@
   font-size: 0.75rem;
   vertical-align: -0.125rem;
   margin-left: 0.125rem;
+}
+
+.agenda-slot__badge {
+  margin-left: 0.25rem;
+  padding: 0 0.375rem;
+  border-radius: var(--radius-full);
+  background: var(--color-error-light);
+  color: var(--color-error);
+  font-family: var(--font-body);
+  font-size: 0.625rem;
+  font-weight: 700;
+  white-space: nowrap;
 }
 
 // CLI-150: franjas de 30 min detrás de los turnos. Las libres se clickean
