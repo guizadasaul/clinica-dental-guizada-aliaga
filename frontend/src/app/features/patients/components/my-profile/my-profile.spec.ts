@@ -140,65 +140,69 @@ describe('MyProfileComponent (CLI-214)', () => {
     expect(setup(throwError(() => ({ status: 500 }))).textContent).toContain('No pudimos cargar tu historia clínica');
   });
 
-  it('muestra el encabezado con iniciales, nombre, datos y quién hizo la historia inicial', () => {
-    vi.useFakeTimers({ toFake: ['Date'] });
-    vi.setSystemTime(new Date('2026-10-06T12:00:00Z'));
-    const root = setup(of(record()));
-    const hero = root.querySelector('.hero')!;
+  const facts = (section: Element) =>
+    Object.fromEntries(
+      [...section.querySelectorAll('.facts__row')].map((r) => [
+        r.querySelector('dt')?.textContent?.trim(),
+        r.querySelector('dd')?.textContent?.trim().replaceAll(/\s+/g, ' '),
+      ]),
+    );
 
-    expect(hero.querySelector('.hero__avatar')?.textContent).toBe('MQ');
-    expect(hero.querySelector('.hero__name')?.textContent).toBe('María Quispe Mamani');
-    const chips = [...hero.querySelectorAll('.hero__chip-text')].map((c) => c.textContent);
-    expect(chips).toEqual(['CI 6543210', '34 años', '+59171234567', 'maria@correo.com']);
-    expect(hero.querySelector('.hero__recorded')?.textContent).toContain('14 de marzo de 2025 · Dra. Lucía Mamani');
+  it('el encabezado dice cuándo y quién hizo la historia inicial', () => {
+    const root = setup(of(record()));
+
+    expect(root.querySelector('.page-header__subtitle')?.textContent).toContain(
+      'Historia clínica inicial · 14/03/2025 · Dra. Lucía Mamani',
+    );
   });
 
-  it('muestra los datos personales legibles', () => {
-    const text = setup(of(record())).querySelector('.facts')?.textContent ?? '';
+  it('muestra los datos personales una sola vez, legibles', () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2026-10-06T12:00:00Z'));
+    const personal = facts(setup(of(record())).querySelectorAll('.card')[0]);
 
-    expect(text).toContain('14 de marzo de 1992');
-    expect(text).toContain('Femenino');
-    expect(text).toContain('Calle 21 #45, Calacoto, La Paz');
-    expect(text).toContain('Juan Quispe (Esposo) +59170000000');
-    expect(text).toContain('Dolor en una muela');
+    expect(personal).toMatchObject({
+      Nombre: 'María Quispe Mamani',
+      Documento: 'CI 6543210',
+      'Fecha de nacimiento': '14/03/1992 (34 años)',
+      Sexo: 'Femenino',
+      Teléfono: '+59171234567',
+      Correo: 'maria@correo.com',
+      Dirección: 'Calle 21 #45, Calacoto, La Paz',
+      'Contacto de emergencia': 'Juan Quispe (Esposo) +59170000000',
+      'Motivo de la primera consulta': 'Dolor en una muela',
+    });
   });
 
   it('muestra antecedentes, medicamentos y reacción a la anestesia', () => {
-    const root = setup(of(record()));
-    const medical = root.querySelectorAll('.section')[1].textContent ?? '';
+    const medical = facts(setup(of(record())).querySelectorAll('.card')[1]);
 
-    expect(root.querySelector('.pills__item')?.textContent).toBe('Hipertensión');
-    expect(medical).toContain('Gastritis');
-    expect(medical).toContain('Losartán');
-    expect(medical).toContain('50 mg');
-    expect(medical).toContain('Reacción a la anestesia');
-    expect(medical).toContain('No');
+    expect(medical).toMatchObject({
+      Condiciones: 'Hipertensión',
+      'Otras enfermedades': 'Gastritis',
+      Medicamentos: 'Losartán 50 mg · cada 24 h',
+      'Reacción a la anestesia': 'No',
+    });
   });
 
-  it('muestra los hábitos de higiene con la frecuencia de cepillado', () => {
-    const root = setup(of(record()));
-    const hygiene = root.querySelectorAll('.section')[2];
+  it('muestra los hábitos de higiene con Sí/No en texto', () => {
+    const hygiene = facts(setup(of(record())).querySelectorAll('.card')[2]);
 
-    expect(hygiene.querySelector('.highlight')?.textContent).toContain('3 veces al día');
-    const yes = [...hygiene.querySelectorAll('.checks__item--yes')].map((i) => i.textContent);
-    expect(yes.join(' ')).toContain('Enjuague bucal');
-    expect(yes.join(' ')).not.toContain('Hilo dental');
+    expect(hygiene).toMatchObject({
+      Cepillado: '3 veces al día',
+      'Enjuague bucal': 'Sí',
+      'Hilo dental': 'No',
+    });
   });
 
-  it('muestra el examen clínico con su fecha', () => {
-    const exam = setup(of(record())).querySelectorAll('.section')[3];
+  it('muestra el examen clínico', () => {
+    const exam = facts(setup(of(record())).querySelectorAll('.card')[3]);
 
-    expect(exam.querySelector('.section__date')?.textContent).toContain('14 de marzo de 2025');
-    expect([...exam.querySelectorAll('.exam__item--found')].map((i) => i.querySelector('.exam__label')?.textContent)).toEqual([
-      'Sarro',
-      'Placa bacteriana',
-    ]);
-    expect(exam.textContent).toContain('Normal');
+    expect(exam).toMatchObject({ Sarro: 'Sí', Saburra: 'No', 'Placa bacteriana': 'Sí', Oclusión: 'Normal' });
   });
 
   it('muestra el odontograma de solo lectura y los hallazgos ordenados por pieza', () => {
-    const root = setup(of(record()));
-    const diagnosis = root.querySelector('.diagnosis')!;
+    const diagnosis = setup(of(record())).querySelectorAll('.card')[4];
 
     expect(diagnosis.querySelector('app-odontogram-chart')).not.toBeNull();
     const items = [...diagnosis.querySelectorAll('.findings__item')];
@@ -206,7 +210,7 @@ describe('MyProfileComponent (CLI-214)', () => {
     expect(items[0].textContent).toContain('Caries (Clase II)');
     expect(items[0].textContent).toContain('Oclusal profunda');
     expect(items[0].textContent).toContain('Se solicitó radiografía');
-    expect(items[2].querySelector('.findings__xray')).toBeNull();
+    expect(items[2].textContent).not.toContain('radiografía');
     expect(diagnosis.querySelector('.diagnosis__notes')?.textContent).toContain('Volver en seis meses');
   });
 
@@ -223,8 +227,8 @@ describe('MyProfileComponent (CLI-214)', () => {
     );
     const text = root.textContent ?? '';
 
-    expect(root.querySelectorAll('.hero__chip')).toHaveLength(0);
-    expect(root.querySelector('.hero__recorded')?.textContent).toContain('14 de marzo de 2025');
+    expect(root.querySelector('.page-header__subtitle')?.textContent).toContain('Historia clínica inicial · 14/03/2025');
+    expect(facts(root.querySelectorAll('.card')[0])).not.toHaveProperty('Documento');
     expect(text).toContain('Sin antecedentes registrados');
     expect(text).toContain('Sin hábitos registrados');
     expect(text).toContain('Todavía no hay un diagnóstico registrado');

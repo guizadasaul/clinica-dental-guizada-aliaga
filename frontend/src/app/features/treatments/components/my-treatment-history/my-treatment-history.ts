@@ -2,6 +2,7 @@ import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@a
 import { toSignal } from '@angular/core/rxjs-interop';
 import { catchError, map, of } from 'rxjs';
 import { TreatmentsService } from '../../services/treatments.service';
+import { PageHeaderComponent } from '../../../../shared/ui/page-header/page-header';
 import type {
   ToothProcedure,
   ToothSurfaceCode,
@@ -37,37 +38,40 @@ const DATE_FORMATTER = new Intl.DateTimeFormat('es-BO', {
   month: 'long',
   year: 'numeric',
 });
-const MONTH_YEAR_FORMATTER = new Intl.DateTimeFormat('es-BO', {
-  timeZone: 'UTC',
-  month: 'long',
-  year: 'numeric',
-});
-
-function capitalize(text: string): string {
-  return text.charAt(0).toUpperCase() + text.slice(1);
-}
 
 interface ApplicationView {
   id: string;
   treatmentName: string;
   categoryName: string;
-  categoryColor: string;
   date: string;
-  teeth: number[];
-  scope: string | null;
-  quantity: number | null;
-  surfaces: string | null;
+  /** Dónde se aplicó y quién lo hizo: "Piezas 16, 17 · Oclusal · Dra. Lucía Mamani". */
+  meta: string;
   notes: string | null;
-  doctorName: string | null;
 }
 
-interface MonthGroup {
-  label: string;
-  items: ApplicationView[];
+function whereLabel(
+  teeth: number[],
+  surfaces: string[],
+  quantity: number | null,
+  type: TreatmentApplicationType,
+): string | null {
+  const parts: string[] = [];
+  if (teeth.length > 0) {
+    parts.push(`${teeth.length === 1 ? 'Pieza' : 'Piezas'} ${teeth.join(', ')}`);
+  } else if (SCOPE_LABELS[type]) {
+    parts.push(SCOPE_LABELS[type]);
+  }
+  if (surfaces.length > 0) {
+    parts.push(surfaces.join(', '));
+  }
+  if (quantity !== null) {
+    parts.push(`${quantity} ${quantity === 1 ? 'unidad' : 'unidades'}`);
+  }
+  return parts.length > 0 ? parts.join(' · ') : null;
 }
 
 /**
- * Una aplicación por tarjeta: las filas de un mismo grupo multi-diente
+ * Una aplicación por fila: las filas de un mismo grupo multi-diente
  * (applicationGroupId) se juntan, igual que en la vista del doctor.
  */
 function toApplications(procedures: ToothProcedure[]): (ApplicationView & { iso: string })[] {
@@ -90,28 +94,30 @@ function toApplications(procedures: ToothProcedure[]): (ApplicationView & { iso:
         iso: first.procedureDate,
         treatmentName: first.treatmentName,
         categoryName: first.categoryName,
-        categoryColor: first.categoryColor,
         date: DATE_FORMATTER.format(new Date(first.procedureDate)),
-        teeth,
-        scope: teeth.length === 0 ? (SCOPE_LABELS[first.applicationType] ?? null) : null,
-        quantity: isUnit ? first.quantity : null,
-        surfaces: surfaces.length > 0 ? surfaces.join(', ') : null,
+        meta: [
+          whereLabel(teeth, surfaces, isUnit ? first.quantity : null, first.applicationType),
+          first.performedByName,
+        ]
+          .filter(Boolean)
+          .join(' · '),
         notes: rows.find((r) => r.notes)?.notes ?? null,
-        doctorName: first.performedByName,
       };
     })
     .sort((a, b) => b.iso.localeCompare(a.iso));
 }
 
 /**
- * "Mi historial" del paciente (CLI-211): todos los tratamientos que recibió,
- * con fecha, dientes, superficies, indicaciones del doctor y quién lo hizo.
+ * "Mi historial" del paciente (CLI-211, reestilo CLI-216): todos los
+ * tratamientos que recibió, del más reciente al más antiguo, con fecha,
+ * piezas, superficies, indicaciones del doctor y quién lo hizo.
  * El doctor sigue usando treatment-history (tabla con precios).
  */
 @Component({
   selector: 'app-my-treatment-history',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
+  imports: [PageHeaderComponent],
   templateUrl: './my-treatment-history.html',
   styleUrl: './my-treatment-history.scss',
 })
@@ -129,40 +135,22 @@ export class MyTreatmentHistoryComponent {
   protected readonly loading = computed(() => this.applications() === undefined);
   protected readonly failed = computed(() => this.applications() === null);
   protected readonly total = computed(() => this.applications()?.length ?? 0);
-  protected readonly lastDate = computed(() => this.applications()?.[0]?.date ?? null);
 
-  /** Categorías presentes, en el orden en que aparecen, para los filtros. */
-  protected readonly categories = computed(() => {
-    const seen = new Map<string, string>();
-    for (const a of this.applications() ?? []) {
-      if (!seen.has(a.categoryName)) {
-        seen.set(a.categoryName, a.categoryColor);
-      }
-    }
-    return [...seen].map(([name, color]) => ({ name, color }));
-  });
+  /** Tipos presentes, en el orden en que aparecen, para el filtro. */
+  protected readonly categories = computed(() => [
+    ...new Set((this.applications() ?? []).map((a) => a.categoryName)),
+  ]);
 
   protected readonly filter = signal<string | null>(null);
 
-  protected readonly months = computed<MonthGroup[]>(() => {
+  protected readonly visible = computed(() => {
     const selected = this.filter();
-    const groups: MonthGroup[] = [];
-    for (const app of this.applications() ?? []) {
-      if (selected && app.categoryName !== selected) {
-        continue;
-      }
-      const label = capitalize(MONTH_YEAR_FORMATTER.format(new Date(app.iso)));
-      const last = groups.at(-1);
-      if (last?.label === label) {
-        last.items.push(app);
-      } else {
-        groups.push({ label, items: [app] });
-      }
-    }
-    return groups;
+    const all = this.applications() ?? [];
+    return selected ? all.filter((a) => a.categoryName === selected) : all;
   });
 
-  protected toggle(category: string | null): void {
-    this.filter.set(category);
+  protected onFilter(event: Event): void {
+    const value = (event.target as HTMLSelectElement).value;
+    this.filter.set(value || null);
   }
 }

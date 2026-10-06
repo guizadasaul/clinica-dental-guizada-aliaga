@@ -56,7 +56,7 @@ describe('MyTreatmentHistoryComponent (CLI-211)', () => {
     expect(text).not.toContain('Este paciente');
   });
 
-  it('muestra cada tratamiento con fecha, dientes, superficies, indicaciones y doctor', () => {
+  it('muestra cada tratamiento con fecha, piezas, superficies, doctor e indicaciones en una fila', () => {
     const { root } = setup(
       of([
         proc({
@@ -69,25 +69,19 @@ describe('MyTreatmentHistoryComponent (CLI-211)', () => {
         proc({ id: 'b', applicationGroupId: 'g-1', toothNumber: 16, surfaces: ['occlusal'] }),
       ]),
     );
-    const cards = root.querySelectorAll('.treatment');
+    const rows = root.querySelectorAll('.treatment');
 
     // Las dos filas del mismo grupo son una sola aplicación.
-    expect(cards).toHaveLength(1);
-    const card = cards[0];
-    expect(card.querySelector('.treatment__name')?.textContent).toBe('Restauración con resina');
-    expect(card.querySelector('.treatment__date')?.textContent).toContain('16 de septiembre de 2026');
-    expect([...card.querySelectorAll('.treatment__tooth')].map((t) => t.textContent?.trim())).toEqual([
-      'Pieza 16',
-      'Pieza 17',
-    ]);
-    expect(card.textContent).toContain('Superficies: Oclusal, Mesial');
-    expect(card.querySelector('.treatment__note')?.textContent).toContain('Evita alimentos muy duros');
-    expect(card.textContent).toContain('Realizado por Dra. Lucía Mamani');
-    expect(root.querySelector('.summary__value')?.textContent).toBe('1');
-    expect(root.querySelector('.summary__label')?.textContent).toBe('tratamiento recibido');
+    expect(rows).toHaveLength(1);
+    expect(rows[0].querySelector('.treatment__date')?.textContent).toBe('16 de septiembre de 2026');
+    expect(rows[0].querySelector('.treatment__name')?.textContent).toBe('Restauración con resina');
+    expect(rows[0].querySelector('.treatment__meta')?.textContent).toBe(
+      'Piezas 16, 17 · Oclusal, Mesial · Dra. Lucía Mamani',
+    );
+    expect(rows[0].querySelector('.treatment__notes')?.textContent).toContain('Evita alimentos muy duros');
   });
 
-  it('los de boca completa o por unidades muestran su alcance en vez de dientes', () => {
+  it('los de boca completa o por unidades muestran su alcance en vez de piezas', () => {
     const { root } = setup(
       of([
         proc({ id: 'a', toothNumber: null, applicationType: 'full_mouth', treatmentName: 'Limpieza dental' }),
@@ -95,43 +89,41 @@ describe('MyTreatmentHistoryComponent (CLI-211)', () => {
         proc({ id: 'c', toothNumber: null, applicationType: 'general', procedureDate: '2026-08-01T00:00:00.000Z', performedByName: null }),
       ]),
     );
-    const cards = root.querySelectorAll('.treatment');
+    const rows = root.querySelectorAll('.treatment');
 
-    expect(cards[0].textContent).toContain('Boca completa');
-    expect(cards[1].textContent).toContain('3 unidades');
-    expect(cards[2].querySelector('.treatment__teeth')).toBeNull();
-    expect(cards[2].querySelector('.treatment__doctor')).toBeNull();
+    expect(rows[0].querySelector('.treatment__meta')?.textContent).toBe('Boca completa · Dra. Lucía Mamani');
+    expect(rows[1].querySelector('.treatment__meta')?.textContent).toBe('3 unidades · Dra. Lucía Mamani');
+    expect(rows[2].querySelector('.treatment__meta')).toBeNull();
   });
 
-  it('agrupa por mes, del más reciente al más antiguo, y filtra por tipo', () => {
+  it('ordena del más reciente al más antiguo y filtra por tipo con un select', () => {
     const { fixture, root } = setup(
       of([
-        proc({ id: 'old', procedureDate: '2026-08-10T00:00:00.000Z', categoryName: 'Endodoncia', categoryColor: '#a21caf' }),
+        proc({ id: 'old', procedureDate: '2026-08-10T00:00:00.000Z', categoryName: 'Endodoncia', treatmentName: 'Endodoncia molar' }),
         proc({ id: 'new', procedureDate: '2026-09-16T00:00:00.000Z' }),
       ]),
     );
+    const names = () => [...root.querySelectorAll('.treatment__name')].map((n) => n.textContent);
 
-    expect([...root.querySelectorAll('.month__label')].map((m) => m.textContent)).toEqual([
-      'Septiembre de 2026',
-      'Agosto de 2026',
+    expect(names()).toEqual(['Restauración con resina', 'Endodoncia molar']);
+    const select = root.querySelector<HTMLSelectElement>('.history__select')!;
+    expect([...select.options].map((o) => o.textContent?.trim())).toEqual([
+      'Todos los tratamientos',
+      'Restauraciones',
+      'Endodoncia',
     ]);
-    expect(root.querySelector('.summary')?.textContent).toContain('16 de septiembre de 2026');
-
-    const chips = [...root.querySelectorAll<HTMLButtonElement>('.filters__chip')];
-    expect(chips.map((c) => c.textContent?.trim())).toEqual(['Todos', 'Restauraciones', 'Endodoncia']);
-    chips[2].click();
+    select.value = 'Endodoncia';
+    select.dispatchEvent(new Event('change'));
     fixture.detectChanges();
+    expect(names()).toEqual(['Endodoncia molar']);
 
-    expect(root.querySelectorAll('.treatment')).toHaveLength(1);
-    expect(root.querySelector('.treatment__category')?.textContent).toContain('Endodoncia');
-    expect(chips[2].getAttribute('aria-pressed')).toBe('true');
-
-    chips[0].click();
+    select.value = '';
+    select.dispatchEvent(new Event('change'));
     fixture.detectChanges();
-    expect(root.querySelectorAll('.treatment')).toHaveLength(2);
+    expect(names()).toHaveLength(2);
   });
 
-  it('con una sola categoría no muestra filtros', () => {
-    expect(setup(of([proc()])).root.querySelector('.filters')).toBeNull();
+  it('con un solo tipo no muestra el filtro', () => {
+    expect(setup(of([proc()])).root.querySelector('.history__select')).toBeNull();
   });
 });

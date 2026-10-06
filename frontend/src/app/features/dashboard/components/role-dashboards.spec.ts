@@ -95,36 +95,40 @@ describe('PatientDashboardComponent', () => {
     expect(text).not.toContain('Solicitar cita');
   });
 
-  // CLI-153 / CLI-209: la tarjeta "Tu próxima cita" muestra las citas reales del paciente.
+  // CLI-216: el inicio sigue el del doctor — fila de próxima cita y KPIs.
   describe('próxima cita', () => {
-    it('muestra la más cercana con fecha, hora, doctor y tratamiento, y lista las demás', () => {
-      const { root } = setup('home', {
+    it('muestra la más cercana como una fila de la agenda y ofrece ir a las demás', () => {
+      const { fixture, root } = setup('home', {
         upcoming: of([
           cita('a', '2026-09-29T14:00:00.000Z'),
           cita('b', '2026-10-06T14:00:00.000Z', { treatmentName: null }),
         ]),
       });
-      const next = root.querySelector('.next')?.textContent ?? '';
+      const row = root.querySelector('.appointment')!;
+      const emitted: string[] = [];
+      fixture.componentInstance.navChange.subscribe((nav) => emitted.push(nav));
 
-      expect(next).toContain('Martes, 29 de septiembre');
-      expect(next).toContain('10:00');
-      expect(next).toContain('Saul Guizada');
-      expect(next).toContain('Control de ortodoncia');
-      expect(root.querySelector('.next__later')?.textContent).toContain('También tienes: Martes, 6 de octubre');
-      expect(root.querySelector('.next__empty')).toBeNull();
+      expect(row.querySelector('.appointment__time')?.textContent).toContain('10:00');
+      expect(row.querySelector('.appointment__date')?.textContent).toContain('Martes, 29 de septiembre');
+      expect(row.querySelector('.appointment__meta')?.textContent).toContain('Control de ortodoncia · Saul Guizada');
+      expect(row.querySelector('.appointment__badge')?.textContent).toContain('Confirmada');
+      const more = root.querySelector<HTMLButtonElement>('.patient__link')!;
+      expect(more.textContent).toContain('Y 1 cita más');
+      more.click();
+      expect(emitted).toEqual(['appointments']);
     });
 
     it('sin citas muestra el estado vacío, sin botón para solicitar', () => {
       const { root } = setup('home');
 
-      expect(root.querySelector('.next__empty')?.textContent).toContain('No tienes citas programadas');
-      expect(root.querySelector('.next button')).toBeNull();
+      expect(root.querySelector('.patient-empty')?.textContent).toContain('No tienes citas programadas');
+      expect(root.querySelector('.patient-empty button')).toBeNull();
     });
 
     it('si falla la consulta, también muestra el estado vacío', () => {
       const { root } = setup('home', { upcoming: throwError(() => new Error('500')) });
 
-      expect(root.querySelector('.next__empty')).toBeTruthy();
+      expect(root.querySelector('.patient-empty')).toBeTruthy();
     });
 
     it('mientras carga lo dice', () => {
@@ -134,8 +138,10 @@ describe('PatientDashboardComponent', () => {
     });
   });
 
-  describe('visitas a la clínica', () => {
-    it('cuenta las visitas pasadas sin las "No asistió" y dice desde cuándo', () => {
+  describe('resumen', () => {
+    const kpi = (root: HTMLElement, i: number) => root.querySelectorAll('.kpi')[i];
+
+    it('cuenta las visitas pasadas sin las "No asistió"', () => {
       const { root } = setup('home', {
         past: of([
           cita('c', '2026-09-10T14:00:00.000Z'),
@@ -143,73 +149,38 @@ describe('PatientDashboardComponent', () => {
           cita('a', '2025-03-14T14:00:00.000Z', { status: 'attended' }),
         ]),
       });
-      const card = root.querySelectorAll('.stat')[0];
 
-      expect(card.querySelector('.stat__value')?.textContent?.trim()).toBe('2');
-      expect(card.textContent).toContain('visitas realizadas');
-      expect(card.textContent).toContain('Primera visita: marzo de 2025');
+      expect(kpi(root, 0).querySelector('.kpi__value')?.textContent?.trim()).toBe('2');
+      expect(kpi(root, 0).querySelector('.kpi__label')?.textContent).toContain('Visitas a la clínica');
     });
 
-    it('sin visitas lo explica, en singular cuando es una', () => {
-      expect(setup('home').root.querySelectorAll('.stat')[0].textContent).toContain(
-        'Aquí verás cuántas veces viniste',
-      );
-      TestBed.resetTestingModule();
+    it('una sola visita va en singular; mientras carga, un guion', () => {
       const one = setup('home', { past: of([cita('a', '2026-09-10T14:00:00.000Z')]) });
-      const card = one.root.querySelectorAll('.stat')[0];
-      expect(card.querySelector('.stat__value')?.textContent?.trim()).toBe('1');
-      expect(card.querySelector('.stat__unit')?.textContent?.trim()).toBe('visita realizada');
+      expect(kpi(one.root, 0).querySelector('.kpi__label')?.textContent).toContain('Visita a la clínica');
+      TestBed.resetTestingModule();
+      const loading = setup('home', { past: NEVER, quotes: NEVER });
+      expect(kpi(loading.root, 0).querySelector('.kpi__value')?.textContent?.trim()).toBe('—');
+      expect(kpi(loading.root, 1).querySelector('.kpi__value')?.textContent?.trim()).toBe('—');
     });
 
-    it('mientras carga muestra un guion', () => {
-      const card = setup('home', { past: NEVER }).root.querySelectorAll('.stat')[0];
-
-      expect(card.querySelector('.stat__value')?.textContent?.trim()).toBe('—');
-    });
-  });
-
-  describe('saldo pendiente', () => {
-    it('suma los presupuestos compartidos y muestra el porcentaje pagado', () => {
-      const { root } = setup('home', {
+    it('el saldo suma los presupuestos compartidos y "Ver presupuesto" lleva a esa sección', () => {
+      const { fixture, root } = setup('home', {
         quotes: of([
           { totalAmount: 1000, totalPaid: 400, balance: 600 },
           { totalAmount: 1000, totalPaid: 900, balance: 100 },
         ]),
       });
-      const card = root.querySelectorAll('.stat')[1];
-
-      expect(card.querySelector('.stat__value')?.textContent).toContain('Bs. 700,00');
-      expect(card.textContent).toContain('65% pagado');
-      expect((card.querySelector('progress') as HTMLProgressElement).value).toBe(65);
-    });
-
-    it('si ya pagó todo lo dice', () => {
-      const card = setup('home', {
-        quotes: of([{ totalAmount: 500, totalPaid: 500, balance: 0 }]),
-      }).root.querySelectorAll('.stat')[1];
-
-      expect(card.textContent).toContain('Todo pagado');
-    });
-
-    it('sin presupuestos lo dice', () => {
-      expect(setup('home').root.querySelectorAll('.stat')[1].textContent).toContain(
-        'Todavía no tienes un presupuesto',
-      );
-    });
-
-    it('"Ver mi presupuesto" lleva a esa sección', () => {
-      const { fixture, root } = setup('home');
       const emitted: string[] = [];
       fixture.componentInstance.navChange.subscribe((nav) => emitted.push(nav));
 
-      root.querySelector<HTMLButtonElement>('.stat__link')!.click();
-
+      expect(kpi(root, 1).querySelector('.kpi__value')?.textContent).toContain('Bs. 700,00');
+      root.querySelector<HTMLButtonElement>('.kpi__link')!.click();
       expect(emitted).toEqual(['quote']);
     });
   });
 
   it('el contacto abre WhatsApp de la clínica con un mensaje con su nombre, sin emojis', () => {
-    const link = setup('home').root.querySelector<HTMLAnchorElement>('.contact__btn')!;
+    const link = setup('home').root.querySelector<HTMLAnchorElement>('.patient__whatsapp')!;
     const url = new URL(link.href);
 
     expect(url.origin + url.pathname).toBe('https://wa.me/59157744250');

@@ -1,257 +1,103 @@
-@use 'patient-portal' as portal;
-@use 'breakpoints' as bp;
-
-// ─── Mi presupuesto del paciente (CLI-212) ───────────────────────────────────
+// ─── Mi presupuesto del paciente (CLI-216: mismo estilo que Finanzas del doctor) ─
 
 .mq {
-  @include portal.page;
-}
-
-.mq__eyebrow {
-  @include portal.pill(var(--color-primary-subtle), var(--color-primary-dark));
-
-  margin-bottom: var(--space-3);
-  border: 1px solid var(--color-primary-light);
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-.mq__dot {
-  width: 0.5rem;
-  height: 0.5rem;
-  border-radius: var(--radius-full);
-  background: var(--color-primary);
-}
-
-.mq__title {
-  @include portal.page-title;
-}
-
-.mq__subtitle {
-  @include portal.page-subtitle;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  max-width: 1000px;
 }
 
 .mq__muted {
   margin: 0;
-  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+  color: var(--color-gray-500);
 }
 
-.mq__sr {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  overflow: hidden;
-  clip-path: inset(50%);
-  white-space: nowrap;
+.mq__error {
+  margin: 0;
+  padding: 0.625rem 0.875rem;
+  border-radius: 0.5rem;
+  background: var(--color-error-light);
+  font-size: var(--font-size-sm);
+  color: var(--color-error);
 }
 
-// ─── Estados ─────────────────────────────────────────────────────────────────
-
-.mq__state {
-  @include portal.card;
-
-  display: flex;
-  align-items: center;
-  gap: var(--space-4);
-  padding: var(--space-8);
-  color: var(--color-text-muted);
-
-  p {
-    margin: 0;
-  }
-
-  > .material-symbols-outlined {
-    @include portal.icon-badge(var(--color-primary-subtle), var(--color-primary));
-  }
-
-  &--error {
-    border-color: var(--color-error-light);
-    color: var(--color-error);
-
-    > .material-symbols-outlined {
-      @include portal.icon-badge(var(--color-error-light), var(--color-error));
-    }
-  }
-}
-
-.mq__spinner {
-  width: 1.5rem;
-  height: 1.5rem;
-  border: 3px solid var(--color-primary-light);
-  border-top-color: var(--color-primary);
-  border-radius: var(--radius-full);
-  animation: mq-spin 0.8s linear infinite;
-}
-
-@keyframes mq-spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-// ─── Resumen global ──────────────────────────────────────────────────────────
-
-.mq__summary {
-  @include portal.card;
-
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-4);
-  padding: var(--space-6) var(--space-8);
-
-  @include bp.down('md') {
-    padding: var(--space-5);
-  }
-}
-
-.mq__figures {
+.mq__cards {
   display: grid;
-  grid-template-columns: 1fr 1fr 1.3fr;
-  gap: var(--space-6);
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.75rem;
 
-  @include bp.down('md') {
-    grid-template-columns: 1fr 1fr;
-    gap: var(--space-4);
+  @media (max-width: 600px) {
+    grid-template-columns: 1fr;
   }
 }
 
-.mq__figure {
+.mq__card {
   display: flex;
   flex-direction: column;
-  gap: var(--space-1);
+  gap: 0.125rem;
+  padding: 0.75rem;
+  border-radius: 0.5rem;
+  background: var(--color-surface);
 
   &--balance {
-    padding-left: var(--space-6);
-    border-left: 1px solid var(--color-border-warm);
-
-    @include bp.down('md') {
-      grid-column: 1 / -1;
-      padding: var(--space-4) 0 0;
-      border-left: none;
-      border-top: 1px solid var(--color-border-warm);
-    }
+    border: 1px solid var(--color-primary-light);
+    background: var(--color-primary-subtle);
   }
 }
 
-.mq__figure-label {
-  @include portal.eyebrow;
+.mq__card-label {
+  font-size: var(--font-size-xs);
+  color: var(--color-gray-500);
 }
 
-.mq__figure-value {
-  font-family: var(--font-display);
-  font-size: var(--font-size-2xl);
-  font-weight: 600;
-  color: var(--color-navy);
-
-  .mq__figure--paid & {
-    color: var(--color-tertiary);
-  }
-
-  .mq__figure--balance & {
-    font-size: var(--font-size-4xl);
-    color: var(--color-primary-dark);
-  }
+.mq__card-value {
+  font-size: var(--font-size-lg);
+  font-weight: 700;
+  color: var(--color-gray-900);
 }
 
 .mq__progress {
   width: 100%;
-  height: 0.625rem;
+  height: 0.375rem;
   border: none;
   border-radius: var(--radius-full);
-  background: var(--color-surface-dim);
+  background: var(--color-gray-100);
   overflow: hidden;
   appearance: none;
 
   &::-webkit-progress-bar {
-    background: var(--color-surface-dim);
     border-radius: var(--radius-full);
+    background: var(--color-gray-100);
   }
 
   &::-webkit-progress-value {
-    background: var(--color-tertiary);
     border-radius: var(--radius-full);
+    background: var(--color-primary);
   }
 
   &::-moz-progress-bar {
-    background: var(--color-tertiary);
     border-radius: var(--radius-full);
+    background: var(--color-primary);
   }
 }
-
-.mq__progress-label {
-  margin: 0;
-  font-size: var(--font-size-sm);
-  font-weight: 600;
-  color: var(--color-tertiary);
-}
-
-// ─── Presupuesto ─────────────────────────────────────────────────────────────
 
 .mq__quote {
   display: flex;
   flex-direction: column;
-  gap: var(--space-4);
-}
-
-.mq__quote-head {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-3);
-}
-
-.mq__quote-title {
-  margin: 0;
-  font-family: var(--font-display);
-  font-size: var(--font-size-2xl);
-  font-weight: 600;
-  color: var(--color-navy);
-}
-
-.mq__card {
-  @include portal.card;
-
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-4);
-  padding: var(--space-6) var(--space-8);
-
-  @include bp.down('md') {
-    padding: var(--space-5);
-  }
-}
-
-.mq__card-title {
-  display: flex;
-  align-items: center;
   gap: var(--space-2);
-  margin: 0;
-  font-family: var(--font-headline);
-  font-size: var(--font-size-lg);
-  color: var(--color-navy);
-
-  .material-symbols-outlined {
-    color: var(--color-primary);
-  }
+  padding: 1.25rem;
+  border: 1px solid var(--color-border);
+  border-radius: 0.75rem;
+  background: #fff;
 }
 
-// ─── Chips de estado ─────────────────────────────────────────────────────────
-
-.mq__chip {
-  &--paid {
-    @include portal.pill(var(--color-success-light), color-mix(in srgb, var(--color-success) 55%, #000));
-  }
-
-  &--partial {
-    @include portal.pill(var(--color-warning-light), color-mix(in srgb, var(--color-warning) 55%, #000));
-  }
-
-  &--pending {
-    @include portal.pill(var(--color-surface-dim), var(--color-text-muted));
-  }
+.mq__section-title {
+  margin: 0.5rem 0 0;
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  color: var(--color-gray-700);
 }
-
-// ─── Tabla de tratamientos ───────────────────────────────────────────────────
 
 .mq__table {
   width: 100%;
@@ -259,215 +105,80 @@
   font-size: var(--font-size-sm);
 
   th {
-    padding: 0 var(--space-3) var(--space-3);
-    border-bottom: 1px solid var(--color-border-warm);
+    padding: 0.5rem;
+    border-bottom: 1px solid var(--color-border);
     font-size: var(--font-size-xs);
-    font-weight: 700;
-    letter-spacing: 0.08em;
+    font-weight: 600;
     text-align: left;
-    text-transform: uppercase;
-    color: var(--color-text-muted);
-
-    &:first-child {
-      padding-left: 0;
-    }
+    color: var(--color-gray-500);
   }
 
   td {
-    padding: var(--space-4) var(--space-3);
-    border-bottom: 1px solid var(--color-border-warm);
-    vertical-align: middle;
-
-    &:first-child {
-      padding-left: 0;
-    }
+    padding: 0.5rem;
+    border-bottom: 1px solid var(--color-gray-100);
+    color: var(--color-gray-700);
   }
 
-  tbody tr:last-child td {
-    border-bottom: none;
+  .mq__num {
+    text-align: right;
+    white-space: nowrap;
   }
-
-  // En el celular cada tratamiento es un bloque con sus montos rotulados.
-  @include bp.down('md') {
-    thead {
-      display: none;
-    }
-
-    tbody,
-    tr,
-    td {
-      display: block;
-    }
-
-    tr {
-      padding: var(--space-4) 0;
-      border-bottom: 1px solid var(--color-border-warm);
-    }
-
-    tbody tr:last-child {
-      border-bottom: none;
-    }
-
-    td {
-      display: flex;
-      justify-content: space-between;
-      padding: var(--space-1) 0;
-      border-bottom: none;
-    }
-
-    td[data-label]::before {
-      content: attr(data-label);
-      color: var(--color-text-muted);
-    }
-  }
-}
-
-.mq__num {
-  text-align: right;
-  white-space: nowrap;
-  font-variant-numeric: tabular-nums;
-
-  &--paid {
-    color: var(--color-tertiary);
-    font-weight: 600;
-  }
-
-  &--pending {
-    color: var(--color-primary-dark);
-    font-weight: 600;
-  }
-}
-
-.mq__center {
-  text-align: center;
-
-  @include bp.down('md') {
-    text-align: left;
-  }
-}
-
-.mq__line-main {
-  @include bp.down('md') {
-    flex-direction: column;
-    gap: var(--space-2);
-    margin-bottom: var(--space-2);
-  }
-}
-
-.mq__line-name {
-  display: block;
-  font-size: var(--font-size-base);
-  font-weight: 700;
-  color: var(--color-navy);
 }
 
 .mq__teeth {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-1);
-  margin-top: var(--space-1);
+  color: var(--color-gray-500);
 }
 
-.mq__tooth {
-  @include portal.pill(var(--color-surface), var(--color-text));
-
-  border: 1px solid var(--color-border-warm);
-  font-weight: 600;
+.mq__paid {
+  color: var(--color-gray-500);
 }
 
-// ─── Pagos ───────────────────────────────────────────────────────────────────
-
-.mq__payments {
-  display: flex;
-  flex-direction: column;
-  margin: 0;
-  padding: 0;
-  list-style: none;
+// El pago y su detalle ("Cubrió: …") se leen como una sola fila.
+.mq__payment--detailed td {
+  border-bottom: none;
 }
 
-.mq__payment {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-  padding: var(--space-4) 0;
-  border-bottom: 1px solid var(--color-border-warm);
-
-  &:first-child {
-    padding-top: 0;
-  }
-
-  &:last-child {
-    padding-bottom: 0;
-    border-bottom: none;
-  }
+.mq__payment-detail td {
+  padding-top: 0;
+  font-size: var(--font-size-xs);
+  color: var(--color-gray-500);
 }
 
-.mq__payment-head {
-  display: flex;
-  align-items: center;
-  gap: var(--space-4);
-}
-
-.mq__payment-icon {
-  @include portal.icon-badge(color-mix(in srgb, var(--color-tertiary) 10%, #fff), var(--color-tertiary));
-}
-
-.mq__payment-info {
-  flex: 1;
-  min-width: 0;
-}
-
-.mq__payment-date {
-  margin: 0;
-  font-weight: 700;
-  color: var(--color-navy);
-}
-
-.mq__payment-meta {
-  margin: 0;
-  font-size: var(--font-size-sm);
-  color: var(--color-text-muted);
-}
-
-.mq__payment-amount {
-  font-family: var(--font-display);
-  font-size: var(--font-size-xl);
-  white-space: nowrap;
-  color: var(--color-tertiary);
-}
-
-.mq__covered {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-2);
-  margin: 0 0 0 calc(2.75rem + var(--space-4));
-  font-size: var(--font-size-sm);
-
-  @include bp.down('sm') {
-    margin-left: 0;
-  }
-}
-
-.mq__covered-label {
-  font-weight: 600;
-  color: var(--color-text-muted);
-}
-
-.mq__covered-chip {
-  @include portal.pill(var(--color-primary-subtle), var(--color-text));
-
-  border: 1px solid var(--color-primary-light);
-  font-weight: 600;
-}
-
-.mq__payment-notes {
-  margin: 0 0 0 calc(2.75rem + var(--space-4));
-  font-size: var(--font-size-sm);
+.mq__notes {
+  display: block;
   font-style: italic;
-  color: var(--color-text-muted);
+}
 
-  @include bp.down('sm') {
-    margin-left: 0;
+.mq-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-12) var(--space-8);
+  border: 1.5px dashed var(--color-border);
+  border-radius: var(--radius-xl);
+  background: #fff;
+  text-align: center;
+}
+
+.mq-empty__icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: var(--color-primary-subtle);
+
+  .material-symbols-outlined {
+    font-size: 32px;
+    color: var(--color-primary-dark);
   }
+}
+
+.mq-empty__text {
+  margin: 0;
+  font-size: var(--font-size-base);
+  font-weight: 600;
+  color: var(--color-text);
 }
