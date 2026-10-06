@@ -26,10 +26,11 @@ describe('PrismaQuotesRepository', () => {
       create: jest.Mock;
       findUnique: jest.Mock;
       findMany: jest.Mock;
+      findUniqueOrThrow: jest.Mock;
       update: jest.Mock;
     };
     quote_items: {
-      createMany: jest.Mock;
+      createManyAndReturn: jest.Mock;
       findUnique: jest.Mock;
       delete: jest.Mock;
       aggregate: jest.Mock;
@@ -49,10 +50,11 @@ describe('PrismaQuotesRepository', () => {
         create: jest.fn(),
         findUnique: jest.fn(),
         findMany: jest.fn(),
+        findUniqueOrThrow: jest.fn().mockResolvedValue({ total_paid: 0 }),
         update: jest.fn(),
       },
       quote_items: {
-        createMany: jest.fn(),
+        createManyAndReturn: jest.fn().mockResolvedValue([]),
         findUnique: jest.fn(),
         delete: jest.fn(),
         aggregate: jest.fn(),
@@ -97,13 +99,14 @@ describe('PrismaQuotesRepository', () => {
           exchange_rate: null,
         },
       });
-      expect(prismaMock.quote_items.createMany).toHaveBeenCalledWith({
+      expect(prismaMock.quote_items.createManyAndReturn).toHaveBeenCalledWith({
         data: [16, 17, 18].map((toothNumber) => ({
           quote_id: 'quote-1',
           treatment_id: 'treatment-1',
           tooth_number: toothNumber,
           application_group_id: 'group-1',
         })),
+        select: { id: true, tooth_number: true },
       });
     });
 
@@ -207,6 +210,42 @@ describe('PrismaQuotesRepository', () => {
   });
 
   describe('total_amount recalculation', () => {
+    // CLI-226: sumar una línea a un presupuesto pagado lo deja con saldo.
+    it('recalcula también el estado: un presupuesto pagado con una línea nueva deja de estar pagado', async () => {
+      prismaMock.quotes.findUniqueOrThrow.mockResolvedValue({
+        total_paid: 500,
+      });
+      prismaMock.quote_items.aggregate.mockResolvedValue({
+        _sum: { subtotal: 800 },
+      });
+      prismaMock.application_groups.aggregate.mockResolvedValue({
+        _sum: { subtotal: null },
+      });
+      prismaMock.quotes.update.mockResolvedValue(
+        fakeQuoteRecord({ total_amount: 800, total_paid: 500 }),
+      );
+
+      await repo.addItems('quote-1', [
+        {
+          treatmentId: 'treatment-1',
+          toothNumber: null,
+          unitPrice: 300,
+          quantity: 1,
+          subtotal: 300,
+          currency: 'BOB',
+        },
+      ]);
+
+      expect(prismaMock.quotes.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            total_amount: 800,
+            status: 'partially_paid',
+          }) as Record<string, unknown>,
+        }),
+      );
+    });
+
     it('sums loose quote_items.subtotal and application_groups.subtotal together (they never overlap)', async () => {
       prismaMock.quote_items.aggregate.mockResolvedValue({
         _sum: { subtotal: 60 },

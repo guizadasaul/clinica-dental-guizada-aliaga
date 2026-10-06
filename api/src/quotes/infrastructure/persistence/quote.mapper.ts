@@ -18,6 +18,8 @@ import {
 type QuoteItemRecordWithGroup = quote_items & {
   application_groups: application_groups | null;
   treatments: { name: string };
+  /** CLI-226: a lo sumo uno (tooth_procedures.quote_item_id es UNIQUE). */
+  tooth_procedures?: { id: string; procedure_date: Date }[];
 };
 type PaymentRecord = payments & {
   qr_charge?: { lines: quote_qr_charge_lines[] } | null;
@@ -63,6 +65,7 @@ export class QuoteMapper {
   // facturaba 0.
   static itemToDomain(record: QuoteItemRecordWithGroup): QuoteItem {
     const group = record.application_groups;
+    const procedure = record.tooth_procedures?.[0];
     return {
       id: record.id,
       quoteId: record.quote_id,
@@ -76,6 +79,8 @@ export class QuoteMapper {
       currency: group?.currency ?? record.currency ?? 'BOB',
       exchangeRate:
         Number(group?.exchange_rate ?? record.exchange_rate ?? 0) || null,
+      procedureId: procedure?.id ?? null,
+      performedAt: procedure?.procedure_date ?? null,
     };
   }
 

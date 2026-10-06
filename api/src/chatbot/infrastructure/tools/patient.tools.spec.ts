@@ -271,7 +271,13 @@ describe('patient tools (CLI-91)', () => {
             totalBob: 400,
             paidBob: 100,
             balanceBob: 300,
-            items: [{ treatment: 'Limpieza', subtotalBob: 250 }],
+            items: [
+              {
+                treatment: 'Limpieza',
+                subtotalBob: 250,
+                status: 'por realizar',
+              },
+            ],
             payments: [
               { date: '2026-09-02', amountBob: 100, receipt: 'REC-000123' },
             ],
@@ -318,7 +324,42 @@ describe('patient tools (CLI-91)', () => {
       };
 
       expect(first.items).toEqual([
-        { treatment: 'Resina', teeth: [11, 12], subtotalBob: 600 },
+        {
+          treatment: 'Resina',
+          teeth: [11, 12],
+          subtotalBob: 600,
+          status: 'por realizar',
+        },
+      ]);
+    });
+
+    // CLI-226: el paciente pregunta "¿qué me falta hacerme?".
+    it('marca cada tratamiento como realizado (con fecha) o por realizar', async () => {
+      quotesService.findSharedByPatient.mockResolvedValue([
+        quote({
+          items: [
+            item({
+              id: 'a',
+              treatmentId: 't-resina',
+              toothNumber: 11,
+              procedureId: 'proc-a',
+              performedAt: new Date('2026-04-22'),
+            }),
+            item({ id: 'b', treatmentId: 't-resina', toothNumber: 12 }),
+          ],
+        }),
+      ]);
+
+      const {
+        quotes: [first],
+      } = (await new GetMyQuotesTool(quotes, treatments).execute(
+        patient,
+        {},
+      )) as { quotes: Array<{ items: Array<{ status: string }> }> };
+
+      expect(first.items.map((i) => i.status)).toEqual([
+        'realizado el 2026-04-22',
+        'por realizar',
       ]);
     });
 
@@ -479,7 +520,12 @@ describe('patient tools (CLI-91)', () => {
       };
 
       expect(result.treatments).toEqual([
-        { treatment: 'Resina', teeth: [26], subtotalBob: 250 },
+        {
+          treatment: 'Resina',
+          teeth: [26],
+          subtotalBob: 250,
+          status: 'por realizar',
+        },
       ]);
       expect(result.note).toContain('presupuestos');
       expect(result.note).toContain('no cobra');

@@ -147,12 +147,16 @@ export interface CreateToothProcedureData {
   surfaceCodes?: string[];
   notes?: string;
   performedBy: string;
+  /** CLI-226: la fila del presupuesto que cumple. */
+  quoteItemId?: string;
 }
 
 export interface ToothProcedureGroupMember {
   toothNumber: number;
   /** Códigos de tooth_surfaces (CLI-49) — [] o undefined si ninguna. */
   surfaceCodes?: string[];
+  /** CLI-226: la fila del presupuesto (de esta pieza) que cumple. */
+  quoteItemId?: string;
 }
 
 /**
@@ -168,6 +172,11 @@ export interface CreateToothProcedureGroupData {
   notes?: string;
   performedBy: string;
 }
+
+/** Lo que se registra: filas sueltas, o un grupo multi-diente con un precio (CLI-226). */
+export type ToothProceduresToCreate =
+  | { kind: 'rows'; rows: CreateToothProcedureData[] }
+  | { kind: 'group'; group: CreateToothProcedureGroupData };
 
 /** Lo que impide dar de baja a un paciente (CLI-184). */
 export interface PatientDeletionBlockers {

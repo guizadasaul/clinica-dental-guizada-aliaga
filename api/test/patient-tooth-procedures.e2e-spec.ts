@@ -44,6 +44,10 @@ describe('Historial de tratamientos del paciente (e2e) — CLI-102', () => {
     await prisma.tooth_procedures.deleteMany({
       where: { treatments: { code: TREATMENT_CODE } },
     });
+    // CLI-226: registrar un tratamiento fuera del plan crea su presupuesto.
+    await prisma.quotes.deleteMany({
+      where: { patients: { users: { email: { endsWith: FIXTURE_DOMAIN } } } },
+    });
     await prisma.treatments.deleteMany({ where: { code: TREATMENT_CODE } });
     await prisma.treatment_categories.deleteMany({
       where: { code: CATEGORY_CODE },

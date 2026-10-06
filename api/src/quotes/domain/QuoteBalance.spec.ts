@@ -18,6 +18,8 @@ function item(
     subtotal,
     currency: 'BOB',
     exchangeRate: null,
+    procedureId: null,
+    performedAt: null,
     ...extra,
   };
 }
@@ -57,6 +59,7 @@ describe('computeQuoteBalance (CLI-218)', () => {
         total: 250,
         paid: 0,
         pending: 250,
+        performedAt: null,
       },
       {
         key: 'g',
@@ -65,6 +68,7 @@ describe('computeQuoteBalance (CLI-218)', () => {
         total: 800,
         paid: 0,
         pending: 800,
+        performedAt: null,
       },
     ]);
     expect(coverage.size).toBe(0);
@@ -178,5 +182,33 @@ describe('computeQuoteBalance (CLI-218)', () => {
 
     expect(coverage.get('first')?.[0].lineKey).toBe('a');
     expect(coverage.get('later')?.[0].lineKey).toBe('b');
+  });
+
+  // CLI-226: una línea está realizada cuando todas sus filas lo están.
+  it('performedAt: la fecha más reciente si todas las filas se realizaron', () => {
+    const done = (id: string, date: string, extra: Partial<QuoteItem> = {}) =>
+      item(id, 800, {
+        procedureId: `proc-${id}`,
+        performedAt: new Date(date),
+        ...extra,
+      });
+    const { lines } = computeQuoteBalance(
+      [
+        done('a', '2026-04-22'),
+        done('b1', '2026-05-01', { applicationGroupId: 'g', toothNumber: 16 }),
+        done('b2', '2026-05-03', { applicationGroupId: 'g', toothNumber: 17 }),
+        done('c1', '2026-06-01', { applicationGroupId: 'h', toothNumber: 21 }),
+        item('c2', 800, { applicationGroupId: 'h', toothNumber: 22 }),
+        item('d', 300),
+      ],
+      [],
+    );
+
+    expect(lines.map((l) => [l.key, l.performedAt])).toEqual([
+      ['a', new Date('2026-04-22')],
+      ['g', new Date('2026-05-03')],
+      ['h', null],
+      ['d', null],
+    ]);
   });
 });

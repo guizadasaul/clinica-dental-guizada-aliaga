@@ -56,6 +56,86 @@ const TOOTH_PROCEDURE_INCLUDE = {
   users: { select: { display_name: true } },
 } as const;
 
+function surfacesCreate(codes?: string[]) {
+  return codes?.length
+    ? {
+        create: codes.map((code) => ({
+          tooth_surfaces: { connect: { code } },
+        })),
+      }
+    : undefined;
+}
+
+/**
+ * Filas sueltas de tooth_procedures dentro de una transacción ajena — la
+ * usa también el registro con presupuesto (CLI-226), que en la misma
+ * transacción vincula o suma la línea del presupuesto.
+ */
+export async function insertToothProcedures(
+  tx: Prisma.TransactionClient,
+  patientId: string,
+  data: CreateToothProcedureData[],
+): Promise<ToothProcedure[]> {
+  const records = await Promise.all(
+    data.map((item) =>
+      tx.tooth_procedures.create({
+        data: {
+          patient_id: patientId,
+          tooth_number: item.toothNumber,
+          treatment_id: item.treatmentId,
+          price_charged: item.priceCharged,
+          quantity: item.quantity ?? 1,
+          procedure_date: item.procedureDate ?? new Date(),
+          notes: item.notes ?? null,
+          performed_by: item.performedBy,
+          quote_item_id: item.quoteItemId ?? null,
+          tooth_procedure_surfaces: surfacesCreate(item.surfaceCodes),
+        },
+        include: TOOTH_PROCEDURE_INCLUDE,
+      }),
+    ),
+  );
+  return records.map((r) => ToothProcedureMapper.toDomain(r));
+}
+
+// CLI-53: el precio del grupo vive una sola vez en application_groups —
+// las N filas de tooth_procedures (una por diente) no tienen precio
+// propio, a diferencia del viejo esquema donde una fila arbitraria lo
+// tenía y el resto facturaba 0.
+export async function insertToothProcedureGroup(
+  tx: Prisma.TransactionClient,
+  patientId: string,
+  data: CreateToothProcedureGroupData,
+): Promise<ToothProcedure[]> {
+  const group = await tx.application_groups.create({
+    data: {
+      treatment_id: data.treatmentId,
+      unit_price: data.priceCharged,
+      subtotal: data.priceCharged,
+      currency: 'BOB',
+    },
+  });
+  const records = await Promise.all(
+    data.teeth.map((tooth) =>
+      tx.tooth_procedures.create({
+        data: {
+          patient_id: patientId,
+          tooth_number: tooth.toothNumber,
+          application_group_id: group.id,
+          treatment_id: data.treatmentId,
+          procedure_date: data.procedureDate ?? new Date(),
+          notes: data.notes ?? null,
+          performed_by: data.performedBy,
+          quote_item_id: tooth.quoteItemId ?? null,
+          tooth_procedure_surfaces: surfacesCreate(tooth.surfaceCodes),
+        },
+        include: TOOTH_PROCEDURE_INCLUDE,
+      }),
+    ),
+  );
+  return records.map((r) => ToothProcedureMapper.toDomain(r));
+}
+
 /**
  * Fecha de hoy sin componente horario, para columnas `@db.Date` (exam_date,
  * entry_date, birth_date). Igual que como se construyen esos valores en el
@@ -571,77 +651,18 @@ export class PrismaPatientsRepository implements IPatientRepository {
     patientId: string,
     data: CreateToothProcedureData[],
   ): Promise<ToothProcedure[]> {
-    const records = await this.prisma.transaction((tx) =>
-      Promise.all(
-        data.map((item) =>
-          tx.tooth_procedures.create({
-            data: {
-              patient_id: patientId,
-              tooth_number: item.toothNumber,
-              treatment_id: item.treatmentId,
-              price_charged: item.priceCharged,
-              quantity: item.quantity ?? 1,
-              procedure_date: item.procedureDate ?? new Date(),
-              notes: item.notes ?? null,
-              performed_by: item.performedBy,
-              tooth_procedure_surfaces: item.surfaceCodes?.length
-                ? {
-                    create: item.surfaceCodes.map((code) => ({
-                      tooth_surfaces: { connect: { code } },
-                    })),
-                  }
-                : undefined,
-            },
-            include: TOOTH_PROCEDURE_INCLUDE,
-          }),
-        ),
-      ),
+    return this.prisma.transaction((tx) =>
+      insertToothProcedures(tx, patientId, data),
     );
-    return records.map((r) => ToothProcedureMapper.toDomain(r));
   }
 
-  // CLI-53: el precio del grupo vive una sola vez en application_groups —
-  // las N filas de tooth_procedures (una por diente) no tienen precio
-  // propio, a diferencia del viejo esquema donde una fila arbitraria lo
-  // tenía y el resto facturaba 0.
   async createToothProcedureGroup(
     patientId: string,
     data: CreateToothProcedureGroupData,
   ): Promise<ToothProcedure[]> {
-    return this.prisma.transaction(async (tx) => {
-      const group = await tx.application_groups.create({
-        data: {
-          treatment_id: data.treatmentId,
-          unit_price: data.priceCharged,
-          subtotal: data.priceCharged,
-          currency: 'BOB',
-        },
-      });
-      const records = await Promise.all(
-        data.teeth.map((tooth) =>
-          tx.tooth_procedures.create({
-            data: {
-              patient_id: patientId,
-              tooth_number: tooth.toothNumber,
-              application_group_id: group.id,
-              treatment_id: data.treatmentId,
-              procedure_date: data.procedureDate ?? new Date(),
-              notes: data.notes ?? null,
-              performed_by: data.performedBy,
-              tooth_procedure_surfaces: tooth.surfaceCodes?.length
-                ? {
-                    create: tooth.surfaceCodes.map((code) => ({
-                      tooth_surfaces: { connect: { code } },
-                    })),
-                  }
-                : undefined,
-            },
-            include: TOOTH_PROCEDURE_INCLUDE,
-          }),
-        ),
-      );
-      return records.map((r) => ToothProcedureMapper.toDomain(r));
-    });
+    return this.prisma.transaction((tx) =>
+      insertToothProcedureGroup(tx, patientId, data),
+    );
   }
 
   async findToothProcedures(patientId: string): Promise<ToothProcedure[]> {

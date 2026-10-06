@@ -18,6 +18,7 @@ import type {
   OdontogramEntryData,
   CreateToothProcedureData,
   DentalExamFindingData,
+  ToothProceduresToCreate,
 } from '../domain/PatientRepository';
 import { UserRepository } from '../../auth/domain/UserRepository';
 import type { UserRepository as IUserRepository } from '../../auth/domain/UserRepository';
@@ -30,6 +31,7 @@ import { canonicalPlace } from '../domain/place-names';
 import type { PatientFieldOptions } from '../domain/place-names';
 import { TreatmentRepository } from '../../treatments/domain/TreatmentRepository';
 import type { ITreatmentRepository } from '../../treatments/domain/TreatmentRepository';
+import type { Treatment } from '../../treatments/domain/Treatment';
 import {
   assertTeethMatchApplicationType,
   typeGeneratesOdontogramEntries,
@@ -66,13 +68,13 @@ import type {
 } from '../domain/DentalExam';
 
 /** Un diente dentro de una aplicación, con sus propias superficies (CLI-41). */
-interface ToothApplicationInput {
+export interface ToothApplicationInput {
   number: number;
   /** Códigos de tooth_surfaces (CLI-49) — p.ej. ['vestibular', 'occlusal']. */
   surfaces?: string[];
 }
 
-interface CreateToothProcedureInput {
+export interface CreateToothProcedureInput {
   teeth: ToothApplicationInput[];
   treatmentId: string;
   priceCharged: number;
@@ -80,6 +82,12 @@ interface CreateToothProcedureInput {
   quantity?: number;
   procedureDate?: Date;
   notes?: string;
+}
+
+/** Un tratamiento validado y listo para registrar (CLI-226). */
+export interface PreparedToothProcedure {
+  treatment: Treatment;
+  procedures: ToothProceduresToCreate;
 }
 
 interface CreateDentalExamFindingInput {
@@ -550,11 +558,17 @@ export class PatientsService {
     return this.patientRepo.findOdontogramEntries(patientId);
   }
 
-  async createToothProcedure(
+  /**
+   * Valida un tratamiento a registrar y arma sus filas (CLI-226: el registro
+   * lo hace TreatmentPlanService, que en la misma transacción cumple o suma
+   * la línea del presupuesto). 404 si falta el paciente, su diagnóstico, el
+   * usuario o el tratamiento; 400 si las piezas no van con el tipo.
+   */
+  async prepareToothProcedure(
     patientId: string,
     authUserId: string,
     data: CreateToothProcedureInput,
-  ): Promise<ToothProcedure[]> {
+  ): Promise<PreparedToothProcedure> {
     await this.requirePatient(patientId);
     await this.requireDiagnosis(patientId);
     const user = await this.userRepo.findByAuthUserId(authUserId);
@@ -572,52 +586,71 @@ export class PatientsService {
 
     this.assertValidTeethSelection(treatment.applicationType, data.teeth);
 
-    let created: ToothProcedure[];
     if (treatment.applicationType === 'multiple_teeth') {
       const sortedTeeth = [...data.teeth].sort((a, b) => a.number - b.number);
-      created = await this.patientRepo.createToothProcedureGroup(patientId, {
-        treatmentId: treatment.id,
-        teeth: sortedTeeth.map((tooth) => ({
-          toothNumber: tooth.number,
-          surfaceCodes: tooth.surfaces,
-        })),
-        priceCharged: data.priceCharged,
-        procedureDate: data.procedureDate,
-        notes: data.notes,
-        performedBy: user.id,
-      });
-    } else {
-      const rows = this.buildToothProcedureRows(
-        treatment.applicationType,
-        data,
-        user.id,
-      );
-      created = await this.patientRepo.createToothProcedures(patientId, rows);
+      return {
+        treatment,
+        procedures: {
+          kind: 'group',
+          group: {
+            treatmentId: treatment.id,
+            teeth: sortedTeeth.map((tooth) => ({
+              toothNumber: tooth.number,
+              surfaceCodes: tooth.surfaces,
+            })),
+            priceCharged: data.priceCharged,
+            procedureDate: data.procedureDate,
+            notes: data.notes,
+            performedBy: user.id,
+          },
+        },
+      };
     }
+    return {
+      treatment,
+      procedures: {
+        kind: 'rows',
+        rows: this.buildToothProcedureRows(
+          treatment.applicationType,
+          data,
+          user.id,
+        ),
+      },
+    };
+  }
 
-    if (typeGeneratesOdontogramEntries(treatment.applicationType)) {
-      const existingEntries =
-        await this.patientRepo.findOdontogramEntries(patientId);
-      const conditionByTooth = new Map<number, string>();
-      for (const entry of existingEntries) {
-        if (!conditionByTooth.has(entry.toothNumber)) {
-          conditionByTooth.set(entry.toothNumber, entry.toothCondition);
-        }
+  /**
+   * Después de registrar un tratamiento de arcada/boca completa: deja
+   * constancia en el odontograma de cada pieza que abarca, conservando la
+   * condición que tenía.
+   */
+  async recordTreatmentInOdontogram(
+    patientId: string,
+    treatment: Treatment,
+    notes?: string,
+  ): Promise<void> {
+    if (!typeGeneratesOdontogramEntries(treatment.applicationType)) {
+      return;
+    }
+    const existingEntries =
+      await this.patientRepo.findOdontogramEntries(patientId);
+    const conditionByTooth = new Map<number, string>();
+    for (const entry of existingEntries) {
+      if (!conditionByTooth.has(entry.toothNumber)) {
+        conditionByTooth.set(entry.toothNumber, entry.toothCondition);
       }
-      // CLI-52: diagnosisDescription ya no se llena acá — duplicaba
-      // treatments.name, accesible vía treatmentId sin necesidad de copiarlo.
-      const entries: OdontogramEntryData[] = teethForApplicationType(
-        treatment.applicationType,
-      ).map((toothNumber) => ({
-        toothNumber,
-        toothCondition: conditionByTooth.get(toothNumber) ?? 'sano',
-        treatmentId: treatment.id,
-        notes: data.notes,
-      }));
-      await this.patientRepo.appendOdontogramEntries(patientId, entries);
     }
-
-    return created;
+    // CLI-52: diagnosisDescription ya no se llena acá — duplicaba
+    // treatments.name, accesible vía treatmentId sin necesidad de copiarlo.
+    const entries: OdontogramEntryData[] = teethForApplicationType(
+      treatment.applicationType,
+    ).map((toothNumber) => ({
+      toothNumber,
+      toothCondition: conditionByTooth.get(toothNumber) ?? 'sano',
+      treatmentId: treatment.id,
+      notes,
+    }));
+    await this.patientRepo.appendOdontogramEntries(patientId, entries);
   }
 
   /** Dientes y superficies coherentes con el tipo de aplicación, o 400. */

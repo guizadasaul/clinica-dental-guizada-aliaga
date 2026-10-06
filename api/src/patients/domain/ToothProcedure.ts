@@ -28,5 +28,7 @@ export interface ToothProcedure {
   performedBy: string;
   /** CLI-211: nombre de quien lo realizó (el paciente no ve ids). */
   performedByName: string | null;
+  /** CLI-226: la fila del presupuesto que cumplió; null si no se vinculó. */
+  quoteItemId: string | null;
   createdAt: Date;
 }
