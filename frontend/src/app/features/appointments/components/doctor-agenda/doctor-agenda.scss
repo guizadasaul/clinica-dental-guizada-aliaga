@@ -434,7 +434,8 @@
   --slot-color: var(--color-tertiary);
 
   position: absolute;
-  z-index: 2;
+  // Por debajo del encabezado sticky del día (z-index 2): al hacer scroll se esconde bajo él.
+  z-index: 1;
   display: flex;
   flex-direction: column;
   justify-content: center;
