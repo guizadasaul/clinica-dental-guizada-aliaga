@@ -53,15 +53,13 @@ const REPORT_PARAMETERS: JsonSchema = {
   additionalProperties: false,
 };
 
-// Etiquetas en castellano: con las claves crudas el modelo presentaba las
-// "expired" como cancelaciones (CLI-145).
+// Etiquetas en castellano: con las claves crudas el modelo confundía los
+// estados (CLI-145). Son los 4 estados de Reportes (CLI-224).
 const STATUS_LABEL: Record<string, string> = {
-  // Desde CLI-148 una confirmada también puede ser una cita que agendó el
-  // doctor, sin pago previo.
-  confirmed: 'confirmadas',
-  held: 'reservas en curso (sin pagar todavía)',
-  expired: 'vencidas sin pagar (no son cancelaciones)',
+  confirmed: 'confirmadas (todavía no llegó la hora)',
+  attended: 'atendidas (confirmadas cuya hora ya pasó)',
   cancelled: 'canceladas por el doctor (no suman al total)',
+  no_show: 'no asistió (el paciente no vino)',
 };
 
 function labelStatuses(byStatus: Record<string, number>) {

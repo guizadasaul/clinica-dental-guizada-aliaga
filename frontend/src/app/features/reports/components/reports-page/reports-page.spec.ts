@@ -60,7 +60,7 @@ const OPERATIONAL_REPORT: OperationalReport = {
     {
       doctorId: 'doctor-1',
       doctorName: 'Juan Perez',
-      appointmentsByStatus: { confirmed: 3, held: 1, expired: 2, cancelled: 2 },
+      appointmentsByStatus: { confirmed: 1, attended: 3, no_show: 2, cancelled: 2 },
       totalAppointments: 6,
       newPatients: 4,
       theoreticalSlots: 10,
@@ -112,7 +112,7 @@ const TRENDS: TrendsReport = {
   to: '2026-09-02',
   days: [
     { date: '2026-09-01', appointmentsByStatus: { confirmed: 2, cancelled: 1 }, collected: 1000 },
-    { date: '2026-09-02', appointmentsByStatus: { confirmed: 1, held: 1 }, collected: 550 },
+    { date: '2026-09-02', appointmentsByStatus: { confirmed: 1, attended: 1 }, collected: 550 },
   ],
 };
 
@@ -223,9 +223,9 @@ describe('ReportsPageComponent', () => {
     const cells = Array.from(root.querySelectorAll('.reports-page__table tbody tr')[0].querySelectorAll('td')).map(
       (c) => c.textContent?.trim(),
     );
-    // Confirmadas, En espera, Vencidas, Canceladas, No asistió (CLI-208), Total, Pacientes nuevos, Ocupación
-    expect(cells.slice(0, 7)).toEqual(['3', '1', '2', '2', '0', '6', '4']);
-    expect(cells[7]).toContain('30%');
+    // Confirmadas, Atendidas, Canceladas, No asistió (CLI-224), Total, Pacientes nuevos, Ocupación
+    expect(cells.slice(0, 6)).toEqual(['1', '3', '2', '2', '6', '4']);
+    expect(cells[6]).toContain('30%');
   });
 
   it('lista las canceladas con cita, paciente, quién canceló y el motivo (CLI-103)', async () => {
@@ -315,7 +315,7 @@ describe('ReportsPageComponent', () => {
 
     expect((click.mock.contexts[0] as HTMLAnchorElement).download).toBe('reporte-operativo_2026-09-06_a_2026-10-05.csv');
     const content = await (createObjectURL.mock.calls[0][0] as Blob).text();
-    expect(content.replace('\uFEFF', '').split('\r\n')[1]).toBe('Juan Perez;3;1;2;2;0;6;4;30');
+    expect(content.replace('\uFEFF', '').split('\r\n')[1]).toBe('Juan Perez;1;3;2;2;6;4;30');
     click.mockRestore();
     vi.unstubAllGlobals();
   });

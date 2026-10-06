@@ -1,7 +1,8 @@
 /**
- * Conteo de turnos por estado, tal como lo devuelve el backend — hoy solo
- * puede traer 'held'/'confirmed'/'expired'/'cancelled' pobladas (ningún flujo
- * transiciona una cita a 'attended', no hay check-in). Ver PrismaReportsRepository.
+ * Conteo de citas por estado (CLI-224): 'confirmed' (todavía no llegó la
+ * hora), 'attended' (confirmada que ya pasó), 'cancelled' y 'no_show'. Las
+ * reservas en espera o vencidas no vienen. Ver reportedAppointmentStatus en
+ * el backend.
  */
 export type AppointmentStatusCounts = Record<string, number>;
 
@@ -13,6 +14,7 @@ export interface DoctorOperationalRow {
   totalAppointments: number;
   newPatients: number;
   theoreticalSlots: number;
+  /** Horarios tomados: confirmadas + atendidas. */
   confirmedAppointments: number;
   /** Fracción 0..1 — confirmedAppointments / theoreticalSlots. */
   occupancyRate: number;

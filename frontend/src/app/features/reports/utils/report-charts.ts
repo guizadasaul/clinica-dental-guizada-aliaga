@@ -15,14 +15,13 @@ import type {
 } from '../models/report.model';
 
 /**
- * Estados que se grafican, en orden de apilado. El color sigue al estado
- * (nunca a su posición), así que filtrar un doctor no repinta nada.
- * 'attended' queda afuera: ningún flujo lo puebla (ver report.model.ts).
+ * Estados que se grafican, en orden de apilado (los 4 de CLI-224, ver
+ * report.model.ts). El color sigue al estado (nunca a su posición), así que
+ * filtrar un doctor no repinta nada.
  */
 export const CHART_STATUSES = [
   { key: 'confirmed', label: 'Confirmadas', color: CHART_COLORS.series1 },
-  { key: 'held', label: 'En espera', color: CHART_COLORS.series2 },
-  { key: 'expired', label: 'Vencidas', color: CHART_COLORS.series3 },
+  { key: 'attended', label: 'Atendidas', color: CHART_COLORS.series3 },
   { key: 'cancelled', label: 'Canceladas', color: CHART_COLORS.series4 },
   { key: 'no_show', label: 'No asistió', color: CHART_COLORS.series5 },
 ] as const;
