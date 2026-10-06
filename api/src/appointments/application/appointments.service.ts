@@ -811,4 +811,19 @@ export class AppointmentsService {
         : { to: now, order: 'desc', limit },
     );
   }
+
+  /**
+   * CLI-209: registro de visitas del paciente — todas sus citas pasadas, la
+   * más reciente primero, incluidas las que el doctor marcó "No asistió".
+   */
+  getPatientVisits(
+    patientId: string,
+    now: Date = new Date(),
+  ): Promise<PatientAppointment[]> {
+    return this.appointmentRepo.findForPatient(patientId, {
+      to: now,
+      order: 'desc',
+      includeNoShow: true,
+    });
+  }
 }

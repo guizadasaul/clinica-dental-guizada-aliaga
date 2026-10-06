@@ -8,6 +8,8 @@ import { AuthService } from '../../../auth/application/auth.service';
 import { PatientsService } from '../../patients/services/patients.service';
 import { AppointmentsService } from '../../appointments/services/appointments.service';
 import type { PatientAppointment } from '../../appointments/models/appointment.model';
+import { QuotesService } from '../../quotes/services/quotes.service';
+import type { Quote } from '../../quotes/models/quote.model';
 import { LogoComponent } from '../../../shared/ui/logo/logo';
 import { ReportsService } from '../../reports/services/reports.service';
 import { KpiCardComponent } from '../../reports/components/kpi-card/kpi-card';
@@ -31,25 +33,36 @@ function auth(displayName: string | null) {
 }
 
 describe('PatientDashboardComponent', () => {
-  function setup(
-    nav: string,
-    patient: { id: string } | null = { id: 'patient-1' },
-    name: string | null = 'Ana Pérez',
-    upcoming: Observable<PatientAppointment[]> = of([]),
-  ) {
+  interface SetupOptions {
+    patient?: { id: string } | null;
+    name?: string | null;
+    upcoming?: Observable<PatientAppointment[]>;
+    past?: Observable<PatientAppointment[]>;
+    quotes?: Observable<Partial<Quote>[]>;
+  }
+
+  function setup(nav: string, options: SetupOptions = {}) {
+    const patient = options.patient === undefined ? { id: 'patient-1' } : options.patient;
     TestBed.configureTestingModule({
       imports: [PatientDashboardComponent],
       providers: [
-        auth(name),
+        auth(options.name === undefined ? 'Ana Pérez' : options.name),
         {
           provide: PatientsService,
           useValue: { getMyPatientStatus: () => of({ exists: patient !== null, patient }) },
         },
-        { provide: AppointmentsService, useValue: { getMyUpcoming: () => upcoming } },
+        {
+          provide: AppointmentsService,
+          useValue: {
+            getMyUpcoming: () => options.upcoming ?? of([]),
+            getMyPast: () => options.past ?? of([]),
+          },
+        },
+        { provide: QuotesService, useValue: { getMine: () => options.quotes ?? of([]) } },
       ],
     });
     TestBed.overrideComponent(PatientDashboardComponent, {
-      set: { imports: [TreatmentHistoryStub, LogoComponent] },
+      set: { imports: [TreatmentHistoryStub] },
     });
     const fixture = TestBed.createComponent(PatientDashboardComponent);
     fixture.componentRef.setInput('activeNav', nav);
@@ -57,72 +70,153 @@ describe('PatientDashboardComponent', () => {
     return { fixture, root: fixture.nativeElement as HTMLElement };
   }
 
+  const cita = (id: string, iso: string, extra: Partial<PatientAppointment> = {}): PatientAppointment => ({
+    id,
+    appointmentDatetime: iso,
+    durationMinutes: 60,
+    doctorName: 'Saul Guizada',
+    treatmentName: 'Control de ortodoncia',
+    status: 'confirmed',
+    ...extra,
+  });
+
   it('en el inicio saluda por el primer nombre, o como "Paciente" si no hay nombre', () => {
     expect(setup('home').root.textContent).toContain('Ana');
     TestBed.resetTestingModule();
-    expect(setup('home', null, null).root.textContent).toContain('Paciente');
+    expect(setup('home', { patient: null, name: null }).root.textContent).toContain('Paciente');
   });
 
-  // CLI-153: la tarjeta "Próxima cita" muestra las citas reales del paciente.
-  describe('próxima cita', () => {
-    const cita = (id: string, iso: string, extra: Partial<PatientAppointment> = {}): PatientAppointment => ({
-      id,
-      appointmentDatetime: iso,
-      durationMinutes: 60,
-      doctorName: 'Saul Guizada',
-      treatmentName: 'Control de ortodoncia',
-      ...extra,
-    });
+  // CLI-209: sin accesos rápidos, sin "Tratamientos activos" ni "Solicitar cita".
+  it('ya no muestra accesos rápidos ni la solicitud de citas', () => {
+    const text = setup('home').root.textContent ?? '';
 
-    it('muestra la más cercana con fecha, hora, doctor y tratamiento, y cuenta las demás', () => {
-      const { root } = setup(
-        'home',
-        undefined,
-        undefined,
-        of([
+    expect(text).not.toContain('Acciones rápidas');
+    expect(text).not.toContain('Tratamientos activos');
+    expect(text).not.toContain('Solicitar cita');
+  });
+
+  // CLI-153 / CLI-209: la tarjeta "Tu próxima cita" muestra las citas reales del paciente.
+  describe('próxima cita', () => {
+    it('muestra la más cercana con fecha, hora, doctor y tratamiento, y lista las demás', () => {
+      const { root } = setup('home', {
+        upcoming: of([
           cita('a', '2026-09-29T14:00:00.000Z'),
           cita('b', '2026-10-06T14:00:00.000Z', { treatmentName: null }),
         ]),
-      );
-      const text = root.textContent ?? '';
+      });
+      const next = root.querySelector('.next')?.textContent ?? '';
 
-      expect(text).toContain('Martes, 29 de septiembre');
-      expect(text).toContain('10:00');
-      expect(text).toContain('Saul Guizada');
-      expect(text).toContain('Control de ortodoncia');
-      expect(text).toContain('Y 1 más:');
-      expect(root.querySelector('.stat-card__value')?.textContent).toContain('29');
-      expect(root.querySelector('.appointment-empty')).toBeNull();
+      expect(next).toContain('Martes, 29 de septiembre');
+      expect(next).toContain('10:00');
+      expect(next).toContain('Saul Guizada');
+      expect(next).toContain('Control de ortodoncia');
+      expect(root.querySelector('.next__later')?.textContent).toContain('También tienes: Martes, 6 de octubre');
+      expect(root.querySelector('.next__empty')).toBeNull();
     });
 
-    it('sin citas muestra el estado vacío de siempre', () => {
+    it('sin citas muestra el estado vacío, sin botón para solicitar', () => {
       const { root } = setup('home');
 
-      expect(root.querySelector('.appointment-empty')?.textContent).toContain('No tienes citas programadas');
-      expect(root.querySelector('.stat-card__value')?.textContent?.trim()).toBe('—');
+      expect(root.querySelector('.next__empty')?.textContent).toContain('No tienes citas programadas');
+      expect(root.querySelector('.next button')).toBeNull();
     });
 
     it('si falla la consulta, también muestra el estado vacío', () => {
-      const { root } = setup('home', undefined, undefined, throwError(() => new Error('500')));
+      const { root } = setup('home', { upcoming: throwError(() => new Error('500')) });
 
-      expect(root.querySelector('.appointment-empty')).toBeTruthy();
+      expect(root.querySelector('.next__empty')).toBeTruthy();
     });
 
     it('mientras carga lo dice', () => {
-      const { root } = setup('home', undefined, undefined, NEVER);
+      const { root } = setup('home', { upcoming: NEVER });
 
       expect(root.textContent).toContain('Cargando tus citas...');
     });
   });
 
-  it('el acceso a "Mi historial" pide cambiar de sección', () => {
-    const { fixture, root } = setup('home');
-    const emitted: string[] = [];
-    fixture.componentInstance.navChange.subscribe((nav) => emitted.push(nav));
+  describe('visitas a la clínica', () => {
+    it('cuenta las visitas pasadas sin las "No asistió" y dice desde cuándo', () => {
+      const { root } = setup('home', {
+        past: of([
+          cita('c', '2026-09-10T14:00:00.000Z'),
+          cita('b', '2026-08-10T14:00:00.000Z', { status: 'no_show' }),
+          cita('a', '2025-03-14T14:00:00.000Z', { status: 'attended' }),
+        ]),
+      });
+      const card = root.querySelectorAll('.stat')[0];
 
-    root.querySelector<HTMLButtonElement>('.action-card--tertiary')!.click();
+      expect(card.querySelector('.stat__value')?.textContent?.trim()).toBe('2');
+      expect(card.textContent).toContain('visitas realizadas');
+      expect(card.textContent).toContain('Primera visita: marzo de 2025');
+    });
 
-    expect(emitted).toEqual(['history']);
+    it('sin visitas lo explica, en singular cuando es una', () => {
+      expect(setup('home').root.querySelectorAll('.stat')[0].textContent).toContain(
+        'Aquí verás cuántas veces viniste',
+      );
+      TestBed.resetTestingModule();
+      const one = setup('home', { past: of([cita('a', '2026-09-10T14:00:00.000Z')]) });
+      const card = one.root.querySelectorAll('.stat')[0];
+      expect(card.querySelector('.stat__value')?.textContent?.trim()).toBe('1');
+      expect(card.querySelector('.stat__unit')?.textContent?.trim()).toBe('visita realizada');
+    });
+
+    it('mientras carga muestra un guion', () => {
+      const card = setup('home', { past: NEVER }).root.querySelectorAll('.stat')[0];
+
+      expect(card.querySelector('.stat__value')?.textContent?.trim()).toBe('—');
+    });
+  });
+
+  describe('saldo pendiente', () => {
+    it('suma los presupuestos compartidos y muestra el porcentaje pagado', () => {
+      const { root } = setup('home', {
+        quotes: of([
+          { totalAmount: 1000, totalPaid: 400, balance: 600 },
+          { totalAmount: 1000, totalPaid: 900, balance: 100 },
+        ]),
+      });
+      const card = root.querySelectorAll('.stat')[1];
+
+      expect(card.querySelector('.stat__value')?.textContent).toContain('Bs. 700,00');
+      expect(card.textContent).toContain('65% pagado');
+      expect((card.querySelector('progress') as HTMLProgressElement).value).toBe(65);
+    });
+
+    it('si ya pagó todo lo dice', () => {
+      const card = setup('home', {
+        quotes: of([{ totalAmount: 500, totalPaid: 500, balance: 0 }]),
+      }).root.querySelectorAll('.stat')[1];
+
+      expect(card.textContent).toContain('Todo pagado');
+    });
+
+    it('sin presupuestos lo dice', () => {
+      expect(setup('home').root.querySelectorAll('.stat')[1].textContent).toContain(
+        'Todavía no tienes un presupuesto',
+      );
+    });
+
+    it('"Ver mi presupuesto" lleva a esa sección', () => {
+      const { fixture, root } = setup('home');
+      const emitted: string[] = [];
+      fixture.componentInstance.navChange.subscribe((nav) => emitted.push(nav));
+
+      root.querySelector<HTMLButtonElement>('.stat__link')!.click();
+
+      expect(emitted).toEqual(['quote']);
+    });
+  });
+
+  it('el contacto abre WhatsApp de la clínica con un mensaje con su nombre, sin emojis', () => {
+    const link = setup('home').root.querySelector<HTMLAnchorElement>('.contact__btn')!;
+    const url = new URL(link.href);
+
+    expect(url.origin + url.pathname).toBe('https://wa.me/59157744250');
+    expect(url.searchParams.get('text')).toBe(
+      'Hola, soy Ana Pérez. Quisiera hacer una consulta sobre mi atención en la clínica.',
+    );
+    expect(link.target).toBe('_blank');
   });
 
   it('el historial muestra los tratamientos de su propia ficha y al cerrarlo vuelve al inicio', () => {
@@ -141,7 +235,7 @@ describe('PatientDashboardComponent', () => {
   });
 
   it('sin ficha de paciente, el historial no se muestra', () => {
-    const { fixture } = setup('history', null);
+    const { fixture } = setup('history', { patient: null });
 
     expect(fixture.debugElement.query(By.directive(TreatmentHistoryStub))).toBeNull();
   });

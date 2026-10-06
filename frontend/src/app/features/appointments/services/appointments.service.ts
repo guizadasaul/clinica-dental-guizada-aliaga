@@ -94,6 +94,13 @@ export class AppointmentsService {
     return this.http.delete<AppointmentAgendaItem>(`${this.base}/doctor/${id}/no-show`);
   }
 
+  /** CLI-209: registro de visitas del paciente logueado — todas las pasadas, la más reciente primero, incluidas las "No asistió". */
+  getMyPast(): Observable<PatientAppointment[]> {
+    return this.http.get<PatientAppointment[]>(`${environment.backendUrl}/patients/me/appointments`, {
+      params: { scope: 'past' },
+    });
+  }
+
   /** CLI-153: próximas citas confirmadas del paciente logueado, la más cercana primero. */
   getMyUpcoming(): Observable<PatientAppointment[]> {
     return this.http.get<PatientAppointment[]>(

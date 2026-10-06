@@ -1,0 +1,86 @@
+// src/styles/_patient-portal.scss
+// Lenguaje visual del portal del paciente (épica CLI-207, mockups de Stitch):
+// fondo crema, tarjetas blancas de borde cálido, títulos serif y "eyebrows"
+// en versalitas. Lo comparten Inicio, Mis citas, Mi historial, Mi presupuesto
+// y Mi perfil.
+@use 'breakpoints' as bp;
+
+@mixin page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+  max-width: 1080px;
+  padding: var(--space-10) var(--space-10) var(--space-16);
+
+  @include bp.down('md') {
+    gap: var(--space-6);
+    padding: var(--space-6) var(--space-4) var(--space-12);
+  }
+}
+
+@mixin page-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: var(--font-size-5xl);
+  font-weight: 600;
+  line-height: 1.1;
+  color: var(--color-navy);
+
+  @include bp.down('md') {
+    font-size: var(--font-size-3xl);
+  }
+}
+
+@mixin page-subtitle {
+  margin: var(--space-2) 0 0;
+  font-family: var(--font-body);
+  font-size: var(--font-size-lg);
+  color: var(--color-text-muted);
+}
+
+@mixin card {
+  background: #fff;
+  border: 1px solid var(--color-border-warm);
+  border-radius: var(--radius-2xl);
+  box-shadow: 0 1px 2px rgb(142 78 20 / 0.04), 0 8px 24px -12px rgb(142 78 20 / 0.12);
+}
+
+@mixin eyebrow {
+  margin: 0;
+  font-family: var(--font-body);
+  font-size: var(--font-size-xs);
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+}
+
+@mixin pill($bg, $fg) {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--radius-full);
+  background: $bg;
+  color: $fg;
+  font-family: var(--font-body);
+  font-size: var(--font-size-xs);
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+@mixin icon-badge($bg, $fg) {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 2.75rem;
+  height: 2.75rem;
+  border-radius: var(--radius-full);
+  background: $bg;
+  color: $fg;
+
+  .material-symbols-outlined {
+    font-size: 1.375rem;
+  }
+}

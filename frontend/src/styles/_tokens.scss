@@ -20,6 +20,11 @@
   --color-tertiary-light: #a8edff;
   --color-soft-mint:      #b4ebdc;
   --color-clay-blush:     #f2c4b3;
+  // Portal del paciente (CLI-209): borde cálido de las tarjetas y verde de WhatsApp
+  // (oscuro para que el texto blanco tenga contraste ≥ 4.5:1).
+  --color-border-warm:    #ede4d3;
+  --color-whatsapp:       #0f7a5f;
+  --color-whatsapp-dark:  #075e47;
 
   // === ESCALA DE GRISES ===
   --color-gray-50:  #f9fafb;
@@ -93,6 +98,7 @@
   --radius-md:   0.25rem;
   --radius-lg:   0.5rem;
   --radius-xl:   0.75rem;
+  --radius-2xl:  1.25rem;
   --radius-full: 9999px;
 
   // === TRANSICIONES ===

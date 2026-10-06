@@ -381,6 +381,26 @@ function cases(s: ReturnType<typeof services>): Case[] {
       url: `${API}/patients/me/appointments`,
     },
     {
+      name: 'paciente: mi registro de visitas (CLI-209)',
+      call: () => s.appointments.getMyPast(),
+      method: 'GET',
+      url: `${API}/patients/me/appointments`,
+      params: { scope: 'past' },
+    },
+    {
+      name: 'agenda: marcar "No asistió" (CLI-208)',
+      call: () => s.appointments.markNoShow('appt-1'),
+      method: 'POST',
+      url: `${API}/appointments/doctor/appt-1/no-show`,
+      body: {},
+    },
+    {
+      name: 'agenda: deshacer "No asistió" (CLI-208)',
+      call: () => s.appointments.undoNoShow('appt-1'),
+      method: 'DELETE',
+      url: `${API}/appointments/doctor/appt-1/no-show`,
+    },
+    {
       name: 'agenda: horario propio del doctor (CLI-148)',
       call: () => s.appointments.getMySchedule(),
       method: 'GET',

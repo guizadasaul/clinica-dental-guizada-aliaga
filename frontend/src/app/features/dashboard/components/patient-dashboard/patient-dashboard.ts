@@ -13,21 +13,24 @@ import { PatientsService } from '../../../patients/services/patients.service';
 import { AppointmentsService } from '../../../appointments/services/appointments.service';
 import type { PatientAppointment } from '../../../appointments/models/appointment.model';
 import { TreatmentHistoryComponent } from '../../../treatments/components/treatment-history/treatment-history';
-import { LogoComponent } from '../../../../shared/ui/logo/logo';
 import { MyQuoteComponent } from '../../../quotes/components/my-quote/my-quote';
+import { QuotesService } from '../../../quotes/services/quotes.service';
+import { formatBs } from '../../../../shared/utils/money.util';
+
+/** WhatsApp de la clínica (mismo número que la landing y la reserva). */
+const CLINIC_WHATSAPP = '59157744250';
 
 // Las citas se muestran siempre en hora de Bolivia, esté donde esté el paciente.
-const SHORT_DATE_FORMATTER = new Intl.DateTimeFormat('es-BO', {
-  timeZone: 'America/La_Paz',
-  weekday: 'short',
-  day: 'numeric',
-  month: 'numeric',
-});
 const LONG_DATE_FORMATTER = new Intl.DateTimeFormat('es-BO', {
   timeZone: 'America/La_Paz',
   weekday: 'long',
   day: 'numeric',
   month: 'long',
+});
+const MONTH_YEAR_FORMATTER = new Intl.DateTimeFormat('es-BO', {
+  timeZone: 'America/La_Paz',
+  month: 'long',
+  year: 'numeric',
 });
 const TIME_FORMATTER = new Intl.DateTimeFormat('es-BO', {
   timeZone: 'America/La_Paz',
@@ -39,7 +42,7 @@ const TIME_FORMATTER = new Intl.DateTimeFormat('es-BO', {
   selector: 'app-patient-dashboard',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [TreatmentHistoryComponent, LogoComponent, MyQuoteComponent],
+  imports: [TreatmentHistoryComponent, MyQuoteComponent],
   templateUrl: './patient-dashboard.html',
   styleUrl: './patient-dashboard.scss',
 })
@@ -47,6 +50,7 @@ export class PatientDashboardComponent {
   private readonly authService = inject(AuthService);
   private readonly patientsService = inject(PatientsService);
   private readonly appointmentsService = inject(AppointmentsService);
+  private readonly quotesService = inject(QuotesService);
 
   readonly activeNav = input<string>('home');
   readonly navChange = output<string>();
@@ -68,9 +72,49 @@ export class PatientDashboardComponent {
   protected readonly nextAppointment = computed(() => this.upcoming()?.[0] ?? null);
   protected readonly laterAppointments = computed(() => this.upcoming()?.slice(1) ?? []);
 
-  protected readonly nextShortLabel = computed(() => {
-    const next = this.nextAppointment();
-    return next ? SHORT_DATE_FORMATTER.format(new Date(next.appointmentDatetime)) : '—';
+  /** CLI-209: registro de visitas (null mientras carga; si falla, como si no hubiera). */
+  private readonly visits = toSignal(
+    this.appointmentsService.getMyPast().pipe(catchError(() => of([]))),
+    { initialValue: null },
+  );
+  /** Visitas reales: las "No asistió" no cuentan. */
+  private readonly attended = computed(
+    () => this.visits()?.filter((v) => v.status !== 'no_show') ?? null,
+  );
+  protected readonly visitsCount = computed(() => this.attended()?.length ?? null);
+  protected readonly firstVisitLabel = computed(() => {
+    const list = this.attended();
+    const first = list?.at(-1);
+    return first ? MONTH_YEAR_FORMATTER.format(new Date(first.appointmentDatetime)) : null;
+  });
+
+  /** CLI-209: lo que debe sumando sus presupuestos compartidos. */
+  private readonly quotes = toSignal(
+    this.quotesService.getMine().pipe(catchError(() => of([]))),
+    { initialValue: null },
+  );
+  protected readonly account = computed(() => {
+    const quotes = this.quotes();
+    if (!quotes) {
+      return null;
+    }
+    const total = quotes.reduce((sum, q) => sum + q.totalAmount, 0);
+    const paid = quotes.reduce((sum, q) => sum + q.totalPaid, 0);
+    const balance = quotes.reduce((sum, q) => sum + q.balance, 0);
+    return {
+      hasQuotes: quotes.length > 0,
+      balance: formatBs(balance),
+      paidPercent: total > 0 ? Math.min(100, Math.round((paid / total) * 100)) : 0,
+      settled: quotes.length > 0 && balance <= 0,
+    };
+  });
+
+  protected readonly whatsappUrl = computed(() => {
+    const name = this.user()?.displayName;
+    const text = name
+      ? `Hola, soy ${name}. Quisiera hacer una consulta sobre mi atención en la clínica.`
+      : 'Hola, quisiera hacer una consulta sobre mi atención en la clínica.';
+    return `https://wa.me/${CLINIC_WHATSAPP}?text=${encodeURIComponent(text)}`;
   });
 
   protected longDate(a: PatientAppointment): string {
@@ -95,7 +139,7 @@ export class PatientDashboardComponent {
   });
 
   protected readonly today = computed(() =>
-    new Date().toLocaleDateString('es-AR', {
+    new Date().toLocaleDateString('es-BO', {
       weekday: 'long',
       year: 'numeric',
       month: 'long',

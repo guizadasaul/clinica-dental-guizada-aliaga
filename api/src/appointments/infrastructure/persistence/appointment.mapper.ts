@@ -78,6 +78,7 @@ export class AppointmentMapper {
       durationMinutes: record.duration_minutes,
       doctorName: record.users.display_name,
       treatmentName: record.treatments?.name ?? null,
+      status: record.status,
     };
   }
 }
