@@ -2,6 +2,19 @@
   <section class="mq" aria-labelledby="mq-title">
     <app-page-header title="Mi presupuesto" subtitle="Lo que debes, lo que pagaste y a qué tratamiento se aplicó cada pago." />
 
+    @if (notice(); as n) {
+      <output class="mq__success">{{ n }}</output>
+    }
+    @if (charge(); as c) {
+      @if (!qrOpen()) {
+        <div class="mq__pending">
+          <span class="material-symbols-outlined" aria-hidden="true">qr_code_2</span>
+          <span class="mq__pending-text">Tienes un QR pendiente por <strong>{{ bs(c.amount) }}</strong>.</span>
+          <button type="button" class="mq__btn mq__btn--ghost" (click)="openQr()">Ver QR</button>
+        </div>
+      }
+    }
+
     @switch (state().status) {
       @case ('loading') {
         <p class="mq__muted">Cargando tu presupuesto...</p>
@@ -36,6 +49,10 @@
             {{ totals().paidPercent }}%
           </progress>
 
+          @if (error(); as e) {
+            <p class="mq__error" role="alert">{{ e }}</p>
+          }
+
           @for (view of views(); track view.quote.id) {
             <article class="mq__quote">
               @if (views().length > 1) {
@@ -43,26 +60,50 @@
               }
 
               <h3 class="mq__section-title">Tratamientos</h3>
+              @if (view.quote.balance > 0) {
+                <p class="mq__hint">Elige los tratamientos que quieres pagar con QR.</p>
+              }
               <table class="mq__table">
+                <caption class="mq__sr">Tratamientos del presupuesto con lo pagado y lo pendiente</caption>
                 <thead>
                   <tr>
+                    <th scope="col" class="mq__check">
+                      @if (view.quote.balance > 0) {
+                        <input
+                          type="checkbox"
+                          aria-label="Elegir todos los tratamientos con saldo"
+                          [checked]="allSelected(view)"
+                          (change)="toggleAll(view)"
+                        />
+                      }
+                    </th>
                     <th scope="col">Tratamiento</th>
                     <th scope="col" class="mq__num">Precio</th>
                     <th scope="col" class="mq__num">Pendiente</th>
                   </tr>
                 </thead>
                 <tbody>
-                  @for (l of pagedLines(view); track l.line.key) {
-                    <tr class="mq__line">
-                      <td>
-                        {{ l.line.treatmentName }}
-                        @if (l.line.toothNumbers.length > 0) {
-                          <small class="mq__teeth">· pieza{{ l.line.toothNumbers.length === 1 ? '' : 's' }} {{ l.line.toothNumbers.join(', ') }}</small>
+                  @for (l of pagedLines(view); track l.key) {
+                    <tr class="mq__line" [class.mq__line--selected]="isSelected(view, l)">
+                      <td class="mq__check">
+                        @if (l.pending > 0) {
+                          <input
+                            type="checkbox"
+                            [attr.aria-label]="'Pagar ' + l.treatmentName"
+                            [checked]="isSelected(view, l)"
+                            (change)="toggleLine(view, l)"
+                          />
                         }
                       </td>
-                      <td class="mq__num">{{ bs(l.line.total) }}</td>
+                      <td>
+                        {{ l.treatmentName }}
+                        @if (l.toothNumbers.length > 0) {
+                          <small class="mq__teeth">· pieza{{ l.toothNumbers.length === 1 ? '' : 's' }} {{ l.toothNumbers.join(', ') }}</small>
+                        }
+                      </td>
+                      <td class="mq__num">{{ bs(l.total) }}</td>
                       <td class="mq__num">
-                        @if (l.status === 'paid') {
+                        @if (l.pending <= 0) {
                           <span class="mq__paid">Pagado</span>
                         } @else {
                           <strong>{{ bs(l.pending) }}</strong>
@@ -73,13 +114,26 @@
                 </tbody>
               </table>
               <app-pagination
-                [total]="view.allocation.lines.length"
+                [total]="view.quote.lines.length"
                 [page]="linePage(view)"
                 (pageChange)="goToLinePage(view, $event)"
               />
 
+              @if (selectedCount(view) > 0) {
+                <div class="mq__paybar">
+                  <span>
+                    {{ selectedCount(view) }} {{ selectedCount(view) === 1 ? 'tratamiento elegido' : 'tratamientos elegidos' }}
+                    · <strong>{{ bs(selectedTotal(view)) }}</strong>
+                  </span>
+                  <button type="button" class="mq__btn mq__btn--primary" [disabled]="busy()" (click)="payWithQr(view)">
+                    <span class="material-symbols-outlined" aria-hidden="true">qr_code_2</span>
+                    {{ busy() ? 'Generando QR...' : 'Pagar con QR' }}
+                  </button>
+                </div>
+              }
+
               <h3 class="mq__section-title">Pagos</h3>
-              @if (view.allocation.payments.length === 0) {
+              @if (view.payments.length === 0) {
                 <p class="mq__muted">Todavía no hay pagos registrados.</p>
               } @else {
                 <table class="mq__table">
@@ -92,26 +146,26 @@
                     </tr>
                   </thead>
                   <tbody>
-                    @for (p of pagedPayments(view); track p.payment.id) {
-                      <tr class="mq__payment" [class.mq__payment--detailed]="p.covered.length > 0 || p.payment.notes">
-                        <td>{{ paymentDate(p.payment.paymentDate) }}</td>
-                        <td>{{ methodLabel(p.payment.paymentMethod) }}</td>
-                        <td>{{ p.payment.receiptNumber }}</td>
-                        <td class="mq__num">{{ bs(p.payment.amount) }}</td>
+                    @for (p of pagedPayments(view); track p.id) {
+                      <tr class="mq__payment" [class.mq__payment--detailed]="p.covered.length > 0 || p.notes">
+                        <td>{{ paymentDate(p.paymentDate) }}</td>
+                        <td>{{ methodLabel(p.paymentMethod) }}</td>
+                        <td>{{ p.receiptNumber }}</td>
+                        <td class="mq__num">{{ bs(p.amount) }}</td>
                       </tr>
-                      @if (p.covered.length > 0 || p.payment.notes) {
+                      @if (p.covered.length > 0 || p.notes) {
                         <tr class="mq__payment-detail">
                           <td colspan="4">
                             @if (p.covered.length > 0) {
                               <span class="mq__covered">
                                 Cubrió:
-                                @for (c of p.covered; track c.key; let last = $last) {
+                                @for (c of p.covered; track c.lineKey; let last = $last) {
                                   {{ c.treatmentName }} ({{ bs(c.amount) }}){{ last ? '' : ',' }}
                                 }
                               </span>
                             }
-                            @if (p.payment.notes) {
-                              <span class="mq__notes">{{ p.payment.notes }}</span>
+                            @if (p.notes) {
+                              <span class="mq__notes">{{ p.notes }}</span>
                             }
                           </td>
                         </tr>
@@ -120,7 +174,7 @@
                   </tbody>
                 </table>
                 <app-pagination
-                  [total]="view.allocation.payments.length"
+                  [total]="view.payments.length"
                   [page]="paymentPage(view)"
                   (pageChange)="goToPaymentPage(view, $event)"
                 />
@@ -132,3 +186,34 @@
     }
   </section>
 </div>
+
+@if (qrOpen() && charge(); as c) {
+  <div class="qr-modal" (click)="onBackdropClick($event)" (keydown.escape)="closeQr()">
+    <dialog open class="qr-modal__panel" aria-modal="true" aria-labelledby="qr-modal-title">
+      <button type="button" class="qr-modal__close" aria-label="Cerrar" (click)="closeQr()">
+        <span class="material-symbols-outlined" aria-hidden="true">close</span>
+      </button>
+      <h2 id="qr-modal-title" class="qr-modal__title">Paga con QR</h2>
+      <p class="qr-modal__hint">Escanéalo desde la app de tu banco. Después presiona "Ya pagué, verificar".</p>
+      <img class="qr-modal__img" [src]="'data:image/png;base64,' + c.qrImageBase64" alt="QR de pago BANECO" />
+      <p class="qr-modal__amount">{{ bs(c.amount) }}</p>
+      <ul class="qr-modal__lines">
+        @for (l of chargeLines(); track l.key) {
+          <li>
+            <span>{{ l.name }}</span>
+            <span>{{ bs(l.amount) }}</span>
+          </li>
+        }
+      </ul>
+      @if (qrMessage(); as m) {
+        <p class="qr-modal__message" role="alert">{{ m }}</p>
+      }
+      <div class="qr-modal__actions">
+        <button type="button" class="mq__btn mq__btn--ghost" [disabled]="busy()" (click)="cancelQr()">Anular QR</button>
+        <button type="button" class="mq__btn mq__btn--primary" [disabled]="busy()" (click)="verifyQr()">
+          {{ busy() ? 'Verificando...' : 'Ya pagué, verificar' }}
+        </button>
+      </div>
+    </dialog>
+  </div>
+}

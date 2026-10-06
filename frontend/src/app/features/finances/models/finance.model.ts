@@ -32,6 +32,8 @@ export interface QrCharge {
   amount: number;
   qrImageBase64: string;
   status: QrChargeStatus;
+  /** CLI-218: tratamientos que cubre (QR que generó el paciente); [] en los del doctor. */
+  lines: { lineKey: string; amount: number }[];
 }
 
 export type VerifyQrChargeResult =

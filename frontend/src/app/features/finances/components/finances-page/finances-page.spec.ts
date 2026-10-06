@@ -68,6 +68,7 @@ function quote(overrides: Partial<Quote> = {}): Quote {
         paymentDate: '2026-09-01T12:00:00Z',
         notes: null,
         createdAt: '2026-09-01T12:00:00Z',
+        covered: [],
       },
       {
         id: 'pay-new',
@@ -78,8 +79,10 @@ function quote(overrides: Partial<Quote> = {}): Quote {
         paymentDate: '2026-09-20T12:00:00Z',
         notes: null,
         createdAt: '2026-09-20T12:00:00Z',
+        covered: [],
       },
     ],
+    lines: [],
     ...overrides,
   };
 }

@@ -84,6 +84,7 @@ function quote(overrides: Partial<Quote> = {}): Quote {
     sharedAt: null,
     items: [],
     payments: [],
+    lines: [],
     ...overrides,
   };
 }
