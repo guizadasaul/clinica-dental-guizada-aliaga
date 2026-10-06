@@ -25,6 +25,11 @@ export interface QuoteLine {
   total: number;
   paid: number;
   pending: number;
+  /**
+   * CLI-226: cuándo se realizó — la fecha más reciente de sus filas, si todas
+   * tienen procedimiento; null = por realizar.
+   */
+  performedAt: Date | null;
 }
 
 export interface PaymentCoverage {
@@ -60,7 +65,22 @@ function groupLines(items: QuoteItem[]): Omit<QuoteLine, 'paid' | 'pending'>[] {
       .map((r) => r.toothNumber)
       .filter((n): n is number => n !== null),
     total: rows[0].subtotal,
+    performedAt: linePerformedAt(rows),
   }));
+}
+
+/** La fecha más reciente de las filas, si todas se realizaron (CLI-226). */
+export function linePerformedAt(rows: QuoteItem[]): Date | null {
+  let latest: Date | null = null;
+  for (const row of rows) {
+    if (!row.performedAt) {
+      return null;
+    }
+    if (!latest || row.performedAt > latest) {
+      latest = row.performedAt;
+    }
+  }
+  return latest;
 }
 
 function byDate(a: PaymentForBalance, b: PaymentForBalance): number {

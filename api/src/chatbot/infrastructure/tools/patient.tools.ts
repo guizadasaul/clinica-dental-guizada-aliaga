@@ -6,6 +6,7 @@ import type { PatientAppointment } from '../../../appointments/domain/PatientApp
 import { QuotesService } from '../../../quotes/application/quotes.service.js';
 import type { Quote } from '../../../quotes/domain/Quote.js';
 import type { QuoteItem } from '../../../quotes/domain/QuoteItem.js';
+import { linePerformedAt } from '../../../quotes/domain/QuoteBalance.js';
 import { PatientsService } from '../../../patients/application/patients.service.js';
 import { TreatmentRepository } from '../../../treatments/domain/TreatmentRepository.js';
 import type { ITreatmentRepository } from '../../../treatments/domain/TreatmentRepository.js';
@@ -90,27 +91,26 @@ async function treatmentNames(
  * línea por aplicación, con sus piezas y el subtotal una sola vez.
  */
 function groupItems(items: QuoteItem[], names: Record<string, string>) {
-  const groups = new Map<
-    string,
-    { treatment: string; teeth: number[]; subtotalBob: number }
-  >();
+  const groups = new Map<string, QuoteItem[]>();
   for (const item of items) {
     const key = item.applicationGroupId ?? item.id;
-    const group = groups.get(key) ?? {
-      treatment: names[item.treatmentId],
-      teeth: [],
-      subtotalBob: round2(item.subtotal),
-    };
-    if (item.toothNumber !== null) {
-      group.teeth.push(item.toothNumber);
-    }
-    groups.set(key, group);
+    groups.set(key, [...(groups.get(key) ?? []), item]);
   }
-  return [...groups.values()].map((g) => ({
-    treatment: g.treatment,
-    ...(g.teeth.length > 0 && { teeth: g.teeth }),
-    subtotalBob: g.subtotalBob,
-  }));
+  return [...groups.values()].map((rows) => {
+    const teeth = rows
+      .map((r) => r.toothNumber)
+      .filter((n): n is number => n !== null);
+    // CLI-226: si el doctor ya lo realizó (fecha de calendario del procedimiento).
+    const performedAt = linePerformedAt(rows);
+    return {
+      treatment: names[rows[0].treatmentId],
+      ...(teeth.length > 0 && { teeth }),
+      subtotalBob: round2(rows[0].subtotal),
+      status: performedAt
+        ? `realizado el ${performedAt.toISOString().slice(0, 10)}`
+        : 'por realizar',
+    };
+  });
 }
 
 @Injectable()
@@ -177,7 +177,7 @@ export class GetMyAppointmentsTool implements ChatTool<MyAppointmentsArgsDto> {
 export class GetMyQuotesTool implements ChatTool<object> {
   readonly name = 'get_my_quotes';
   readonly description =
-    'Presupuestos del paciente (los 5 más recientes, pagados o no): estado, total, pagado, saldo, tratamientos y pagos con recibo, en Bs.';
+    'Presupuestos del paciente (los 5 más recientes, pagados o no): estado, total, pagado, saldo, tratamientos (cada uno realizado con fecha o por realizar) y pagos con recibo, en Bs.';
   // Sin filtro por estado a propósito: en vivo el modelo pedía status=pending
   // para "lo que me presupuestaron" y dejaba afuera los de pago parcial.
   readonly parameters = NO_PARAMETERS;

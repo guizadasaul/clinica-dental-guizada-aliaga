@@ -47,6 +47,7 @@ export class ToothProcedureMapper {
       notes: record.notes ?? null,
       performedBy: record.performed_by,
       performedByName: record.users?.display_name ?? null,
+      quoteItemId: record.quote_item_id ?? null,
       createdAt: record.created_at,
     };
   }

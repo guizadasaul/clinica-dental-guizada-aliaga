@@ -12,4 +12,8 @@ export interface QuoteItem {
   currency: string;
   /** Tipo de cambio aplicado si currency del tratamiento era USD; null si ya estaba en BOB. */
   exchangeRate: number | null;
+  /** CLI-226: el procedimiento registrado que cumplió esta fila; null = por realizar. */
+  procedureId: string | null;
+  /** CLI-226: fecha de ese procedimiento. */
+  performedAt: Date | null;
 }

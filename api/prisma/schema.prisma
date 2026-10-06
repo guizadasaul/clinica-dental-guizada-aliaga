@@ -511,6 +511,7 @@ model quote_items {
   treatments           treatments              @relation(fields: [treatment_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   application_groups   application_groups?     @relation(fields: [application_group_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
   qr_charge_lines      quote_qr_charge_lines[]
+  tooth_procedures     tooth_procedures[]
 
   @@index([quote_id], map: "idx_quote_items_quote")
   @@index([application_group_id], map: "idx_quote_items_application_group")
@@ -549,6 +550,9 @@ model tooth_procedures {
   price_charged            Decimal?                   @db.Decimal(10, 2)
   /// Para aplicaciones por unidad/caja (elásticos, cera ortodóntica, CLI-41) — price_charged = quantity × treatments.base_price. 1 para el resto.
   quantity                 Int                        @default(1)
+  /// CLI-226: la fila del presupuesto que este procedimiento cumple. Una
+  /// fila se cumple una sola vez; NULL si todavía no se vinculó.
+  quote_item_id            String?                    @unique(map: "idx_tooth_procedures_quote_item") @db.Uuid
   procedure_date           DateTime                   @default(dbgenerated("CURRENT_DATE")) @db.Date
   notes                    String?
   performed_by             String                     @db.Uuid
@@ -557,6 +561,7 @@ model tooth_procedures {
   users                    users                      @relation(fields: [performed_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
   treatments               treatments                 @relation(fields: [treatment_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   application_groups       application_groups?        @relation(fields: [application_group_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  quote_items              quote_items?               @relation(fields: [quote_item_id], references: [id], onDelete: SetNull, onUpdate: NoAction)
   xray_documents           xray_documents[]
   tooth_procedure_surfaces tooth_procedure_surfaces[]
 

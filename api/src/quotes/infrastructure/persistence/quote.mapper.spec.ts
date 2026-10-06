@@ -110,7 +110,21 @@ describe('QuoteMapper', () => {
       subtotal: 100,
       currency: 'BOB',
       exchangeRate: null,
+      procedureId: null,
+      performedAt: null,
     });
+  });
+
+  // CLI-226: la fila sabe qué procedimiento la cumplió y cuándo.
+  it('un ítem realizado lleva su procedimiento y la fecha', () => {
+    const date = new Date('2026-04-22');
+    const mapped = QuoteMapper.itemToDomain(
+      item({
+        tooth_procedures: [{ id: 'proc-1', procedure_date: date }],
+      }),
+    );
+
+    expect(mapped).toMatchObject({ procedureId: 'proc-1', performedAt: date });
   });
 
   // CLI-45: el precio de un grupo vive en application_groups; todas sus

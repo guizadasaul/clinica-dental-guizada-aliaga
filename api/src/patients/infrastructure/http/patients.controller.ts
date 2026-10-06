@@ -26,7 +26,6 @@ import { CreateMedicalHistoryDto } from './dto/create-medical-history.dto.js';
 import { CreateHygieneHabitsDto } from './dto/create-hygiene-habits.dto.js';
 import { CreateClinicalExamDto } from './dto/create-clinical-exam.dto.js';
 import { CreateOdontogramEntriesDto } from './dto/create-odontogram-entries.dto.js';
-import { CreateToothProcedureDto } from './dto/create-tooth-procedure.dto.js';
 import { CreateDentalExamDto } from './dto/create-dental-exam.dto.js';
 
 @Controller('patients')
@@ -260,33 +259,6 @@ export class PatientsController {
         customPrice: e.customPrice,
         notes: e.notes,
       })),
-    );
-  }
-
-  @Post(':patientId/tooth-procedures')
-  @Roles(UserRole.ODONTOLOGIST)
-  @HttpCode(HttpStatus.CREATED)
-  createToothProcedure(
-    @Param('patientId', ParseUUIDPipe) patientId: string,
-    @CurrentUser() currentUser: AuthenticatedUser,
-    @Body() dto: CreateToothProcedureDto,
-  ) {
-    return this.patientsService.createToothProcedure(
-      patientId,
-      currentUser.uid,
-      {
-        teeth: dto.teeth.map((t) => ({
-          number: t.number,
-          surfaces: t.surfaces,
-        })),
-        treatmentId: dto.treatmentId,
-        priceCharged: dto.priceCharged,
-        quantity: dto.quantity,
-        procedureDate: dto.procedureDate
-          ? new Date(dto.procedureDate)
-          : undefined,
-        notes: dto.notes,
-      },
     );
   }
 

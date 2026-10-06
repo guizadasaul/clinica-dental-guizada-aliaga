@@ -365,6 +365,68 @@ describe('QuotesService', () => {
 
       expect(result).toEqual(updated);
     });
+
+    // CLI-226: lo que ya se realizó se debe.
+    it('no deja quitar una línea ya realizada (409)', async () => {
+      mockQuoteRepo.findById.mockResolvedValue(
+        fakeQuote({
+          items: [
+            {
+              id: 'item-1',
+              applicationGroupId: 'group-1',
+            } as Quote['items'][number],
+          ],
+          lines: [
+            {
+              key: 'group-1',
+              treatmentName: 'Conducto',
+              toothNumbers: [16, 17],
+              total: 600,
+              paid: 0,
+              pending: 600,
+              performedAt: new Date('2026-04-22'),
+            },
+          ],
+        }),
+      );
+
+      await expect(service.removeItem('quote-1', 'item-1')).rejects.toThrow(
+        'Este tratamiento ya se realizó',
+      );
+      expect(mockQuoteRepo.removeItemGroup).not.toHaveBeenCalled();
+    });
+
+    it('una línea por realizar sí se quita', async () => {
+      mockQuoteRepo.findById.mockResolvedValue(
+        fakeQuote({
+          items: [
+            {
+              id: 'item-1',
+              applicationGroupId: null,
+            } as Quote['items'][number],
+          ],
+          lines: [
+            {
+              key: 'item-1',
+              treatmentName: 'Limpieza',
+              toothNumbers: [],
+              total: 350,
+              paid: 0,
+              pending: 350,
+              performedAt: null,
+            },
+          ],
+        }),
+      );
+      mockQuoteRepo.removeItemGroup.mockResolvedValue(fakeQuote());
+
+      await service.removeItem('quote-1', 'item-1');
+
+      expect(mockQuoteRepo.removeItemGroup).toHaveBeenCalledWith(
+        'quote-1',
+        'item-1',
+      );
+    });
   });
 
   describe('addPayment', () => {

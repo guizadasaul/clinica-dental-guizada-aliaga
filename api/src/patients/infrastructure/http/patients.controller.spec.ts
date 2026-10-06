@@ -5,7 +5,6 @@ import type { CreatePatientDto } from './dto/create-patient.dto';
 import type { CreateMedicalHistoryDto } from './dto/create-medical-history.dto';
 import type { CreateHygieneHabitsDto } from './dto/create-hygiene-habits.dto';
 import type { CreateClinicalExamDto } from './dto/create-clinical-exam.dto';
-import type { CreateToothProcedureDto } from './dto/create-tooth-procedure.dto';
 
 const DOCTOR = { uid: 'doctor-auth-1' } as AuthenticatedUser;
 const PATIENT_ID = 'patient-1';
@@ -28,7 +27,6 @@ describe('PatientsController', () => {
     findLatestClinicalExam: jest.fn(),
     findOdontogramEntries: jest.fn(),
     createOdontogramEntries: jest.fn(),
-    createToothProcedure: jest.fn(),
     findToothProcedures: jest.fn(),
     createDentalExam: jest.fn(),
     findDentalExamVersions: jest.fn(),
@@ -348,47 +346,6 @@ describe('PatientsController', () => {
       PATIENT_ID,
       [entry],
     );
-  });
-
-  describe('createToothProcedure', () => {
-    it('pasa dientes, precio y la fecha convertida, con el uid del doctor', async () => {
-      await controller.createToothProcedure(PATIENT_ID, DOCTOR, {
-        teeth: [{ number: 16, surfaces: ['occlusal'] }],
-        treatmentId: 'treatment-1',
-        priceCharged: 200,
-        quantity: 1,
-        procedureDate: '2026-09-20',
-        notes: 'ok',
-      });
-
-      expect(mockService.createToothProcedure).toHaveBeenCalledWith(
-        PATIENT_ID,
-        'doctor-auth-1',
-        {
-          teeth: [{ number: 16, surfaces: ['occlusal'] }],
-          treatmentId: 'treatment-1',
-          priceCharged: 200,
-          quantity: 1,
-          procedureDate: new Date('2026-09-20'),
-          notes: 'ok',
-        },
-      );
-    });
-
-    it('sin fecha de procedimiento la deja sin definir', async () => {
-      await controller.createToothProcedure(PATIENT_ID, DOCTOR, {
-        teeth: [{ number: 16 }],
-        treatmentId: 'treatment-1',
-      } as CreateToothProcedureDto);
-
-      const [, , data] = mockService.createToothProcedure.mock.calls[0] as [
-        string,
-        string,
-        { procedureDate?: Date; teeth: unknown[] },
-      ];
-      expect(data.procedureDate).toBeUndefined();
-      expect(data.teeth).toEqual([{ number: 16, surfaces: undefined }]);
-    });
   });
 
   it('createDentalExam mapea los hallazgos, el tipo y el motivo', async () => {

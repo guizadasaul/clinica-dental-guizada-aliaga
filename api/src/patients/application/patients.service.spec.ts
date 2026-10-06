@@ -1216,8 +1216,40 @@ describe('PatientsService', () => {
     });
   });
 
-  describe('createToothProcedure — reglas de aplicación', () => {
+  // CLI-226: el registro lo orquesta TreatmentPlanService (prepara, guarda
+  // con el presupuesto en una transacción, y anota el odontograma). Acá se
+  // prueba la parte de PatientsService con el mismo recorrido, guardando con
+  // los métodos del repositorio de pacientes.
+  describe('prepareToothProcedure + recordTreatmentInOdontogram — reglas de aplicación', () => {
     const baseInput = { treatmentId: 'treatment-1', priceCharged: 100 };
+
+    async function createToothProcedure(
+      patientId: string,
+      authUserId: string,
+      data: Parameters<PatientsService['prepareToothProcedure']>[2],
+    ): Promise<unknown> {
+      const { treatment, procedures } = await service.prepareToothProcedure(
+        patientId,
+        authUserId,
+        data,
+      );
+      const created: unknown =
+        procedures.kind === 'group'
+          ? await mockPatientRepo.createToothProcedureGroup(
+              patientId,
+              procedures.group,
+            )
+          : await mockPatientRepo.createToothProcedures(
+              patientId,
+              procedures.rows,
+            );
+      await service.recordTreatmentInOdontogram(
+        patientId,
+        treatment,
+        data.notes,
+      );
+      return created;
+    }
 
     beforeEach(() => {
       mockPatientRepo.findPatientById.mockResolvedValue(fakePatient());
@@ -1251,7 +1283,7 @@ describe('PatientsService', () => {
       mockPatientRepo.findCurrentDentalExam.mockResolvedValue(null);
 
       await expect(
-        service.createToothProcedure('patient-1', DOCTOR_AUTH_ID, {
+        createToothProcedure('patient-1', DOCTOR_AUTH_ID, {
           ...baseInput,
           teeth: [{ number: 16, surfaces: [] }],
         }),
@@ -1264,7 +1296,7 @@ describe('PatientsService', () => {
       mockTreatmentRepo.findById.mockResolvedValue(null);
 
       await expect(
-        service.createToothProcedure('patient-1', 'doctor-auth-1', {
+        createToothProcedure('patient-1', 'doctor-auth-1', {
           ...baseInput,
           teeth: [{ number: 16 }],
         }),
@@ -1275,7 +1307,7 @@ describe('PatientsService', () => {
       mockUserRepo.findByAuthUserId.mockResolvedValue(null);
 
       await expect(
-        service.createToothProcedure('patient-1', 'doctor-auth-1', {
+        createToothProcedure('patient-1', 'doctor-auth-1', {
           ...baseInput,
           teeth: [{ number: 16 }],
         }),
@@ -1293,7 +1325,7 @@ describe('PatientsService', () => {
         { toothNumber: 11, toothCondition: 'caries' },
       ]);
 
-      await service.createToothProcedure('patient-1', 'doctor-auth-1', {
+      await createToothProcedure('patient-1', 'doctor-auth-1', {
         ...baseInput,
         teeth: [],
       });
@@ -1320,7 +1352,7 @@ describe('PatientsService', () => {
 
       it('rejects with no teeth', async () => {
         await expect(
-          service.createToothProcedure('patient-1', 'doctor-auth-1', {
+          createToothProcedure('patient-1', 'doctor-auth-1', {
             ...baseInput,
             teeth: [],
           }),
@@ -1329,7 +1361,7 @@ describe('PatientsService', () => {
 
       it('rejects with 2 teeth', async () => {
         await expect(
-          service.createToothProcedure('patient-1', 'doctor-auth-1', {
+          createToothProcedure('patient-1', 'doctor-auth-1', {
             ...baseInput,
             teeth: [{ number: 16 }, { number: 17 }],
           }),
@@ -1337,7 +1369,7 @@ describe('PatientsService', () => {
       });
 
       it('creates a single row with its own surfaces', async () => {
-        const result = await service.createToothProcedure(
+        const result = await createToothProcedure(
           'patient-1',
           'doctor-auth-1',
           {
@@ -1362,7 +1394,7 @@ describe('PatientsService', () => {
 
       it('rejects an unknown surface code with 400', async () => {
         await expect(
-          service.createToothProcedure('patient-1', 'doctor-auth-1', {
+          createToothProcedure('patient-1', 'doctor-auth-1', {
             ...baseInput,
             teeth: [{ number: 16, surfaces: ['inventada'] }],
           }),
@@ -1379,7 +1411,7 @@ describe('PatientsService', () => {
           });
 
         await expect(
-          service.createToothProcedure('patient-1', 'doctor-auth-1', {
+          createToothProcedure('patient-1', 'doctor-auth-1', {
             ...baseInput,
             teeth: [{ number: 16, surfaces: ['occlusal'] }],
           }),
@@ -1390,7 +1422,7 @@ describe('PatientsService', () => {
       // CLI-49: 16 es un molar (posterior) — no tiene borde incisal.
       it('rejects a surface that is anatomically impossible for the tooth with 400', async () => {
         await expect(
-          service.createToothProcedure('patient-1', 'doctor-auth-1', {
+          createToothProcedure('patient-1', 'doctor-auth-1', {
             ...baseInput,
             teeth: [{ number: 16, surfaces: ['incisal'] }],
           }),
@@ -1401,7 +1433,7 @@ describe('PatientsService', () => {
       // 11 es un incisivo superior (anterior) — incisal sí, occlusal no; palatal sí, lingual no.
       it('accepts incisal and palatal on an upper anterior tooth', async () => {
         await expect(
-          service.createToothProcedure('patient-1', 'doctor-auth-1', {
+          createToothProcedure('patient-1', 'doctor-auth-1', {
             ...baseInput,
             teeth: [{ number: 11, surfaces: ['incisal', 'palatal'] }],
           }),
@@ -1411,7 +1443,7 @@ describe('PatientsService', () => {
       // 41 es un incisivo inferior — lingual sí, palatal no.
       it('rejects palatal on a lower tooth with 400', async () => {
         await expect(
-          service.createToothProcedure('patient-1', 'doctor-auth-1', {
+          createToothProcedure('patient-1', 'doctor-auth-1', {
             ...baseInput,
             teeth: [{ number: 41, surfaces: ['palatal'] }],
           }),
@@ -1428,7 +1460,7 @@ describe('PatientsService', () => {
 
       it('rejects with no teeth', async () => {
         await expect(
-          service.createToothProcedure('patient-1', 'doctor-auth-1', {
+          createToothProcedure('patient-1', 'doctor-auth-1', {
             ...baseInput,
             teeth: [],
           }),
@@ -1437,7 +1469,7 @@ describe('PatientsService', () => {
 
       it('accepts a single tooth ("1 o varios dientes")', async () => {
         await expect(
-          service.createToothProcedure('patient-1', 'doctor-auth-1', {
+          createToothProcedure('patient-1', 'doctor-auth-1', {
             ...baseInput,
             teeth: [{ number: 16 }],
           }),
@@ -1448,7 +1480,7 @@ describe('PatientsService', () => {
       // vía createToothProcedureGroup), no una fila por diente con ceros de
       // relleno en las hermanas.
       it('calls createToothProcedureGroup once, with all teeth sorted, each keeping its own surfaces', async () => {
-        await service.createToothProcedure('patient-1', 'doctor-auth-1', {
+        await createToothProcedure('patient-1', 'doctor-auth-1', {
           ...baseInput,
           teeth: [
             { number: 18, surfaces: ['mesial'] },
@@ -1478,7 +1510,7 @@ describe('PatientsService', () => {
       // CLI-49: la validación anatómica corre por diente, incluso en un grupo.
       it('rejects the whole batch if any tooth has an anatomically invalid surface', async () => {
         await expect(
-          service.createToothProcedure('patient-1', 'doctor-auth-1', {
+          createToothProcedure('patient-1', 'doctor-auth-1', {
             ...baseInput,
             teeth: [
               { number: 16, surfaces: ['occlusal'] },
@@ -1505,7 +1537,7 @@ describe('PatientsService', () => {
 
         it('rejects when a tooth is specified', async () => {
           await expect(
-            service.createToothProcedure('patient-1', 'doctor-auth-1', {
+            createToothProcedure('patient-1', 'doctor-auth-1', {
               ...baseInput,
               teeth: [{ number: 16 }],
             }),
@@ -1513,7 +1545,7 @@ describe('PatientsService', () => {
         });
 
         it(`creates a single row with no tooth and generates ${expectedTeethCount} odontogram entries`, async () => {
-          await service.createToothProcedure('patient-1', 'doctor-auth-1', {
+          await createToothProcedure('patient-1', 'doctor-auth-1', {
             ...baseInput,
             teeth: [],
           });
@@ -1547,7 +1579,7 @@ describe('PatientsService', () => {
 
       it('rejects when a tooth is specified', async () => {
         await expect(
-          service.createToothProcedure('patient-1', 'doctor-auth-1', {
+          createToothProcedure('patient-1', 'doctor-auth-1', {
             ...baseInput,
             teeth: [{ number: 16 }],
           }),
@@ -1555,7 +1587,7 @@ describe('PatientsService', () => {
       });
 
       it('creates a single row with no tooth and does not touch the odontogram', async () => {
-        const result = await service.createToothProcedure(
+        const result = await createToothProcedure(
           'patient-1',
           'doctor-auth-1',
           { ...baseInput, teeth: [] },
@@ -1574,7 +1606,7 @@ describe('PatientsService', () => {
       });
 
       it('stores quantity on the row (priceCharged ya viene calculado por el caller)', async () => {
-        await service.createToothProcedure('patient-1', 'doctor-auth-1', {
+        await createToothProcedure('patient-1', 'doctor-auth-1', {
           treatmentId: 'treatment-1',
           priceCharged: 60,
           quantity: 3,
