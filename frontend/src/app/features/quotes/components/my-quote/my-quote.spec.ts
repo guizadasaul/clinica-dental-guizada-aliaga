@@ -188,4 +188,28 @@ describe('MyQuoteComponent', () => {
     fixture.detectChanges();
     expect(names()).toEqual(['Tratamiento 11', 'Tratamiento 12', 'Tratamiento 13']);
   });
+
+  it('pagina los pagos de a 10, del más reciente al más antiguo', () => {
+    const payments = Array.from({ length: 12 }, (_, i) =>
+      pay(`p${i + 1}`, 10, `2026-09-${String(i + 1).padStart(2, '0')}T15:00:00Z`),
+    );
+    TestBed.configureTestingModule({
+      imports: [MyQuoteComponent],
+      providers: [
+        { provide: QuotesService, useValue: { getMine: () => of([quote({ totalPaid: 120, balance: 580, payments })]) } },
+      ],
+    });
+    const fixture = TestBed.createComponent(MyQuoteComponent);
+    fixture.detectChanges();
+    const root = fixture.nativeElement as HTMLElement;
+    const receipts = () => [...root.querySelectorAll('.mq__payment td:nth-child(3)')].map((c) => c.textContent?.trim());
+
+    expect(receipts()).toHaveLength(10);
+    expect(receipts()[0]).toBe('REC-p12');
+    // La única paginación visible es la de pagos (los tratamientos son 2).
+    const next = [...root.querySelectorAll<HTMLButtonElement>('app-pagination button')].at(-1)!;
+    next.click();
+    fixture.detectChanges();
+    expect(receipts()).toEqual(['REC-p2', 'REC-p1']);
+  });
 });

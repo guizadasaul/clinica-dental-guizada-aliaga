@@ -92,7 +92,7 @@
                     </tr>
                   </thead>
                   <tbody>
-                    @for (p of view.allocation.payments; track p.payment.id) {
+                    @for (p of pagedPayments(view); track p.payment.id) {
                       <tr class="mq__payment" [class.mq__payment--detailed]="p.covered.length > 0 || p.payment.notes">
                         <td>{{ paymentDate(p.payment.paymentDate) }}</td>
                         <td>{{ methodLabel(p.payment.paymentMethod) }}</td>
@@ -119,6 +119,11 @@
                     }
                   </tbody>
                 </table>
+                <app-pagination
+                  [total]="view.allocation.payments.length"
+                  [page]="paymentPage(view)"
+                  (pageChange)="goToPaymentPage(view, $event)"
+                />
               }
             </article>
           }
