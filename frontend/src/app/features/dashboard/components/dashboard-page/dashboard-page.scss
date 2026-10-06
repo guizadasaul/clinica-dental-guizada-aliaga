@@ -28,6 +28,10 @@ $topbar-h: 56px;
   flex-direction: column;
   min-width: 0;
   margin-left: $sidebar-w;
+  // Reserva el alto del botón flotante del chatbot (3.5rem + su margen) para
+  // que lo último de la página, como las flechas de la paginación, no quede
+  // debajo del botón al llegar al final.
+  padding-bottom: calc(3.5rem + var(--space-4));
 
   @media (max-width: 767px) {
     margin-left: 0;
