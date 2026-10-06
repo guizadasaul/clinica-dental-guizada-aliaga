@@ -36,7 +36,7 @@ const SOURCE_LABELS: Record<string, string> = {
  * Detalle de un turno propio en la agenda (CLI-151), con sus acciones: abrir
  * la ficha (lo que hacía el click antes), reprogramar (lo resuelve la agenda
  * con un click en el horario nuevo) y cancelar (con confirmación y motivo).
- * Una cita pasada solo permite abrir la ficha.
+ * Una cita pasada permite abrir la ficha y marcar "No asistió" (CLI-208).
  */
 @Component({
   selector: 'app-appointment-detail-dialog',
@@ -54,6 +54,8 @@ export class AppointmentDetailDialogComponent {
   readonly openRecord = output<string>();
   readonly reschedule = output<AppointmentAgendaItem>();
   readonly cancelled = output<AppointmentAgendaItem>();
+  /** CLI-208: se marcó o se deshizo "No asistió". */
+  readonly attendanceChanged = output<AppointmentAgendaItem>();
   readonly closed = output<void>();
 
   private readonly panel = viewChild<ElementRef<HTMLElement>>('panel');
@@ -73,6 +75,16 @@ export class AppointmentDetailDialogComponent {
       this.appointment().status === 'confirmed' &&
       new Date(this.appointment().appointmentDatetime).getTime() > Date.now(),
   );
+
+  /** CLI-208: ya pasó — se puede marcar (si está confirmada) o deshacer "No asistió". */
+  protected readonly isPast = computed(
+    () => new Date(this.appointment().appointmentDatetime).getTime() <= Date.now(),
+  );
+  protected readonly isNoShow = computed(() => this.appointment().status === 'no_show');
+  protected readonly canMarkNoShow = computed(
+    () => this.isPast() && this.appointment().status === 'confirmed',
+  );
+  protected readonly savingAttendance = signal(false);
 
   /** Paso de confirmación de "Cancelar cita". */
   protected readonly confirmingCancel = signal(false);
@@ -129,6 +141,27 @@ export class AppointmentDetailDialogComponent {
       this.error.set('No pudimos cancelar la cita. Prueba de nuevo.');
     } finally {
       this.cancelling.set(false);
+    }
+  }
+
+  protected async changeAttendance(): Promise<void> {
+    if (this.savingAttendance()) {
+      return;
+    }
+    this.savingAttendance.set(true);
+    this.error.set(null);
+    const id = this.appointment().id;
+    try {
+      const updated = await firstValueFrom(
+        this.isNoShow()
+          ? this.appointmentsService.undoNoShow(id)
+          : this.appointmentsService.markNoShow(id),
+      );
+      this.attendanceChanged.emit(updated);
+    } catch {
+      this.error.set('No pudimos guardar el cambio. Prueba de nuevo.');
+    } finally {
+      this.savingAttendance.set(false);
     }
   }
 

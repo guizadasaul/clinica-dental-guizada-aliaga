@@ -12,7 +12,8 @@ export interface ReportParams {
 /**
  * Conteo de turnos por estado en el rango. Los estados reales que hoy puede
  * tener una fila de `appointments` son `held`/`confirmed`/`expired` y, desde
- * CLI-149, `cancelled` (cancelada por el doctor) — no
+ * CLI-149, `cancelled` (cancelada por el doctor) y, desde CLI-208, `no_show`
+ * (el paciente no vino; sí ocupó la agenda, así que suma al total) — no
  * existe ningún flujo que transicione una cita a `attended` (no hay
  * check-in), así que ese estado no aparece nunca poblado hoy. No se inventa
  * ese flujo acá: si en el futuro existiera, este mapa lo reflejaría solo.

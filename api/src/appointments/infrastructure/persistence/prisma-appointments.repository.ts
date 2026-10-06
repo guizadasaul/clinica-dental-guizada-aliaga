@@ -9,6 +9,7 @@ import {
 import {
   AgendaFilters,
   AttachQrData,
+  type AttendanceStatus,
   CreateByDoctorData,
   CreateHoldData,
   GuestContactData,
@@ -73,7 +74,10 @@ export class PrismaAppointmentsRepository implements IAppointmentRepository {
     const records = await this.prisma.appointments.findMany({
       where: {
         patient_id: patientId,
-        status: AppointmentStatus.CONFIRMED,
+        // CLI-208: `attended` también es una visita; `no_show` no.
+        status: {
+          in: [AppointmentStatus.CONFIRMED, AppointmentStatus.ATTENDED],
+        },
         ...((filters.from || filters.to) && {
           appointment_datetime: {
             ...(filters.from && { gte: filters.from }),
@@ -254,6 +258,31 @@ export class PrismaAppointmentsRepository implements IAppointmentRepository {
       },
     });
     return result.count === 0 ? null : this.findForDoctor(id, doctorId);
+  }
+
+  async setAttendance(
+    id: string,
+    doctorId: string,
+    from: AttendanceStatus,
+    to: AttendanceStatus,
+  ): Promise<AppointmentWithPatient | null> {
+    try {
+      const result = await this.prisma.appointments.updateMany({
+        where: { id, doctor_id: doctorId, status: from },
+        data: { status: to },
+      });
+      return result.count === 0 ? null : this.findForDoctor(id, doctorId);
+    } catch (error: unknown) {
+      // Deshacer vuelve a `confirmed`: si en el medio se agendó otra cita
+      // activa a esa misma hora, el índice único lo rechaza.
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2002'
+      ) {
+        throw new SlotUnavailableError();
+      }
+      throw error;
+    }
   }
 
   async updateGuestContact(

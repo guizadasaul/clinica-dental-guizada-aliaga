@@ -85,6 +85,15 @@ export class AppointmentsService {
     );
   }
 
+  /** CLI-208: "No asistió" en una cita propia que ya pasó, y su reversa. */
+  markNoShow(id: string): Observable<AppointmentAgendaItem> {
+    return this.http.post<AppointmentAgendaItem>(`${this.base}/doctor/${id}/no-show`, {});
+  }
+
+  undoNoShow(id: string): Observable<AppointmentAgendaItem> {
+    return this.http.delete<AppointmentAgendaItem>(`${this.base}/doctor/${id}/no-show`);
+  }
+
   /** CLI-153: próximas citas confirmadas del paciente logueado, la más cercana primero. */
   getMyUpcoming(): Observable<PatientAppointment[]> {
     return this.http.get<PatientAppointment[]>(

@@ -36,6 +36,8 @@ function appointment(overrides: Partial<AppointmentAgendaItem> = {}): Appointmen
 function setup(appt: AppointmentAgendaItem = appointment(), cancelResult?: unknown) {
   const appointmentsService = {
     cancelByDoctor: vi.fn().mockReturnValue(cancelResult ?? of({ ...appt, status: 'cancelled' })),
+    markNoShow: vi.fn().mockReturnValue(of({ ...appt, status: 'no_show' })),
+    undoNoShow: vi.fn().mockReturnValue(of({ ...appt, status: 'confirmed' })),
   };
   TestBed.configureTestingModule({
     imports: [AppointmentDetailDialogComponent],
@@ -92,7 +94,7 @@ describe('AppointmentDetailDialogComponent (CLI-151)', () => {
     expect(closed).toHaveBeenCalled();
   });
 
-  it('una cita pasada solo permite abrir la ficha', () => {
+  it('una cita pasada no se reprograma ni se cancela', () => {
     const { fixture } = setup(appointment({ appointmentDatetime: PAST }));
 
     expect(button(fixture, 'Abrir ficha')).toBeTruthy();
@@ -155,5 +157,55 @@ describe('AppointmentDetailDialogComponent (CLI-151)', () => {
 
     expect(cancelled).not.toHaveBeenCalled();
     expect(fixture.nativeElement.textContent).toContain('No pudimos cancelar la cita');
+  });
+
+  // CLI-208
+  describe('"No asistió"', () => {
+    it('una cita futura no lo ofrece', () => {
+      const { fixture } = setup();
+
+      expect(button(fixture, 'No asistió')).toBeFalsy();
+    });
+
+    it('en una cita pasada confirmada lo marca y emite la cita actualizada', async () => {
+      const { fixture, appointmentsService } = setup(appointment({ appointmentDatetime: PAST }));
+      const changed = vi.fn();
+      fixture.componentInstance.attendanceChanged.subscribe(changed);
+
+      button(fixture, 'No asistió')!.click();
+      await fixture.whenStable();
+
+      expect(appointmentsService.markNoShow).toHaveBeenCalledWith('appt-1');
+      expect(changed).toHaveBeenCalledWith(expect.objectContaining({ status: 'no_show' }));
+    });
+
+    it('una cita marcada lo avisa y permite deshacerlo', async () => {
+      const { fixture, appointmentsService } = setup(
+        appointment({ appointmentDatetime: PAST, status: 'no_show' }),
+      );
+      const changed = vi.fn();
+      fixture.componentInstance.attendanceChanged.subscribe(changed);
+
+      expect(fixture.nativeElement.textContent).toContain('El paciente no asistió');
+      button(fixture, 'Deshacer')!.click();
+      await fixture.whenStable();
+
+      expect(appointmentsService.undoNoShow).toHaveBeenCalledWith('appt-1');
+      expect(changed).toHaveBeenCalledWith(expect.objectContaining({ status: 'confirmed' }));
+    });
+
+    it('si falla lo dice y no emite', async () => {
+      const { fixture, appointmentsService } = setup(appointment({ appointmentDatetime: PAST }));
+      appointmentsService.markNoShow.mockReturnValue(throwError(() => ({ status: 409 })));
+      const changed = vi.fn();
+      fixture.componentInstance.attendanceChanged.subscribe(changed);
+
+      button(fixture, 'No asistió')!.click();
+      await fixture.whenStable();
+      fixture.detectChanges();
+
+      expect(changed).not.toHaveBeenCalled();
+      expect(fixture.nativeElement.textContent).toContain('No pudimos guardar el cambio');
+    });
   });
 });

@@ -32,6 +32,7 @@
       class="agenda-slot"
       [class.agenda-slot--readonly]="!canOpen(appt)"
       [class.agenda-slot--moving]="rescheduling()?.id === appt.id"
+      [class.agenda-slot--no-show]="appt.status === 'no_show'"
       [style.--slot-color]="slotColor(appt)"
       [style.top.px]="apptTopPx(appt)"
       [style.height.px]="apptHeightPx(appt)"
@@ -44,6 +45,9 @@
         {{ formatDatetime(appt.appointmentDatetime) }}
         @if (appt.source === 'doctor') {
           <span class="material-symbols-outlined agenda-slot__source" aria-hidden="true">event_repeat</span>
+        }
+        @if (appt.status === 'no_show') {
+          <span class="agenda-slot__badge">No asistió</span>
         }
       </span>
       <span class="agenda-slot__patient">{{ patientLabel(appt) }}</span>
@@ -117,6 +121,7 @@
       (openRecord)="onOpenRecord($event)"
       (reschedule)="onStartReschedule($event)"
       (cancelled)="onCancelled($event)"
+      (attendanceChanged)="onAttendanceChanged($event)"
       (closed)="onDetailClosed()"
     />
   }

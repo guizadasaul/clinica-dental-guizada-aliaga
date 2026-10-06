@@ -15,7 +15,7 @@ import {
   viewChild,
 } from '@angular/core';
 import { NgTemplateOutlet } from '@angular/common';
-import { firstValueFrom } from 'rxjs';
+import { firstValueFrom, forkJoin, map } from 'rxjs';
 import { AppointmentsService } from '../../services/appointments.service';
 import { AuthService } from '../../../../auth/application/auth.service';
 import { FALLBACK_DOCTOR_COLOR } from '../../../../shared/constants/doctor-colors';
@@ -646,6 +646,17 @@ export class DoctorAgendaComponent {
     this.followUpPick.set(null);
   }
 
+  /** CLI-208: marcar o deshacer "No asistió" — el turno se actualiza en su lugar, sin recargar. */
+  protected onAttendanceChanged(updated: AppointmentAgendaItem): void {
+    this.detailAppointment.set(null);
+    this.appointments.update((list) => list.map((a) => (a.id === updated.id ? updated : a)));
+    this.showNotice(
+      updated.status === 'no_show'
+        ? `Marcada como "No asistió": ${this.patientLabel(updated)}`
+        : `Se deshizo "No asistió": ${this.patientLabel(updated)}`,
+    );
+  }
+
   protected onCancelled(cancelled: AppointmentAgendaItem): void {
     this.detailAppointment.set(null);
     this.showNotice(`Cita cancelada: ${this.patientLabel(cancelled)}`);
@@ -682,14 +693,24 @@ export class DoctorAgendaComponent {
       const to = addDaysToDateString(from, this.VIEW_DAYS);
       // Aparte de las citas: no demora ni rompe la carga de la agenda.
       void this.loadTimeBlocks(from, to);
+      const filters = {
+        from,
+        to,
+        doctorId: this.doctorId() ?? undefined,
+        scope: this.effectiveScope() === 'all' ? ('all' as const) : undefined,
+      };
+      // CLI-208: las "No asistió" siguen en la agenda (atenuadas) para poder deshacerlo.
       const result = await firstValueFrom(
-        this.appointmentsService.getAgenda({
-          status: 'confirmed',
-          from,
-          to,
-          doctorId: this.doctorId() ?? undefined,
-          scope: this.effectiveScope() === 'all' ? 'all' : undefined,
-        }),
+        forkJoin([
+          this.appointmentsService.getAgenda({ ...filters, status: 'confirmed' }),
+          this.appointmentsService.getAgenda({ ...filters, status: 'no_show' }),
+        ]).pipe(
+          map(([confirmed, noShow]) =>
+            [...confirmed, ...noShow].sort((a, b) =>
+              a.appointmentDatetime.localeCompare(b.appointmentDatetime),
+            ),
+          ),
+        ),
       );
       this.appointments.set(result);
     } catch {
@@ -796,6 +817,9 @@ export class DoctorAgendaComponent {
     }
     if (a.source === 'doctor') {
       parts.push('Agendada por el doctor');
+    }
+    if (a.status === 'no_show') {
+      parts.push('No asistió');
     }
     if (this.effectiveScope() === 'all') {
       parts.unshift(a.doctorName ?? 'Doctor');

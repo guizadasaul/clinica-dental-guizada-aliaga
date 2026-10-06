@@ -55,6 +55,7 @@ const mockRepo = {
   findForDoctor: jest.fn(),
   reschedule: jest.fn(),
   cancel: jest.fn(),
+  setAttendance: jest.fn(),
 };
 
 const mockTreatmentRepo = {
@@ -1269,6 +1270,133 @@ describe('AppointmentsService', () => {
 
       await expect(service.cancelByDoctor(DOCTOR_ID, APPT_ID)).resolves.toBe(
         cancelled,
+      );
+    });
+  });
+
+  // CLI-208
+  describe('markNoShow / undoNoShow', () => {
+    const APPT_ID = 'appt-1';
+    const NOW = new Date('2026-10-06T15:00:00Z');
+    const PAST = new Date('2026-10-06T13:00:00Z');
+    const FUTURE = new Date('2026-10-06T17:00:00Z');
+    const confirmed = {
+      id: APPT_ID,
+      status: AppointmentStatus.CONFIRMED,
+      appointmentDatetime: PAST,
+    };
+    const noShow = { ...confirmed, status: AppointmentStatus.NO_SHOW };
+
+    it('marca "No asistió" en una cita propia confirmada que ya pasó', async () => {
+      mockRepo.findForDoctor.mockResolvedValue(confirmed);
+      mockRepo.setAttendance.mockResolvedValue(noShow);
+
+      await expect(service.markNoShow(DOCTOR_ID, APPT_ID, NOW)).resolves.toBe(
+        noShow,
+      );
+      expect(mockRepo.setAttendance).toHaveBeenCalledWith(
+        APPT_ID,
+        DOCTOR_ID,
+        AppointmentStatus.CONFIRMED,
+        AppointmentStatus.NO_SHOW,
+      );
+    });
+
+    it('deshace "No asistió": vuelve a confirmada', async () => {
+      mockRepo.findForDoctor.mockResolvedValue(noShow);
+      mockRepo.setAttendance.mockResolvedValue(confirmed);
+
+      await expect(service.undoNoShow(DOCTOR_ID, APPT_ID, NOW)).resolves.toBe(
+        confirmed,
+      );
+      expect(mockRepo.setAttendance).toHaveBeenCalledWith(
+        APPT_ID,
+        DOCTOR_ID,
+        AppointmentStatus.NO_SHOW,
+        AppointmentStatus.CONFIRMED,
+      );
+    });
+
+    it('es idempotente: si ya está en el estado pedido no la toca', async () => {
+      mockRepo.findForDoctor.mockResolvedValue(noShow);
+
+      await expect(service.markNoShow(DOCTOR_ID, APPT_ID, NOW)).resolves.toBe(
+        noShow,
+      );
+      expect(mockRepo.setAttendance).not.toHaveBeenCalled();
+    });
+
+    it('409 si la cita todavía no pasó', async () => {
+      mockRepo.findForDoctor.mockResolvedValue({
+        ...confirmed,
+        appointmentDatetime: FUTURE,
+      });
+
+      await expect(service.markNoShow(DOCTOR_ID, APPT_ID, NOW)).rejects.toThrow(
+        ConflictException,
+      );
+      expect(mockRepo.setAttendance).not.toHaveBeenCalled();
+    });
+
+    it('409 si la cita está cancelada', async () => {
+      mockRepo.findForDoctor.mockResolvedValue({
+        ...confirmed,
+        status: AppointmentStatus.CANCELLED,
+      });
+
+      await expect(service.markNoShow(DOCTOR_ID, APPT_ID, NOW)).rejects.toThrow(
+        ConflictException,
+      );
+    });
+
+    it('404 si la cita no existe o es de otro doctor', async () => {
+      mockRepo.findForDoctor.mockResolvedValue(null);
+
+      await expect(service.markNoShow(DOCTOR_ID, APPT_ID, NOW)).rejects.toThrow(
+        NotFoundException,
+      );
+    });
+
+    it('409 si al deshacer choca con otra cita activa', async () => {
+      mockRepo.findForDoctor.mockResolvedValue(noShow);
+      mockRepo.setAttendance.mockRejectedValue(new SlotUnavailableError());
+
+      await expect(service.undoNoShow(DOCTOR_ID, APPT_ID, NOW)).rejects.toThrow(
+        ConflictException,
+      );
+    });
+
+    it('propaga cualquier otro error del repositorio', async () => {
+      mockRepo.findForDoctor.mockResolvedValue(confirmed);
+      mockRepo.setAttendance.mockRejectedValue(new Error('boom'));
+
+      await expect(service.markNoShow(DOCTOR_ID, APPT_ID, NOW)).rejects.toThrow(
+        'boom',
+      );
+    });
+
+    it('si otra request la cambió en el medio, devuelve la ya marcada', async () => {
+      mockRepo.findForDoctor
+        .mockResolvedValueOnce(confirmed)
+        .mockResolvedValueOnce(noShow);
+      mockRepo.setAttendance.mockResolvedValue(null);
+
+      await expect(service.markNoShow(DOCTOR_ID, APPT_ID, NOW)).resolves.toBe(
+        noShow,
+      );
+    });
+
+    it('si en el medio quedó en otro estado, 409', async () => {
+      mockRepo.findForDoctor
+        .mockResolvedValueOnce(confirmed)
+        .mockResolvedValueOnce({
+          ...confirmed,
+          status: AppointmentStatus.CANCELLED,
+        });
+      mockRepo.setAttendance.mockResolvedValue(null);
+
+      await expect(service.markNoShow(DOCTOR_ID, APPT_ID, NOW)).rejects.toThrow(
+        ConflictException,
       );
     });
   });

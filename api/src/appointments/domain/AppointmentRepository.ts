@@ -99,6 +99,9 @@ export interface AgendaFilters {
 }
 
 /** Filtros de las citas de un paciente (CLI-91). `to` es exclusivo. */
+/** CLI-208: estados entre los que se mueve una cita pasada al marcar o deshacer "No asistió". */
+export type AttendanceStatus = 'confirmed' | 'no_show';
+
 export interface PatientAppointmentFilters {
   from?: Date;
   to?: Date;
@@ -109,7 +112,7 @@ export interface PatientAppointmentFilters {
 export interface IAppointmentRepository {
   /** Agenda del doctor — citas con datos básicos del paciente embebidos. */
   findForAgenda(filters: AgendaFilters): Promise<AppointmentWithPatient[]>;
-  /** Citas CONFIRMADAS de un paciente (CLI-91): el patientId sale siempre de la identidad autenticada, nunca de un parámetro del usuario. */
+  /** Citas CONFIRMADAS (o `attended`, CLI-208) de un paciente (CLI-91): el patientId sale siempre de la identidad autenticada, nunca de un parámetro del usuario. */
   findForPatient(
     patientId: string,
     filters: PatientAppointmentFilters,
@@ -144,6 +147,13 @@ export interface IAppointmentRepository {
     doctorId: string,
     cancelledBy: string,
     reason: string | null,
+  ): Promise<AppointmentWithPatient | null>;
+  /** CLI-208: UPDATE condicional (WHERE id AND doctor_id AND status=from) → to. Para marcar o deshacer "No asistió". null si la cita ya no estaba en `from`. */
+  setAttendance(
+    id: string,
+    doctorId: string,
+    from: AttendanceStatus,
+    to: AttendanceStatus,
   ): Promise<AppointmentWithPatient | null>;
   /** UPDATE condicional (WHERE id AND status='held' AND hold_expires_at > now). null si el hold ya no está vigente. Lanza GuestPhoneConflictError si el teléfono ya tiene otra cita held/confirmed, o GuestEmailBelongsToAccountError/GuestPhoneBelongsToAccountError si el email/teléfono ya pertenece a una cuenta (users) existente. */
   updateGuestContact(
