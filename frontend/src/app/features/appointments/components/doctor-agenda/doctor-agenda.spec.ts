@@ -192,6 +192,8 @@ describe('DoctorAgendaComponent', () => {
   });
 
   // CLI-151: el click abre el detalle del turno; la ficha se abre desde ahí.
+  // Renderiza el wizard completo de la ficha: con coverage en el runner del CI
+  // pasa los 5 s por defecto (CLI-212), así que tiene su propio margen.
   it('opens the appointment detail from a slot, and the patient history from it', async () => {
     const { fixture } = setup();
     await settle(fixture);
@@ -210,7 +212,7 @@ describe('DoctorAgendaComponent', () => {
 
     expect(fixture.nativeElement.querySelector('app-appointment-detail-dialog')).toBeFalsy();
     expect(fixture.nativeElement.querySelector('app-patient-wizard')).toBeTruthy();
-  });
+   }, 20_000);
 
   it('does not open the patient history from a slot when readOnly is true', async () => {
     const { fixture } = setup();
