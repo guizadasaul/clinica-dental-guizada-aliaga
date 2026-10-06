@@ -40,7 +40,7 @@ function byDate(a: Payment, b: Payment): number {
  * tratamiento. Para que el paciente vea qué pagó cada uno, los pagos se
  * reparten en orden: el más antiguo primero, cubriendo los tratamientos en el
  * orden del presupuesto (cada línea se completa antes de pasar a la
- * siguiente). Todo se cuenta en centavos para que la suma cierre exacta.
+ * siguiente). Los montos se cuentan en centavos para que la suma cierre exacta.
  */
 export function allocatePayments(lines: QuoteLine[], payments: Payment[]): Allocation {
   const remaining = lines.map((l) => toCents(l.total));
@@ -61,6 +61,9 @@ export function allocatePayments(lines: QuoteLine[], payments: Payment[]): Alloc
     return { payment, covered };
   });
 
+  // Del más reciente al más antiguo para mostrarlos.
+  allocated.reverse();
+
   return {
     lines: lines.map((line, i) => {
       let status: LineStatus = 'partial';
@@ -71,6 +74,6 @@ export function allocatePayments(lines: QuoteLine[], payments: Payment[]): Alloc
       }
       return { line, paid: toBs(paid[i]), pending: toBs(remaining[i]), status };
     }),
-    payments: allocated.reverse(),
+    payments: allocated,
   };
 }
