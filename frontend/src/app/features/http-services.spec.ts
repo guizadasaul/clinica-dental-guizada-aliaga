@@ -221,6 +221,33 @@ function cases(s: ReturnType<typeof services>): Case[] {
       url: `${API}/quotes/q1`,
     },
     {
+      name: 'paciente: generar QR por tratamientos (CLI-219)',
+      call: () => s.quotes.createMyQrCharge('q1', ['l1', 'l2']),
+      method: 'POST',
+      url: `${API}/patients/me/quotes/q1/qr-charges`,
+      body: { lineKeys: ['l1', 'l2'] },
+    },
+    {
+      name: 'paciente: QR pendiente (CLI-219)',
+      call: () => s.quotes.getMyPendingQrCharge(),
+      method: 'GET',
+      url: `${API}/patients/me/qr-charges/pending`,
+    },
+    {
+      name: 'paciente: verificar QR (CLI-219)',
+      call: () => s.quotes.verifyMyQrCharge('c1'),
+      method: 'POST',
+      url: `${API}/patients/me/qr-charges/c1/verify`,
+      body: {},
+    },
+    {
+      name: 'paciente: anular QR (CLI-219)',
+      call: () => s.quotes.cancelMyQrCharge('c1'),
+      method: 'POST',
+      url: `${API}/patients/me/qr-charges/c1/cancel`,
+      body: {},
+    },
+    {
       name: 'presupuestos: agregar ítem',
       call: () => s.quotes.addItem('q1', body),
       method: 'POST',

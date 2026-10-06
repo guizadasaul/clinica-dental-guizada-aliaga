@@ -12,6 +12,7 @@ const CHARGE = {
   amount: 150,
   qrImageBase64: 'QRDATA',
   status: 'pending' as const,
+  lines: [],
 };
 
 function setup(balance = 500) {

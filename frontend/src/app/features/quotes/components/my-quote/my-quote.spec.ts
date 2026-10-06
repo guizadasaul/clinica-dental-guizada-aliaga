@@ -1,8 +1,29 @@
-import { TestBed } from '@angular/core/testing';
+import { TestBed, type ComponentFixture } from '@angular/core/testing';
+import { HttpErrorResponse } from '@angular/common/http';
 import { NEVER, of, throwError, type Observable } from 'rxjs';
 import { MyQuoteComponent } from './my-quote';
 import { QuotesService } from '../../services/quotes.service';
-import type { Payment, Quote } from '../../models/quote.model';
+import type { Payment, Quote, QuoteLine } from '../../models/quote.model';
+import type { QrCharge } from '../../../finances/models/finance.model';
+
+function line(key: string, total: number, pending = total, extra: Partial<QuoteLine> = {}): QuoteLine {
+  return { key, treatmentName: `Tratamiento ${key}`, toothNumbers: [], total, paid: total - pending, pending, ...extra };
+}
+
+function pay(id: string, amount: number, paymentDate: string, extra: Partial<Payment> = {}): Payment {
+  return {
+    id,
+    quoteId: 'quote-1',
+    amount,
+    paymentMethod: 'cash',
+    receiptNumber: `REC-${id}`,
+    paymentDate,
+    notes: null,
+    createdAt: paymentDate,
+    covered: [],
+    ...extra,
+  };
+}
 
 function quote(overrides: Partial<Quote> = {}): Quote {
   return {
@@ -16,116 +37,101 @@ function quote(overrides: Partial<Quote> = {}): Quote {
     createdAt: '2026-09-27T12:00:00Z',
     updatedAt: '2026-09-27T12:00:00Z',
     sharedAt: '2026-09-27T12:00:00Z',
-    items: [
-      {
-        id: 'item-1',
-        quoteId: 'quote-1',
-        treatmentId: 't1',
-        treatmentName: 'Tratamiento de conducto',
-        toothNumber: 36,
-        applicationGroupId: null,
-        unitPrice: 300,
-        quantity: 1,
-        subtotal: 300,
-        currency: 'BOB',
-        exchangeRate: null,
-      },
-      {
-        id: 'item-2',
-        quoteId: 'quote-1',
-        treatmentId: 't2',
-        treatmentName: 'Gingivectomía superior',
-        toothNumber: null,
-        applicationGroupId: null,
-        unitPrice: 400,
-        quantity: 1,
-        subtotal: 400,
-        currency: 'BOB',
-        exchangeRate: null,
-      },
-    ],
+    items: [],
     payments: [],
+    lines: [
+      line('conducto', 300, 300, { treatmentName: 'Tratamiento de conducto', toothNumbers: [36] }),
+      line('gingi', 400, 400, { treatmentName: 'Gingivectomía superior' }),
+    ],
     ...overrides,
   };
 }
 
-function setup(response: Observable<Quote[]>) {
+function charge(overrides: Partial<QrCharge> = {}): QrCharge {
+  return {
+    chargeId: 'charge-1',
+    quoteId: 'quote-1',
+    amount: 700,
+    qrImageBase64: 'QRDATA',
+    status: 'pending',
+    lines: [
+      { lineKey: 'conducto', amount: 300 },
+      { lineKey: 'gingi', amount: 400 },
+    ],
+    ...overrides,
+  };
+}
+
+function setup(response: Observable<Quote[]>, pending: Observable<QrCharge | null> = of(null)) {
+  const service = {
+    getMine: vi.fn(() => response),
+    getMyPendingQrCharge: vi.fn(() => pending),
+    createMyQrCharge: vi.fn(() => of(charge())),
+    verifyMyQrCharge: vi.fn(() => of({ status: 'pending' })),
+    cancelMyQrCharge: vi.fn(() => of(undefined)),
+  };
   TestBed.configureTestingModule({
     imports: [MyQuoteComponent],
-    providers: [{ provide: QuotesService, useValue: { getMine: () => response } }],
+    providers: [{ provide: QuotesService, useValue: service }],
   });
   const fixture = TestBed.createComponent(MyQuoteComponent);
   fixture.detectChanges();
-  return fixture.nativeElement as HTMLElement;
+  return { fixture, root: fixture.nativeElement as HTMLElement, service };
+}
+
+async function settle(fixture: ComponentFixture<MyQuoteComponent>): Promise<void> {
+  fixture.detectChanges();
+  await fixture.whenStable();
+  fixture.detectChanges();
+}
+
+function button(root: HTMLElement, label: string): HTMLButtonElement {
+  return [...root.querySelectorAll<HTMLButtonElement>('button')].find((b) => b.textContent?.includes(label))!;
 }
 
 describe('MyQuoteComponent', () => {
-  it('mientras carga muestra un spinner', () => {
-    const root = setup(NEVER);
-
-    expect(root.textContent).toContain('Cargando tu presupuesto');
+  it('mientras carga lo dice', () => {
+    expect(setup(NEVER).root.textContent).toContain('Cargando tu presupuesto');
   });
 
   it('sin presupuestos compartidos muestra el estado vacío', () => {
-    const root = setup(of([]));
-
-    expect(root.textContent).toContain('Tu doctor todavía no compartió un presupuesto');
+    expect(setup(of([])).root.textContent).toContain('Tu doctor todavía no compartió un presupuesto');
   });
 
   it('si falla, avisa', () => {
-    const root = setup(throwError(() => new Error('500')));
-
-    expect(root.textContent).toContain('No pudimos cargar tu presupuesto');
+    expect(setup(throwError(() => new Error('500'))).root.textContent).toContain('No pudimos cargar tu presupuesto');
   });
 
-  const pay = (id: string, amount: number, paymentDate: string, extra: Partial<Payment> = {}): Payment => ({
-    id,
-    quoteId: 'quote-1',
-    amount,
-    paymentMethod: 'cash',
-    receiptNumber: `REC-${id}`,
-    paymentDate,
-    notes: null,
-    createdAt: paymentDate,
-    ...extra,
+  it('muestra cada tratamiento con piezas, precio y lo pendiente que calcula el backend', () => {
+    const { root } = setup(
+      of([quote({ totalPaid: 300, balance: 400, lines: [line('conducto', 300, 0, { toothNumbers: [36] }), line('gingi', 400)] })]),
+    );
+    const rows = root.querySelectorAll('.mq__line');
+
+    expect(rows).toHaveLength(2);
+    expect(rows[0].querySelector('.mq__teeth')?.textContent).toContain('pieza 36');
+    expect(rows[0].querySelector('.mq__paid')?.textContent).toBe('Pagado');
+    // Lo ya pagado no se puede elegir.
+    expect(rows[0].querySelector('input[type=checkbox]')).toBeNull();
+    expect(rows[1].querySelectorAll('td')[3].textContent?.trim()).toBe('Bs. 400,00');
+    expect(root.querySelector('.mq__card--balance')?.textContent).toContain('Bs. 400,00');
   });
 
-  it('muestra cada tratamiento con piezas, precio y pendiente, sin pagos', () => {
-    const root = setup(of([quote()]));
-
-    const lines = root.querySelectorAll('.mq__line');
-    expect(lines).toHaveLength(2);
-    expect(lines[0].textContent).toContain('Tratamiento de conducto');
-    expect(lines[0].querySelector('.mq__teeth')?.textContent).toContain('pieza 36');
-    const cells = [...lines[0].querySelectorAll('td')].map((c) => c.textContent?.trim());
-    expect(cells.slice(1)).toEqual(['Bs. 300,00', 'Bs. 300,00']);
-    expect(root.querySelector('.mq__card--balance')?.textContent).toContain('Bs. 700,00');
-    expect(root.textContent).toContain('Todavía no hay pagos registrados');
-    // Un solo presupuesto: sin título repetido.
-    expect(root.querySelector('.mq__quote .section-title')).toBeNull();
-  });
-
-  it('reparte los pagos por tratamiento y muestra qué cubrió cada uno', () => {
-    const root = setup(
+  it('muestra los pagos del más reciente al más antiguo con lo que cubrió cada uno', () => {
+    const { root } = setup(
       of([
         quote({
-          totalPaid: 350,
-          balance: 350,
-          status: 'partially_paid',
           payments: [
+            pay('p1', 300, '2026-09-20T15:00:00Z', {
+              covered: [{ lineKey: 'conducto', treatmentName: 'Tratamiento de conducto', amount: 300 }],
+            }),
             pay('p2', 50, '2026-09-28T15:00:00Z', { paymentMethod: 'qr_baneco', notes: 'Pago con QR' }),
-            pay('p1', 300, '2026-09-20T15:00:00Z'),
           ],
         }),
       ]),
     );
-
-    const lines = root.querySelectorAll('.mq__line');
-    expect(lines[0].querySelector('.mq__paid')?.textContent).toBe('Pagado');
-    expect(lines[1].querySelectorAll('td')[2].textContent?.trim()).toBe('Bs. 350,00');
-
     const payments = root.querySelectorAll('.mq__payment');
-    // El más reciente primero, con fecha, método y recibo.
+
     expect([...payments[0].querySelectorAll('td')].map((c) => c.textContent?.trim())).toEqual([
       '28/09/2026',
       'QR BANECO',
@@ -133,83 +139,166 @@ describe('MyQuoteComponent', () => {
       'Bs. 50,00',
     ]);
     const details = root.querySelectorAll('.mq__payment-detail');
-    expect(details[0].querySelector('.mq__covered')?.textContent).toContain('Gingivectomía superior (Bs. 50,00)');
     expect(details[0].querySelector('.mq__notes')?.textContent).toContain('Pago con QR');
     expect(details[1].querySelector('.mq__covered')?.textContent).toContain('Tratamiento de conducto (Bs. 300,00)');
-    expect(root.querySelector<HTMLProgressElement>('progress')?.value).toBe(50);
   });
 
   it('las tarjetas suman todos los presupuestos y cada uno lleva su fecha', () => {
-    const root = setup(
+    const { root } = setup(
       of([
-        quote({ id: 'q1', totalAmount: 700, totalPaid: 700, balance: 0, status: 'paid' }),
-        quote({ id: 'q2', totalAmount: 300, totalPaid: 0, balance: 300, createdAt: '2026-10-01T15:00:00Z' }),
+        quote({ id: 'q1', totalPaid: 700, balance: 0, lines: [line('a', 700, 0)] }),
+        quote({ id: 'q2', totalAmount: 300, balance: 300, createdAt: '2026-10-01T15:00:00Z', lines: [line('b', 300)] }),
       ]),
     );
-    const values = [...root.querySelectorAll('.mq__card-value')].map((v) => v.textContent);
 
-    expect(values).toEqual(['Bs. 1.000,00', 'Bs. 700,00', 'Bs. 300,00']);
-    expect(root.querySelector<HTMLProgressElement>('progress')?.value).toBe(70);
+    expect([...root.querySelectorAll('.mq__card-value')].map((v) => v.textContent)).toEqual([
+      'Bs. 1.000,00',
+      'Bs. 700,00',
+      'Bs. 300,00',
+    ]);
     expect([...root.querySelectorAll('.mq__quote .section-title')].map((t) => t.textContent)).toEqual([
       'Presupuesto del 27/09/2026',
       'Presupuesto del 01/10/2026',
     ]);
   });
 
-  it('un presupuesto en 0 no divide por cero', () => {
-    const root = setup(of([quote({ totalAmount: 0, balance: 0, items: [] })]));
-
-    expect(root.querySelector<HTMLProgressElement>('progress')?.value).toBe(0);
-  });
-
-  it('pagina los tratamientos de a 10 en cada presupuesto', () => {
-    const items = Array.from({ length: 13 }, (_, i) => ({
-      ...quote().items[0],
-      id: `item-${i}`,
-      treatmentName: `Tratamiento ${i + 1}`,
-      toothNumber: null,
-      subtotal: 100,
-    }));
-    TestBed.configureTestingModule({
-      imports: [MyQuoteComponent],
-      providers: [
-        { provide: QuotesService, useValue: { getMine: () => of([quote({ totalAmount: 1300, balance: 1300, items })]) } },
-      ],
-    });
-    const fixture = TestBed.createComponent(MyQuoteComponent);
-    fixture.detectChanges();
-    const root = fixture.nativeElement as HTMLElement;
-    const names = () => [...root.querySelectorAll('.mq__line td:first-child')].map((c) => c.textContent?.trim());
+  it('pagina los tratamientos de a 10', async () => {
+    const lines = Array.from({ length: 13 }, (_, i) => line(`l${i + 1}`, 100));
+    const { fixture, root } = setup(of([quote({ totalAmount: 1300, balance: 1300, lines })]));
+    const names = () => [...root.querySelectorAll('.mq__line td:nth-child(2)')].map((c) => c.textContent?.trim());
 
     expect(names()).toHaveLength(10);
-    expect(names()[0]).toBe('Tratamiento 1');
-    const next = [...root.querySelectorAll<HTMLButtonElement>('app-pagination button')].at(-1)!;
-    next.click();
-    fixture.detectChanges();
-    expect(names()).toEqual(['Tratamiento 11', 'Tratamiento 12', 'Tratamiento 13']);
+    root.querySelector<HTMLButtonElement>('button[aria-label="Página siguiente"]')!.click();
+    await settle(fixture);
+    expect(names()).toEqual(['Tratamiento l11', 'Tratamiento l12', 'Tratamiento l13']);
   });
 
-  it('pagina los pagos de a 10, del más reciente al más antiguo', () => {
-    const payments = Array.from({ length: 12 }, (_, i) =>
-      pay(`p${i + 1}`, 10, `2026-09-${String(i + 1).padStart(2, '0')}T15:00:00Z`),
-    );
-    TestBed.configureTestingModule({
-      imports: [MyQuoteComponent],
-      providers: [
-        { provide: QuotesService, useValue: { getMine: () => of([quote({ totalPaid: 120, balance: 580, payments })]) } },
-      ],
-    });
-    const fixture = TestBed.createComponent(MyQuoteComponent);
-    fixture.detectChanges();
-    const root = fixture.nativeElement as HTMLElement;
-    const receipts = () => [...root.querySelectorAll('.mq__payment td:nth-child(3)')].map((c) => c.textContent?.trim());
+  describe('pago con QR (CLI-219)', () => {
+    function check(root: HTMLElement, index: number): void {
+      root.querySelectorAll<HTMLInputElement>('.mq__line input[type=checkbox]')[index].click();
+    }
 
-    expect(receipts()).toHaveLength(10);
-    expect(receipts()[0]).toBe('REC-p12');
-    // La única paginación visible es la de pagos (los tratamientos son 2).
-    const next = [...root.querySelectorAll<HTMLButtonElement>('app-pagination button')].at(-1)!;
-    next.click();
-    fixture.detectChanges();
-    expect(receipts()).toEqual(['REC-p2', 'REC-p1']);
+    it('al elegir tratamientos muestra el total y genera el QR con esas líneas', async () => {
+      const { fixture, root, service } = setup(of([quote()]));
+
+      expect(root.querySelector('.mq__paybar')).toBeNull();
+      check(root, 1);
+      await settle(fixture);
+      expect(root.querySelector('.mq__paybar')?.textContent).toContain('1 tratamiento elegido · Bs. 400,00');
+
+      button(root, 'Pagar con QR').click();
+      await settle(fixture);
+
+      expect(service.createMyQrCharge).toHaveBeenCalledWith('quote-1', ['gingi']);
+      const modal = root.querySelector('.qr-modal')!;
+      expect(modal.querySelector('img')?.getAttribute('src')).toBe('data:image/png;base64,QRDATA');
+      expect(modal.querySelector('.qr-modal__amount')?.textContent).toContain('Bs. 700,00');
+      expect(modal.querySelector('.qr-modal__lines')?.textContent).toContain('Gingivectomía superior');
+    });
+
+    it('"elegir todos" toma todo lo pendiente, y otra vez lo deselecciona', async () => {
+      const { fixture, root } = setup(of([quote()]));
+      const all = root.querySelector<HTMLInputElement>('.mq__table thead input[type=checkbox]')!;
+
+      all.click();
+      await settle(fixture);
+      expect(root.querySelector('.mq__paybar')?.textContent).toContain('2 tratamientos elegidos · Bs. 700,00');
+      all.click();
+      await settle(fixture);
+      expect(root.querySelector('.mq__paybar')).toBeNull();
+    });
+
+    it('verificar: pendiente lo avisa; pagado cierra, avisa y recarga el presupuesto', async () => {
+      const { fixture, root, service } = setup(of([quote()]), of(charge()));
+      await settle(fixture);
+
+      // Retoma el QR pendiente.
+      expect(root.querySelector('.mq__pending')?.textContent).toContain('Bs. 700,00');
+      button(root, 'Ver QR').click();
+      await settle(fixture);
+
+      button(root, 'Ya pagué, verificar').click();
+      await settle(fixture);
+      expect(root.querySelector('.qr-modal__message')?.textContent).toContain('Todavía no recibimos el pago');
+
+      service.verifyMyQrCharge.mockReturnValue(of({ status: 'paid', quote: quote() }));
+      button(root, 'Ya pagué, verificar').click();
+      await settle(fixture);
+
+      expect(service.verifyMyQrCharge).toHaveBeenCalledWith('charge-1');
+      expect(root.querySelector('.qr-modal')).toBeNull();
+      expect(root.querySelector('.mq__success')?.textContent).toContain('¡Pago confirmado!');
+      expect(service.getMine).toHaveBeenCalledTimes(2);
+    });
+
+    it('si BANECO lo anuló, lo dice y deja generar otro', async () => {
+      const { fixture, root, service } = setup(of([quote()]), of(charge()));
+      await settle(fixture);
+      service.verifyMyQrCharge.mockReturnValue(of({ status: 'cancelled' }));
+      button(root, 'Ver QR').click();
+      await settle(fixture);
+
+      button(root, 'Ya pagué, verificar').click();
+      await settle(fixture);
+
+      expect(root.querySelector('.mq__success')?.textContent).toContain('El QR fue anulado');
+      expect(root.querySelector('.mq__pending')).toBeNull();
+    });
+
+    it('anular cierra el QR y lo avisa', async () => {
+      const { fixture, root, service } = setup(of([quote()]), of(charge()));
+      await settle(fixture);
+      button(root, 'Ver QR').click();
+      await settle(fixture);
+
+      button(root, 'Anular QR').click();
+      await settle(fixture);
+
+      expect(service.cancelMyQrCharge).toHaveBeenCalledWith('charge-1');
+      expect(root.querySelector('.qr-modal')).toBeNull();
+      expect(root.querySelector('.mq__success')?.textContent).toContain('Anulaste el QR');
+    });
+
+    it('cerrar deja el QR pendiente para retomarlo', async () => {
+      const { fixture, root } = setup(of([quote()]), of(charge()));
+      await settle(fixture);
+      button(root, 'Ver QR').click();
+      await settle(fixture);
+
+      root.querySelector<HTMLButtonElement>('.qr-modal__close')!.click();
+      await settle(fixture);
+
+      expect(root.querySelector('.qr-modal')).toBeNull();
+      expect(root.querySelector('.mq__pending')).not.toBeNull();
+    });
+
+    it('si ya tenía un QR pendiente (409), le muestra ese', async () => {
+      const { fixture, root, service } = setup(of([quote()]));
+      service.createMyQrCharge.mockReturnValue(throwError(() => new HttpErrorResponse({ status: 409 })));
+      service.getMyPendingQrCharge.mockReturnValue(of(charge({ amount: 300 })));
+      check(root, 0);
+      await settle(fixture);
+
+      button(root, 'Pagar con QR').click();
+      await settle(fixture);
+      // Pide el QR pendiente después del 409: una espera más.
+      await settle(fixture);
+
+      expect(root.querySelector('.qr-modal__message')?.textContent).toContain('Ya tenías un QR pendiente');
+      expect(root.querySelector('.qr-modal__amount')?.textContent).toContain('Bs. 300,00');
+    });
+
+    it('si falla al generar, lo dice', async () => {
+      const { fixture, root, service } = setup(of([quote()]));
+      service.createMyQrCharge.mockReturnValue(throwError(() => new HttpErrorResponse({ status: 502 })));
+      check(root, 0);
+      await settle(fixture);
+
+      button(root, 'Pagar con QR').click();
+      await settle(fixture);
+
+      expect(root.querySelector('.mq__error')?.textContent).toContain('No pudimos generar el QR');
+      expect(root.querySelector('.qr-modal')).toBeNull();
+    });
   });
 });
