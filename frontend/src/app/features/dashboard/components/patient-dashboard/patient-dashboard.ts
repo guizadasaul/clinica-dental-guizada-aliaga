@@ -15,6 +15,7 @@ import type { PatientAppointment } from '../../../appointments/models/appointmen
 import { MyTreatmentHistoryComponent } from '../../../treatments/components/my-treatment-history/my-treatment-history';
 import { MyQuoteComponent } from '../../../quotes/components/my-quote/my-quote';
 import { MyVisitsComponent } from '../../../appointments/components/my-visits/my-visits';
+import { MyProfileComponent } from '../../../patients/components/my-profile/my-profile';
 import { QuotesService } from '../../../quotes/services/quotes.service';
 import { formatBs } from '../../../../shared/utils/money.util';
 
@@ -43,7 +44,7 @@ const TIME_FORMATTER = new Intl.DateTimeFormat('es-BO', {
   selector: 'app-patient-dashboard',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [MyTreatmentHistoryComponent, MyQuoteComponent, MyVisitsComponent],
+  imports: [MyTreatmentHistoryComponent, MyQuoteComponent, MyVisitsComponent, MyProfileComponent],
   templateUrl: './patient-dashboard.html',
   styleUrl: './patient-dashboard.scss',
 })

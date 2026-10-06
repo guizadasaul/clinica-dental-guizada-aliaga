@@ -19,6 +19,8 @@ import type { FinancialReport, OperationalReport } from '../../reports/models/re
 class MyTreatmentHistoryStub {}
 @Component({ selector: 'app-my-visits', standalone: true, template: 'mis citas' })
 class MyVisitsStub {}
+@Component({ selector: 'app-my-profile', standalone: true, template: 'mi perfil' })
+class MyProfileStub {}
 @Component({ selector: 'app-admin-doctors', standalone: true, template: 'doctores' })
 class AdminDoctorsStub {}
 @Component({ selector: 'app-reports-page', standalone: true, template: 'reportes' })
@@ -60,7 +62,7 @@ describe('PatientDashboardComponent', () => {
       ],
     });
     TestBed.overrideComponent(PatientDashboardComponent, {
-      set: { imports: [MyTreatmentHistoryStub, MyVisitsStub] },
+      set: { imports: [MyTreatmentHistoryStub, MyVisitsStub, MyProfileStub] },
     });
     const fixture = TestBed.createComponent(PatientDashboardComponent);
     fixture.componentRef.setInput('activeNav', nav);
@@ -221,6 +223,12 @@ describe('PatientDashboardComponent', () => {
     const { fixture } = setup('appointments');
 
     expect(fixture.debugElement.query(By.directive(MyVisitsStub))).toBeTruthy();
+  });
+
+  it('"Mi perfil" muestra la historia clínica inicial (CLI-214)', () => {
+    const { fixture } = setup('profile');
+
+    expect(fixture.debugElement.query(By.directive(MyProfileStub))).toBeTruthy();
   });
 
   it('"Mi historial" muestra los tratamientos recibidos (CLI-211)', () => {

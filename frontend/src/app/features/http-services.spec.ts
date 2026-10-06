@@ -381,6 +381,12 @@ function cases(s: ReturnType<typeof services>): Case[] {
       url: `${API}/patients/me/appointments`,
     },
     {
+      name: 'paciente: mi historia clínica inicial (CLI-213)',
+      call: () => s.patients.getMyClinicalRecord(),
+      method: 'GET',
+      url: `${API}/patients/me/clinical-record`,
+    },
+    {
       name: 'paciente: mi registro de visitas (CLI-209)',
       call: () => s.appointments.getMyPast(),
       method: 'GET',
