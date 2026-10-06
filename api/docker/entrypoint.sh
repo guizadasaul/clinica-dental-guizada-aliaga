@@ -23,5 +23,12 @@ if [ "$SEED_DEMO" = "true" ]; then
   npx ts-node prisma/seed-demo.ts
 fi
 
+# Datos de muestra (CLI-202): 40 pacientes con historial, presupuestos y
+# agendas llenas. Apagado por defecto; borra y recrea solo lo suyo.
+if [ "$SEED_SAMPLE" = "true" ]; then
+  echo "→ Sembrando datos de muestra (SEED_SAMPLE=true)..."
+  npx ts-node prisma/seed-sample.ts
+fi
+
 echo "→ Iniciando API..."
 exec "$@"

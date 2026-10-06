@@ -27,6 +27,12 @@ on:
         description: Correr el seed de catálogos (idempotente)
         type: boolean
         default: true
+      # Solo a mano: no existe en workflow_call, así que ningún deploy lo
+      # corre. Borra y recrea los datos de muestra (@muestra.example.com).
+      seed_sample_data:
+        description: Recargar los datos de muestra — pacientes, citas, presupuestos (solo staging)
+        type: boolean
+        default: false
   workflow_call:
     inputs:
       environment:
@@ -73,6 +79,7 @@ jobs:
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           SEED_DEMO: ${{ inputs.seed_demo }}
+          SEED_SAMPLE: ${{ inputs.seed_sample_data }}
         run: |
           if [ -z "$DATABASE_URL" ]; then
             echo "::error::Falta el secret DATABASE_URL en el Environment '$APP_ENV'"
@@ -86,6 +93,10 @@ jobs:
           esac
           if [ "$SEED_DEMO" = "true" ] && [ "$APP_ENV" = "production" ]; then
             echo "::error::Los usuarios de demo nunca se siembran en producción"
+            exit 1
+          fi
+          if [ "$SEED_SAMPLE" = "true" ] && [ "$APP_ENV" != "staging" ]; then
+            echo "::error::Los datos de muestra solo se cargan en staging"
             exit 1
           fi
 
@@ -123,6 +134,13 @@ jobs:
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
         run: npm run seed:demo
+
+      # Después de los demo: Pavel (doctor de demo) es uno de los 3 doctores.
+      - name: Datos de muestra
+        if: inputs.seed_sample_data && inputs.environment == 'staging'
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: npm run seed:sample
 
       - name: Verificar la base
         env:
