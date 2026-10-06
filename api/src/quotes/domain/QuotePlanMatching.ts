@@ -58,7 +58,7 @@ function lineMatches(
 /**
  * La línea del presupuesto que cumple lo que se registró (CLI-226): la
  * primera por realizar del mismo tratamiento y las mismas piezas, buscando
- * en todos los presupuestos del paciente — también los pagados por
+ * en cada presupuesto del paciente — también los pagados por
  * adelantado —, del más viejo al más nuevo. null si no está en el plan.
  *
  * - single_tooth: la misma pieza.

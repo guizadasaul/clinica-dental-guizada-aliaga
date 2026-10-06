@@ -38,7 +38,7 @@ const PRICE_TOLERANCE = 0.005;
  *   doctor cobró otro precio, la línea toma ese precio.
  * - Si no está, se suma al presupuesto abierto (o a uno nuevo), que queda
  *   compartido para que el paciente vea lo que debe.
- * Todo en una sola transacción (TreatmentPlanRepository).
+ * Se guarda en una sola transacción (TreatmentPlanRepository).
  */
 @Injectable()
 export class TreatmentPlanService {
