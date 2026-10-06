@@ -126,4 +126,28 @@ describe('MyTreatmentHistoryComponent (CLI-211)', () => {
   it('con un solo tipo no muestra el filtro', () => {
     expect(setup(of([proc()])).root.querySelector('.history__select')).toBeNull();
   });
+
+  it('muestra de a 10 tratamientos y pagina el resto; filtrar vuelve a la primera página', () => {
+    const many = Array.from({ length: 12 }, (_, i) =>
+      proc({
+        id: `p-${i}`,
+        procedureDate: `2026-09-${String(i + 1).padStart(2, '0')}T00:00:00.000Z`,
+        categoryName: i === 0 ? 'Endodoncia' : 'Restauraciones',
+      }),
+    );
+    const { fixture, root } = setup(of(many));
+    const rows = () => root.querySelectorAll('.treatment');
+
+    expect(rows()).toHaveLength(10);
+    const next = [...root.querySelectorAll<HTMLButtonElement>('app-pagination button')].at(-1)!;
+    next.click();
+    fixture.detectChanges();
+    expect(rows()).toHaveLength(2);
+
+    const select = root.querySelector<HTMLSelectElement>('.history__select')!;
+    select.value = 'Restauraciones';
+    select.dispatchEvent(new Event('change'));
+    fixture.detectChanges();
+    expect(rows()).toHaveLength(10);
+  });
 });

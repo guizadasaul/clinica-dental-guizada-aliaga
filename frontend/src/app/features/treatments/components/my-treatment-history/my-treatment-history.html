@@ -43,6 +43,7 @@
           </li>
         }
       </ul>
+      <app-pagination [total]="filtered().length" [page]="currentPage()" (pageChange)="goToPage($event)" />
     }
   </div>
 </div>

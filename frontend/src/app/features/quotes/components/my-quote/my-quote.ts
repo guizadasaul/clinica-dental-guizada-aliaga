@@ -1,11 +1,13 @@
-import { Component, ChangeDetectionStrategy, computed, inject } from '@angular/core';
+import { Component, ChangeDetectionStrategy, computed, inject, signal } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { catchError, map, of } from 'rxjs';
 import { QuotesService } from '../../services/quotes.service';
 import type { Quote } from '../../models/quote.model';
 import { groupQuoteLines, paymentMethodLabel } from '../../utils/quote-lines';
-import { allocatePayments, type Allocation } from '../../utils/payment-allocation';
+import { allocatePayments, type AllocatedLine, type Allocation } from '../../utils/payment-allocation';
 import { PageHeaderComponent } from '../../../../shared/ui/page-header/page-header';
+import { PaginationComponent, PAGE_SIZE } from '../../../../shared/ui/pagination/pagination';
+import { clampPage, pageSlice } from '../../../../shared/utils/pagination.util';
 import { formatBs } from '../../../../shared/utils/money.util';
 import { CLINIC_TIME_ZONE } from '../../../../shared/utils/clinic-date.util';
 
@@ -44,7 +46,7 @@ function toView(quote: Quote): QuoteView {
   selector: 'app-my-quote',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [PageHeaderComponent],
+  imports: [PageHeaderComponent, PaginationComponent],
   templateUrl: './my-quote.html',
   styleUrl: './my-quote.scss',
 })
@@ -77,6 +79,23 @@ export class MyQuoteComponent {
       paidPercent: total > 0 ? Math.min(100, Math.round((paid / total) * 100)) : 0,
     };
   });
+
+  // CLI-216: los tratamientos de cada presupuesto, de a 10. La página se
+  // guarda por presupuesto (puede haber más de uno compartido).
+  private readonly pages = signal<Record<string, number>>({});
+  protected readonly pageSize = PAGE_SIZE;
+
+  protected linePage(view: QuoteView): number {
+    return clampPage(this.pages()[view.quote.id] ?? 1, view.allocation.lines.length, PAGE_SIZE);
+  }
+
+  protected pagedLines(view: QuoteView): AllocatedLine[] {
+    return pageSlice(view.allocation.lines, this.linePage(view), PAGE_SIZE);
+  }
+
+  protected goToLinePage(view: QuoteView, page: number): void {
+    this.pages.update((pages) => ({ ...pages, [view.quote.id]: page }));
+  }
 
   protected readonly bs = formatBs;
   protected readonly methodLabel = paymentMethodLabel;

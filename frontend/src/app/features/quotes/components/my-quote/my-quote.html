@@ -52,7 +52,7 @@
                   </tr>
                 </thead>
                 <tbody>
-                  @for (l of view.allocation.lines; track l.line.key) {
+                  @for (l of pagedLines(view); track l.line.key) {
                     <tr class="mq__line">
                       <td>
                         {{ l.line.treatmentName }}
@@ -72,6 +72,11 @@
                   }
                 </tbody>
               </table>
+              <app-pagination
+                [total]="view.allocation.lines.length"
+                [page]="linePage(view)"
+                (pageChange)="goToLinePage(view, $event)"
+              />
 
               <h3 class="mq__section-title">Pagos</h3>
               @if (view.allocation.payments.length === 0) {

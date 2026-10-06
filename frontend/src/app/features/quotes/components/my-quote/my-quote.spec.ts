@@ -161,4 +161,31 @@ describe('MyQuoteComponent', () => {
 
     expect(root.querySelector<HTMLProgressElement>('progress')?.value).toBe(0);
   });
+
+  it('pagina los tratamientos de a 10 en cada presupuesto', () => {
+    const items = Array.from({ length: 13 }, (_, i) => ({
+      ...quote().items[0],
+      id: `item-${i}`,
+      treatmentName: `Tratamiento ${i + 1}`,
+      toothNumber: null,
+      subtotal: 100,
+    }));
+    TestBed.configureTestingModule({
+      imports: [MyQuoteComponent],
+      providers: [
+        { provide: QuotesService, useValue: { getMine: () => of([quote({ totalAmount: 1300, balance: 1300, items })]) } },
+      ],
+    });
+    const fixture = TestBed.createComponent(MyQuoteComponent);
+    fixture.detectChanges();
+    const root = fixture.nativeElement as HTMLElement;
+    const names = () => [...root.querySelectorAll('.mq__line td:first-child')].map((c) => c.textContent?.trim());
+
+    expect(names()).toHaveLength(10);
+    expect(names()[0]).toBe('Tratamiento 1');
+    const next = [...root.querySelectorAll<HTMLButtonElement>('app-pagination button')].at(-1)!;
+    next.click();
+    fixture.detectChanges();
+    expect(names()).toEqual(['Tratamiento 11', 'Tratamiento 12', 'Tratamiento 13']);
+  });
 });

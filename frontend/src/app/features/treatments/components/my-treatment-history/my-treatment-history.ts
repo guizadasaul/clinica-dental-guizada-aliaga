@@ -3,6 +3,8 @@ import { toSignal } from '@angular/core/rxjs-interop';
 import { catchError, map, of } from 'rxjs';
 import { TreatmentsService } from '../../services/treatments.service';
 import { PageHeaderComponent } from '../../../../shared/ui/page-header/page-header';
+import { PaginationComponent, PAGE_SIZE } from '../../../../shared/ui/pagination/pagination';
+import { clampPage, pageSlice } from '../../../../shared/utils/pagination.util';
 import type {
   ToothProcedure,
   ToothSurfaceCode,
@@ -117,7 +119,7 @@ function toApplications(procedures: ToothProcedure[]): (ApplicationView & { iso:
   selector: 'app-my-treatment-history',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [PageHeaderComponent],
+  imports: [PageHeaderComponent, PaginationComponent],
   templateUrl: './my-treatment-history.html',
   styleUrl: './my-treatment-history.scss',
 })
@@ -143,14 +145,28 @@ export class MyTreatmentHistoryComponent {
 
   protected readonly filter = signal<string | null>(null);
 
-  protected readonly visible = computed(() => {
+  protected readonly filtered = computed(() => {
     const selected = this.filter();
     const all = this.applications() ?? [];
     return selected ? all.filter((a) => a.categoryName === selected) : all;
   });
 
+  // CLI-216: de a 10 tratamientos, como las listas del panel del doctor.
+  private readonly requestedPage = signal(1);
+  protected readonly currentPage = computed(() =>
+    clampPage(this.requestedPage(), this.filtered().length, PAGE_SIZE),
+  );
+  protected readonly visible = computed(() =>
+    pageSlice(this.filtered(), this.currentPage(), PAGE_SIZE),
+  );
+
   protected onFilter(event: Event): void {
     const value = (event.target as HTMLSelectElement).value;
     this.filter.set(value || null);
+    this.requestedPage.set(1);
+  }
+
+  protected goToPage(page: number): void {
+    this.requestedPage.set(page);
   }
 }
