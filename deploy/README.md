@@ -96,6 +96,13 @@ dos sistemas de migración sobre las mismas tablas terminan en drift.
 - Nunca contra un ambiente remoto: `prisma migrate dev`, `prisma migrate reset`, `prisma db push`.
 - Seed de catálogos (`npx prisma db seed`): idempotente. En staging corre en cada deploy; en producción solo
   a mano. `prisma/seed-demo.ts` se niega a correr con `APP_ENV=production`.
+- Datos de muestra (`prisma/seed-sample.ts`, CLI-202): 3 doctores, 40 pacientes con historial, presupuestos y
+  agendas llenas. **Solo staging y local**: en staging, *DB migrate* → `staging` con "Recargar los datos de
+  muestra" marcado (el deploy nunca lo corre); en local, `npm run seed:sample`. Cada corrida borra y recrea solo
+  lo que cuelga de `@muestra.example.com`, con fechas relativas a hoy. Se niega a correr con
+  `APP_ENV=production` o si `DATABASE_URL`/`SUPABASE_URL` apuntan al Supabase de producción, y el workflow
+  rechaza pedirlo para `production`. Las cuentas con login (2 doctores + 12 pacientes) viven en el Supabase Auth
+  de staging: `scripts/create-sample-auth-users.mjs`.
 - Toda tabla nueva necesita `ALTER TABLE ... ENABLE ROW LEVEL SECURITY` en su migración
   (`test/rls.e2e-spec.ts` falla en CI si falta). Ver el porqué en la migración
   `20260925000000_enable_rls_all_public_tables`.
@@ -227,7 +234,7 @@ ambiente: alcanza para una clínica chica).
 | `ci.yml` | cada PR y push a `develop`/`main` | tests + coverage + Sonar (runner propio), e2e, guard `db-safety` |
 | `deploy-staging.yml` | push a `develop` (PR mergeado), o a mano | imagen → GHCR (`clinic-api:<sha>`), `DB migrate` en staging, `deploy.sh staging <sha>` por SSH, smoke test |
 | `deploy-production.yml` | push a `main` (PR `develop → main` o `hotfix/*`), o a mano | imagen → GHCR, **[aprobación]** migraciones en producción (sin seed), **[aprobación]** `deploy.sh production <sha>`, smoke test |
-| `db-migrate.yml` | a mano, o llamado por el deploy | `migrate deploy` + seed de catálogos (opcional) + verificación de la base |
+| `db-migrate.yml` | a mano, o llamado por el deploy | `migrate deploy` + seed de catálogos (opcional) + datos de muestra (solo staging, solo a mano) + verificación de la base |
 
 Los deploys corren en runners de GitHub (nunca en el runner propio). Rollback: *Run workflow* de
 `Deploy staging` con el SHA anterior en `ref`, o `/opt/clinic/deploy.sh staging <sha anterior>` en el VPS.
