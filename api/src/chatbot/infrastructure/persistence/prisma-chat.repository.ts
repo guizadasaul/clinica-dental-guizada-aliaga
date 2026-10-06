@@ -154,7 +154,12 @@ export class PrismaChatRepository implements ChatRepository {
         },
       },
     });
-    return records.map((record) => ChatMapper.toTurnRecord(record));
+    // Prisma trae los turnos y sus sesiones en consultas separadas: si la
+    // sesión se borró en el medio (limpieza de inactivas) llega null aunque el
+    // tipo diga lo contrario. Ese turno ya no cuenta para la métrica.
+    return records
+      .filter((record) => (record.chat_sessions as unknown) !== null)
+      .map((record) => ChatMapper.toTurnRecord(record));
   }
 
   async deleteInactiveSince(date: Date): Promise<number> {
