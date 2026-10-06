@@ -5,6 +5,7 @@ import { DatePipe, DecimalPipe } from '@angular/common';
 import { NEVER, of, throwError } from 'rxjs';
 import { FinancesPageComponent } from './finances-page';
 import { FinancesService } from '../../services/finances.service';
+import { PaginationComponent } from '../../../../shared/ui/pagination/pagination';
 import { PageHeaderComponent } from '../../../../shared/ui/page-header/page-header';
 import type { PatientBalance, PatientFinanceDetail } from '../../models/finance.model';
 import type { Quote } from '../../../quotes/models/quote.model';
@@ -96,7 +97,7 @@ function setup(list = of(PATIENTS)) {
     providers: [{ provide: FinancesService, useValue: finances }],
   });
   TestBed.overrideComponent(FinancesPageComponent, {
-    set: { imports: [PageHeaderComponent, DecimalPipe, DatePipe, RegisterPaymentStub] },
+    set: { imports: [PageHeaderComponent, DecimalPipe, DatePipe, RegisterPaymentStub, PaginationComponent] },
   });
   const fixture = TestBed.createComponent(FinancesPageComponent);
   const root = fixture.nativeElement as HTMLElement;
@@ -167,6 +168,57 @@ describe('FinancesPageComponent', () => {
       'Reciente Z',
       'Antiguo A',
     ]);
+  });
+
+  describe('paginación (CLI-204)', () => {
+    const many = Array.from({ length: 23 }, (_, i) => ({
+      ...PATIENTS[0],
+      patientId: `p${i}`,
+      patientName: `Paciente ${String(i + 1).padStart(2, '0')}`,
+    }));
+    const names = (root: HTMLElement) =>
+      [...root.querySelectorAll('.fin__patient-name')].map((n) => n.textContent?.trim());
+
+    it('muestra 10 por página y avanza y retrocede', () => {
+      const { root, tick } = setup(of(many));
+
+      expect(names(root)).toHaveLength(10);
+      expect(names(root)[0]).toBe('Paciente 01');
+      expect(root.textContent).toContain('Página 1 de 3');
+
+      root.querySelector<HTMLButtonElement>('button[aria-label="Página siguiente"]')!.click();
+      tick();
+      expect(names(root)[0]).toBe('Paciente 11');
+
+      root.querySelector<HTMLButtonElement>('button[aria-label="Página siguiente"]')!.click();
+      tick();
+      expect(names(root)).toEqual(['Paciente 21', 'Paciente 22', 'Paciente 23']);
+
+      root.querySelector<HTMLButtonElement>('button[aria-label="Página anterior"]')!.click();
+      tick();
+      expect(names(root)[0]).toBe('Paciente 11');
+    });
+
+    it('con 10 o menos no muestra la paginación', () => {
+      const { root } = setup(of(many.slice(0, 10)));
+
+      expect(names(root)).toHaveLength(10);
+      expect(root.querySelector('.pagination')).toBeNull();
+    });
+
+    it('al buscar vuelve a la página 1', () => {
+      const { root, tick } = setup(of(many));
+      root.querySelector<HTMLButtonElement>('button[aria-label="Página siguiente"]')!.click();
+      tick();
+      expect(names(root)[0]).toBe('Paciente 11');
+
+      const input = root.querySelector<HTMLInputElement>('input[type="search"]')!;
+      input.value = 'Paciente';
+      input.dispatchEvent(new Event('input'));
+      tick();
+
+      expect(names(root)[0]).toBe('Paciente 01');
+    });
   });
 
   it('sin pacientes muestra el vacío', () => {

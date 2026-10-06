@@ -13,6 +13,8 @@ import { FinancesService } from '../../services/finances.service';
 import type { PatientBalance, PatientFinanceDetail } from '../../models/finance.model';
 import type { Quote } from '../../../quotes/models/quote.model';
 import { groupQuoteLines, paymentMethodLabel } from '../../../quotes/utils/quote-lines';
+import { PaginationComponent, PAGE_SIZE } from '../../../../shared/ui/pagination/pagination';
+import { clampPage, pageSlice } from '../../../../shared/utils/pagination.util';
 import { RegisterPaymentComponent } from '../register-payment/register-payment';
 
 type ListState = { status: 'loading' } | { status: 'error' } | { status: 'ready'; patients: PatientBalance[] };
@@ -32,7 +34,7 @@ const SEARCH_DEBOUNCE_MS = 250;
   selector: 'app-finances-page',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [PageHeaderComponent, DecimalPipe, DatePipe, RegisterPaymentComponent],
+  imports: [PageHeaderComponent, DecimalPipe, DatePipe, RegisterPaymentComponent, PaginationComponent],
   templateUrl: './finances-page.html',
   styleUrl: './finances-page.scss',
 })
@@ -62,6 +64,24 @@ export class FinancesPageComponent {
     const state = this.list();
     return state.status === 'ready' ? state.patients : [];
   });
+
+  /** Página pedida; la que se ve se ajusta si la lista se achicó (CLI-204). */
+  private readonly requestedPage = signal(1);
+  protected readonly currentPage = computed(() =>
+    clampPage(this.requestedPage(), this.patients().length, PAGE_SIZE),
+  );
+  protected readonly visiblePatients = computed(() =>
+    pageSlice(this.patients(), this.currentPage(), PAGE_SIZE),
+  );
+
+  protected onSearch(value: string): void {
+    this.search.set(value);
+    this.requestedPage.set(1);
+  }
+
+  protected goToPage(page: number): void {
+    this.requestedPage.set(page);
+  }
 
   protected readonly selectedId = signal<string | null>(null);
   protected readonly detailState = signal<DetailState>({ status: 'idle' });
