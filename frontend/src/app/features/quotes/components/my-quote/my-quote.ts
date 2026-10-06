@@ -1,4 +1,4 @@
-import { Component, ChangeDetectionStrategy, computed, inject, signal } from '@angular/core';
+import { Component, ChangeDetectionStrategy, computed, inject, signal, type OnInit } from '@angular/core';
 import { toObservable, toSignal } from '@angular/core/rxjs-interop';
 import { HttpErrorResponse } from '@angular/common/http';
 import { catchError, firstValueFrom, map, of, startWith, switchMap } from 'rxjs';
@@ -56,7 +56,7 @@ const round2 = (n: number) => Math.round(n * 100) / 100;
   templateUrl: './my-quote.html',
   styleUrl: './my-quote.scss',
 })
-export class MyQuoteComponent {
+export class MyQuoteComponent implements OnInit {
   private readonly quotesService = inject(QuotesService);
 
   /** Se incrementa para volver a pedir los presupuestos (después de un pago). */
@@ -197,7 +197,7 @@ export class MyQuoteComponent {
     }));
   });
 
-  constructor() {
+  ngOnInit(): void {
     void this.loadPendingCharge();
   }
 
