@@ -29,11 +29,6 @@ const LONG_DATE_FORMATTER = new Intl.DateTimeFormat('es-BO', {
   day: 'numeric',
   month: 'long',
 });
-const MONTH_YEAR_FORMATTER = new Intl.DateTimeFormat('es-BO', {
-  timeZone: 'America/La_Paz',
-  month: 'long',
-  year: 'numeric',
-});
 const TIME_FORMATTER = new Intl.DateTimeFormat('es-BO', {
   timeZone: 'America/La_Paz',
   hour: '2-digit',
@@ -84,12 +79,6 @@ export class PatientDashboardComponent {
     () => this.visits()?.filter((v) => v.status !== 'no_show') ?? null,
   );
   protected readonly visitsCount = computed(() => this.attended()?.length ?? null);
-  protected readonly firstVisitLabel = computed(() => {
-    const list = this.attended();
-    const first = list?.at(-1);
-    return first ? MONTH_YEAR_FORMATTER.format(new Date(first.appointmentDatetime)) : null;
-  });
-
   /** CLI-209: lo que debe sumando sus presupuestos compartidos. */
   private readonly quotes = toSignal(
     this.quotesService.getMine().pipe(catchError(() => of([]))),
@@ -100,15 +89,7 @@ export class PatientDashboardComponent {
     if (!quotes) {
       return null;
     }
-    const total = quotes.reduce((sum, q) => sum + q.totalAmount, 0);
-    const paid = quotes.reduce((sum, q) => sum + q.totalPaid, 0);
-    const balance = quotes.reduce((sum, q) => sum + q.balance, 0);
-    return {
-      hasQuotes: quotes.length > 0,
-      balance: formatBs(balance),
-      paidPercent: total > 0 ? Math.min(100, Math.round((paid / total) * 100)) : 0,
-      settled: quotes.length > 0 && balance <= 0,
-    };
+    return { balance: formatBs(quotes.reduce((sum, q) => sum + q.balance, 0)) };
   });
 
   protected readonly whatsappUrl = computed(() => {

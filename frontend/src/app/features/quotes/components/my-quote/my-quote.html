@@ -1,145 +1,134 @@
-<section class="mq" aria-labelledby="mq-title">
-  <header>
-    <p class="mq__eyebrow"><span class="mq__dot" aria-hidden="true"></span>Estado de cuenta</p>
-    <h1 id="mq-title" class="mq__title">Mi presupuesto</h1>
-    <p class="mq__subtitle">Lo que debes, lo que pagaste y a qué tratamiento se aplicó cada pago.</p>
-  </header>
+<div class="page">
+  <section class="mq" aria-labelledby="mq-title">
+    <app-page-header title="Mi presupuesto" subtitle="Lo que debes, lo que pagaste y a qué tratamiento se aplicó cada pago." />
 
-  @switch (state().status) {
-    @case ('loading') {
-      <div class="mq__state">
-        <span class="mq__spinner" aria-hidden="true"></span>
-        <p>Cargando tu presupuesto...</p>
-      </div>
-    }
-    @case ('error') {
-      <div class="mq__state mq__state--error">
-        <span class="material-symbols-outlined" aria-hidden="true">error</span>
-        <p>No pudimos cargar tu presupuesto. Intenta de nuevo en un momento.</p>
-      </div>
-    }
-    @default {
-      @if (views().length === 0) {
-        <div class="mq__state">
-          <span class="material-symbols-outlined" aria-hidden="true">request_quote</span>
-          <p>Tu doctor todavía no compartió un presupuesto.</p>
-        </div>
-      } @else {
-        <section class="mq__summary" aria-label="Resumen de tu cuenta">
-          <div class="mq__figures">
-            <div class="mq__figure">
-              <span class="mq__figure-label">Total</span>
-              <span class="mq__figure-value">{{ bs(totals().total) }}</span>
+    @switch (state().status) {
+      @case ('loading') {
+        <p class="mq__muted">Cargando tu presupuesto...</p>
+      }
+      @case ('error') {
+        <p class="mq__error" role="alert">No pudimos cargar tu presupuesto. Intenta de nuevo en un momento.</p>
+      }
+      @default {
+        @if (views().length === 0) {
+          <div class="mq-empty">
+            <div class="mq-empty__icon" aria-hidden="true">
+              <span class="material-symbols-outlined">request_quote</span>
             </div>
-            <div class="mq__figure mq__figure--paid">
-              <span class="mq__figure-label">Pagado</span>
-              <span class="mq__figure-value">{{ bs(totals().paid) }}</span>
+            <p class="mq-empty__text">Tu doctor todavía no compartió un presupuesto</p>
+          </div>
+        } @else {
+          <div class="mq__cards" aria-label="Resumen de tu cuenta">
+            <div class="mq__card">
+              <span class="mq__card-label">Total presupuestado</span>
+              <span class="mq__card-value">{{ bs(totals().total) }}</span>
             </div>
-            <div class="mq__figure mq__figure--balance">
-              <span class="mq__figure-label">Saldo pendiente</span>
-              <span class="mq__figure-value">{{ bs(totals().balance) }}</span>
+            <div class="mq__card">
+              <span class="mq__card-label">Pagado</span>
+              <span class="mq__card-value">{{ bs(totals().paid) }}</span>
+            </div>
+            <div class="mq__card mq__card--balance">
+              <span class="mq__card-label">Saldo</span>
+              <span class="mq__card-value">{{ bs(totals().balance) }}</span>
             </div>
           </div>
           <progress class="mq__progress" max="100" aria-label="Porcentaje pagado" [value]="totals().paidPercent">
             {{ totals().paidPercent }}%
           </progress>
-          <p class="mq__progress-label">{{ totals().paidPercent }}% pagado</p>
-        </section>
 
-        @for (view of views(); track view.quote.id) {
-          <article class="mq__quote" [attr.aria-label]="'Presupuesto del ' + view.date">
-            <div class="mq__quote-head">
-              <h2 class="mq__quote-title">Presupuesto del {{ view.date }}</h2>
-              @if (view.quote.balance <= 0) {
-                <span class="mq__chip mq__chip--paid">Pagado</span>
-              } @else if (view.quote.totalPaid > 0) {
-                <span class="mq__chip mq__chip--partial">Pago parcial</span>
-              } @else {
-                <span class="mq__chip mq__chip--pending">Pendiente de pago</span>
+          @for (view of views(); track view.quote.id) {
+            <article class="mq__quote">
+              @if (views().length > 1) {
+                <h2 class="section-title">Presupuesto del {{ view.date }}</h2>
               }
-            </div>
 
-            <section class="mq__card" aria-label="Tratamientos">
-              <h3 class="mq__card-title">
-                <span class="material-symbols-outlined" aria-hidden="true">dentistry</span>Tratamientos
-              </h3>
+              <h3 class="mq__section-title">Tratamientos</h3>
               <table class="mq__table">
-                <caption class="mq__sr">Tratamientos del presupuesto con lo pagado y lo pendiente</caption>
                 <thead>
                   <tr>
                     <th scope="col">Tratamiento</th>
                     <th scope="col" class="mq__num">Precio</th>
-                    <th scope="col" class="mq__num">Pagado</th>
                     <th scope="col" class="mq__num">Pendiente</th>
-                    <th scope="col" class="mq__center">Estado</th>
                   </tr>
                 </thead>
                 <tbody>
-                  @for (l of view.allocation.lines; track l.line.key) {
+                  @for (l of pagedLines(view); track l.line.key) {
                     <tr class="mq__line">
-                      <td class="mq__line-main">
-                        <span class="mq__line-name">{{ l.line.treatmentName }}</span>
+                      <td>
+                        {{ l.line.treatmentName }}
                         @if (l.line.toothNumbers.length > 0) {
-                          <span class="mq__teeth">
-                            @for (n of l.line.toothNumbers; track n) {
-                              <span class="mq__tooth">Pieza {{ n }}</span>
-                            }
-                          </span>
+                          <small class="mq__teeth">· pieza{{ l.line.toothNumbers.length === 1 ? '' : 's' }} {{ l.line.toothNumbers.join(', ') }}</small>
                         }
                       </td>
-                      <td class="mq__num" data-label="Precio">{{ bs(l.line.total) }}</td>
-                      <td class="mq__num mq__num--paid" data-label="Pagado">{{ bs(l.paid) }}</td>
-                      <td class="mq__num mq__num--pending" data-label="Pendiente">{{ bs(l.pending) }}</td>
-                      <td class="mq__center">
-                        <span class="mq__chip mq__chip--{{ l.status }}">{{ statusLabel(l.status) }}</span>
+                      <td class="mq__num">{{ bs(l.line.total) }}</td>
+                      <td class="mq__num">
+                        @if (l.status === 'paid') {
+                          <span class="mq__paid">Pagado</span>
+                        } @else {
+                          <strong>{{ bs(l.pending) }}</strong>
+                        }
                       </td>
                     </tr>
                   }
                 </tbody>
               </table>
-            </section>
+              <app-pagination
+                [total]="view.allocation.lines.length"
+                [page]="linePage(view)"
+                (pageChange)="goToLinePage(view, $event)"
+              />
 
-            <section class="mq__card" aria-label="Pagos realizados">
-              <h3 class="mq__card-title">
-                <span class="material-symbols-outlined" aria-hidden="true">receipt_long</span>Pagos realizados
-              </h3>
+              <h3 class="mq__section-title">Pagos</h3>
               @if (view.allocation.payments.length === 0) {
-                <p class="mq__muted">Todavía no registraste pagos en este presupuesto.</p>
+                <p class="mq__muted">Todavía no hay pagos registrados.</p>
               } @else {
-                <ol class="mq__payments">
-                  @for (p of view.allocation.payments; track p.payment.id) {
-                    <li class="mq__payment">
-                      <div class="mq__payment-head">
-                        <span class="mq__payment-icon" aria-hidden="true">
-                          <span class="material-symbols-outlined">payments</span>
-                        </span>
-                        <div class="mq__payment-info">
-                          <p class="mq__payment-date">{{ paymentDate(p.payment.paymentDate) }}</p>
-                          <p class="mq__payment-meta">
-                            {{ methodLabel(p.payment.paymentMethod) }} · Recibo {{ p.payment.receiptNumber }}
-                          </p>
-                        </div>
-                        <strong class="mq__payment-amount">{{ bs(p.payment.amount) }}</strong>
-                      </div>
-                      @if (p.covered.length > 0) {
-                        <p class="mq__covered">
-                          <span class="mq__covered-label">Cubrió:</span>
-                          @for (c of p.covered; track c.key) {
-                            <span class="mq__covered-chip">{{ c.treatmentName }} ({{ bs(c.amount) }})</span>
-                          }
-                        </p>
+                <table class="mq__table">
+                  <thead>
+                    <tr>
+                      <th scope="col">Fecha</th>
+                      <th scope="col">Método</th>
+                      <th scope="col">Recibo</th>
+                      <th scope="col" class="mq__num">Monto</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    @for (p of pagedPayments(view); track p.payment.id) {
+                      <tr class="mq__payment" [class.mq__payment--detailed]="p.covered.length > 0 || p.payment.notes">
+                        <td>{{ paymentDate(p.payment.paymentDate) }}</td>
+                        <td>{{ methodLabel(p.payment.paymentMethod) }}</td>
+                        <td>{{ p.payment.receiptNumber }}</td>
+                        <td class="mq__num">{{ bs(p.payment.amount) }}</td>
+                      </tr>
+                      @if (p.covered.length > 0 || p.payment.notes) {
+                        <tr class="mq__payment-detail">
+                          <td colspan="4">
+                            @if (p.covered.length > 0) {
+                              <span class="mq__covered">
+                                Cubrió:
+                                @for (c of p.covered; track c.key; let last = $last) {
+                                  {{ c.treatmentName }} ({{ bs(c.amount) }}){{ last ? '' : ',' }}
+                                }
+                              </span>
+                            }
+                            @if (p.payment.notes) {
+                              <span class="mq__notes">{{ p.payment.notes }}</span>
+                            }
+                          </td>
+                        </tr>
                       }
-                      @if (p.payment.notes) {
-                        <p class="mq__payment-notes">{{ p.payment.notes }}</p>
-                      }
-                    </li>
-                  }
-                </ol>
+                    }
+                  </tbody>
+                </table>
+                <app-pagination
+                  [total]="view.allocation.payments.length"
+                  [page]="paymentPage(view)"
+                  (pageChange)="goToPaymentPage(view, $event)"
+                />
               }
-            </section>
-          </article>
+            </article>
+          }
         }
       }
     }
-  }
-</section>
+  </section>
+</div>

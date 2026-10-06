@@ -1,25 +1,28 @@
-import { Component, ChangeDetectionStrategy, computed, inject } from '@angular/core';
+import { Component, ChangeDetectionStrategy, computed, inject, signal } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { catchError, map, of } from 'rxjs';
 import { QuotesService } from '../../services/quotes.service';
 import type { Quote } from '../../models/quote.model';
 import { groupQuoteLines, paymentMethodLabel } from '../../utils/quote-lines';
-import { allocatePayments, type Allocation, type LineStatus } from '../../utils/payment-allocation';
+import {
+  allocatePayments,
+  type AllocatedLine,
+  type AllocatedPayment,
+  type Allocation,
+} from '../../utils/payment-allocation';
+import { PageHeaderComponent } from '../../../../shared/ui/page-header/page-header';
+import { PaginationComponent, PAGE_SIZE } from '../../../../shared/ui/pagination/pagination';
+import { clampPage, pageSlice } from '../../../../shared/utils/pagination.util';
 import { formatBs } from '../../../../shared/utils/money.util';
 import { CLINIC_TIME_ZONE } from '../../../../shared/utils/clinic-date.util';
 
+// Mismo formato corto que Finanzas del doctor (dd/mm/aaaa), en hora de Bolivia.
 const DATE_FORMATTER = new Intl.DateTimeFormat('es-BO', {
   timeZone: CLINIC_TIME_ZONE,
-  day: 'numeric',
-  month: 'long',
+  day: '2-digit',
+  month: '2-digit',
   year: 'numeric',
 });
-
-const STATUS_LABELS: Record<LineStatus, string> = {
-  paid: 'Pagado',
-  partial: 'Parcial',
-  pending: 'Pendiente',
-};
 
 interface QuoteView {
   readonly quote: Quote;
@@ -38,7 +41,8 @@ function toView(quote: Quote): QuoteView {
 }
 
 /**
- * "Mi presupuesto" del paciente (CLI-158, rediseñado en CLI-212): lo que debe,
+ * "Mi presupuesto" del paciente (CLI-158, rediseñado en CLI-212 y con el
+ * estilo de Finanzas del doctor desde CLI-216): lo que debe,
  * lo que pagó con fechas y a qué tratamiento se aplicó cada pago. Los pagos
  * se registran contra el presupuesto entero; el reparto por tratamiento lo
  * calcula allocatePayments (en orden, el más antiguo primero).
@@ -47,6 +51,7 @@ function toView(quote: Quote): QuoteView {
   selector: 'app-my-quote',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
+  imports: [PageHeaderComponent, PaginationComponent],
   templateUrl: './my-quote.html',
   styleUrl: './my-quote.scss',
 })
@@ -80,8 +85,39 @@ export class MyQuoteComponent {
     };
   });
 
+  // CLI-216: tratamientos y pagos de cada presupuesto, de a 10. La página se
+  // guarda por presupuesto y por tabla (puede haber más de uno compartido).
+  private readonly pages = signal<Record<string, number>>({});
+
+  private pageOf(key: string, total: number): number {
+    return clampPage(this.pages()[key] ?? 1, total, PAGE_SIZE);
+  }
+
+  protected linePage(view: QuoteView): number {
+    return this.pageOf(`${view.quote.id}:lines`, view.allocation.lines.length);
+  }
+
+  protected pagedLines(view: QuoteView): AllocatedLine[] {
+    return pageSlice(view.allocation.lines, this.linePage(view), PAGE_SIZE);
+  }
+
+  protected paymentPage(view: QuoteView): number {
+    return this.pageOf(`${view.quote.id}:payments`, view.allocation.payments.length);
+  }
+
+  protected pagedPayments(view: QuoteView): AllocatedPayment[] {
+    return pageSlice(view.allocation.payments, this.paymentPage(view), PAGE_SIZE);
+  }
+
+  protected goToLinePage(view: QuoteView, page: number): void {
+    this.pages.update((pages) => ({ ...pages, [`${view.quote.id}:lines`]: page }));
+  }
+
+  protected goToPaymentPage(view: QuoteView, page: number): void {
+    this.pages.update((pages) => ({ ...pages, [`${view.quote.id}:payments`]: page }));
+  }
+
   protected readonly bs = formatBs;
   protected readonly methodLabel = paymentMethodLabel;
-  protected readonly statusLabel = (status: LineStatus) => STATUS_LABELS[status];
   protected readonly paymentDate = (iso: string) => DATE_FORMATTER.format(new Date(iso));
 }

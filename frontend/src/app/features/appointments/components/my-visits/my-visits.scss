@@ -1,469 +1,142 @@
-@use 'patient-portal' as portal;
-@use 'breakpoints' as bp;
-
-// ─── Mis citas del paciente (CLI-210, mockup de Stitch) ──────────────────────
+// ─── Mis citas del paciente (CLI-216: filas como la agenda del doctor) ──────
 
 .visits {
-  @include portal.page;
-}
-
-.visits__eyebrow {
-  @include portal.pill(var(--color-primary-subtle), var(--color-primary-dark));
-
-  margin-bottom: var(--space-3);
-  border: 1px solid var(--color-primary-light);
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-.visits__dot {
-  display: inline-block;
-  width: 0.5rem;
-  height: 0.5rem;
-  border-radius: var(--radius-full);
-  background: var(--color-primary);
-}
-
-.visits__title {
-  @include portal.page-title;
-}
-
-.visits__subtitle {
-  @include portal.page-subtitle;
-}
-
-.visits__loading {
-  margin: 0;
-  color: var(--color-text-muted);
-}
-
-// ─── Resumen ─────────────────────────────────────────────────────────────────
-
-.summary {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: var(--space-4);
-
-  @include bp.down('lg') {
-    grid-template-columns: 1fr;
-  }
-}
-
-.summary__card {
-  @include portal.card;
-
-  display: flex;
-  align-items: center;
-  gap: var(--space-4);
-  padding: var(--space-5) var(--space-6);
-}
-
-.summary__icon {
-  &--primary {
-    @include portal.icon-badge(var(--color-primary-subtle), var(--color-primary));
-  }
-
-  &--teal {
-    @include portal.icon-badge(color-mix(in srgb, var(--color-tertiary) 10%, #fff), var(--color-tertiary));
-  }
-
-  &--strong {
-    @include portal.icon-badge(var(--color-primary), #fff);
-  }
-}
-
-.summary__label {
-  @include portal.eyebrow;
-}
-
-.summary__value {
-  margin: var(--space-1) 0 0;
-  font-size: var(--font-size-lg);
-  font-weight: 700;
-  color: var(--color-navy);
-}
-
-// ─── Bloques ─────────────────────────────────────────────────────────────────
-
-.block {
   display: flex;
   flex-direction: column;
-  gap: var(--space-4);
+  gap: var(--space-8);
+  max-width: 1000px;
 }
 
-.block__head {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: space-between;
-  align-items: flex-end;
-  gap: var(--space-4);
-  padding-bottom: var(--space-4);
-  border-bottom: 1px solid var(--color-border-warm);
-}
-
-.block__title {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  margin: 0;
-  font-family: var(--font-display);
-  font-size: var(--font-size-2xl);
-  font-weight: 600;
-  color: var(--color-navy);
-
-  &--serif {
-    font-size: var(--font-size-3xl);
-  }
-}
-
-.block__count {
-  @include portal.pill(var(--color-primary-subtle), var(--color-primary-dark));
-}
-
-.block__sub {
-  margin: var(--space-1) 0 0;
-  font-size: var(--font-size-sm);
-  color: var(--color-text-muted);
-}
-
-.block__empty {
-  margin: 0;
-  color: var(--color-text-muted);
-
-  &--card {
-    @include portal.card;
-
-    display: flex;
-    align-items: center;
-    gap: var(--space-4);
-    padding: var(--space-6);
-
-    .material-symbols-outlined {
-      @include portal.icon-badge(var(--color-primary-subtle), var(--color-primary));
-    }
-
-    p {
-      margin: 0;
-    }
-  }
-}
-
-// ─── Próximas ────────────────────────────────────────────────────────────────
-
-.upcoming {
-  @include portal.card;
-
-  display: grid;
-  grid-template-columns: 9rem 1fr;
-  overflow: hidden;
-
-  @include bp.down('sm') {
-    grid-template-columns: 1fr;
-  }
-}
-
-.upcoming__date {
+.visits__section {
   display: flex;
   flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: var(--space-1);
-  padding: var(--space-5) var(--space-4);
-  border-right: 1px solid var(--color-border-warm);
-  background: var(--color-surface);
-  text-align: center;
-
-  @include bp.down('sm') {
-    flex-direction: row;
-    flex-wrap: wrap;
-    gap: var(--space-2);
-    border-right: none;
-    border-bottom: 1px solid var(--color-border-warm);
-  }
-}
-
-.upcoming__weekday {
-  font-size: var(--font-size-xs);
-  font-weight: 700;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--color-primary-dark);
-}
-
-.upcoming__day {
-  font-family: var(--font-display);
-  font-size: var(--font-size-5xl);
-  line-height: 1;
-  color: var(--color-navy);
-
-  @include bp.down('sm') {
-    font-size: var(--font-size-2xl);
-  }
-}
-
-.upcoming__month {
-  font-family: var(--font-display);
-  font-size: var(--font-size-2xl);
-  line-height: 1;
-  color: var(--color-navy);
-
-  @include bp.down('sm') {
-    font-size: var(--font-size-lg);
-  }
-}
-
-.upcoming__time {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-1);
-  margin-top: var(--space-2);
-  font-size: var(--font-size-sm);
-  font-weight: 600;
-  color: var(--color-text);
-
-  .material-symbols-outlined {
-    font-size: 1rem;
-    color: var(--color-tertiary);
-  }
-
-  @include bp.down('sm') {
-    margin-top: 0;
-  }
-}
-
-.upcoming__duration {
-  font-size: var(--font-size-xs);
-  color: var(--color-text-muted);
-}
-
-.upcoming__body {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  justify-content: center;
   gap: var(--space-2);
-  padding: var(--space-5) var(--space-6);
+
+  .section-title {
+    margin-bottom: var(--space-2);
+  }
 }
 
-.upcoming__title {
-  margin: 0;
-  font-family: var(--font-display);
-  font-size: var(--font-size-2xl);
+.visits__month {
+  margin: var(--space-3) 0 var(--space-1);
+  font-family: var(--font-body);
+  font-size: var(--font-size-xs);
   font-weight: 600;
-  color: var(--color-navy);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
 }
 
-.upcoming__doctor {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
+.visits__muted {
   margin: 0;
   font-size: var(--font-size-sm);
   color: var(--color-text-muted);
-
-  strong {
-    color: var(--color-text);
-  }
-
-  .material-symbols-outlined {
-    font-size: 1.125rem;
-    color: var(--color-tertiary);
-  }
-}
-
-// ─── Chips ───────────────────────────────────────────────────────────────────
-
-.chip {
-  .material-symbols-outlined {
-    font-size: 0.875rem;
-  }
-
-  &--confirmed {
-    @include portal.pill(color-mix(in srgb, var(--color-tertiary) 10%, #fff), var(--color-tertiary));
-  }
-
-  &--attended {
-    @include portal.pill(color-mix(in srgb, var(--color-tertiary) 10%, #fff), var(--color-tertiary));
-  }
-
-  &--missed {
-    @include portal.pill(var(--color-error-light), var(--color-error));
-  }
-}
-
-// ─── Historial ───────────────────────────────────────────────────────────────
-
-.legend {
-  @include portal.card;
-
-  display: flex;
-  gap: var(--space-4);
-  margin: 0;
-  padding: var(--space-2) var(--space-4);
-  border-radius: var(--radius-full);
-  list-style: none;
-  font-size: var(--font-size-sm);
-  color: var(--color-text);
-
-  li {
-    display: flex;
-    align-items: center;
-    gap: var(--space-2);
-  }
-}
-
-.legend__dot {
-  width: 0.625rem;
-  height: 0.625rem;
-  border-radius: var(--radius-full);
-
-  &--ok {
-    background: var(--color-tertiary);
-  }
-
-  &--miss {
-    background: var(--color-error);
-  }
-}
-
-.month {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-4);
-}
-
-.month__label {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  margin: var(--space-2) 0 0;
-  font-family: var(--font-headline);
-  font-size: var(--font-size-lg);
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--color-navy);
-}
-
-.month__icon {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 2rem;
-  height: 2rem;
-  border-radius: var(--radius-full);
-  background: var(--color-tertiary);
-  color: #fff;
-
-  .material-symbols-outlined {
-    font-size: 1rem;
-  }
-}
-
-// Línea de tiempo: el borde izquierdo une las visitas del mes.
-.month__list {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-4);
-  margin: 0 0 0 1rem;
-  padding: 0 0 0 var(--space-6);
-  border-left: 2px solid var(--color-primary-light);
-  list-style: none;
-
-  @include bp.down('sm') {
-    margin-left: 0.5rem;
-    padding-left: var(--space-4);
-  }
 }
 
 .visit {
-  @include portal.card;
-
   display: flex;
   align-items: center;
-  gap: var(--space-5);
-  padding: var(--space-5) var(--space-6);
+  gap: var(--space-4);
+  padding: var(--space-4) var(--space-5);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xl);
+  background: #fff;
+  box-shadow: var(--shadow-sm);
 
   &--missed {
-    border-style: dashed;
-    background: var(--color-surface);
     box-shadow: none;
 
-    .visit__title {
+    .visit__date,
+    .visit__time {
       color: var(--color-text-muted);
     }
   }
-
-  @include bp.down('sm') {
-    align-items: flex-start;
-    gap: var(--space-4);
-    padding: var(--space-4);
-  }
 }
 
-.visit__badge {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
+.visit__time {
   flex-shrink: 0;
-  width: 4rem;
-  padding: var(--space-2) 0;
-  border: 1px solid var(--color-border-warm);
-  border-radius: var(--radius-xl);
-  background: var(--color-primary-subtle);
-}
-
-.visit__badge-month {
-  font-size: 0.625rem;
-  font-weight: 700;
-  letter-spacing: 0.1em;
-  color: var(--color-text-muted);
-}
-
-.visit__badge-day {
-  font-family: var(--font-display);
-  font-size: var(--font-size-2xl);
-  line-height: 1.1;
-  color: var(--color-navy);
-}
-
-.visit__badge-time {
-  font-size: 0.625rem;
-  color: var(--color-text-muted);
+  min-width: 72px;
+  font-family: var(--font-headline);
+  font-size: var(--font-size-base);
+  color: var(--color-primary-dark);
 }
 
 .visit__body {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
+  flex: 1;
   min-width: 0;
 }
 
+.visit__date {
+  margin: 0;
+  font-family: var(--font-body);
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  color: var(--color-text);
+}
+
 .visit__meta {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-2) var(--space-3);
   margin: 0;
-  font-size: var(--font-size-sm);
+  font-family: var(--font-body);
+  font-size: var(--font-size-xs);
   color: var(--color-text-muted);
 }
 
-.visit__title {
-  margin: 0;
-  font-size: var(--font-size-lg);
-  font-weight: 700;
-  color: var(--color-navy);
+.visit__badge {
+  flex-shrink: 0;
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--radius-full);
+  font-family: var(--font-body);
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+
+  &--confirmed {
+    background: var(--color-success-light);
+    color: #16a34a;
+  }
+
+  &--missed {
+    background: var(--color-error-light);
+    color: var(--color-error);
+  }
 }
 
-.visit__doctor {
+.visits-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-12) var(--space-8);
+  border: 1.5px dashed var(--color-border);
+  border-radius: var(--radius-xl);
+  background: #fff;
+  text-align: center;
+}
+
+.visits-empty__icon {
   display: flex;
   align-items: center;
-  gap: var(--space-1);
-  margin: 0;
-  font-size: var(--font-size-sm);
-  color: var(--color-text-muted);
+  justify-content: center;
+  width: 64px;
+  height: 64px;
+  margin-bottom: var(--space-2);
+  border-radius: 50%;
+  background: var(--color-primary-subtle);
 
   .material-symbols-outlined {
-    font-size: 1rem;
+    font-size: 32px;
+    color: var(--color-primary-dark);
   }
+}
+
+.visits-empty__text {
+  margin: 0;
+  font-size: var(--font-size-base);
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.visits-empty__sub {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
 }

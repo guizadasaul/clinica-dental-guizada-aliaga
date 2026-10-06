@@ -1,235 +1,47 @@
-@use 'patient-portal' as portal;
-@use 'breakpoints' as bp;
-
-// ─── Mi perfil del paciente (CLI-214) ────────────────────────────────────────
+// ─── Mi perfil del paciente (CLI-216: tarjetas sobrias como el panel del doctor) ─
 
 .profile {
-  @include portal.page;
-}
-
-.profile__eyebrow {
-  @include portal.pill(var(--color-primary-subtle), var(--color-primary-dark));
-
-  margin-bottom: var(--space-3);
-  border: 1px solid var(--color-primary-light);
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-.profile__dot {
-  width: 0.5rem;
-  height: 0.5rem;
-  border-radius: var(--radius-full);
-  background: var(--color-primary);
-}
-
-.profile__title {
-  @include portal.page-title;
-}
-
-.profile__subtitle {
-  @include portal.page-subtitle;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+  max-width: 1000px;
 }
 
 .profile__muted {
   margin: 0;
+  font-size: var(--font-size-sm);
   color: var(--color-text-muted);
 }
 
 .profile__error {
   margin: 0;
-  padding: var(--space-4) var(--space-5);
-  border-radius: var(--radius-xl);
+  padding: 0.625rem 0.875rem;
+  border-radius: var(--radius-lg);
   background: var(--color-error-light);
+  font-size: var(--font-size-sm);
   color: var(--color-error);
 }
 
-.profile__empty {
-  display: flex;
-  align-items: center;
-  gap: var(--space-5);
-  padding: var(--space-8);
+.profile__grid {
+  display: grid;
+  align-items: start;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-4);
 
-  > .material-symbols-outlined {
-    @include portal.icon-badge(var(--color-primary-subtle), var(--color-primary));
-
-    width: 3.5rem;
-    height: 3.5rem;
+  @media (max-width: 900px) {
+    grid-template-columns: 1fr;
   }
-}
-
-.profile__empty-title {
-  margin: 0 0 var(--space-1);
-  font-family: var(--font-display);
-  font-size: var(--font-size-xl);
-  color: var(--color-navy);
 }
 
 .card {
-  @include portal.card;
-}
-
-// ─── Encabezado ──────────────────────────────────────────────────────────────
-
-.hero {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-6);
-  padding: var(--space-6) var(--space-8);
-
-  @include bp.down('md') {
-    padding: var(--space-5);
-  }
-}
-
-.hero__avatar {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  width: 4.5rem;
-  height: 4.5rem;
-  border-radius: var(--radius-full);
-  background: linear-gradient(135deg, var(--color-primary-light), var(--color-primary));
-  font-family: var(--font-display);
-  font-size: var(--font-size-2xl);
-  font-weight: 600;
-  color: var(--color-navy);
-}
-
-.hero__main {
-  flex: 1;
-  min-width: 14rem;
-}
-
-.hero__name {
-  margin: 0;
-  font-family: var(--font-display);
-  font-size: var(--font-size-3xl);
-  font-weight: 600;
-  color: var(--color-navy);
-}
-
-.hero__chips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-2);
-  margin: var(--space-3) 0 0;
-  padding: 0;
-  list-style: none;
-}
-
-.hero__chip {
-  @include portal.pill(var(--color-surface), var(--color-text));
-
-  border: 1px solid var(--color-border-warm);
-  font-weight: 600;
-
-  .material-symbols-outlined {
-    font-size: 0.9375rem;
-    color: var(--color-tertiary);
-  }
-}
-
-.hero__recorded {
   display: flex;
   flex-direction: column;
-  gap: var(--space-1);
-  margin: 0;
-  padding: var(--space-3) var(--space-4);
-  border-left: 3px solid var(--color-primary);
-  border-radius: 0 var(--radius-lg) var(--radius-lg) 0;
-  background: var(--color-primary-subtle);
-  font-size: var(--font-size-sm);
-  color: var(--color-text);
-}
-
-.hero__recorded-label {
-  @include portal.eyebrow;
-}
-
-// ─── Grilla de secciones ─────────────────────────────────────────────────────
-
-.grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: var(--space-6);
-
-  @include bp.down('lg') {
-    grid-template-columns: 1fr;
-    gap: var(--space-4);
-  }
-}
-
-.section {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-4);
-  padding: var(--space-6) var(--space-8);
-
-  @include bp.down('md') {
-    padding: var(--space-5);
-  }
-}
-
-.section__title {
-  display: flex;
-  align-items: center;
   gap: var(--space-3);
-  margin: 0;
-  padding-bottom: var(--space-3);
-  border-bottom: 1px solid var(--color-border-warm);
-  font-family: var(--font-display);
-  font-size: var(--font-size-xl);
-  font-weight: 600;
-  color: var(--color-navy);
+  padding: var(--space-5);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xl);
+  background: #fff;
 }
-
-.section__icon {
-  @include portal.icon-badge(var(--color-primary-subtle), var(--color-primary));
-
-  width: 2.25rem;
-  height: 2.25rem;
-
-  &--teal {
-    @include portal.icon-badge(color-mix(in srgb, var(--color-tertiary) 10%, #fff), var(--color-tertiary));
-
-    width: 2.25rem;
-    height: 2.25rem;
-  }
-}
-
-.section__date {
-  margin-left: auto;
-  font-family: var(--font-body);
-  font-size: var(--font-size-sm);
-  font-weight: 600;
-  color: var(--color-text-muted);
-}
-
-.section__block {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-
-  &--inline {
-    flex-direction: row;
-    justify-content: space-between;
-    align-items: baseline;
-  }
-}
-
-.section__label {
-  @include portal.eyebrow;
-}
-
-.section__value {
-  margin: 0;
-  color: var(--color-text);
-}
-
-// ─── Datos personales ────────────────────────────────────────────────────────
 
 .facts {
   display: flex;
@@ -242,264 +54,113 @@
   grid-template-columns: 11rem 1fr;
   gap: var(--space-3);
   padding: var(--space-2) 0;
-  border-bottom: 1px dashed var(--color-border-warm);
+  border-bottom: 1px solid var(--color-gray-100);
+  font-size: var(--font-size-sm);
 
   &:last-child {
     border-bottom: none;
   }
 
   dt {
-    font-size: var(--font-size-sm);
     color: var(--color-text-muted);
   }
 
   dd {
     margin: 0;
-    font-weight: 600;
     color: var(--color-text);
   }
 
-  @include bp.down('sm') {
+  @media (max-width: 480px) {
     grid-template-columns: 1fr;
     gap: 0;
   }
 }
 
-// ─── Antecedentes ────────────────────────────────────────────────────────────
-
-.pills {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-2);
-  margin: 0;
-  padding: 0;
-  list-style: none;
+.facts__line {
+  display: block;
 }
-
-.pills__item {
-  &--alert {
-    @include portal.pill(var(--color-error-light), var(--color-error));
-  }
-}
-
-.meds {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-  margin: 0;
-  padding: 0;
-  list-style: none;
-
-  li {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: var(--space-2);
-    color: var(--color-text);
-  }
-
-  .material-symbols-outlined {
-    font-size: 1.125rem;
-    color: var(--color-tertiary);
-  }
-}
-
-.meds__freq {
-  color: var(--color-text-muted);
-}
-
-// ─── Higiene ─────────────────────────────────────────────────────────────────
-
-.highlight {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  margin: 0;
-  padding: var(--space-3) var(--space-4);
-  border-radius: var(--radius-xl);
-  background: color-mix(in srgb, var(--color-tertiary) 8%, #fff);
-  color: var(--color-text);
-
-  .material-symbols-outlined {
-    color: var(--color-tertiary);
-  }
-}
-
-.checks {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.checks__item {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  padding: var(--space-2) 0;
-  color: var(--color-text);
-
-  .material-symbols-outlined {
-    font-size: 1.25rem;
-    color: var(--color-gray-400);
-  }
-
-  &--yes .material-symbols-outlined {
-    color: var(--color-tertiary);
-  }
-}
-
-.checks__value {
-  margin-left: auto;
-  font-size: var(--font-size-sm);
-  font-weight: 700;
-  color: var(--color-text-muted);
-
-  .checks__item--yes & {
-    color: var(--color-tertiary);
-  }
-}
-
-// ─── Examen clínico ──────────────────────────────────────────────────────────
-
-.exam {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: var(--space-3);
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.exam__item {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-  padding: var(--space-3) var(--space-4);
-  border: 1px solid var(--color-border-warm);
-  border-radius: var(--radius-xl);
-  background: var(--color-surface);
-
-  &--found {
-    border-color: var(--color-primary-light);
-    background: var(--color-primary-subtle);
-  }
-
-  &--wide {
-    grid-column: 1 / -1;
-  }
-}
-
-.exam__label {
-  @include portal.eyebrow;
-}
-
-.exam__value {
-  font-weight: 700;
-  color: var(--color-text);
-
-  .exam__item--found & {
-    color: var(--color-primary-dark);
-  }
-}
-
-// ─── Diagnóstico inicial ─────────────────────────────────────────────────────
 
 .diagnosis__chart {
+  width: 100%;
   max-width: 44rem;
   margin: 0 auto;
-  width: 100%;
-}
-
-.diagnosis__subtitle {
-  margin: var(--space-2) 0 0;
-  font-family: var(--font-headline);
-  font-size: var(--font-size-lg);
-  color: var(--color-navy);
 }
 
 .findings {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: var(--space-3);
+  display: flex;
+  flex-direction: column;
   margin: 0;
   padding: 0;
   list-style: none;
-
-  @include bp.down('md') {
-    grid-template-columns: 1fr;
-  }
 }
 
 .findings__item {
-  --finding-color: var(--color-tertiary);
-
   display: flex;
   gap: var(--space-3);
-  padding: var(--space-3) var(--space-4);
-  border: 1px solid var(--color-border-warm);
-  border-left: 4px solid var(--finding-color);
-  border-radius: var(--radius-xl);
-  background: #fff;
+  padding: var(--space-2) 0;
+  border-bottom: 1px solid var(--color-gray-100);
+  font-size: var(--font-size-sm);
+  color: var(--color-text);
+
+  &:last-child {
+    border-bottom: none;
+  }
 }
 
 .findings__place {
   flex-shrink: 0;
-  min-width: 4.5rem;
-  font-size: var(--font-size-sm);
-  font-weight: 700;
-  color: var(--color-navy);
+  min-width: 5rem;
+  font-weight: 600;
 }
 
-.findings__body {
+.findings__desc {
+  color: var(--color-text-muted);
+}
+
+.diagnosis__notes {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  font-style: italic;
+  color: var(--color-text-muted);
+}
+
+.profile-empty {
   display: flex;
   flex-direction: column;
-  gap: var(--space-1);
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-12) var(--space-8);
+  border: 1.5px dashed var(--color-border);
+  border-radius: var(--radius-xl);
+  background: #fff;
+  text-align: center;
 }
 
-.findings__name {
+.profile-empty__icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 64px;
+  height: 64px;
+  margin-bottom: var(--space-2);
+  border-radius: 50%;
+  background: var(--color-primary-subtle);
+
+  .material-symbols-outlined {
+    font-size: 32px;
+    color: var(--color-primary-dark);
+  }
+}
+
+.profile-empty__text {
   margin: 0;
+  font-size: var(--font-size-base);
   font-weight: 600;
   color: var(--color-text);
 }
 
-.findings__desc {
+.profile-empty__sub {
   margin: 0;
   font-size: var(--font-size-sm);
   color: var(--color-text-muted);
-}
-
-.findings__xray {
-  display: flex;
-  align-items: center;
-  gap: var(--space-1);
-  margin: 0;
-  font-size: var(--font-size-xs);
-  font-weight: 700;
-  color: var(--color-tertiary);
-
-  .material-symbols-outlined {
-    font-size: 1rem;
-  }
-}
-
-.diagnosis__notes {
-  display: flex;
-  gap: var(--space-2);
-  margin: 0;
-  padding: var(--space-3) var(--space-4);
-  border-left: 3px solid var(--color-primary-light);
-  border-radius: 0 var(--radius-lg) var(--radius-lg) 0;
-  background: var(--color-primary-subtle);
-
-  .material-symbols-outlined {
-    color: var(--color-primary);
-  }
-
-  p {
-    margin: 0;
-    font-style: italic;
-  }
 }

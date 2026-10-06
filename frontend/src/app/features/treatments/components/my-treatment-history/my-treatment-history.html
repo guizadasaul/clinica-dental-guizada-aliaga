@@ -1,116 +1,49 @@
-<div class="history">
-  <header>
-    <p class="history__eyebrow"><span class="history__dot" aria-hidden="true"></span>Tu salud dental</p>
-    <h1 class="history__title">Mi historial</h1>
-    <p class="history__subtitle">Todos los tratamientos que recibiste en la clínica.</p>
-  </header>
-
-  @if (loading()) {
-    <p class="history__muted">Cargando tu historial...</p>
-  } @else if (failed()) {
-    <p class="history__error" role="alert">No pudimos cargar tu historial. Prueba de nuevo en un momento.</p>
-  } @else if (total() === 0) {
-    <div class="history__empty">
-      <span class="material-symbols-outlined" aria-hidden="true">dentistry</span>
-      <div>
-        <p class="history__empty-title">Todavía no tienes tratamientos registrados</p>
-        <p class="history__muted">Cuando el doctor registre un tratamiento, lo verás aquí con todos sus detalles.</p>
-      </div>
-    </div>
-  } @else {
-    <section class="summary" aria-label="Resumen">
-      <div class="summary__item">
-        <span class="summary__value">{{ total() }}</span>
-        <span class="summary__label">{{ total() === 1 ? 'tratamiento recibido' : 'tratamientos recibidos' }}</span>
-      </div>
-      @if (lastDate(); as last) {
-        <div class="summary__item">
-          <span class="summary__label">Último tratamiento</span>
-          <span class="summary__date">{{ last }}</span>
-        </div>
+<div class="page">
+  <div class="history">
+    <app-page-header title="Mi historial" subtitle="Los tratamientos que recibiste en la clínica.">
+      @if (categories().length > 1) {
+        <label actions class="history__filter">
+          <span class="history__sr">Filtrar por tipo de tratamiento</span>
+          <select class="history__select" (change)="onFilter($event)">
+            <option value="">Todos los tratamientos</option>
+            @for (c of categories(); track c) {
+              <option [value]="c" [selected]="filter() === c">{{ c }}</option>
+            }
+          </select>
+        </label>
       }
-    </section>
+    </app-page-header>
 
-    @if (categories().length > 1) {
-      <fieldset class="filters">
-        <legend class="filters__legend">Filtrar por tipo de tratamiento</legend>
-        <button
-          type="button"
-          class="filters__chip"
-          [class.filters__chip--active]="filter() === null"
-          [attr.aria-pressed]="filter() === null"
-          (click)="toggle(null)"
-        >
-          Todos
-        </button>
-        @for (c of categories(); track c.name) {
-          <button
-            type="button"
-            class="filters__chip"
-            [class.filters__chip--active]="filter() === c.name"
-            [attr.aria-pressed]="filter() === c.name"
-            (click)="toggle(c.name)"
-          >
-            <span class="filters__dot" [style.background]="c.color" aria-hidden="true"></span>
-            {{ c.name }}
-          </button>
+    @if (loading()) {
+      <p class="history__muted">Cargando tu historial...</p>
+    } @else if (failed()) {
+      <p class="history__error" role="alert">No pudimos cargar tu historial. Prueba de nuevo en un momento.</p>
+    } @else if (total() === 0) {
+      <div class="history-empty">
+        <div class="history-empty__icon" aria-hidden="true">
+          <span class="material-symbols-outlined">dentistry</span>
+        </div>
+        <p class="history-empty__text">Todavía no tienes tratamientos registrados</p>
+        <p class="history-empty__sub">Cuando el doctor registre un tratamiento, lo verás aquí.</p>
+      </div>
+    } @else {
+      <ul class="history__list">
+        @for (a of visible(); track a.id) {
+          <li class="treatment">
+            <div class="treatment__date">{{ a.date }}</div>
+            <div class="treatment__body">
+              <p class="treatment__name">{{ a.treatmentName }}</p>
+              @if (a.meta) {
+                <p class="treatment__meta">{{ a.meta }}</p>
+              }
+              @if (a.notes) {
+                <p class="treatment__notes">{{ a.notes }}</p>
+              }
+            </div>
+          </li>
         }
-      </fieldset>
+      </ul>
+      <app-pagination [total]="filtered().length" [page]="currentPage()" (pageChange)="goToPage($event)" />
     }
-
-    @for (group of months(); track group.label) {
-      <section class="month" [attr.aria-label]="group.label">
-        <h2 class="month__label">{{ group.label }}</h2>
-        <ol class="month__list">
-          @for (a of group.items; track a.id) {
-            <li class="treatment" [style.--category-color]="a.categoryColor">
-              <div class="treatment__head">
-                <div>
-                  <p class="treatment__category">
-                    <span class="treatment__dot" aria-hidden="true"></span>{{ a.categoryName }}
-                  </p>
-                  <h3 class="treatment__name">{{ a.treatmentName }}</h3>
-                </div>
-                <p class="treatment__date">
-                  <span class="material-symbols-outlined" aria-hidden="true">event</span>{{ a.date }}
-                </p>
-              </div>
-
-              @if (a.teeth.length > 0 || a.scope || a.quantity) {
-                <ul class="treatment__teeth" aria-label="Dónde se aplicó">
-                  @for (t of a.teeth; track t) {
-                    <li class="treatment__tooth">Pieza {{ t }}</li>
-                  }
-                  @if (a.scope; as scope) {
-                    <li class="treatment__tooth">{{ scope }}</li>
-                  }
-                  @if (a.quantity; as qty) {
-                    <li class="treatment__tooth">{{ qty }} {{ qty === 1 ? 'unidad' : 'unidades' }}</li>
-                  }
-                </ul>
-              }
-
-              @if (a.surfaces; as surfaces) {
-                <p class="treatment__detail"><strong>Superficies:</strong> {{ surfaces }}</p>
-              }
-              @if (a.notes; as notes) {
-                <blockquote class="treatment__note">
-                  <span class="material-symbols-outlined" aria-hidden="true">format_quote</span>
-                  <p>{{ notes }}</p>
-                </blockquote>
-              }
-              @if (a.doctorName) {
-                <p class="treatment__doctor">
-                  <span class="treatment__avatar" aria-hidden="true">
-                    <span class="material-symbols-outlined">stethoscope</span>
-                  </span>
-                  Realizado por <strong>{{ a.doctorName }}</strong>
-                </p>
-              }
-            </li>
-          }
-        </ol>
-      </section>
-    }
-  }
+  </div>
 </div>

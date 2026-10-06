@@ -1,445 +1,307 @@
-@use 'patient-portal' as portal;
-@use 'breakpoints' as bp;
+// ─── Inicio del paciente (CLI-216: mismo lenguaje que el inicio del doctor) ─
 
-// ─── Inicio del paciente (CLI-209, mockup de Stitch) ─────────────────────────
-
-.home {
-  @include portal.page;
-}
-
-.home__date {
+.patient {
   display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  margin: 0 0 var(--space-2);
-  font-size: var(--font-size-sm);
-  color: var(--color-text-muted);
+  flex-direction: column;
+  gap: var(--space-8);
+  max-width: 1000px;
+  padding: var(--space-8) var(--space-8) var(--space-12);
 
-  &::first-letter {
-    text-transform: uppercase;
-  }
-
-  .material-symbols-outlined {
-    font-size: 1rem;
-    color: var(--color-tertiary);
+  @media (max-width: 767px) {
+    gap: var(--space-6);
+    padding: var(--space-6) var(--space-4) var(--space-10);
   }
 }
 
-.home__title {
-  @include portal.page-title;
-}
-
-.home__subtitle {
-  @include portal.page-subtitle;
-}
-
-.home__loading {
-  margin: 0;
-  font-size: var(--font-size-sm);
-  color: var(--color-text-muted);
-}
-
-.home__grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: var(--space-6);
-
-  @include bp.down('md') {
-    grid-template-columns: 1fr;
-    gap: var(--space-4);
-  }
-}
-
-// ─── Próxima cita ────────────────────────────────────────────────────────────
-
-.next {
-  @include portal.card;
-
+.patient__header {
   position: relative;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding: var(--space-8);
+  border-radius: var(--radius-xl);
+  background: var(--color-navy);
   overflow: hidden;
-  padding: var(--space-8) var(--space-10);
 
-  // Acento cálido a la izquierda, como en el mockup.
   &::before {
     content: '';
     position: absolute;
-    inset: 0 auto 0 0;
-    width: 0.5rem;
-    background: linear-gradient(180deg, var(--color-primary-light), var(--color-primary));
-  }
-
-  @include bp.down('md') {
-    padding: var(--space-6) var(--space-5) var(--space-6) var(--space-6);
+    inset: 0;
+    background: radial-gradient(ellipse at 80% 50%, rgb(232 152 88 / 0.35) 0%, transparent 60%);
+    pointer-events: none;
   }
 }
 
-.next__eyebrow {
-  @include portal.pill(var(--color-primary-subtle), var(--color-primary-dark));
-
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  border: 1px solid var(--color-primary-light);
+.patient__greeting {
+  position: relative;
+  z-index: 1;
 }
 
-.next__dot {
-  width: 0.375rem;
-  height: 0.375rem;
-  border-radius: var(--radius-full);
-  background: var(--color-primary);
-}
-
-.next__body {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: var(--space-4) var(--space-8);
-  margin-top: var(--space-4);
-}
-
-.next__date {
-  margin: 0;
-  font-family: var(--font-display);
-  font-size: var(--font-size-4xl);
-  line-height: 1.15;
-  color: var(--color-navy);
-
-  @include bp.down('md') {
-    font-size: var(--font-size-3xl);
-  }
-}
-
-.next__time {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  margin: var(--space-2) 0 0;
-  font-size: var(--font-size-lg);
-  color: var(--color-text);
-
-  .material-symbols-outlined {
-    font-size: 1.25rem;
-    color: var(--color-tertiary);
-  }
-}
-
-.next__chips {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: var(--space-2);
-  margin: 0;
-  padding: 0;
-  list-style: none;
-
-  @include bp.down('md') {
-    align-items: flex-start;
-  }
-}
-
-.next__chip {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-2);
-  padding: var(--space-2) var(--space-4);
-  border: 1px solid var(--color-border-warm);
-  border-radius: var(--radius-full);
-  background: var(--color-surface);
-  font-size: var(--font-size-sm);
-  font-weight: 600;
-  color: var(--color-text);
-}
-
-.next__chip-icon {
-  font-size: 1.125rem;
-  color: var(--color-primary);
-
-  &--teal {
-    color: var(--color-tertiary);
-  }
-}
-
-.next__later {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-  margin: var(--space-6) 0 0;
-  padding: var(--space-4) 0 0;
-  border-top: 1px solid var(--color-border-warm);
-  list-style: none;
-
-  li {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: var(--space-1) var(--space-2);
-    font-size: var(--font-size-sm);
-    color: var(--color-text-muted);
-  }
-
-  strong {
-    color: var(--color-text);
-  }
-
-  .material-symbols-outlined {
-    font-size: 1rem;
-  }
-}
-
-.next__later-treatment {
-  margin-left: auto;
-  font-size: var(--font-size-xs);
-}
-
-.next__empty {
-  display: flex;
-  align-items: center;
-  gap: var(--space-4);
-  margin-top: var(--space-4);
-
-  > .material-symbols-outlined {
-    @include portal.icon-badge(var(--color-primary-subtle), var(--color-primary));
-  }
-}
-
-.next__empty-title {
-  margin: 0;
-  font-family: var(--font-headline);
-  font-size: var(--font-size-xl);
-  color: var(--color-navy);
-}
-
-.next__empty-sub {
-  margin: var(--space-1) 0 0;
-  font-size: var(--font-size-sm);
-  color: var(--color-text-muted);
-}
-
-// ─── Tarjetas de visitas y saldo ─────────────────────────────────────────────
-
-.stat {
-  @include portal.card;
-
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-5);
-  padding: var(--space-6) var(--space-8);
-
-  @include bp.down('md') {
-    padding: var(--space-5) var(--space-5);
-  }
-}
-
-.stat__head {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: var(--space-4);
-}
-
-.stat__eyebrow {
-  @include portal.eyebrow;
-}
-
-.stat__title {
-  margin: var(--space-1) 0 0;
+.patient__date {
+  margin: 0 0 var(--space-2);
   font-family: var(--font-body);
-  font-size: var(--font-size-lg);
-  font-weight: 600;
-  color: var(--color-text);
+  font-size: var(--font-size-xs);
+  letter-spacing: 0.04em;
+  text-transform: capitalize;
+  color: var(--color-primary-light);
 }
 
-.stat__icon {
-  &--teal {
-    @include portal.icon-badge(color-mix(in srgb, var(--color-tertiary) 10%, #fff), var(--color-tertiary));
-  }
+.patient__title {
+  margin: 0 0 var(--space-2);
+  font-family: var(--font-headline);
+  font-size: var(--font-size-3xl);
+  line-height: 1.2;
+  color: #fff;
 
-  &--primary {
-    @include portal.icon-badge(var(--color-primary-subtle), var(--color-primary));
+  @media (max-width: 767px) {
+    font-size: var(--font-size-2xl);
   }
 }
 
-.stat__figure {
-  display: flex;
-  align-items: baseline;
-  gap: var(--space-3);
+.patient__subtitle {
   margin: 0;
-
-  &--money {
-    flex-wrap: wrap;
-    justify-content: space-between;
-    align-items: center;
-  }
-}
-
-.stat__value {
-  font-family: var(--font-display);
-  font-size: var(--font-size-5xl);
-  font-weight: 600;
-  line-height: 1;
-  color: var(--color-navy);
-
-  .stat__figure--money & {
-    font-size: var(--font-size-4xl);
-  }
-}
-
-.stat__unit {
+  font-family: var(--font-body);
   font-size: var(--font-size-sm);
-  color: var(--color-text-muted);
+  color: rgb(255 255 255 / 0.55);
 }
 
-.stat__pill {
-  @include portal.pill(color-mix(in srgb, var(--color-tertiary) 10%, #fff), var(--color-tertiary));
-
-  &--done {
-    background: var(--color-success-light);
-    color: color-mix(in srgb, var(--color-success) 60%, #000);
-  }
-}
-
-.stat__bar {
-  width: 100%;
-  height: 0.5rem;
-  border: none;
-  border-radius: var(--radius-full);
-  background: var(--color-surface-dim);
-  overflow: hidden;
-  appearance: none;
-
-  &::-webkit-progress-bar {
-    background: var(--color-surface-dim);
-    border-radius: var(--radius-full);
-  }
-
-  &::-webkit-progress-value {
-    background: var(--color-tertiary);
-    border-radius: var(--radius-full);
-  }
-
-  &::-moz-progress-bar {
-    background: var(--color-tertiary);
-    border-radius: var(--radius-full);
-  }
-}
-
-.stat__empty {
-  margin: 0;
-  font-size: var(--font-size-base);
-  color: var(--color-text-muted);
-}
-
-.stat__foot {
+.patient__badge {
+  position: relative;
+  z-index: 1;
   display: flex;
   align-items: center;
-  gap: var(--space-2);
-  margin: auto 0 0;
-  padding-top: var(--space-4);
-  border-top: 1px solid var(--color-border-warm);
-  font-size: var(--font-size-sm);
-  color: var(--color-text-muted);
+  justify-content: center;
+  flex-shrink: 0;
+  width: 72px;
+  height: 72px;
+  border: 2px solid rgb(232 152 88 / 0.4);
+  border-radius: 50%;
+  background: rgb(232 152 88 / 0.2);
 
   .material-symbols-outlined {
-    font-size: 1.125rem;
-    color: var(--color-tertiary);
+    font-size: 36px;
+    color: var(--color-primary-light);
   }
 
-  &::first-letter {
-    text-transform: uppercase;
-  }
-
-  &--action {
-    justify-content: flex-end;
+  @media (max-width: 600px) {
+    display: none;
   }
 }
 
-.stat__link {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-1);
+.patient__section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.patient__muted {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
+
+.patient__link,
+.kpi__link {
   padding: 0;
   border: none;
   background: none;
   font-family: var(--font-body);
   font-size: var(--font-size-sm);
-  font-weight: 700;
+  font-weight: 600;
   color: var(--color-primary-dark);
   cursor: pointer;
 
-  .material-symbols-outlined {
-    color: inherit;
-    transition: transform var(--transition-fast);
-  }
-
-  &:hover .material-symbols-outlined {
-    transform: translateX(2px);
+  &:hover {
+    text-decoration: underline;
   }
 }
 
-// ─── Contacto por WhatsApp ───────────────────────────────────────────────────
+.patient__link {
+  display: inline-flex;
+  align-items: center;
+  align-self: flex-start;
+  gap: var(--space-1);
 
-.contact {
-  @include portal.card;
+  .material-symbols-outlined {
+    font-size: 1rem;
+  }
+}
 
+// ─── Próxima cita (como una fila de la agenda del doctor) ────────────────────
+
+.appointment {
   display: flex;
   align-items: center;
-  gap: var(--space-5);
-  padding: var(--space-6) var(--space-8);
+  gap: var(--space-4);
+  padding: var(--space-4) var(--space-5);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xl);
+  background: #fff;
+  box-shadow: var(--shadow-sm);
+}
 
-  @include bp.down('md') {
-    flex-direction: column;
-    align-items: flex-start;
-    padding: var(--space-5);
+.appointment__time {
+  flex-shrink: 0;
+  min-width: 72px;
+  font-family: var(--font-headline);
+  font-size: var(--font-size-base);
+  color: var(--color-primary-dark);
+}
+
+.appointment__body {
+  flex: 1;
+  min-width: 0;
+}
+
+.appointment__date {
+  margin: 0;
+  font-family: var(--font-body);
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.appointment__meta {
+  margin: 0;
+  font-family: var(--font-body);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+}
+
+.appointment__badge {
+  flex-shrink: 0;
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--radius-full);
+  background: var(--color-success-light);
+  font-family: var(--font-body);
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  color: #16a34a;
+}
+
+.patient-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  padding: var(--space-12) var(--space-8);
+  border: 1.5px dashed var(--color-border);
+  border-radius: var(--radius-xl);
+  background: #fff;
+  text-align: center;
+}
+
+.patient-empty__icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 64px;
+  height: 64px;
+  margin-bottom: var(--space-2);
+  border-radius: 50%;
+  background: var(--color-primary-subtle);
+
+  .material-symbols-outlined {
+    font-size: 32px;
+    color: var(--color-primary-dark);
   }
 }
 
-.contact__icon {
-  @include portal.icon-badge(var(--color-primary-subtle), var(--color-primary));
-
-  width: 3.25rem;
-  height: 3.25rem;
-}
-
-.contact__text {
-  flex: 1;
-}
-
-.contact__title {
+.patient-empty__text {
   margin: 0;
-  font-family: var(--font-display);
-  font-size: var(--font-size-xl);
+  font-family: var(--font-body);
+  font-size: var(--font-size-base);
   font-weight: 600;
-  color: var(--color-navy);
+  color: var(--color-text);
 }
 
-.contact__sub {
-  margin: var(--space-1) 0 0;
+.patient-empty__sub {
+  margin: 0;
+  font-family: var(--font-body);
   font-size: var(--font-size-sm);
   color: var(--color-text-muted);
 }
 
-.contact__btn {
+// ─── Resumen (mismas KPIs que el doctor) ─────────────────────────────────────
+
+.kpis {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--space-4);
+
+  @media (max-width: 480px) {
+    grid-template-columns: 1fr;
+  }
+}
+
+.kpi {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-1);
+  padding: var(--space-5);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xl);
+  background: #fff;
+}
+
+.kpi__icon {
+  margin-bottom: var(--space-2);
+  padding: var(--space-2);
+  border-radius: var(--radius-lg);
+  background: var(--color-primary-subtle);
+  font-size: 24px;
+  color: var(--color-primary-dark);
+}
+
+.kpi__value {
+  font-family: var(--font-headline);
+  font-size: var(--font-size-2xl);
+  font-weight: 700;
+  line-height: 1.1;
+  color: var(--color-text);
+}
+
+.kpi__label {
+  font-family: var(--font-body);
+  font-size: var(--font-size-sm);
+  line-height: 1.4;
+  color: var(--color-text-muted);
+}
+
+// ─── Contacto ────────────────────────────────────────────────────────────────
+
+.patient__contact {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-4);
+  margin: 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
+
+.patient__whatsapp {
   display: inline-flex;
   align-items: center;
-  gap: var(--space-2);
-  padding: var(--space-3) var(--space-6);
-  border-radius: var(--radius-xl);
-  background: var(--color-whatsapp);
-  font-family: var(--font-body);
-  font-size: var(--font-size-base);
-  font-weight: 700;
-  color: #fff;
+  gap: var(--space-1);
+  padding: var(--space-2) var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: #fff;
+  font-weight: 600;
+  color: var(--color-text);
   text-decoration: none;
-  white-space: nowrap;
-  transition: background var(--transition-fast);
+  transition: border-color var(--transition-fast);
 
-  &:hover {
-    background: var(--color-whatsapp-dark);
+  .material-symbols-outlined {
+    font-size: 1.125rem;
+    color: var(--color-primary-dark);
   }
 
-  @include bp.down('md') {
-    width: 100%;
-    justify-content: center;
+  &:hover {
+    border-color: var(--color-primary);
   }
 }
 
@@ -447,15 +309,12 @@
 
 .patient__no-profile {
   display: flex;
+  flex-direction: column;
   align-items: center;
   gap: var(--space-3);
-  max-width: 640px;
-  margin: var(--space-8);
-  padding: var(--space-6);
-  border: 1px solid var(--color-border-warm);
-  border-radius: var(--radius-2xl);
-  background: #fff;
+  padding: var(--space-12) var(--space-6);
   color: var(--color-text-muted);
+  text-align: center;
 
   p {
     margin: 0;
@@ -463,5 +322,6 @@
 }
 
 .patient__no-profile-icon {
-  color: var(--color-tertiary);
+  font-size: 2.5rem;
+  color: var(--color-gray-300);
 }
