@@ -886,6 +886,26 @@ describe('PrismaPatientsRepository — lecturas', () => {
     });
   });
 
+  it('findFirstClinicalExam trae el examen más antiguo o null (CLI-213)', async () => {
+    jest
+      .spyOn(PatientMapper, 'toDomainClinicalExam')
+      .mockReturnValue('mapped' as never);
+    const findFirst = jest
+      .fn()
+      .mockResolvedValueOnce(ROW)
+      .mockResolvedValueOnce(null);
+    const repo = repoWith({ clinical_exams: { findFirst } });
+
+    await expect(repo.findFirstClinicalExam('patient-1')).resolves.toBe(
+      'mapped',
+    );
+    await expect(repo.findFirstClinicalExam('patient-1')).resolves.toBeNull();
+    expect(findFirst).toHaveBeenCalledWith({
+      where: { patient_id: 'patient-1' },
+      orderBy: [{ exam_date: 'asc' }, { created_at: 'asc' }],
+    });
+  });
+
   it('findOdontogramEntries trae las entries más nuevas primero', async () => {
     jest
       .spyOn(OdontogramEntryMapper, 'toDomain')

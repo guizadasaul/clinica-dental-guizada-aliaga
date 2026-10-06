@@ -515,6 +515,14 @@ export class PrismaPatientsRepository implements IPatientRepository {
     return record ? PatientMapper.toDomainClinicalExam(record) : null;
   }
 
+  async findFirstClinicalExam(patientId: string): Promise<ClinicalExam | null> {
+    const record = await this.prisma.clinical_exams.findFirst({
+      where: { patient_id: patientId },
+      orderBy: [{ exam_date: 'asc' }, { created_at: 'asc' }],
+    });
+    return record ? PatientMapper.toDomainClinicalExam(record) : null;
+  }
+
   /**
    * Reemplazo transaccional, acotado a las entries del chart
    * (`treatment_id IS NULL`). El DELETE nunca toca las entries generadas por

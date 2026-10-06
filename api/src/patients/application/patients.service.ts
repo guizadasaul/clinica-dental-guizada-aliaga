@@ -58,6 +58,7 @@ import type { ClinicalExam } from '../domain/ClinicalExam';
 import type { PatientWithUser } from '../domain/PatientWithUser';
 import type { OdontogramEntry } from '../domain/OdontogramEntry';
 import type { ToothProcedure } from '../domain/ToothProcedure';
+import type { PatientClinicalRecord } from '../domain/PatientClinicalRecord';
 import type {
   DentalExam,
   DentalExamKind,
@@ -844,6 +845,38 @@ export class PatientsService {
   async findMyToothProcedures(authUserId: string): Promise<ToothProcedure[]> {
     const patient = await this.findMyPatient(authUserId);
     return this.patientRepo.findToothProcedures(patient.id);
+  }
+
+  /**
+   * CLI-213: la historia clínica inicial del propio paciente, de solo
+   * lectura. La ficha sale siempre de la sesión, nunca de un parámetro.
+   */
+  async findMyClinicalRecord(
+    authUserId: string,
+  ): Promise<PatientClinicalRecord> {
+    const patient = await this.findMyPatient(authUserId);
+    const [medicalHistory, hygieneHabits, clinicalExam, versions] =
+      await Promise.all([
+        this.patientRepo.findMedicalHistory(patient.id),
+        this.patientRepo.findHygieneHabits(patient.id),
+        this.patientRepo.findFirstClinicalExam(patient.id),
+        this.patientRepo.findDentalExamVersions(patient.id),
+      ]);
+    // El primer diagnóstico desde cero; si (datos viejos) no hay ninguno
+    // marcado así, la primera versión que exista.
+    const byVersion = versions.toSorted((a, b) => a.version - b.version);
+    const first =
+      byVersion.find((v) => v.kind === 'diagnosis') ?? byVersion.at(0);
+    const initialDiagnosis = first
+      ? await this.patientRepo.findDentalExam(patient.id, first.id)
+      : null;
+    return {
+      patient,
+      medicalHistory,
+      hygieneHabits,
+      clinicalExam,
+      initialDiagnosis,
+    };
   }
 
   async findMyPatientStatus(
