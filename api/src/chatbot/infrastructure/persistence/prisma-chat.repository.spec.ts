@@ -209,6 +209,37 @@ describe('PrismaChatRepository', () => {
     });
   });
 
+  it('findAssistantTurnsBetween omite un turno cuya sesión se borró mientras se leía (CLI-206)', async () => {
+    chat_messages.findMany.mockResolvedValue([
+      {
+        created_at: CREATED,
+        prompt_tokens: 1,
+        completion_tokens: 1,
+        error_code: null,
+        denied_tools: 0,
+        chat_sessions: null,
+      },
+      {
+        created_at: CREATED,
+        prompt_tokens: 2,
+        completion_tokens: 3,
+        error_code: null,
+        denied_tools: 0,
+        chat_sessions: {
+          id: 'session-1',
+          channel: 'web',
+          user_id: 'user-1',
+          users: { role: 'patient' },
+        },
+      },
+    ]);
+
+    const turns = await repo.findAssistantTurnsBetween(new Date(), new Date());
+
+    expect(turns).toHaveLength(1);
+    expect(turns[0].actorKey).toBe('user-1');
+  });
+
   it('findAssistantTurnsBetween trae solo turnos del assistant en el rango, con canal y rol', async () => {
     const from = new Date('2026-09-01T04:00:00Z');
     const to = new Date('2026-09-02T04:00:00Z');
