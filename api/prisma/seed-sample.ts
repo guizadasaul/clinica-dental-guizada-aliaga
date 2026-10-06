@@ -781,7 +781,8 @@ async function createQuote(
     data: { total_amount: total, total_paid: totalPaid, status },
   });
 
-  // Lo realizado: todo si está pagado, una parte si es pago parcial.
+  // Lo realizado: completo si está pagado, una parte si es pago parcial y, en
+  // los pendientes, a veces algo hecho que todavía se debe (CLI-221).
   let performed: QuoteLine[] = [];
   if (kind === 'paid') {
     performed = lines;
@@ -790,25 +791,52 @@ async function createQuote(
       0,
       Math.max(1, Math.floor(lines.length * (totalPaid / total))),
     );
+  } else if (kind === 'pending' && chance(0.6)) {
+    performed = lines.slice(0, randInt(1, Math.max(1, lines.length - 1)));
   }
   return performed;
 }
 
-async function createProcedures(
-  patientId: string,
-  doctorId: string,
+/** Una visita de tratamiento planeada: el día y lo que se hace ese día. */
+interface PlannedVisit {
+  date: string;
+  lines: QuoteLine[];
+}
+
+/**
+ * Reparte lo realizado en visitas entre `fromDate` y hoy. Todavía no crea
+ * nada: el procedimiento se registra recién cuando la cita tiene turno, con
+ * el día real y el doctor de la cita (CLI-221), así "Mis citas" y "Mi
+ * historial" cuentan lo mismo.
+ */
+function planVisits(
   fromDate: string,
   today: string,
   lines: QuoteLine[],
-): Promise<string[]> {
-  const dates: string[] = [];
+): PlannedVisit[] {
   const span = Math.max(1, daysBetween(fromDate, today) - 1);
+  const byDate = new Map<string, QuoteLine[]>();
   for (const [index, line] of lines.entries()) {
     const date = addDays(
       fromDate,
       Math.min(span, 1 + Math.floor(((index + 1) * span) / (lines.length + 1))),
     );
-    dates.push(date);
+    byDate.set(date, [...(byDate.get(date) ?? []), line]);
+  }
+  return [...byDate.entries()].map(([date, dayLines]) => ({
+    date,
+    lines: dayLines,
+  }));
+}
+
+/** Registra lo hecho en una visita atendida: mismo día y mismo doctor que la cita. */
+async function createProcedures(
+  patientId: string,
+  doctorId: string,
+  date: string,
+  lines: QuoteLine[],
+): Promise<void> {
+  for (const line of lines) {
     await prisma.tooth_procedures.create({
       data: {
         patient_id: patientId,
@@ -831,8 +859,11 @@ async function createProcedures(
       },
     });
   }
-  return dates;
 }
+
+/** Día (en Bolivia) de un turno. */
+const clinicDateOf = (slot: Date) =>
+  new Date(slot.getTime() - 4 * 3_600_000).toISOString().slice(0, 10);
 
 // ── Pacientes con historial ──────────────────────────────────────────────
 
@@ -841,7 +872,10 @@ interface PatientRef {
   doctorId: string;
   name: string;
   createdDate: string;
-  visitDates: string[];
+  /** Día del examen inicial: la primera visita, una consulta. */
+  examDate: string;
+  /** Visitas de tratamiento; cada una registra sus procedimientos al tener turno. */
+  plannedVisits: PlannedVisit[];
   pendingCodes: string[];
   performedCodes: string[];
 }
@@ -1156,20 +1190,14 @@ async function seedPatient(
       )),
     );
   }
-  const visitDates = await createProcedures(
-    patient.id,
-    doctor.id,
-    planDate,
-    today,
-    performed,
-  );
   const performedIds = new Set(performed.map((l) => l.treatment.code));
   return {
     id: patient.id,
     doctorId: doctor.id,
     name: `${first} ${paternal}`,
     createdDate,
-    visitDates: [examDate, ...visitDates],
+    examDate,
+    plannedVisits: planVisits(planDate, today, performed),
     pendingCodes: plan.map((p) => p.code).filter((c) => !performedIds.has(c)),
     performedCodes: [...performedIds],
   };
@@ -1379,33 +1407,51 @@ async function seedAppointments(
     rows.push(row);
   };
 
-  // Historial: la primera consulta + una cita por cada día con tratamiento,
-  // más algunas canceladas o vencidas.
+  // Historial: la primera consulta + una cita por cada visita de tratamiento,
+  // más algunas canceladas o vencidas. El procedimiento se registra con el
+  // turno real (día y doctor de la cita) y el tratamiento de esa visita:
+  // "Mis citas", "Mi historial" y la ficha del doctor coinciden (CLI-221).
   const yesterday = addDays(today, -1);
   for (const patient of patients) {
-    const dates = [...new Set(patient.visitDates)]
-      .filter((d) => d <= yesterday)
-      .sort();
-    for (const [index, date] of dates.entries()) {
-      const slot = agenda.findSlot(patient.doctorId, date, yesterday);
+    if (patient.examDate <= yesterday) {
+      const slot = agenda.findSlot(
+        patient.doctorId,
+        patient.examDate,
+        yesterday,
+      );
+      if (slot) {
+        push(
+          patient.doctorId,
+          slot,
+          cat.consultation,
+          patient,
+          pick(['public_web', 'public_web', 'whatsapp', 'doctor']),
+          'attended',
+        );
+      }
+    }
+    for (const visit of patient.plannedVisits) {
+      if (visit.date > yesterday) {
+        continue;
+      }
+      const slot = agenda.findSlot(patient.doctorId, visit.date, yesterday);
       if (!slot) {
         continue;
       }
-      const treatment =
-        index === 0
-          ? cat.consultation
-          : cat.treatment(
-              pick(
-                patient.performedCodes.length
-                  ? patient.performedCodes
-                  : ['limpieza_profilaxis_fluor'],
-              ),
-            );
-      let source = 'doctor';
-      if (index === 0) {
-        source = pick(['public_web', 'public_web', 'whatsapp', 'doctor']);
-      }
-      push(patient.doctorId, slot, treatment, patient, source, 'attended');
+      push(
+        patient.doctorId,
+        slot,
+        visit.lines[0].treatment,
+        patient,
+        'doctor',
+        'attended',
+      );
+      await createProcedures(
+        patient.id,
+        patient.doctorId,
+        clinicDateOf(slot),
+        visit.lines,
+      );
     }
     for (let i = 0; i < randInt(0, 2); i += 1) {
       const date = addDays(
@@ -1441,9 +1487,13 @@ async function seedAppointments(
         const candidates = own.filter((p) => (futureCount.get(p.id) ?? 0) < 2);
         const patient =
           candidates.length && chance(0.45) ? pick(candidates) : null;
-        let treatment = cat.consultation;
         if (patient) {
           futureCount.set(patient.id, (futureCount.get(patient.id) ?? 0) + 1);
+        }
+        let treatment = cat.consultation;
+        // Un turno de hoy que ya pasó queda atendido: sin procedimiento
+        // registrado, así que es una consulta (CLI-221).
+        if (patient && slot >= now) {
           treatment = cat.treatment(
             pick(
               patient.pendingCodes.length
