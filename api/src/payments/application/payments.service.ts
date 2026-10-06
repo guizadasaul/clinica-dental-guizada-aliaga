@@ -20,6 +20,7 @@ import type { PaymentGateway as IPaymentGateway } from '../domain/PaymentGateway
 import { BookingConfirmationRepository } from '../domain/BookingConfirmationRepository.js';
 import type { IBookingConfirmationRepository } from '../domain/BookingConfirmationRepository.js';
 import { HoldExpiryScheduler } from './hold-expiry-scheduler.service.js';
+import { QrChargeReconciler } from '../../finances/application/qr-charge-reconciler.service.js';
 
 export interface CheckoutResult {
   qrId: string;
@@ -47,6 +48,7 @@ export class PaymentsService {
     @Inject(BookingConfirmationRepository)
     private readonly confirmationRepo: IBookingConfirmationRepository,
     private readonly holdExpiryScheduler: HoldExpiryScheduler,
+    private readonly qrChargeReconciler: QrChargeReconciler,
   ) {}
 
   async checkout(appointmentId: string): Promise<CheckoutResult> {
@@ -122,6 +124,10 @@ export class PaymentsService {
   async handleBanecoNotification(qrId: string): Promise<void> {
     const appointment = await this.appointmentRepo.findByQrId(qrId);
     if (!appointment) {
+      // CLI-220: puede ser el QR de un presupuesto (doctor o paciente).
+      if (await this.qrChargeReconciler.reconcileByQrId(qrId)) {
+        return;
+      }
       this.logger.debug(`Webhook de BANECO para un qrId desconocido: ${qrId}`);
       return;
     }

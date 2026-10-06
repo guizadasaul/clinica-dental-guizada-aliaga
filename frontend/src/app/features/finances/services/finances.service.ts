@@ -5,6 +5,7 @@ import { environment } from '../../../../environments/environment';
 import type {
   PatientBalance,
   PatientFinanceDetail,
+  CancelQrChargeResult,
   QrCharge,
   VerifyQrChargeResult,
 } from '../models/finance.model';
@@ -34,7 +35,8 @@ export class FinancesService {
     return this.http.post<VerifyQrChargeResult>(`${this.base}/qr-charges/${chargeId}/verify`, {});
   }
 
-  cancelQrCharge(chargeId: string): Observable<void> {
-    return this.http.post<void>(`${this.base}/qr-charges/${chargeId}/cancel`, {});
+  /** Anulación segura (CLI-220): si BANECO ya lo había cobrado, registra el pago y devuelve 'paid'. */
+  cancelQrCharge(chargeId: string): Observable<CancelQrChargeResult> {
+    return this.http.post<CancelQrChargeResult>(`${this.base}/qr-charges/${chargeId}/cancel`, {});
   }
 }

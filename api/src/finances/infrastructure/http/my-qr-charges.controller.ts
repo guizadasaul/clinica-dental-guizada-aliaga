@@ -65,13 +65,15 @@ export class MyQrChargesController {
     return this.financesService.verifyPatientQrCharge(patient.id, chargeId);
   }
 
+  // CLI-220: cerrar el QR lo anula de forma segura — si BANECO ya lo había
+  // cobrado, se registra el pago y vuelve { status: 'paid', quote }.
   @Post('qr-charges/:chargeId/cancel')
-  @HttpCode(HttpStatus.NO_CONTENT)
+  @HttpCode(HttpStatus.OK)
   async cancel(
     @CurrentUser() currentUser: AuthenticatedUser,
     @Param('chargeId', ParseUUIDPipe) chargeId: string,
   ) {
     const patient = await this.patientsService.findMyPatient(currentUser.uid);
-    await this.financesService.cancelPatientQrCharge(patient.id, chargeId);
+    return this.financesService.cancelPatientQrCharge(patient.id, chargeId);
   }
 }

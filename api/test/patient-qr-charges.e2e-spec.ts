@@ -277,31 +277,93 @@ describe('QR BANECO del paciente (e2e) — CLI-218', () => {
       .expect(422);
   });
 
-  it('anula su QR pendiente y puede generar otro', async () => {
-    const created = await request(app.getHttpServer())
+  // B paga su presupuesto: una línea suelta (300) y un grupo (400).
+  async function lineKeyOfB(grouped: boolean): Promise<string> {
+    const item = await prisma.quote_items.findFirstOrThrow({
+      where: {
+        quote_id: quoteB,
+        application_group_id: grouped ? { not: null } : null,
+      },
+    });
+    return item.application_group_id ?? item.id;
+  }
+
+  async function createForB(lineKey: string): Promise<ChargeBody> {
+    const res = await request(app.getHttpServer())
       .post(`/patients/me/quotes/${quoteB}/qr-charges`)
       .set(as('patient-b'))
-      .send({
-        lineKeys: [
-          (
-            await prisma.quote_items.findFirstOrThrow({
-              where: { quote_id: quoteB, application_group_id: null },
-            })
-          ).id,
-        ],
-      })
+      .send({ lineKeys: [lineKey] })
       .expect(201);
-    const chargeId = (created.body as ChargeBody).chargeId;
+    return res.body as ChargeBody;
+  }
 
-    await request(app.getHttpServer())
-      .post(`/patients/me/qr-charges/${chargeId}/cancel`)
-      .set(as('patient-b'))
-      .expect(204);
-    expect(gateway.cancelQr).toHaveBeenCalled();
-    const none = await request(app.getHttpServer())
+  async function pendingOfB(): Promise<unknown> {
+    const res = await request(app.getHttpServer())
       .get('/patients/me/qr-charges/pending')
       .set(as('patient-b'))
       .expect(200);
-    expect(none.body).toEqual({});
+    return res.body;
+  }
+
+  it('cerrar el QR lo anula en BANECO (CLI-220)', async () => {
+    qrStatus = 'pending';
+    const { chargeId } = await createForB(await lineKeyOfB(false));
+    gateway.cancelQr.mockClear();
+
+    const res = await request(app.getHttpServer())
+      .post(`/patients/me/qr-charges/${chargeId}/cancel`)
+      .set(as('patient-b'))
+      .expect(200);
+
+    expect(res.body).toEqual({ status: 'cancelled' });
+    expect(gateway.cancelQr).toHaveBeenCalledTimes(1);
+    expect(await pendingOfB()).toEqual({});
+  });
+
+  it('cerrar un QR que BANECO ya cobró registra el pago en vez de anularlo (CLI-220)', async () => {
+    qrStatus = 'pending';
+    const groupKey = await lineKeyOfB(true);
+    const { chargeId } = await createForB(groupKey);
+    gateway.cancelQr.mockClear();
+    qrStatus = 'paid';
+
+    const res = await request(app.getHttpServer())
+      .post(`/patients/me/qr-charges/${chargeId}/cancel`)
+      .set(as('patient-b'))
+      .expect(200);
+
+    const body = res.body as { status: string; quote: QuoteBody };
+    expect(body.status).toBe('paid');
+    expect(body.quote.lines.find((l) => l.key === groupKey)?.pending).toBe(0);
+    expect(gateway.cancelQr).not.toHaveBeenCalled();
+    expect(await pendingOfB()).toEqual({});
+  });
+
+  it('el webhook de BANECO registra el pago aunque nadie presione verificar (CLI-220)', async () => {
+    qrStatus = 'pending';
+    const itemKey = await lineKeyOfB(false);
+    const { chargeId } = await createForB(itemKey);
+    const { baneco_qr_id: qrId } =
+      await prisma.quote_qr_charges.findUniqueOrThrow({
+        where: { id: chargeId },
+      });
+    qrStatus = 'paid';
+
+    await request(app.getHttpServer())
+      .post('/payments/baneco/webhook')
+      .send({ payment: { qrId } })
+      .expect(200);
+
+    const charge = await prisma.quote_qr_charges.findUniqueOrThrow({
+      where: { id: chargeId },
+    });
+    expect(charge.status).toBe('paid');
+    expect(charge.payment_id).not.toBeNull();
+    const quotes = await request(app.getHttpServer())
+      .get('/patients/me/quotes')
+      .set(as('patient-b'))
+      .expect(200);
+    const quote = (quotes.body as QuoteBody[]).find((q) => q.id === quoteB)!;
+    expect(quote.lines.every((l) => l.pending === 0)).toBe(true);
   });
 });

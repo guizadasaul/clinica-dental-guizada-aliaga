@@ -20,7 +20,7 @@ function setup(balance = 500) {
   const finances = {
     createQrCharge: vi.fn().mockReturnValue(of(CHARGE)),
     verifyQrCharge: vi.fn(),
-    cancelQrCharge: vi.fn().mockReturnValue(of(undefined)),
+    cancelQrCharge: vi.fn().mockReturnValue(of({ status: 'cancelled' })),
   };
   TestBed.configureTestingModule({
     imports: [RegisterPaymentComponent],
@@ -191,6 +191,18 @@ describe('RegisterPaymentComponent', () => {
 
       expect(finances.cancelQrCharge).toHaveBeenCalledWith('charge-1');
       expect(root.querySelector('.rp__qr')).toBeNull();
+    });
+
+    // CLI-220: anular nunca pierde un pago.
+    it('si al anular resulta que ya estaba pagado, registra el pago en vez de anular', async () => {
+      const s = setup();
+      s.finances.cancelQrCharge.mockReturnValue(of({ status: 'paid', quote: UPDATED }));
+      const { paid, button, settle } = await withQr(s);
+
+      button('Anular QR').click();
+      await settle();
+
+      expect(paid).toEqual([UPDATED]);
     });
 
     it('si generar falla, avisa', async () => {

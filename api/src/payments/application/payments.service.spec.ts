@@ -7,6 +7,7 @@ import {
 import { Test } from '@nestjs/testing';
 import { PaymentsService } from './payments.service';
 import { HoldExpiryScheduler } from './hold-expiry-scheduler.service';
+import { QrChargeReconciler } from '../../finances/application/qr-charge-reconciler.service';
 import { PaymentGateway, QrStatus } from '../domain/PaymentGateway';
 import { BookingConfirmationRepository } from '../domain/BookingConfirmationRepository';
 import { AppointmentRepository } from '../../appointments/domain/AppointmentRepository';
@@ -43,6 +44,11 @@ const mockConfirmationRepo = {
 
 const mockHoldExpiryScheduler = {
   scheduleExpiry: jest.fn(),
+};
+
+// CLI-220: el webhook también concilia los QR de presupuestos.
+const mockQrChargeReconciler = {
+  reconcileByQrId: jest.fn().mockResolvedValue(false),
 };
 
 const CONSULTATION: Treatment = {
@@ -119,6 +125,7 @@ describe('PaymentsService', () => {
           useValue: mockConfirmationRepo,
         },
         { provide: HoldExpiryScheduler, useValue: mockHoldExpiryScheduler },
+        { provide: QrChargeReconciler, useValue: mockQrChargeReconciler },
       ],
     }).compile();
     service = module.get(PaymentsService);
@@ -239,6 +246,22 @@ describe('PaymentsService', () => {
       await service.handleBanecoNotification('unknown-qr');
 
       expect(mockGateway.getQrStatus).not.toHaveBeenCalled();
+      expect(mockQrChargeReconciler.reconcileByQrId).toHaveBeenCalledWith(
+        'unknown-qr',
+      );
+    });
+
+    // CLI-220
+    it('si el qrId es de un QR de presupuesto, lo concilia y no busca reservas', async () => {
+      mockAppointmentRepo.findByQrId.mockResolvedValue(null);
+      mockQrChargeReconciler.reconcileByQrId.mockResolvedValueOnce(true);
+
+      await service.handleBanecoNotification('quote-qr');
+
+      expect(mockQrChargeReconciler.reconcileByQrId).toHaveBeenCalledWith(
+        'quote-qr',
+      );
+      expect(mockConfirmationRepo.confirmPaidBooking).not.toHaveBeenCalled();
     });
 
     it('does not confirm when BANECO reports the QR as still pending', async () => {

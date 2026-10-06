@@ -44,7 +44,12 @@ describe('MyQrChargesController (CLI-218)', () => {
     await expect(controller.verify(user, 'charge-1')).resolves.toEqual({
       status: 'pending',
     });
-    await controller.cancel(user, 'charge-1');
+    financesService.cancelPatientQrCharge.mockResolvedValue({
+      status: 'cancelled',
+    });
+    await expect(controller.cancel(user, 'charge-1')).resolves.toEqual({
+      status: 'cancelled',
+    });
 
     expect(patientsService.findMyPatient).toHaveBeenCalledWith('auth-1');
     expect(financesService.createPatientQrCharge).toHaveBeenCalledWith(

@@ -54,8 +54,10 @@ export class FinancesController {
     return this.financesService.verifyQrCharge(chargeId);
   }
 
+  // CLI-220: 200 con el resultado — si BANECO ya lo había cobrado, se
+  // registra el pago y vuelve { status: 'paid', quote } en vez de anularlo.
   @Post('qr-charges/:chargeId/cancel')
-  @HttpCode(HttpStatus.NO_CONTENT)
+  @HttpCode(HttpStatus.OK)
   cancelQrCharge(@Param('chargeId', ParseUUIDPipe) chargeId: string) {
     return this.financesService.cancelQrCharge(chargeId);
   }

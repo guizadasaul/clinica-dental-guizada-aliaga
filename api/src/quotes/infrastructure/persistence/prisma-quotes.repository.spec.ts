@@ -263,6 +263,7 @@ describe('PrismaQuotesRepository — altas, lecturas y pagos', () => {
       create: jest.fn(),
       findUnique: jest.fn(),
       findFirst: jest.fn(),
+      findMany: jest.fn(),
       updateMany: jest.fn(),
     },
     transaction: jest.fn((fn: (t: unknown) => unknown) => fn(tx)),
@@ -461,6 +462,31 @@ describe('PrismaQuotesRepository — altas, lecturas y pagos', () => {
           }) as object,
         }),
       );
+    });
+
+    // CLI-220
+    it('findQrChargeByQrId busca por el qrId de BANECO', async () => {
+      prisma.quote_qr_charges.findUnique
+        .mockResolvedValueOnce({ id: 'c1' })
+        .mockResolvedValueOnce(null);
+
+      await expect(repo.findQrChargeByQrId('qr-1')).resolves.toBe('charge');
+      await expect(repo.findQrChargeByQrId('qr-x')).resolves.toBeNull();
+      expect(prisma.quote_qr_charges.findUnique).toHaveBeenCalledWith({
+        where: { baneco_qr_id: 'qr-1' },
+        include: { lines: true },
+      });
+    });
+
+    it('findPendingQrCharges trae los pendientes, el más antiguo primero', async () => {
+      prisma.quote_qr_charges.findMany.mockResolvedValue([{ id: 'c1' }]);
+
+      await expect(repo.findPendingQrCharges()).resolves.toEqual(['charge']);
+      expect(prisma.quote_qr_charges.findMany).toHaveBeenCalledWith({
+        where: { status: 'pending' },
+        include: { lines: true },
+        orderBy: { created_at: 'asc' },
+      });
     });
 
     it('findPendingPatientQrCharge busca el QR pendiente del paciente que tenga tratamientos', async () => {

@@ -2,6 +2,7 @@ import {
   ConflictException,
   Inject,
   Injectable,
+  Logger,
   NotFoundException,
   UnprocessableEntityException,
 } from '@nestjs/common';
@@ -18,7 +19,11 @@ import type { PaymentAllocation } from '../../quotes/domain/QuoteBalance';
 import type { Quote } from '../../quotes/domain/Quote';
 import { QrChargeStatus } from '../../quotes/domain/QrCharge';
 import type { QrCharge } from '../../quotes/domain/QrCharge';
-import { PaymentGateway, QrStatus } from '../../payments/domain/PaymentGateway';
+import {
+  PaymentGateway,
+  QrStatus,
+  type QrStatusResult,
+} from '../../payments/domain/PaymentGateway';
 import type { PaymentGateway as IPaymentGateway } from '../../payments/domain/PaymentGateway';
 import { FinancesReadRepository } from '../domain/FinancesReadRepository';
 import type { IFinancesReadRepository } from '../domain/FinancesReadRepository';
@@ -48,6 +53,14 @@ export type VerifyQrChargeResult =
   | { status: typeof QrChargeStatus.CANCELLED }
   | { status: typeof QrChargeStatus.PAID; quote: Quote };
 
+/** CLI-220: anular nunca pierde un pago — si BANECO dice que ya se pagó, se registra. */
+export type CancelQrChargeResult =
+  | { status: typeof QrChargeStatus.CANCELLED }
+  | { status: typeof QrChargeStatus.PAID; quote: Quote };
+
+/** Más de un centavo de diferencia entre lo cobrado y lo que informa BANECO. */
+const AMOUNT_TOLERANCE = 0.005;
+
 function toView(charge: QrCharge): QrChargeView {
   return {
     chargeId: charge.id,
@@ -68,6 +81,8 @@ const round2 = (n: number) => Math.round(n * 100) / 100;
  */
 @Injectable()
 export class FinancesService {
+  private readonly logger = new Logger(FinancesService.name);
+
   constructor(
     private readonly quotesService: QuotesService,
     @Inject(QuoteRepository)
@@ -165,7 +180,7 @@ export class FinancesService {
   async cancelPatientQrCharge(
     patientId: string,
     chargeId: string,
-  ): Promise<void> {
+  ): Promise<CancelQrChargeResult> {
     await this.requireOwnCharge(patientId, chargeId);
     return this.cancelQrCharge(chargeId);
   }
@@ -216,7 +231,8 @@ export class FinancesService {
 
   /**
    * Consulta a BANECO. Idempotente: si ya estaba pagado devuelve el
-   * presupuesto sin volver a registrar el pago.
+   * presupuesto sin volver a registrar el pago. Lo usan el botón "Verificar
+   * pago", el webhook de BANECO y la conciliación periódica (CLI-220).
    */
   async verifyQrCharge(chargeId: string): Promise<VerifyQrChargeResult> {
     const charge = await this.requireCharge(chargeId);
@@ -230,33 +246,131 @@ export class FinancesService {
       return { status: QrChargeStatus.CANCELLED };
     }
 
-    const { status } = await this.gateway.getQrStatus(charge.qrId);
-    if (status === QrStatus.CANCELLED) {
+    const result = await this.gateway.getQrStatus(charge.qrId);
+    if (result.status === QrStatus.CANCELLED) {
       await this.quoteRepo.cancelQrCharge(chargeId);
       return { status: QrChargeStatus.CANCELLED };
     }
-    if (status !== QrStatus.PAID) {
+    if (result.status !== QrStatus.PAID) {
       return { status: QrChargeStatus.PENDING };
     }
+    const quote = await this.settlePaid(charge, result);
+    return quote
+      ? { status: QrChargeStatus.PAID, quote }
+      : { status: QrChargeStatus.PENDING };
+  }
 
-    // null = otra verificación simultánea ya lo registró: mismo resultado.
-    const quote =
-      (await this.quoteRepo.settleQrCharge(chargeId)) ??
-      (await this.quotesService.findById(charge.quoteId));
+  /**
+   * Anula un QR sin pagar (CLI-220: anulación segura). Nunca da por anulado
+   * algo que BANECO cobró:
+   * 1. pregunta el estado real; si ya está pagado, registra el pago y NO anula;
+   * 2. si sigue pendiente, lo anula en BANECO y solo después lo marca acá;
+   * 3. si BANECO falla al anular, vuelve a preguntar: pagado → se registra;
+   *    si no, el error sube y el cobro sigue pendiente (lo retoma la
+   *    conciliación periódica).
+   */
+  async cancelQrCharge(chargeId: string): Promise<CancelQrChargeResult> {
+    const charge = await this.requireCharge(chargeId);
+    if (charge.status === QrChargeStatus.PAID) {
+      return {
+        status: QrChargeStatus.PAID,
+        quote: await this.quotesService.findById(charge.quoteId),
+      };
+    }
+    if (charge.status === QrChargeStatus.CANCELLED) {
+      return { status: QrChargeStatus.CANCELLED };
+    }
+
+    const before = await this.gateway.getQrStatus(charge.qrId);
+    const early = await this.resolveFinalStatus(charge, before);
+    if (early) {
+      return early;
+    }
+
+    try {
+      await this.gateway.cancelQr(charge.qrId);
+    } catch (error) {
+      // Pudo haberse pagado justo antes: BANECO no anula un QR pagado.
+      const after = await this.gateway.getQrStatus(charge.qrId);
+      const resolved = await this.resolveFinalStatus(charge, after);
+      if (resolved) {
+        return resolved;
+      }
+      throw error;
+    }
+
+    if (await this.quoteRepo.cancelQrCharge(chargeId)) {
+      return { status: QrChargeStatus.CANCELLED };
+    }
+    // Otra request lo cambió en el medio (p. ej. la conciliación lo registró).
+    const latest = await this.requireCharge(chargeId);
+    return latest.status === QrChargeStatus.PAID
+      ? {
+          status: QrChargeStatus.PAID,
+          quote: await this.quotesService.findById(charge.quoteId),
+        }
+      : { status: QrChargeStatus.CANCELLED };
+  }
+
+  /** Los cobros QR que siguen pendientes, el más antiguo primero — para la conciliación periódica. */
+  findPendingQrCharges(): Promise<QrCharge[]> {
+    return this.quoteRepo.findPendingQrCharges();
+  }
+
+  findQrChargeByQrId(qrId: string): Promise<QrCharge | null> {
+    return this.quoteRepo.findQrChargeByQrId(qrId);
+  }
+
+  /**
+   * Con el estado que dio BANECO: pagado → se registra el pago; anulado allá
+   * → se marca anulado acá. null si sigue pendiente (hay que anularlo).
+   * Un pago con monto distinto al cobro no se registra ni se anula: queda
+   * pendiente y en el log para revisión manual.
+   */
+  private async resolveFinalStatus(
+    charge: QrCharge,
+    result: QrStatusResult,
+  ): Promise<CancelQrChargeResult | null> {
+    if (result.status === QrStatus.CANCELLED) {
+      await this.quoteRepo.cancelQrCharge(charge.id);
+      return { status: QrChargeStatus.CANCELLED };
+    }
+    if (result.status !== QrStatus.PAID) {
+      return null;
+    }
+    const quote = await this.settlePaid(charge, result);
+    if (!quote) {
+      throw new ConflictException(
+        'El pago necesita una revisión de la clínica. Comunícate con nosotros.',
+      );
+    }
     return { status: QrChargeStatus.PAID, quote };
   }
 
-  /** Anula un QR sin pagar, en BANECO y acá. 409 si ya se pagó. */
-  async cancelQrCharge(chargeId: string): Promise<void> {
-    const charge = await this.requireCharge(chargeId);
-    if (charge.status === QrChargeStatus.PAID) {
-      throw new ConflictException('Este QR ya fue pagado, no se puede anular');
+  /**
+   * Registra el pago de un QR que BANECO dio por pagado. Antes compara el
+   * monto que informa BANECO con el del cobro: si no coincide, no registra
+   * nada (devuelve null) y lo deja en el log para revisión manual.
+   */
+  private async settlePaid(
+    charge: QrCharge,
+    result: QrStatusResult,
+  ): Promise<Quote | null> {
+    const paidAmount = result.payment?.amount;
+    if (
+      paidAmount !== undefined &&
+      Math.abs(paidAmount - charge.amount) > AMOUNT_TOLERANCE
+    ) {
+      this.logger.error(
+        `PAGO QR CON MONTO DISTINTO — revisión manual. chargeId=${charge.id} qrId=${charge.qrId} cobrado=${charge.amount} pagado=${paidAmount}`,
+      );
+      return null;
     }
-    if (charge.status === QrChargeStatus.CANCELLED) {
-      return;
-    }
-    await this.gateway.cancelQr(charge.qrId);
-    await this.quoteRepo.cancelQrCharge(chargeId);
+    // null = otra verificación simultánea ya lo registró: mismo resultado.
+    return (
+      (await this.quoteRepo.settleQrCharge(charge.id)) ??
+      (await this.quotesService.findById(charge.quoteId))
+    );
   }
 
   private async requireCharge(chargeId: string): Promise<QrCharge> {

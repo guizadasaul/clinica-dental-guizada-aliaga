@@ -2,6 +2,7 @@ import {
   BadRequestException,
   ConflictException,
   NotFoundException,
+  ServiceUnavailableException,
   UnprocessableEntityException,
 } from '@nestjs/common';
 import { FinancesService } from './finances.service';
@@ -54,6 +55,8 @@ describe('FinancesService', () => {
     findQrCharge: jest.fn(),
     findById: jest.fn(),
     findPendingPatientQrCharge: jest.fn(),
+    findPendingQrCharges: jest.fn(),
+    findQrChargeByQrId: jest.fn(),
     settleQrCharge: jest.fn(),
     cancelQrCharge: jest.fn(),
   };
@@ -73,7 +76,7 @@ describe('FinancesService', () => {
     gateway,
   );
 
-  beforeEach(() => jest.clearAllMocks());
+  beforeEach(() => jest.resetAllMocks());
 
   it('listPatients delega la búsqueda', async () => {
     readRepo.listPatientsWithBalance.mockResolvedValue([]);
@@ -244,32 +247,170 @@ describe('FinancesService', () => {
     });
   });
 
-  describe('cancelQrCharge', () => {
-    it('anula en BANECO y acá', async () => {
-      quoteRepo.findQrCharge.mockResolvedValue(charge());
+  // CLI-220: anular nunca pierde un pago.
+  describe('cancelQrCharge (anulación segura)', () => {
+    const paidStatus = (amount = 150) => ({
+      status: 'paid' as const,
+      payment: { amount } as never,
+    });
 
-      await service.cancelQrCharge('charge-1');
+    beforeEach(() => {
+      quoteRepo.findQrCharge.mockResolvedValue(charge());
+      quotesService.findById.mockResolvedValue(quote());
+      quoteRepo.settleQrCharge.mockResolvedValue(quote({ totalPaid: 350 }));
+      quoteRepo.cancelQrCharge.mockResolvedValue(true);
+      gateway.cancelQr.mockResolvedValue(undefined);
+    });
+
+    it('pendiente en BANECO: lo anula allá y después acá', async () => {
+      gateway.getQrStatus.mockResolvedValue({
+        status: 'pending',
+        payment: null,
+      });
+
+      await expect(service.cancelQrCharge('charge-1')).resolves.toEqual({
+        status: 'cancelled',
+      });
 
       expect(gateway.cancelQr).toHaveBeenCalledWith('qr-1');
       expect(quoteRepo.cancelQrCharge).toHaveBeenCalledWith('charge-1');
+      expect(quoteRepo.settleQrCharge).not.toHaveBeenCalled();
     });
 
-    it('409 si ya se pagó', async () => {
-      quoteRepo.findQrCharge.mockResolvedValue(charge({ status: 'paid' }));
+    it('si BANECO ya lo cobró, registra el pago y NO lo anula', async () => {
+      gateway.getQrStatus.mockResolvedValue(paidStatus());
+
+      await expect(service.cancelQrCharge('charge-1')).resolves.toEqual({
+        status: 'paid',
+        quote: quote({ totalPaid: 350 }),
+      });
+
+      expect(quoteRepo.settleQrCharge).toHaveBeenCalledWith('charge-1');
+      expect(gateway.cancelQr).not.toHaveBeenCalled();
+      expect(quoteRepo.cancelQrCharge).not.toHaveBeenCalled();
+    });
+
+    it('si se pagó justo mientras se anulaba (BANECO rechaza la anulación), registra el pago', async () => {
+      gateway.getQrStatus
+        .mockResolvedValueOnce({ status: 'pending', payment: null })
+        .mockResolvedValueOnce(paidStatus());
+      gateway.cancelQr.mockRejectedValue(new ServiceUnavailableException('no'));
+
+      await expect(service.cancelQrCharge('charge-1')).resolves.toMatchObject({
+        status: 'paid',
+      });
+
+      expect(quoteRepo.settleQrCharge).toHaveBeenCalledWith('charge-1');
+      expect(quoteRepo.cancelQrCharge).not.toHaveBeenCalled();
+    });
+
+    it('si BANECO falla al anular y sigue pendiente, el error sube y NO se marca anulado', async () => {
+      gateway.getQrStatus.mockResolvedValue({
+        status: 'pending',
+        payment: null,
+      });
+      gateway.cancelQr.mockRejectedValue(new ServiceUnavailableException('no'));
+
+      await expect(service.cancelQrCharge('charge-1')).rejects.toThrow(
+        ServiceUnavailableException,
+      );
+
+      expect(quoteRepo.cancelQrCharge).not.toHaveBeenCalled();
+      expect(quoteRepo.settleQrCharge).not.toHaveBeenCalled();
+    });
+
+    it('si BANECO no responde ni para consultar, no toca nada', async () => {
+      gateway.getQrStatus.mockRejectedValue(
+        new ServiceUnavailableException('no'),
+      );
+
+      await expect(service.cancelQrCharge('charge-1')).rejects.toThrow(
+        ServiceUnavailableException,
+      );
+
+      expect(gateway.cancelQr).not.toHaveBeenCalled();
+      expect(quoteRepo.cancelQrCharge).not.toHaveBeenCalled();
+    });
+
+    it('anulado en BANECO: lo marca anulado acá sin volver a anular', async () => {
+      gateway.getQrStatus.mockResolvedValue({
+        status: 'cancelled',
+        payment: null,
+      });
+
+      await expect(service.cancelQrCharge('charge-1')).resolves.toEqual({
+        status: 'cancelled',
+      });
+
+      expect(gateway.cancelQr).not.toHaveBeenCalled();
+      expect(quoteRepo.cancelQrCharge).toHaveBeenCalledWith('charge-1');
+    });
+
+    it('pagado con un monto distinto: ni lo registra ni lo anula, y pide revisión', async () => {
+      gateway.getQrStatus.mockResolvedValue(paidStatus(100));
 
       await expect(service.cancelQrCharge('charge-1')).rejects.toThrow(
         ConflictException,
       );
+
+      expect(quoteRepo.settleQrCharge).not.toHaveBeenCalled();
+      expect(gateway.cancelQr).not.toHaveBeenCalled();
+      expect(quoteRepo.cancelQrCharge).not.toHaveBeenCalled();
+    });
+
+    it('ya pagado acá: devuelve el presupuesto sin ir a BANECO', async () => {
+      quoteRepo.findQrCharge.mockResolvedValue(charge({ status: 'paid' }));
+
+      await expect(service.cancelQrCharge('charge-1')).resolves.toEqual({
+        status: 'paid',
+        quote: quote(),
+      });
+      expect(gateway.getQrStatus).not.toHaveBeenCalled();
+    });
+
+    it('ya anulado acá: no hace nada', async () => {
+      quoteRepo.findQrCharge.mockResolvedValue(charge({ status: 'cancelled' }));
+
+      await expect(service.cancelQrCharge('charge-1')).resolves.toEqual({
+        status: 'cancelled',
+      });
+      expect(gateway.getQrStatus).not.toHaveBeenCalled();
       expect(gateway.cancelQr).not.toHaveBeenCalled();
     });
 
-    it('ya anulado: no hace nada', async () => {
-      quoteRepo.findQrCharge.mockResolvedValue(charge({ status: 'cancelled' }));
+    it('si otra request lo registró como pagado mientras se anulaba, devuelve pagado', async () => {
+      gateway.getQrStatus.mockResolvedValue({
+        status: 'pending',
+        payment: null,
+      });
+      quoteRepo.cancelQrCharge.mockResolvedValue(false);
+      quoteRepo.findQrCharge
+        .mockResolvedValueOnce(charge())
+        .mockResolvedValueOnce(charge({ status: 'paid' }));
 
-      await service.cancelQrCharge('charge-1');
+      await expect(service.cancelQrCharge('charge-1')).resolves.toMatchObject({
+        status: 'paid',
+      });
+    });
 
-      expect(gateway.cancelQr).not.toHaveBeenCalled();
-      expect(quoteRepo.cancelQrCharge).not.toHaveBeenCalled();
+    it('verificar un pago con monto distinto no lo registra: sigue pendiente', async () => {
+      gateway.getQrStatus.mockResolvedValue(paidStatus(149));
+
+      await expect(service.verifyQrCharge('charge-1')).resolves.toEqual({
+        status: 'pending',
+      });
+      expect(quoteRepo.settleQrCharge).not.toHaveBeenCalled();
+    });
+
+    it('expone los pendientes y la búsqueda por qrId para la conciliación', async () => {
+      quoteRepo.findPendingQrCharges.mockResolvedValue([charge()]);
+      quoteRepo.findQrChargeByQrId.mockResolvedValue(charge());
+
+      await expect(service.findPendingQrCharges()).resolves.toEqual([charge()]);
+      await expect(service.findQrChargeByQrId('qr-1')).resolves.toEqual(
+        charge(),
+      );
+      expect(quoteRepo.findQrChargeByQrId).toHaveBeenCalledWith('qr-1');
     });
   });
 

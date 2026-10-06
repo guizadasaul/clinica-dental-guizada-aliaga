@@ -103,10 +103,15 @@ export class RegisterPaymentComponent {
     const charge = this.charge();
     if (!charge) { return; }
     await this.run(async () => {
-      await firstValueFrom(this.financesService.cancelQrCharge(charge.chargeId));
+      const result = await firstValueFrom(this.financesService.cancelQrCharge(charge.chargeId));
+      // CLI-220: si el paciente ya había pagado, no se anula: se registró el pago.
+      if (result.status === 'paid') {
+        this.paid.emit(result.quote);
+        return;
+      }
       this.charge.set(null);
       this.notice.set(null);
-    }, 'No se pudo anular el QR. Si ya fue pagado, verifícalo.');
+    }, 'No se pudo anular el QR. Intenta de nuevo en un momento.');
   }
 
   protected onClose(): void {

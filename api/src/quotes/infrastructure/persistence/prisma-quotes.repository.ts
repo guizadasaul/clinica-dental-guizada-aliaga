@@ -226,6 +226,23 @@ export class PrismaQuotesRepository implements IQuoteRepository {
     return record ? QuoteMapper.qrChargeToDomain(record) : null;
   }
 
+  async findQrChargeByQrId(qrId: string): Promise<QrCharge | null> {
+    const record = await this.prisma.quote_qr_charges.findUnique({
+      where: { baneco_qr_id: qrId },
+      include: { lines: true },
+    });
+    return record ? QuoteMapper.qrChargeToDomain(record) : null;
+  }
+
+  async findPendingQrCharges(): Promise<QrCharge[]> {
+    const records = await this.prisma.quote_qr_charges.findMany({
+      where: { status: QrChargeStatus.PENDING },
+      include: { lines: true },
+      orderBy: { created_at: 'asc' },
+    });
+    return records.map((r) => QuoteMapper.qrChargeToDomain(r));
+  }
+
   async findPendingPatientQrCharge(
     patientId: string,
   ): Promise<QrCharge | null> {

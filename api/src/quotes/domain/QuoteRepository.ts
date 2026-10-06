@@ -73,6 +73,10 @@ export interface IQuoteRepository {
   findQrCharge(chargeId: string): Promise<QrCharge | null>;
   /** CLI-218: el QR pendiente más reciente que generó el paciente (con líneas) en alguno de sus presupuestos. */
   findPendingPatientQrCharge(patientId: string): Promise<QrCharge | null>;
+  /** CLI-220: para el webhook de BANECO, que solo trae el qrId. */
+  findQrChargeByQrId(qrId: string): Promise<QrCharge | null>;
+  /** CLI-220: los cobros QR pendientes, el más antiguo primero (conciliación periódica). */
+  findPendingQrCharges(): Promise<QrCharge[]>;
   /**
    * pending → paid, crea el pago qr_baneco por el monto del cobro y recalcula
    * total_paid + status, en una sola transacción. El cambio de estado va
