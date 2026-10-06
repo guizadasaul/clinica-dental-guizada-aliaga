@@ -16,7 +16,7 @@ import {
   insertQuoteItemGroup,
   insertQuoteItems,
   recalculateQuote,
-} from './prisma-quotes.repository.js';
+} from './quote-writes.js';
 
 @Injectable()
 export class PrismaTreatmentPlanRepository implements ITreatmentPlanRepository {
