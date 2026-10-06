@@ -57,6 +57,8 @@ export interface ToothProcedure {
   toothNumber: number | null;
   applicationGroupId: string | null;
   treatmentId: string;
+  /** CLI-211: nombre del tratamiento. */
+  treatmentName: string;
   /** Del tratamiento aplicado (CLI-107): los de arcada/boca completa no traen toothNumber y se expanden por tipo. */
   applicationType: TreatmentApplicationType;
   categoryCode: string;
@@ -70,5 +72,7 @@ export interface ToothProcedure {
   surfaces: ToothSurfaceCode[];
   notes: string | null;
   performedBy: string;
+  /** CLI-211: nombre de quien lo realizó. */
+  performedByName: string | null;
   createdAt: string;
 }

@@ -55,6 +55,18 @@ describe('ToothProcedureMapper', () => {
     expect(domain.categoryColor).toBe('#a21caf');
   });
 
+  it('lleva el nombre del tratamiento y de quien lo realizó (CLI-211)', () => {
+    const domain = ToothProcedureMapper.toDomain(
+      fakeRecord({ users: { display_name: 'Dra. Lucía Mamani' } }),
+    );
+
+    expect(domain.treatmentName).toBe('Endodoncia molar');
+    expect(domain.performedByName).toBe('Dra. Lucía Mamani');
+    expect(
+      ToothProcedureMapper.toDomain(fakeRecord()).performedByName,
+    ).toBeNull();
+  });
+
   it('usa el precio del grupo cuando la fila pertenece a un grupo', () => {
     const domain = ToothProcedureMapper.toDomain(
       fakeRecord({

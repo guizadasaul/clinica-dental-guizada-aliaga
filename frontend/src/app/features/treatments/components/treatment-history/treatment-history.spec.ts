@@ -11,6 +11,7 @@ function procedure(overrides: Partial<ToothProcedure> = {}): ToothProcedure {
     toothNumber: 16,
     applicationGroupId: null,
     treatmentId: 'resina',
+    treatmentName: 'Tratamiento',
     applicationType: 'single_tooth',
     categoryCode: 'rest',
     categoryName: 'Restauración',
@@ -21,6 +22,7 @@ function procedure(overrides: Partial<ToothProcedure> = {}): ToothProcedure {
     surfaces: [],
     notes: null,
     performedBy: 'doctor-1',
+    performedByName: 'Dr. Saul',
     createdAt: '2026-09-20T10:00:00.000Z',
     ...overrides,
   };

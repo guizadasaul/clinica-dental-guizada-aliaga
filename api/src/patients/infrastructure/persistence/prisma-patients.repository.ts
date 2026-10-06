@@ -52,6 +52,8 @@ const TOOTH_PROCEDURE_INCLUDE = {
   tooth_procedure_surfaces: { include: { tooth_surfaces: true } },
   application_groups: true,
   treatments: { include: { treatment_categories: true } },
+  // CLI-211: el historial del paciente muestra quién lo realizó.
+  users: { select: { display_name: true } },
 } as const;
 
 /**

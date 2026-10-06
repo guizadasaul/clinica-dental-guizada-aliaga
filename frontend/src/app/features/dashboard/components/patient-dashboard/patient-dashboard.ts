@@ -12,7 +12,7 @@ import { AuthService } from '../../../../auth/application/auth.service';
 import { PatientsService } from '../../../patients/services/patients.service';
 import { AppointmentsService } from '../../../appointments/services/appointments.service';
 import type { PatientAppointment } from '../../../appointments/models/appointment.model';
-import { TreatmentHistoryComponent } from '../../../treatments/components/treatment-history/treatment-history';
+import { MyTreatmentHistoryComponent } from '../../../treatments/components/my-treatment-history/my-treatment-history';
 import { MyQuoteComponent } from '../../../quotes/components/my-quote/my-quote';
 import { MyVisitsComponent } from '../../../appointments/components/my-visits/my-visits';
 import { QuotesService } from '../../../quotes/services/quotes.service';
@@ -43,7 +43,7 @@ const TIME_FORMATTER = new Intl.DateTimeFormat('es-BO', {
   selector: 'app-patient-dashboard',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [TreatmentHistoryComponent, MyQuoteComponent, MyVisitsComponent],
+  imports: [MyTreatmentHistoryComponent, MyQuoteComponent, MyVisitsComponent],
   templateUrl: './patient-dashboard.html',
   styleUrl: './patient-dashboard.scss',
 })
@@ -147,8 +147,4 @@ export class PatientDashboardComponent {
       day: 'numeric',
     }),
   );
-
-  protected onHistoryClose(): void {
-    this.navChange.emit('home');
-  }
 }

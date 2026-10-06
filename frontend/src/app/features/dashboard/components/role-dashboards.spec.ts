@@ -1,4 +1,4 @@
-import { Component, input, output, signal } from '@angular/core';
+import { Component, signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { By } from '@angular/platform-browser';
 import { NEVER, of, throwError, type Observable } from 'rxjs';
@@ -15,12 +15,8 @@ import { ReportsService } from '../../reports/services/reports.service';
 import { KpiCardComponent } from '../../reports/components/kpi-card/kpi-card';
 import type { FinancialReport, OperationalReport } from '../../reports/models/report.model';
 
-@Component({ selector: 'app-treatment-history', standalone: true, template: 'historial' })
-class TreatmentHistoryStub {
-  readonly patientId = input('');
-  readonly mine = input(false);
-  readonly closed = output<void>();
-}
+@Component({ selector: 'app-my-treatment-history', standalone: true, template: 'historial' })
+class MyTreatmentHistoryStub {}
 @Component({ selector: 'app-my-visits', standalone: true, template: 'mis citas' })
 class MyVisitsStub {}
 @Component({ selector: 'app-admin-doctors', standalone: true, template: 'doctores' })
@@ -64,7 +60,7 @@ describe('PatientDashboardComponent', () => {
       ],
     });
     TestBed.overrideComponent(PatientDashboardComponent, {
-      set: { imports: [TreatmentHistoryStub, MyVisitsStub] },
+      set: { imports: [MyTreatmentHistoryStub, MyVisitsStub] },
     });
     const fixture = TestBed.createComponent(PatientDashboardComponent);
     fixture.componentRef.setInput('activeNav', nav);
@@ -227,25 +223,16 @@ describe('PatientDashboardComponent', () => {
     expect(fixture.debugElement.query(By.directive(MyVisitsStub))).toBeTruthy();
   });
 
-  it('el historial muestra los tratamientos de su propia ficha y al cerrarlo vuelve al inicio', () => {
+  it('"Mi historial" muestra los tratamientos recibidos (CLI-211)', () => {
     const { fixture } = setup('history');
-    const emitted: string[] = [];
-    fixture.componentInstance.navChange.subscribe((nav) => emitted.push(nav));
-    const history = fixture.debugElement.query(By.directive(TreatmentHistoryStub))
-      .componentInstance as TreatmentHistoryStub;
 
-    expect(history.patientId()).toBe('patient-1');
-    // CLI-102: el paciente pide su historial por sesión, no por id.
-    expect(history.mine()).toBe(true);
-    history.closed.emit();
-
-    expect(emitted).toEqual(['home']);
+    expect(fixture.debugElement.query(By.directive(MyTreatmentHistoryStub))).toBeTruthy();
   });
 
   it('sin ficha de paciente, el historial no se muestra', () => {
     const { fixture } = setup('history', { patient: null });
 
-    expect(fixture.debugElement.query(By.directive(TreatmentHistoryStub))).toBeNull();
+    expect(fixture.debugElement.query(By.directive(MyTreatmentHistoryStub))).toBeNull();
   });
 
   it.each([
