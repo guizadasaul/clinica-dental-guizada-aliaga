@@ -68,6 +68,13 @@ export class PatientsController {
     return this.patientsService.findMyToothProcedures(currentUser.uid);
   }
 
+  // CLI-213: "Mi perfil" — historia clínica inicial, solo lectura.
+  @Get('me/clinical-record')
+  @Roles(UserRole.PATIENT)
+  findMyClinicalRecord(@CurrentUser() currentUser: AuthenticatedUser) {
+    return this.patientsService.findMyClinicalRecord(currentUser.uid);
+  }
+
   @Post()
   @Roles(UserRole.ODONTOLOGIST)
   @HttpCode(HttpStatus.CREATED)

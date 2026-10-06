@@ -133,6 +133,7 @@ const mockPatientRepo = {
   findHygieneHabits: jest.fn(),
   createClinicalExam: jest.fn(),
   findLatestClinicalExam: jest.fn(),
+  findFirstClinicalExam: jest.fn(),
   createOdontogramEntries: jest.fn(),
   findOdontogramEntries: jest.fn(),
   createToothProcedures: jest.fn(),
@@ -2004,6 +2005,91 @@ describe('PatientsService', () => {
         service.findMyToothProcedures(PATIENT_AUTH_ID),
       ).rejects.toThrow(NotFoundException);
       expect(mockPatientRepo.findToothProcedures).not.toHaveBeenCalled();
+    });
+  });
+
+  // CLI-213
+  describe('findMyClinicalRecord', () => {
+    function withPatient() {
+      const patient = fakePatient();
+      mockUserRepo.findByAuthUserId.mockResolvedValue(
+        makeAppUser(UserRole.PATIENT, 'user-1'),
+      );
+      mockPatientRepo.findByUserId.mockResolvedValue(patient);
+      mockPatientRepo.findMedicalHistory.mockResolvedValue('history');
+      mockPatientRepo.findHygieneHabits.mockResolvedValue('hygiene');
+      mockPatientRepo.findFirstClinicalExam.mockResolvedValue('exam');
+      mockPatientRepo.findDentalExam.mockResolvedValue('diagnosis');
+      return patient;
+    }
+
+    it('junta la ficha, antecedentes, higiene, primer examen y el primer diagnóstico', async () => {
+      const patient = withPatient();
+      mockPatientRepo.findDentalExamVersions.mockResolvedValue([
+        { id: 'v3', version: 3, kind: 'diagnosis' },
+        { id: 'v2', version: 2, kind: 'correction' },
+        { id: 'v1', version: 1, kind: 'correction' },
+        { id: 'v0', version: 0, kind: 'diagnosis' },
+      ]);
+
+      await expect(
+        service.findMyClinicalRecord(PATIENT_AUTH_ID),
+      ).resolves.toEqual({
+        patient,
+        medicalHistory: 'history',
+        hygieneHabits: 'hygiene',
+        clinicalExam: 'exam',
+        initialDiagnosis: 'diagnosis',
+      });
+      for (const fn of [
+        mockPatientRepo.findMedicalHistory,
+        mockPatientRepo.findHygieneHabits,
+        mockPatientRepo.findFirstClinicalExam,
+        mockPatientRepo.findDentalExamVersions,
+      ]) {
+        expect(fn).toHaveBeenCalledWith(patient.id);
+      }
+      expect(mockPatientRepo.findDentalExam).toHaveBeenCalledWith(
+        patient.id,
+        'v0',
+      );
+    });
+
+    it('si ninguna versión es "diagnosis", toma la primera que exista', async () => {
+      const patient = withPatient();
+      mockPatientRepo.findDentalExamVersions.mockResolvedValue([
+        { id: 'v2', version: 2, kind: 'correction' },
+        { id: 'v1', version: 1, kind: 'correction' },
+      ]);
+
+      await service.findMyClinicalRecord(PATIENT_AUTH_ID);
+
+      expect(mockPatientRepo.findDentalExam).toHaveBeenCalledWith(
+        patient.id,
+        'v1',
+      );
+    });
+
+    it('sin exámenes dentales el diagnóstico inicial es null', async () => {
+      withPatient();
+      mockPatientRepo.findDentalExamVersions.mockResolvedValue([]);
+
+      await expect(
+        service.findMyClinicalRecord(PATIENT_AUTH_ID),
+      ).resolves.toMatchObject({ initialDiagnosis: null });
+      expect(mockPatientRepo.findDentalExam).not.toHaveBeenCalled();
+    });
+
+    it('responde 404 si el usuario todavía no tiene ficha', async () => {
+      mockUserRepo.findByAuthUserId.mockResolvedValue(
+        makeAppUser(UserRole.PATIENT, 'user-1'),
+      );
+      mockPatientRepo.findByUserId.mockResolvedValue(null);
+
+      await expect(
+        service.findMyClinicalRecord(PATIENT_AUTH_ID),
+      ).rejects.toThrow(NotFoundException);
+      expect(mockPatientRepo.findMedicalHistory).not.toHaveBeenCalled();
     });
   });
 

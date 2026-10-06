@@ -218,6 +218,8 @@ export interface IPatientRepository {
   ): Promise<ClinicalExam>;
   /** El examen clínico más reciente (upsert por día — puede haber uno distinto por fecha). */
   findLatestClinicalExam(patientId: string): Promise<ClinicalExam | null>;
+  /** CLI-213: el examen clínico más antiguo — el de la primera visita. */
+  findFirstClinicalExam(patientId: string): Promise<ClinicalExam | null>;
   createOdontogramEntries(
     patientId: string,
     entries: OdontogramEntryData[],
