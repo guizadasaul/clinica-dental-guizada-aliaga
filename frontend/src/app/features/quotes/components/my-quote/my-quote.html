@@ -5,16 +5,6 @@
     @if (notice(); as n) {
       <output class="mq__success">{{ n }}</output>
     }
-    @if (charge(); as c) {
-      @if (!qrOpen()) {
-        <div class="mq__pending">
-          <span class="material-symbols-outlined" aria-hidden="true">qr_code_2</span>
-          <span class="mq__pending-text">Tienes un QR pendiente por <strong>{{ bs(c.amount) }}</strong>.</span>
-          <button type="button" class="mq__btn mq__btn--ghost" (click)="openQr()">Ver QR</button>
-        </div>
-      }
-    }
-
     @switch (state().status) {
       @case ('loading') {
         <p class="mq__muted">Cargando tu presupuesto...</p>
@@ -190,11 +180,13 @@
 @if (qrOpen() && charge(); as c) {
   <div class="qr-modal" (click)="onBackdropClick($event)" (keydown.escape)="closeQr()">
     <dialog open class="qr-modal__panel" aria-modal="true" aria-labelledby="qr-modal-title">
-      <button type="button" class="qr-modal__close" aria-label="Cerrar" (click)="closeQr()">
+      <button type="button" class="qr-modal__close" aria-label="Cerrar y anular el QR" [disabled]="busy()" (click)="closeQr()">
         <span class="material-symbols-outlined" aria-hidden="true">close</span>
       </button>
       <h2 id="qr-modal-title" class="qr-modal__title">Paga con QR</h2>
-      <p class="qr-modal__hint">Escanéalo desde la app de tu banco. Después presiona "Ya pagué, verificar".</p>
+      <p class="qr-modal__hint">
+        Escanéalo desde la app de tu banco. Después presiona "Ya pagué, verificar". Si cierras esta ventana, el QR se anula.
+      </p>
       <img class="qr-modal__img" [src]="'data:image/png;base64,' + c.qrImageBase64" alt="QR de pago BANECO" />
       <p class="qr-modal__amount">{{ bs(c.amount) }}</p>
       <ul class="qr-modal__lines">
