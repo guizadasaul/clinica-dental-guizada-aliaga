@@ -8,7 +8,7 @@ export interface ReportKpis {
   appointments: number;
   cancelled: number;
   newPatients: number;
-  /** Fracción 0..1 — Σ confirmadas / Σ capacidad teórica; null si no hay capacidad. */
+  /** Fracción 0..1 — Σ horarios tomados (confirmadas + atendidas) / Σ capacidad teórica; null si no hay capacidad. */
   occupancyRate: number | null;
   collected: number;
   /** Saldo actual de presupuestos no pagados: no depende del rango. */

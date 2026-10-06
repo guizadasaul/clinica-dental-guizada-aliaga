@@ -8,12 +8,13 @@ import {
 } from '../../../appointments/domain/ClinicSchedule.js';
 import type { WeeklyScheduleBlock } from '../../../appointments/domain/ClinicSchedule.js';
 import { AppointmentStatus } from '../../../appointments/domain/Appointment.js';
-import type {
-  AppointmentStatusCounts,
-  CancelledAppointmentRow,
-  DoctorOperationalRow,
-  OperationalReport,
-  ReportParams,
+import {
+  reportedAppointmentStatus,
+  type AppointmentStatusCounts,
+  type CancelledAppointmentRow,
+  type DoctorOperationalRow,
+  type OperationalReport,
+  type ReportParams,
 } from '../../domain/OperationalReport.js';
 import type {
   DoctorFinancialRow,
@@ -85,21 +86,18 @@ export class PrismaReportsRepository implements IReportsRepository {
 
     const doctorIds = doctors.map((d) => d.id);
 
-    const [statusCounts, patientCounts, scheduleBlocks, cancelled] =
+    const [appointments, patientCounts, scheduleBlocks, cancelled] =
       await Promise.all([
-        this.prisma.appointments.groupBy({
-          by: ['doctor_id', 'status'],
+        // CLI-224: fecha y estado de cada cita, porque una confirmada se
+        // reporta como atendida si su hora ya pasó (ver
+        // reportedAppointmentStatus).
+        this.prisma.appointments.findMany({
           where: {
             appointment_datetime: { gte: params.from, lt: params.to },
             doctor_id: { in: doctorIds },
           },
-          _count: { _all: true },
+          select: { doctor_id: true, status: true, appointment_datetime: true },
         }),
-        // CLI-65: "atendidos" se reporta con los estados reales que existen
-        // hoy en appointments (held/confirmed/expired, y cancelled desde
-        // CLI-149) — no hay ningún flujo
-        // que transicione una cita a 'attended' (no existe check-in), así que
-        // ese estado nunca aparece poblado. No se inventa ese flujo acá.
         this.prisma.patients.groupBy({
           by: ['assigned_doctor_id'],
           where: {
@@ -136,11 +134,18 @@ export class PrismaReportsRepository implements IReportsRepository {
         }),
       ]);
 
+    const now = new Date();
     const statusByDoctor = new Map<string, AppointmentStatusCounts>();
-    for (const row of statusCounts) {
-      const counts = statusByDoctor.get(row.doctor_id) ?? {};
-      counts[row.status] = row._count._all;
-      statusByDoctor.set(row.doctor_id, counts);
+    for (const appointment of appointments) {
+      const status = reportedAppointmentStatus(
+        appointment.status,
+        appointment.appointment_datetime,
+        now,
+      );
+      if (!status) continue;
+      const counts = statusByDoctor.get(appointment.doctor_id) ?? {};
+      counts[status] = (counts[status] ?? 0) + 1;
+      statusByDoctor.set(appointment.doctor_id, counts);
     }
 
     const newPatientsByDoctor = new Map<string, number>();
@@ -173,7 +178,9 @@ export class PrismaReportsRepository implements IReportsRepository {
           status === AppointmentStatus.CANCELLED ? sum : sum + count,
         0,
       );
-      const confirmedAppointments = appointmentsByStatus['confirmed'] ?? 0;
+      const confirmedAppointments =
+        (appointmentsByStatus['confirmed'] ?? 0) +
+        (appointmentsByStatus['attended'] ?? 0);
 
       const schedule = groupBlocksByWeekday(
         blocksByDoctor.get(doctor.id) ?? [],
@@ -386,13 +393,19 @@ export class PrismaReportsRepository implements IReportsRepository {
       ]),
     );
 
+    const now = new Date();
     for (const appointment of appointments) {
+      const status = reportedAppointmentStatus(
+        appointment.status,
+        appointment.appointment_datetime,
+        now,
+      );
       const day = days.get(
         toClinicDateString(appointment.appointment_datetime),
       );
-      if (day) {
-        day.appointmentsByStatus[appointment.status] =
-          (day.appointmentsByStatus[appointment.status] ?? 0) + 1;
+      if (status && day) {
+        day.appointmentsByStatus[status] =
+          (day.appointmentsByStatus[status] ?? 0) + 1;
       }
     }
 

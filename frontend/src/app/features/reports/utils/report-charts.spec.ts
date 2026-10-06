@@ -57,11 +57,12 @@ describe('bucketTrendDays', () => {
 
 describe('opciones de los gráficos', () => {
   it('citas por día: una serie apilada por estado, con color fijo por estado', () => {
-    const option = appointmentsByDayOption(bucketTrendDays([day('2026-09-01', { confirmed: 3, held: 1 })]));
+    const option = appointmentsByDayOption(bucketTrendDays([day('2026-09-01', { confirmed: 3, attended: 1 })]));
     const series = seriesOf(option);
-    expect(series.map((s) => s.name)).toEqual(['Confirmadas', 'En espera', 'Vencidas', 'Canceladas', 'No asistió']);
+    expect(series.map((s) => s.name)).toEqual(['Confirmadas', 'Atendidas', 'Canceladas', 'No asistió']);
     expect(series.map((s) => s.itemStyle?.color)).toEqual(CHART_STATUSES.map((s) => s.color));
     expect(series[0].data).toEqual([3]);
+    expect(series[1].data).toEqual([1]);
     expect(series[3].data).toEqual([0]);
   });
 
@@ -70,7 +71,7 @@ describe('opciones de los gráficos', () => {
       doctorRow('A', 0, { confirmed: 2, cancelled: 1 }),
       doctorRow('B', 0, { confirmed: 1 }),
     ]);
-    expect(totals).toEqual({ confirmed: 3, held: 0, expired: 0, cancelled: 1, no_show: 0 });
+    expect(totals).toEqual({ confirmed: 3, attended: 0, cancelled: 1, no_show: 0 });
     const data = seriesOf(statusDonutOption(totals, 3))[0].data as { name: string; value: number }[];
     expect(data.map((d) => [d.name, d.value])).toEqual([
       ['Confirmadas', 3],
