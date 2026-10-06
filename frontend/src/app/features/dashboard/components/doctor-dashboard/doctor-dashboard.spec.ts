@@ -2,8 +2,12 @@ import { Component, input, output, signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { By } from '@angular/platform-browser';
 import { Observable, of, throwError } from 'rxjs';
+import { DecimalPipe } from '@angular/common';
 import { DoctorDashboardComponent } from './doctor-dashboard';
 import { AuthService } from '../../../../auth/application/auth.service';
+import { PatientsService } from '../../../patients/services/patients.service';
+import { FinancesService } from '../../../finances/services/finances.service';
+import type { PatientBalance } from '../../../finances/models/finance.model';
 import { AppointmentsService } from '../../../appointments/services/appointments.service';
 import type { AppointmentAgendaItem } from '../../../appointments/models/appointment.model';
 import type { Patient, PatientInviteContact } from '../../../patients/models/patient.model';
@@ -119,18 +123,24 @@ function setup(
     nav?: string;
     displayName?: string | null;
     agenda?: Observable<AppointmentAgendaItem[]>;
+    myPatients?: Observable<unknown[]>;
+    balances?: Observable<Partial<PatientBalance>[]>;
   } = {},
 ) {
   const appointments = { getAgenda: vi.fn().mockReturnValue(options.agenda ?? of([agendaItem()])) };
+  const patients = { getAll: vi.fn().mockReturnValue(options.myPatients ?? of([{}, {}, {}])) };
+  const finances = { listPatients: vi.fn().mockReturnValue(options.balances ?? of([])) };
   const user = signal(
     options.displayName === undefined
-      ? { displayName: 'Ariel Guizada', photoURL: null }
-      : { displayName: options.displayName, photoURL: null },
+      ? { id: 'doc-1', displayName: 'Ariel Guizada', photoURL: null }
+      : { id: 'doc-1', displayName: options.displayName, photoURL: null },
   );
   TestBed.configureTestingModule({
     imports: [DoctorDashboardComponent],
     providers: [
       { provide: AppointmentsService, useValue: appointments },
+      { provide: PatientsService, useValue: patients },
+      { provide: FinancesService, useValue: finances },
       { provide: AuthService, useValue: { currentUser: user } },
     ],
   });
@@ -146,12 +156,13 @@ function setup(
         QuoteBuilderStub,
         AgendaStub,
         SettingsStub,
+        DecimalPipe,
       ],
     },
   });
   const fixture = TestBed.createComponent(DoctorDashboardComponent);
   fixture.componentRef.setInput('activeNav', options.nav ?? 'home');
-  return { fixture, appointments };
+  return { fixture, appointments, patients, finances };
 }
 
 async function render(fixture: ReturnType<typeof setup>['fixture']): Promise<void> {
@@ -193,6 +204,57 @@ describe('DoctorDashboardComponent', () => {
       );
       expect(text(fixture)).toContain('Ana Pérez');
       expect(text(fixture)).toContain('+59170000000');
+    });
+
+    describe('KPIs (CLI-205)', () => {
+      const kpiText = (fixture: ReturnType<typeof setup>['fixture']) =>
+        [...(fixture.nativeElement as HTMLElement).querySelectorAll('.kpi')].map((k) =>
+          (k.textContent ?? '').replace(/\s+/g, ' ').trim(),
+        );
+
+      it('ya no muestra las acciones rápidas', async () => {
+        const { fixture } = setup();
+        await render(fixture);
+
+        expect(text(fixture)).not.toContain('Acciones rápidas');
+        expect(text(fixture)).not.toContain('Nueva Consulta');
+      });
+
+      it('muestra citas de hoy, de los próximos 7 días, mis pacientes y saldo por cobrar', async () => {
+        const { fixture, patients } = setup({
+          balances: of([{ balance: 150.5 }, { balance: 0 }, { balance: 49.5 }]),
+        });
+        await render(fixture);
+
+        const kpis = kpiText(fixture);
+        expect(kpis[0]).toContain('1');
+        expect(kpis[0]).toContain('Citas hoy');
+        expect(kpis[1]).toContain('Citas en los próximos 7 días');
+        expect(kpis[2]).toContain('3');
+        expect(kpis[2]).toContain('Mis pacientes');
+        expect(kpis[3]).toContain('Bs. 200.00');
+        expect(kpis[3]).toContain('2 pacientes');
+        expect(patients.getAll).toHaveBeenCalledWith('doc-1');
+      });
+
+      it('la KPI de la semana pide 7 días desde hoy', async () => {
+        const { fixture, appointments } = setup();
+        await render(fixture);
+
+        const ranges = (appointments.getAgenda.mock.calls as [{ from: string; to: string }][]).map(
+          ([f]) => (new Date(f.to).getTime() - new Date(f.from).getTime()) / 86_400_000,
+        );
+        expect(ranges).toContain(7);
+      });
+
+      it('si una KPI falla muestra un guion y las demás siguen', async () => {
+        const { fixture } = setup({ balances: throwError(() => new Error('boom')) });
+        await render(fixture);
+
+        const kpis = kpiText(fixture);
+        expect(kpis[3]).toContain('—');
+        expect(kpis[2]).toContain('3');
+      });
     });
 
     it('un invitado sin teléfono muestra un guion', async () => {
@@ -255,19 +317,6 @@ describe('DoctorDashboardComponent', () => {
       await render(fixture);
 
       expect(text(fixture)).toContain(greeting);
-    });
-
-    it('las acciones rápidas llevan a la lista de pacientes', async () => {
-      const { fixture } = setup();
-      const emitted: string[] = [];
-      fixture.componentInstance.navChange.subscribe((nav) => emitted.push(nav));
-      await render(fixture);
-
-      (fixture.nativeElement as HTMLElement)
-        .querySelector<HTMLButtonElement>('.doctor-action')!
-        .click();
-
-      expect(emitted).toEqual(['patients']);
     });
   });
 

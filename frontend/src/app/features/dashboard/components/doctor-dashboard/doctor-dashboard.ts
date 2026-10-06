@@ -8,6 +8,7 @@ import {
   computed,
   OnInit,
 } from '@angular/core';
+import { DecimalPipe } from '@angular/common';
 import { firstValueFrom } from 'rxjs';
 import { AuthService } from '../../../../auth/application/auth.service';
 import { PatientsListComponent } from '../../../patients/components/patients-list/patients-list';
@@ -21,6 +22,8 @@ import { QuoteBuilderComponent } from '../../../quotes/components/quote-builder/
 import { FinancesPageComponent } from '../../../finances/components/finances-page/finances-page';
 import { DoctorSettingsComponent } from '../../../settings/components/doctor-settings/doctor-settings';
 import { DoctorAgendaComponent } from '../../../appointments/components/doctor-agenda/doctor-agenda';
+import { PatientsService } from '../../../patients/services/patients.service';
+import { FinancesService } from '../../../finances/services/finances.service';
 import { AppointmentsService } from '../../../appointments/services/appointments.service';
 import type { AppointmentAgendaItem } from '../../../appointments/models/appointment.model';
 import { appointmentPatientLabel } from '../../../appointments/models/appointment-patient-label';
@@ -31,6 +34,9 @@ const INVITE_SUCCESS_MESSAGE: Record<InviteChannel, string> = {
   email: 'Correo enviado correctamente. El paciente recibirá el link de registro en su casilla.',
   whatsapp: 'Mensaje de WhatsApp listo para enviar.',
 };
+
+/** Cuántos días (hoy incluido) abarca la KPI de citas próximas. */
+const KPI_WEEK_DAYS = 7;
 
 const TIME_FORMATTER = new Intl.DateTimeFormat('es-BO', {
   timeZone: 'America/La_Paz',
@@ -49,6 +55,15 @@ function addDaysToDateString(date: string, days: number): string {
   const next = new Date(Date.UTC(year, month - 1, day));
   next.setUTCDate(next.getUTCDate() + days);
   return next.toISOString().slice(0, 10);
+}
+
+/** Una KPI del inicio: `null` mientras carga o si falló (se muestra un guion). */
+interface Kpis {
+  readonly todayAppointments: number | null;
+  readonly weekAppointments: number | null;
+  readonly myPatients: number | null;
+  readonly pendingBalance: number | null;
+  readonly debtors: number | null;
 }
 
 interface AppointmentSlot {
@@ -72,6 +87,7 @@ interface AppointmentSlot {
     DoctorAgendaComponent,
     FinancesPageComponent,
     DoctorSettingsComponent,
+    DecimalPipe,
   ],
   templateUrl: './doctor-dashboard.html',
   styleUrl: './doctor-dashboard.scss',
@@ -79,6 +95,8 @@ interface AppointmentSlot {
 export class DoctorDashboardComponent implements OnInit {
   private readonly authService = inject(AuthService);
   private readonly appointmentsService = inject(AppointmentsService);
+  private readonly patientsService = inject(PatientsService);
+  private readonly financesService = inject(FinancesService);
 
   readonly activeNav = input<string>('home');
   readonly navChange = output<string>();
@@ -158,8 +176,50 @@ export class DoctorDashboardComponent implements OnInit {
 
   protected readonly appointments = signal<AppointmentSlot[]>([]);
 
+  /** KPIs básicas del inicio (CLI-205): cada una carga por su lado y falla sin afectar a las demás. */
+  protected readonly kpis = signal<Kpis>({
+    todayAppointments: null,
+    weekAppointments: null,
+    myPatients: null,
+    pendingBalance: null,
+    debtors: null,
+  });
+
   ngOnInit(): void {
     void this.loadTodayAgenda();
+    void this.loadKpis();
+  }
+
+  private patchKpis(patch: Partial<Kpis>): void {
+    this.kpis.update((current) => ({ ...current, ...patch }));
+  }
+
+  private async loadKpis(): Promise<void> {
+    const from = laPazDateString(new Date());
+    const myId = this.authService.currentUser()?.id;
+    await Promise.all([
+      firstValueFrom(
+        this.appointmentsService.getAgenda({
+          status: 'confirmed',
+          from,
+          to: addDaysToDateString(from, KPI_WEEK_DAYS),
+        }),
+      )
+        .then((items) => this.patchKpis({ weekAppointments: items.length }))
+        .catch(() => undefined),
+      firstValueFrom(this.patientsService.getAll(myId ?? undefined))
+        .then((patients) => this.patchKpis({ myPatients: patients.length }))
+        .catch(() => undefined),
+      firstValueFrom(this.financesService.listPatients())
+        .then((patients) => {
+          const owing = patients.filter((p) => p.balance > 0);
+          this.patchKpis({
+            pendingBalance: owing.reduce((sum, p) => sum + p.balance, 0),
+            debtors: owing.length,
+          });
+        })
+        .catch(() => undefined),
+    ]);
   }
 
   private async loadTodayAgenda(): Promise<void> {
@@ -170,6 +230,7 @@ export class DoctorDashboardComponent implements OnInit {
         this.appointmentsService.getAgenda({ status: 'confirmed', from, to }),
       );
       this.appointments.set(result.map((a) => this.toAppointmentSlot(a)));
+      this.patchKpis({ todayAppointments: result.length });
     } catch {
       this.appointments.set([]);
     }
@@ -182,10 +243,6 @@ export class DoctorDashboardComponent implements OnInit {
       patientName,
       phone: a.patientPhone ?? a.guestPhone ?? '—',
     };
-  }
-
-  protected onGoToPatients(): void {
-    this.navChange.emit('patients');
   }
 
   protected onStartWizard(userId: string): void {
