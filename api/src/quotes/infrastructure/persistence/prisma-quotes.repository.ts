@@ -22,7 +22,8 @@ const QUOTE_INCLUDE = {
       treatments: { select: { name: true } },
     },
   },
-  payments: true,
+  // CLI-218: el QR que originó cada pago, con los tratamientos que eligió el paciente.
+  payments: { include: { qr_charge: { include: { lines: true } } } },
 } as const;
 
 @Injectable()
@@ -202,7 +203,17 @@ export class PrismaQuotesRepository implements IQuoteRepository {
         baneco_qr_id: data.qrId,
         baneco_transaction_id: data.transactionId,
         qr_image: data.qrImageBase64,
+        ...(data.lines?.length && {
+          lines: {
+            create: data.lines.map((l) => ({
+              quote_item_id: l.quoteItemId ?? null,
+              application_group_id: l.applicationGroupId ?? null,
+              amount: l.amount,
+            })),
+          },
+        }),
       },
+      include: { lines: true },
     });
     return QuoteMapper.qrChargeToDomain(record);
   }
@@ -210,6 +221,22 @@ export class PrismaQuotesRepository implements IQuoteRepository {
   async findQrCharge(chargeId: string): Promise<QrCharge | null> {
     const record = await this.prisma.quote_qr_charges.findUnique({
       where: { id: chargeId },
+      include: { lines: true },
+    });
+    return record ? QuoteMapper.qrChargeToDomain(record) : null;
+  }
+
+  async findPendingPatientQrCharge(
+    patientId: string,
+  ): Promise<QrCharge | null> {
+    const record = await this.prisma.quote_qr_charges.findFirst({
+      where: {
+        status: QrChargeStatus.PENDING,
+        lines: { some: {} },
+        quotes: { patient_id: patientId },
+      },
+      include: { lines: true },
+      orderBy: { created_at: 'desc' },
     });
     return record ? QuoteMapper.qrChargeToDomain(record) : null;
   }

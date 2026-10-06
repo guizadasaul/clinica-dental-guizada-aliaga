@@ -262,6 +262,7 @@ describe('PrismaQuotesRepository — altas, lecturas y pagos', () => {
     quote_qr_charges: {
       create: jest.fn(),
       findUnique: jest.fn(),
+      findFirst: jest.fn(),
       updateMany: jest.fn(),
     },
     transaction: jest.fn((fn: (t: unknown) => unknown) => fn(tx)),
@@ -420,6 +421,67 @@ describe('PrismaQuotesRepository — altas, lecturas y pagos', () => {
           baneco_transaction_id: 'tx-1',
           qr_image: 'img',
         },
+        include: { lines: true },
+      });
+    });
+
+    // CLI-218
+    it('createQrCharge guarda los tratamientos que eligió el paciente', async () => {
+      prisma.quote_qr_charges.create.mockResolvedValue({ id: 'c1' });
+
+      await repo.createQrCharge({
+        quoteId: 'quote-1',
+        amount: 300,
+        qrId: 'qr-1',
+        transactionId: 'tx-1',
+        qrImageBase64: 'img',
+        lines: [
+          { quoteItemId: 'item-1', amount: 100 },
+          { applicationGroupId: 'group-1', amount: 200 },
+        ],
+      });
+
+      expect(prisma.quote_qr_charges.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            lines: {
+              create: [
+                {
+                  quote_item_id: 'item-1',
+                  application_group_id: null,
+                  amount: 100,
+                },
+                {
+                  quote_item_id: null,
+                  application_group_id: 'group-1',
+                  amount: 200,
+                },
+              ],
+            },
+          }) as object,
+        }),
+      );
+    });
+
+    it('findPendingPatientQrCharge busca el QR pendiente del paciente que tenga tratamientos', async () => {
+      prisma.quote_qr_charges.findFirst
+        .mockResolvedValueOnce({ id: 'c1' })
+        .mockResolvedValueOnce(null);
+
+      await expect(repo.findPendingPatientQrCharge('patient-1')).resolves.toBe(
+        'charge',
+      );
+      await expect(
+        repo.findPendingPatientQrCharge('patient-1'),
+      ).resolves.toBeNull();
+      expect(prisma.quote_qr_charges.findFirst).toHaveBeenCalledWith({
+        where: {
+          status: 'pending',
+          lines: { some: {} },
+          quotes: { patient_id: 'patient-1' },
+        },
+        include: { lines: true },
+        orderBy: { created_at: 'desc' },
       });
     });
 

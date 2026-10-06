@@ -1,5 +1,6 @@
 import type { QuoteItem } from './QuoteItem';
 import type { Payment } from './Payment';
+import type { QuoteLine } from './QuoteBalance';
 
 export interface Quote {
   id: string;
@@ -17,4 +18,6 @@ export interface Quote {
   sharedAt: Date | null;
   items: QuoteItem[];
   payments: Payment[];
+  /** CLI-218: cada tratamiento (grupos multi-diente juntos) con lo pagado y lo pendiente. */
+  lines: QuoteLine[];
 }
