@@ -75,7 +75,7 @@ function ageFrom(birthDate: string, now: Date): number {
  * "Mi perfil" del paciente (CLI-214): la historia clínica que el doctor armó
  * en la primera visita — datos personales, antecedentes médicos, hábitos de
  * higiene, primer examen clínico y el diagnóstico inicial con su odontograma.
- * Todo de solo lectura (GET /patients/me/clinical-record, CLI-213).
+ * Es de solo lectura (GET /patients/me/clinical-record, CLI-213).
  */
 @Component({
   selector: 'app-my-profile',
