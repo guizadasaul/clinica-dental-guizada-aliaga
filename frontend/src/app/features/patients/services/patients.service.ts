@@ -13,6 +13,7 @@ import type {
   CreateOdontogramEntriesRequest,
 } from '../models/patient.request';
 import type { CreateDentalExamRequest } from '../models/dental-exam.request';
+import type { PatientClinicalRecord } from '../models/clinical-record.model';
 
 @Injectable({ providedIn: 'root' })
 export class PatientsService {
@@ -32,6 +33,11 @@ export class PatientsService {
 
   getMyPatientStatus(): Observable<PatientProfileStatus> {
     return this.http.get<PatientProfileStatus>(`${this.base}/me/status`);
+  }
+
+  /** CLI-213: historia clínica inicial del paciente logueado, para "Mi perfil". */
+  getMyClinicalRecord(): Observable<PatientClinicalRecord> {
+    return this.http.get<PatientClinicalRecord>(`${this.base}/me/clinical-record`);
   }
 
   /** Lugares de nacimiento, zonas y ciudades ya usados (CLI-178). */
