@@ -1,0 +1,342 @@
+@use 'patient-portal' as portal;
+@use 'breakpoints' as bp;
+
+// ─── Mi historial del paciente (CLI-211) ─────────────────────────────────────
+
+.history {
+  @include portal.page;
+}
+
+.history__eyebrow {
+  @include portal.pill(var(--color-primary-subtle), var(--color-primary-dark));
+
+  margin-bottom: var(--space-3);
+  border: 1px solid var(--color-primary-light);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.history__dot {
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: var(--radius-full);
+  background: var(--color-primary);
+}
+
+.history__title {
+  @include portal.page-title;
+}
+
+.history__subtitle {
+  @include portal.page-subtitle;
+}
+
+.history__muted {
+  margin: 0;
+  color: var(--color-text-muted);
+}
+
+.history__error {
+  margin: 0;
+  padding: var(--space-4) var(--space-5);
+  border-radius: var(--radius-xl);
+  background: var(--color-error-light);
+  color: var(--color-error);
+}
+
+.history__empty {
+  @include portal.card;
+
+  display: flex;
+  align-items: center;
+  gap: var(--space-5);
+  padding: var(--space-8);
+
+  > .material-symbols-outlined {
+    @include portal.icon-badge(var(--color-primary-subtle), var(--color-primary));
+
+    width: 3.5rem;
+    height: 3.5rem;
+  }
+}
+
+.history__empty-title {
+  margin: 0 0 var(--space-1);
+  font-family: var(--font-display);
+  font-size: var(--font-size-xl);
+  color: var(--color-navy);
+}
+
+// ─── Resumen y filtros ───────────────────────────────────────────────────────
+
+.summary {
+  @include portal.card;
+
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-4) var(--space-12);
+  padding: var(--space-5) var(--space-8);
+}
+
+.summary__item {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-3);
+}
+
+.summary__value {
+  font-family: var(--font-display);
+  font-size: var(--font-size-4xl);
+  line-height: 1;
+  color: var(--color-navy);
+}
+
+.summary__label {
+  @include portal.eyebrow;
+}
+
+.summary__date {
+  font-size: var(--font-size-lg);
+  font-weight: 700;
+  color: var(--color-navy);
+}
+
+.filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  border: none;
+}
+
+.filters__legend {
+  // Accesible pero sin ocupar lugar: los chips se explican solos.
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.filters__chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-4);
+  border: 1px solid var(--color-border-warm);
+  border-radius: var(--radius-full);
+  background: #fff;
+  font-family: var(--font-body);
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  color: var(--color-text);
+  cursor: pointer;
+  transition:
+    background var(--transition-fast),
+    border-color var(--transition-fast);
+
+  &:hover {
+    border-color: var(--color-primary-light);
+  }
+
+  &--active {
+    border-color: var(--color-primary);
+    background: var(--color-primary-subtle);
+    color: var(--color-primary-dark);
+  }
+}
+
+.filters__dot {
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: var(--radius-full);
+}
+
+// ─── Línea de tiempo ─────────────────────────────────────────────────────────
+
+.month {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.month__label {
+  margin: 0;
+  font-family: var(--font-headline);
+  font-size: var(--font-size-lg);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--color-navy);
+}
+
+.month__list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  margin: 0 0 0 0.5rem;
+  padding: 0 0 0 var(--space-6);
+  border-left: 2px solid var(--color-primary-light);
+  list-style: none;
+
+  @include bp.down('sm') {
+    margin-left: 0.25rem;
+    padding-left: var(--space-4);
+  }
+}
+
+.treatment {
+  @include portal.card;
+
+  --category-color: var(--color-tertiary);
+
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-6) var(--space-8);
+
+  // Punto de la línea de tiempo con el color de la categoría.
+  &::before {
+    content: '';
+    position: absolute;
+    top: var(--space-8);
+    left: calc(-1 * var(--space-6) - 0.4375rem);
+    width: 0.75rem;
+    height: 0.75rem;
+    border: 2px solid var(--color-bg);
+    border-radius: var(--radius-full);
+    background: var(--category-color);
+
+    @include bp.down('sm') {
+      left: calc(-1 * var(--space-4) - 0.4375rem);
+    }
+  }
+
+  @include bp.down('md') {
+    padding: var(--space-5);
+  }
+}
+
+.treatment__head {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: var(--space-2) var(--space-6);
+}
+
+.treatment__category {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0;
+  font-size: var(--font-size-xs);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+}
+
+.treatment__dot {
+  width: 0.625rem;
+  height: 0.625rem;
+  border-radius: var(--radius-full);
+  background: var(--category-color);
+}
+
+.treatment__name {
+  margin: var(--space-1) 0 0;
+  font-family: var(--font-display);
+  font-size: var(--font-size-2xl);
+  font-weight: 600;
+  color: var(--color-navy);
+}
+
+.treatment__date {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  margin: 0;
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  color: var(--color-text);
+
+  .material-symbols-outlined {
+    font-size: 1.125rem;
+    color: var(--color-tertiary);
+  }
+}
+
+.treatment__teeth {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.treatment__tooth {
+  @include portal.pill(var(--color-surface), var(--color-text));
+
+  border: 1px solid var(--color-border-warm);
+}
+
+.treatment__detail {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+
+  strong {
+    color: var(--color-text);
+  }
+}
+
+.treatment__note {
+  display: flex;
+  gap: var(--space-2);
+  margin: 0;
+  padding: var(--space-3) var(--space-4);
+  border-left: 3px solid var(--color-primary-light);
+  border-radius: 0 var(--radius-lg) var(--radius-lg) 0;
+  background: var(--color-primary-subtle);
+
+  .material-symbols-outlined {
+    font-size: 1.125rem;
+    color: var(--color-primary);
+  }
+
+  p {
+    margin: 0;
+    font-style: italic;
+    color: var(--color-text);
+  }
+}
+
+.treatment__doctor {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: var(--space-1) 0 0;
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--color-border-warm);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+
+  strong {
+    color: var(--color-text);
+  }
+}
+
+.treatment__avatar {
+  @include portal.icon-badge(color-mix(in srgb, var(--color-tertiary) 10%, #fff), var(--color-tertiary));
+
+  width: 1.75rem;
+  height: 1.75rem;
+
+  .material-symbols-outlined {
+    font-size: 1rem;
+  }
+}

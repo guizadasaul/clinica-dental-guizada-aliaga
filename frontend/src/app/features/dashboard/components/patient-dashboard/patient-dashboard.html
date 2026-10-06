@@ -4,11 +4,7 @@
   <app-my-visits />
 } @else if (activeNav() === 'history') {
   @if (patientId()) {
-    <app-treatment-history
-      [patientId]="patientId()!"
-      [mine]="true"
-      (closed)="onHistoryClose()"
-    />
+    <app-my-treatment-history />
   } @else {
     <div class="patient__no-profile">
       <span class="material-symbols-outlined patient__no-profile-icon">info</span>
