@@ -314,7 +314,9 @@ const CASES: EvalCase[] = [
     description: 'Apellido compartido: pregunta a cuál de los dos se refiere',
     turns: [
       {
-        user: `¿cuánto debe ${PATIENT.last}?`,
+        // Por saldo no sirve: solo Carla debe, y la lista de deudores ya
+        // desambigua sola (CLI-234). La última visita sí necesita elegir.
+        user: `¿cuándo fue la última visita de ${PATIENT.last}?`,
         expectTools: [['get_my_patient_summary', 'get_my_patients']],
         mustMention: [PATIENT.first, NAMESAKE.first],
       },
@@ -341,9 +343,10 @@ const CASES: EvalCase[] = [
     description: 'Cuántos no vinieron (desglose por estado)',
     turns: [
       {
-        user: '¿cuántos pacientes no vinieron últimamente?',
+        user: '¿cuántos pacientes no vinieron últimamente y quiénes?',
         expectTools: [['get_my_monthly_stats', 'get_my_agenda']],
         mustMention: [PATIENT.first],
+        mustNotMention: ['no-show', 'no‑show'],
       },
     ],
   },
@@ -376,7 +379,7 @@ const CASES: EvalCase[] = [
     description: 'Sus tratamientos más realizados',
     turns: [
       {
-        user: '¿qué tratamientos hice más este último mes?',
+        user: '¿qué tratamientos hice más este mes?',
         expectTools: [['get_my_top_treatments']],
         mustMention: [TREATMENTS.cleaning],
       },

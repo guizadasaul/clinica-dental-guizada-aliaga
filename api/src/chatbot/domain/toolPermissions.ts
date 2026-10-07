@@ -37,7 +37,10 @@ export const TOOL_PERMISSIONS = {
   get_my_agenda: ODONTOLOGIST_ONLY,
   get_my_next_patient: ODONTOLOGIST_ONLY,
   get_my_patients: ODONTOLOGIST_ONLY,
+  get_my_patient_summary: ODONTOLOGIST_ONLY,
+  get_my_patients_with_balance: ODONTOLOGIST_ONLY,
   get_my_monthly_stats: ODONTOLOGIST_ONLY,
+  get_my_top_treatments: ODONTOLOGIST_ONLY,
 
   get_clinic_operational_report: ADMIN_ONLY,
   get_clinic_financial_report: ADMIN_ONLY,

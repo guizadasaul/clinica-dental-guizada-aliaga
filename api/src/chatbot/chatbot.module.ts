@@ -24,6 +24,7 @@ import { AuthModule } from '../auth/auth.module';
 import { PatientsModule } from '../patients/patients.module';
 import { QuotesModule } from '../quotes/quotes.module';
 import { ReportsModule } from '../reports/reports.module';
+import { FinancesModule } from '../finances/finances.module';
 import { ActorResolver } from './application/actor-resolver';
 import { ChatController } from './infrastructure/http/chat.controller';
 import { PublicChatController } from './infrastructure/http/public-chat.controller';
@@ -57,7 +58,8 @@ const TOOL_CLASSES = [
  * (CLI-89), el hardening contra prompt injection (CLI-90) y las tools del
  * paciente (CLI-91), del doctor (CLI-92) y del administrador (CLI-93), y la
  * auditoría con métricas de uso (CLI-98) y la vinculación de WhatsApp con
- * una cuenta (CLI-100) y el webhook de WhatsApp (CLI-101).
+ * una cuenta (CLI-100) y el webhook de WhatsApp (CLI-101). Chatbot v2
+ * (CLI-231): tools del doctor con resumen de paciente y deudores (CLI-234).
  */
 @Module({
   imports: [
@@ -65,6 +67,7 @@ const TOOL_CLASSES = [
     PatientsModule,
     QuotesModule,
     ReportsModule,
+    FinancesModule,
     TreatmentsModule,
     DoctorsModule,
     AppointmentsModule,

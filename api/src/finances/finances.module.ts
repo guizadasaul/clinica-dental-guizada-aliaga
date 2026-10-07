@@ -22,6 +22,7 @@ import { PatientsModule } from '../patients/patients.module';
     },
   ],
   // CLI-220: el webhook de BANECO (PaymentsModule) también concilia los QR de presupuestos.
-  exports: [QrChargeReconciler],
+  // FinancesService: lo usan las tools del chatbot (CLI-234).
+  exports: [QrChargeReconciler, FinancesService],
 })
 export class FinancesModule {}
