@@ -354,12 +354,17 @@ export class DoctorAgendaComponent {
   protected readonly VIEW_DAYS = 7;
   protected readonly selectedDate = signal(mondayOf(laPazDateString(new Date())));
 
-  protected readonly gridTemplateColumns = '56px repeat(6, minmax(140px, 1fr))';
+  // 104 px de mínimo: desde 1024 px (iPad apaisado, con el sidebar y los
+  // márgenes de la página quedan 698 px) entra la semana completa sin
+  // deslizar: 56 + 6 × 104 = 680. Antes, 140 px pedían 896 de ancho.
+  protected readonly gridTemplateColumns = '56px repeat(6, minmax(104px, 1fr))';
 
   // CLI-248: en el celular la grilla de 7 columnas no entra (896 px) y las
   // citas de hoy quedaban fuera de la pantalla. Ahí se ve un día a la vez,
   // con la semana en una tira arriba; los datos se siguen cargando por semana.
-  protected readonly isMobile = inject(ViewportService).isMobile;
+  // Debajo de 1024 px: en una tablet en vertical, con el sidebar, la semana
+  // tampoco entraba (mostraba tres días, CLI-252).
+  protected readonly dayView = inject(ViewportService).isCompact;
   protected readonly mobileGridTemplateColumns = '48px 1fr';
   /** Día que muestra la vista de celular; siempre cae dentro de la semana cargada. */
   protected readonly focusDate = signal(laPazDateString(new Date()));
@@ -785,7 +790,7 @@ export class DoctorAgendaComponent {
 
   protected onNewBlock(): void {
     // En el celular se propone el día que se está viendo, no el lunes.
-    const date = this.isMobile() ? this.focusDate() : this.selectedDate();
+    const date = this.dayView() ? this.focusDate() : this.selectedDate();
     this.blockDialog.set({ block: null, date });
   }
 
@@ -880,7 +885,7 @@ export class DoctorAgendaComponent {
   }
 
   protected onPrevPage(): void {
-    if (this.isMobile()) {
+    if (this.dayView()) {
       this.showDay(addDaysToDateString(this.focusDate(), -1));
       return;
     }
@@ -888,7 +893,7 @@ export class DoctorAgendaComponent {
   }
 
   protected onNextPage(): void {
-    if (this.isMobile()) {
+    if (this.dayView()) {
       this.showDay(addDaysToDateString(this.focusDate(), 1));
       return;
     }

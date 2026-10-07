@@ -1,3 +1,5 @@
+@use 'breakpoints' as bp;
+
 .auth-form {
   width: 100%;
   display: flex;
@@ -206,5 +208,18 @@
       opacity: 0.5;
       cursor: not-allowed;
     }
+  }
+}
+
+// Celular (CLI-252): "¿Olvidaste tu contraseña?" (21 px) y el ojo de la
+// contraseña (32 px), más fáciles de tocar.
+@include bp.down(md) {
+  .auth-form__link {
+    min-height: 40px;
+  }
+
+  .auth-form__toggle-visibility {
+    min-width: 40px;
+    min-height: 40px;
   }
 }

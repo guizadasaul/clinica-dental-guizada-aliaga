@@ -1,3 +1,5 @@
+@use 'breakpoints' as bp;
+
 .login-page {
   min-height: 100vh;
   display: flex;
@@ -136,4 +138,11 @@
 
 @keyframes spin {
   to { transform: rotate(360deg); }
+}
+
+// Celular (CLI-252): "Volver al inicio" e "Ir a iniciar sesión" medían 21 px de alto.
+@include bp.down(md) {
+  .login-card__back {
+    min-height: 44px;
+  }
 }

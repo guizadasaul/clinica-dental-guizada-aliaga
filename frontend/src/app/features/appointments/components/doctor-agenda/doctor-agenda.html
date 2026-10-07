@@ -192,13 +192,13 @@
         type="button"
         class="agenda__nav-btn"
         (click)="onPrevPage()"
-        [attr.aria-label]="isMobile() ? 'Día anterior' : 'Semana anterior'"
+        [attr.aria-label]="dayView() ? 'Día anterior' : 'Semana anterior'"
       >
         <span class="material-symbols-outlined">chevron_left</span>
       </button>
       <div class="agenda__nav-center">
-        <span class="agenda__nav-label">{{ isMobile() ? focusLabel() : rangeLabel() }}</span>
-        @if (isMobile() ? !focusIsToday() : !isCurrentWeekVisible()) {
+        <span class="agenda__nav-label">{{ dayView() ? focusLabel() : rangeLabel() }}</span>
+        @if (dayView() ? !focusIsToday() : !isCurrentWeekVisible()) {
           <button type="button" class="agenda__nav-today" (click)="onToday()">Hoy</button>
         }
       </div>
@@ -206,7 +206,7 @@
         type="button"
         class="agenda__nav-btn"
         (click)="onNextPage()"
-        [attr.aria-label]="isMobile() ? 'Día siguiente' : 'Semana siguiente'"
+        [attr.aria-label]="dayView() ? 'Día siguiente' : 'Semana siguiente'"
       >
         <span class="material-symbols-outlined">chevron_right</span>
       </button>
@@ -219,7 +219,7 @@
     </div>
 
     <!-- CLI-248: en el celular se ve un día a la vez; la semana queda en esta tira. -->
-    @if (isMobile()) {
+    @if (dayView()) {
       <div class="agenda-strip" role="tablist" aria-label="Días de la semana">
         @for (d of dayStrip(); track d.date) {
           <button
@@ -265,7 +265,7 @@
     <!-- Siempre el mismo alto: si el texto apareciera o desapareciera, movería la grilla bajo el cursor. -->
     @if (canBook()) {
       <p class="agenda__hint agenda__hint--inline">
-        @if (isMobile()) {
+        @if (dayView()) {
           {{ picking() ? 'Toca el horario que elija el paciente.' : 'Toca un horario libre para agendar una cita.' }}
         } @else {
           {{ picking() ? 'Haz clic en el horario que elija el paciente.' : 'Haz clic en un horario libre para agendar una cita.' }}
@@ -275,7 +275,7 @@
 
     @if (loading()) {
       <p class="agenda__hint">Cargando agenda...</p>
-    } @else if (isMobile()) {
+    } @else if (dayView()) {
       <div class="agenda-grid-wrap">
         <div #grid class="agenda-grid agenda-grid--day" [style.gridTemplateColumns]="mobileGridTemplateColumns">
           <div class="agenda-grid__gutter" [style.height.px]="gridHeightPx">
