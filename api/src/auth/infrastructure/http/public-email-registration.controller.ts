@@ -3,6 +3,7 @@ import { Throttle } from '@nestjs/throttler';
 import { AuthService } from '../../application/auth.service.js';
 import { readEnvInt } from '../../../shared/env.util.js';
 import {
+  RecoverPasswordDto,
   RegisterEmailDto,
   ResendConfirmationDto,
 } from './dto/register-email.dto.js';
@@ -43,5 +44,18 @@ export class PublicEmailRegistrationController {
   })
   resend(@Body() dto: ResendConfirmationDto): Promise<void> {
     return this.authService.resendEmailConfirmation(dto.email);
+  }
+
+  /** "Olvidé mi contraseña" (CLI-243). Siempre 204: no revela si el correo existe. */
+  @Post('password/recover')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @Throttle({
+    default: {
+      limit: () => readEnvInt('THROTTLE_PASSWORD_RECOVER_PER_HOUR', 5),
+      ttl: HOUR_MS,
+    },
+  })
+  recover(@Body() dto: RecoverPasswordDto): Promise<void> {
+    return this.authService.requestPasswordRecovery(dto.email);
   }
 }

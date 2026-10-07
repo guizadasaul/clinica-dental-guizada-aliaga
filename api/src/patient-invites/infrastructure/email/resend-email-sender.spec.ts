@@ -152,6 +152,23 @@ describe('ResendEmailSender', () => {
       expect(email.text).toContain('vence en 1 hora');
     });
 
+    it('el correo de recuperación (CLI-243) aclara que la contraseña actual sigue funcionando', async () => {
+      await sender.sendAccountEmail({
+        to: 'carla@example.com',
+        displayName: null,
+        actionUrl:
+          'https://app.example.com/auth/reset-password?token_hash=r&type=recovery',
+        kind: 'reset_password',
+      });
+      const [, init] = fetchMock.mock.calls[0] as [string, { body: string }];
+      const email = JSON.parse(init.body) as SentEmail;
+
+      expect(email.subject).toContain('nueva contraseña');
+      expect(email.html).toContain('Crear nueva contraseña');
+      expect(email.text).toContain('tu contraseña actual sigue funcionando');
+      expect(email.text).toContain('reset-password?token_hash=r&type=recovery');
+    });
+
     it('sin nombre saluda solo con "Hola,"', async () => {
       const email = await accountEmail(null);
 

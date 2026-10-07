@@ -1,6 +1,6 @@
 import { Component, ChangeDetectionStrategy, signal, inject, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { RouterLink, Router } from '@angular/router';
+import { RouterLink, Router, ActivatedRoute } from '@angular/router';
 import { AuthService } from '../../application/auth.service';
 import { allValid, field, touchAll } from '../../../shared/validation/field';
 import { passwordsMatch, validatePassword } from '../../../shared/validation/password.validator';
@@ -16,6 +16,7 @@ import { passwordsMatch, validatePassword } from '../../../shared/validation/pas
 export class ResetPasswordComponent implements OnInit {
   private readonly authService = inject(AuthService);
   private readonly router = inject(Router);
+  private readonly route = inject(ActivatedRoute);
 
   protected readonly checkingSession = signal(true);
   protected readonly sessionValid = signal(false);
@@ -34,6 +35,18 @@ export class ResetPasswordComponent implements OnInit {
     // Resuelto por el branch PASSWORD_RECOVERY en AuthService una vez que
     // Supabase procesó el token del enlace de recuperación en la URL.
     await this.authService.authReady;
+    // Link del correo que manda el backend (CLI-243): trae token_hash y se
+    // verifica acá. Los links viejos de Supabase (?code=) los sigue
+    // procesando el SDK solo, como antes.
+    const tokenHash = this.route.snapshot.queryParamMap.get('token_hash');
+    if (tokenHash) {
+      try {
+        await this.authService.verifyRecoveryLink(tokenHash);
+      } catch {
+        this.checkingSession.set(false);
+        return;
+      }
+    }
     this.sessionValid.set(await this.authService.hasRecoverySession());
     this.checkingSession.set(false);
   }
@@ -60,7 +73,9 @@ export class ResetPasswordComponent implements OnInit {
       await this.authService.logout();
       await this.router.navigate(['/auth/login'], { queryParams: { reset: 'success' } });
     } catch (err) {
-      this.errorMessage.set(err instanceof Error ? err.message : 'No se pudo actualizar la contraseña.');
+      this.errorMessage.set(
+        err instanceof Error ? err.message : 'No se pudo actualizar la contraseña.',
+      );
       this.loading.set(false);
     }
   }

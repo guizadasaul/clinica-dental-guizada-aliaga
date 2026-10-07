@@ -7,8 +7,8 @@ export interface SendInviteEmailParams {
   kind: InviteEmailKind;
 }
 
-/** Correos de la cuenta que manda el backend en vez de Supabase (CLI-242). */
-export type AccountEmailKind = 'confirm_email';
+/** Correos de la cuenta que manda el backend en vez de Supabase (CLI-242, CLI-243). */
+export type AccountEmailKind = 'confirm_email' | 'reset_password';
 
 export interface SendAccountEmailParams {
   to: string;

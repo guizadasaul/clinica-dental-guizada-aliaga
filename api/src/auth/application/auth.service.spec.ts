@@ -1,6 +1,7 @@
 import {
   ConflictException,
   ForbiddenException,
+  Logger,
   NotFoundException,
   UnprocessableEntityException,
 } from '@nestjs/common';
@@ -50,6 +51,7 @@ const mockSupabaseAdminService = {
   createPhoneUser: jest.fn(),
   createEmailUser: jest.fn(),
   createEmailConfirmation: jest.fn(),
+  createRecoveryLink: jest.fn(),
   deleteUser: jest.fn(),
 };
 
@@ -612,6 +614,50 @@ describe('AuthService', () => {
       await service.resendEmailConfirmation('test@example.com');
 
       expect(mockEmailSender.sendAccountEmail).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('requestPasswordRecovery (CLI-243)', () => {
+    beforeEach(() => {
+      process.env['FRONTEND_URL'] = 'https://app.example.com';
+    });
+
+    it('manda el link de recuperación por correo con token_hash', async () => {
+      mockSupabaseAdminService.createRecoveryLink.mockResolvedValue('hash-r');
+      mockRepo.findByEmail.mockResolvedValue(mockUser);
+
+      await service.requestPasswordRecovery('test@example.com');
+
+      expect(mockEmailSender.sendAccountEmail).toHaveBeenCalledWith({
+        to: 'test@example.com',
+        displayName: 'Test User',
+        actionUrl:
+          'https://app.example.com/auth/reset-password?token_hash=hash-r&type=recovery',
+        kind: 'reset_password',
+      });
+    });
+
+    it('sin cuenta con ese correo no manda nada y no lanza', async () => {
+      mockSupabaseAdminService.createRecoveryLink.mockResolvedValue(null);
+
+      await expect(
+        service.requestPasswordRecovery('nadie@example.com'),
+      ).resolves.toBeUndefined();
+      expect(mockEmailSender.sendAccountEmail).not.toHaveBeenCalled();
+    });
+
+    it('si falla Supabase o Resend, responde igual y lo deja en el log', async () => {
+      mockSupabaseAdminService.createRecoveryLink.mockRejectedValue(
+        new Error('caído'),
+      );
+      const logged = jest
+        .spyOn(Logger.prototype, 'error')
+        .mockImplementation(() => undefined);
+
+      await expect(
+        service.requestPasswordRecovery('test@example.com'),
+      ).resolves.toBeUndefined();
+      expect(logged).toHaveBeenCalled();
     });
   });
 });

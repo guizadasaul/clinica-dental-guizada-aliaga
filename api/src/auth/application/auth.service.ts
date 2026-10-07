@@ -17,10 +17,18 @@ import { EmailSender } from '../../patient-invites/domain/EmailSender';
 import type { EmailSender as IEmailSender } from '../../patient-invites/domain/EmailSender';
 import { phoneLastDigits, toLoginE164 } from '../../shared/phone.util';
 
+function frontendUrl(): string {
+  return process.env['FRONTEND_URL'] || 'http://localhost:4200';
+}
+
 /** Link del correo de confirmación: verifyOtp con token_hash, sin PKCE. */
 function confirmationUrl(hashedToken: string): string {
-  const frontend = process.env['FRONTEND_URL'] || 'http://localhost:4200';
-  return `${frontend}/auth/confirmar?token_hash=${encodeURIComponent(hashedToken)}&type=signup`;
+  return `${frontendUrl()}/auth/confirmar?token_hash=${encodeURIComponent(hashedToken)}&type=signup`;
+}
+
+/** Link del correo de recuperación (CLI-243): también con token_hash, sin PKCE. */
+function recoveryUrl(hashedToken: string): string {
+  return `${frontendUrl()}/auth/reset-password?token_hash=${encodeURIComponent(hashedToken)}&type=recovery`;
 }
 
 @Injectable()
@@ -241,6 +249,30 @@ export class AuthService {
       actionUrl: confirmationUrl(pending.hashedToken),
       kind: 'confirm_email',
     });
+  }
+
+  /**
+   * "Olvidé mi contraseña" (CLI-243). Antes lo pedía el navegador a
+   * Supabase, que no estaba mandando el correo, y la pantalla igual decía
+   * "Revisa tu correo". Ahora el link lo arma el backend y sale por Resend;
+   * funciona en cualquier navegador. Nunca lanza: la respuesta es la misma
+   * exista o no la cuenta, y las fallas quedan en el log.
+   */
+  async requestPasswordRecovery(email: string): Promise<void> {
+    try {
+      const hashedToken =
+        await this.supabaseAdminService.createRecoveryLink(email);
+      if (!hashedToken) return;
+      const account = await this.userRepository.findByEmail(email);
+      await this.emailSender.sendAccountEmail({
+        to: email,
+        displayName: account?.displayName ?? null,
+        actionUrl: recoveryUrl(hashedToken),
+        kind: 'reset_password',
+      });
+    } catch (error) {
+      this.logger.error('No se pudo mandar el correo de recuperación', error);
+    }
   }
 
   async getCurrentUser(uid: string): Promise<User> {

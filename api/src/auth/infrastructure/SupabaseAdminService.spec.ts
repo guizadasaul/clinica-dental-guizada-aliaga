@@ -252,4 +252,43 @@ describe('SupabaseAdminService', () => {
       expect(error).toHaveBeenCalled();
     });
   });
+
+  describe('createRecoveryLink (CLI-243)', () => {
+    it('genera el token de recuperación sin que Supabase mande su correo', async () => {
+      admin.generateLink.mockResolvedValue({
+        data: { properties: { hashed_token: 'hash-r' } },
+        error: null,
+      });
+
+      await expect(
+        new SupabaseAdminService().createRecoveryLink('a@b.com'),
+      ).resolves.toBe('hash-r');
+      expect(admin.generateLink).toHaveBeenCalledWith({
+        type: 'recovery',
+        email: 'a@b.com',
+      });
+    });
+
+    it('sin cuenta con ese correo devuelve null (verificado: 404 user_not_found)', async () => {
+      admin.generateLink.mockResolvedValue({
+        data: null,
+        error: { code: 'user_not_found', status: 404 },
+      });
+
+      await expect(
+        new SupabaseAdminService().createRecoveryLink('a@b.com'),
+      ).resolves.toBeNull();
+    });
+
+    it('otro error da 503', async () => {
+      admin.generateLink.mockResolvedValue({
+        data: null,
+        error: { code: 'unexpected_failure', status: 500 },
+      });
+
+      await expect(
+        new SupabaseAdminService().createRecoveryLink('a@b.com'),
+      ).rejects.toThrow(ServiceUnavailableException);
+    });
+  });
 });

@@ -74,6 +74,7 @@ describe('Alta por correo (e2e) — CLI-242', () => {
 
   beforeAll(async () => {
     process.env['THROTTLE_REGISTER_EMAIL_PER_HOUR'] = '1000';
+    process.env['THROTTLE_PASSWORD_RECOVER_PER_HOUR'] = '1000';
     process.env['FRONTEND_URL'] = 'https://app.example.com';
     const moduleFixture = await Test.createTestingModule({
       imports: [AppModule],
@@ -218,5 +219,39 @@ describe('Alta por correo (e2e) — CLI-242', () => {
         inviteToken: fx.inviteToken,
       })
       .expect(400);
+  });
+
+  describe('recuperación de contraseña (CLI-243)', () => {
+    it('con una cuenta de correo manda el link de recuperación; sin cuenta responde igual y no manda nada', async () => {
+      const fx = await patientWithInvite('Olvido');
+      await register(`olvido${MAIL_DOMAIN}`, fx.inviteToken).expect(201);
+      mailer.reset();
+
+      await request(app.getHttpServer())
+        .post('/auth/password/recover')
+        .send({ email: ` Olvido${MAIL_DOMAIN} ` })
+        .expect(204);
+      await request(app.getHttpServer())
+        .post('/auth/password/recover')
+        .send({ email: `nadie${MAIL_DOMAIN}` })
+        .expect(204);
+
+      expect(mailer.accountEmails).toEqual([
+        expect.objectContaining({
+          to: `olvido${MAIL_DOMAIN}`,
+          kind: 'reset_password',
+          actionUrl: expect.stringMatching(
+            /^https:\/\/app\.example\.com\/auth\/reset-password\?token_hash=.+&type=recovery$/,
+          ) as unknown,
+        }),
+      ]);
+    });
+
+    it('un correo con formato inválido da 400', async () => {
+      await request(app.getHttpServer())
+        .post('/auth/password/recover')
+        .send({ email: 'no-es-correo' })
+        .expect(400);
+    });
   });
 });
