@@ -6,6 +6,10 @@ import { PrismaClient } from '@prisma/client';
 import type { Prisma } from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { pgConnectionConfig } from '../src/shared/prisma/pg-connection';
+import {
+  insertQuoteItems,
+  recalculateQuote,
+} from '../src/quotes/infrastructure/persistence/quote-writes';
 
 /**
  * Datos de muestra para staging y la base local (CLI-202): 3 doctores, 40
@@ -628,6 +632,8 @@ interface QuoteLine {
   treatment: TreatmentRow;
   tooth: number | null;
   groupId: string | null;
+  /** CLI-230: la fila del presupuesto que cumple el procedimiento. */
+  quoteItemId: string;
   price: number;
   quantity: number;
   surfaces: string[];
@@ -690,7 +696,7 @@ async function createQuote(
           exchange_rate: exchange,
         },
       });
-      await prisma.quote_items.createMany({
+      const rows = await prisma.quote_items.createManyAndReturn({
         data: [...item.teeth]
           .sort((a, b) => a - b)
           .map((tooth) => ({
@@ -699,12 +705,14 @@ async function createQuote(
             tooth_number: tooth,
             application_group_id: group.id,
           })),
+        select: { id: true, tooth_number: true },
       });
       for (const tooth of item.teeth) {
         lines.push({
           treatment: t,
           tooth,
           groupId: group.id,
+          quoteItemId: rows.find((r) => r.tooth_number === tooth)!.id,
           price: 0,
           quantity: 1,
           surfaces,
@@ -718,7 +726,7 @@ async function createQuote(
     for (const tooth of t.application_type === 'single_tooth'
       ? item.teeth
       : [null]) {
-      await prisma.quote_items.create({
+      const row = await prisma.quote_items.create({
         data: {
           quote_id: quote.id,
           treatment_id: t.id,
@@ -729,11 +737,13 @@ async function createQuote(
           currency: t.currency,
           exchange_rate: exchange,
         },
+        select: { id: true },
       });
       lines.push({
         treatment: t,
         tooth,
         groupId: null,
+        quoteItemId: row.id,
         price: round2(price * quantity),
         quantity,
         surfaces,
@@ -783,18 +793,31 @@ async function createQuote(
 
   // Lo realizado: completo si está pagado, una parte si es pago parcial y, en
   // los pendientes, a veces algo hecho que todavía se debe (CLI-221).
-  let performed: QuoteLine[] = [];
+  // Un grupo de varias piezas se realiza entero (CLI-230): si no, su línea
+  // del presupuesto nunca queda realizada.
+  const units = treatmentUnits(lines);
+  let performed: QuoteLine[][] = [];
   if (kind === 'paid') {
-    performed = lines;
+    performed = units;
   } else if (kind === 'partial') {
-    performed = lines.slice(
+    performed = units.slice(
       0,
-      Math.max(1, Math.floor(lines.length * (totalPaid / total))),
+      Math.max(1, Math.floor(units.length * (totalPaid / total))),
     );
   } else if (kind === 'pending' && chance(0.6)) {
-    performed = lines.slice(0, randInt(1, Math.max(1, lines.length - 1)));
+    performed = units.slice(0, randInt(1, Math.max(1, units.length - 1)));
   }
-  return performed;
+  return performed.flat();
+}
+
+/** Las líneas agrupadas por tratamiento: las piezas de un grupo juntas. */
+function treatmentUnits(lines: QuoteLine[]): QuoteLine[][] {
+  const units = new Map<string, QuoteLine[]>();
+  for (const line of lines) {
+    const key = line.groupId ?? line.quoteItemId;
+    units.set(key, [...(units.get(key) ?? []), line]);
+  }
+  return [...units.values()];
 }
 
 /** Una visita de tratamiento planeada: el día y lo que se hace ese día. */
@@ -816,12 +839,13 @@ function planVisits(
 ): PlannedVisit[] {
   const span = Math.max(1, daysBetween(fromDate, today) - 1);
   const byDate = new Map<string, QuoteLine[]>();
-  for (const [index, line] of lines.entries()) {
+  const units = treatmentUnits(lines);
+  for (const [index, unit] of units.entries()) {
     const date = addDays(
       fromDate,
-      Math.min(span, 1 + Math.floor(((index + 1) * span) / (lines.length + 1))),
+      Math.min(span, 1 + Math.floor(((index + 1) * span) / (units.length + 1))),
     );
-    byDate.set(date, [...(byDate.get(date) ?? []), line]);
+    byDate.set(date, [...(byDate.get(date) ?? []), ...unit]);
   }
   return [...byDate.entries()].map(([date, dayLines]) => ({
     date,
@@ -847,6 +871,7 @@ async function createProcedures(
         quantity: line.quantity,
         procedure_date: dateOnly(date),
         performed_by: doctorId,
+        quote_item_id: line.quoteItemId,
         created_at: at(date, '12:00'),
         tooth_procedure_surfaces:
           line.tooth && line.surfaces.length
@@ -859,6 +884,79 @@ async function createProcedures(
       },
     });
   }
+}
+
+/**
+ * Una urgencia que no estaba en el plan (CLI-230): como al registrarla desde
+ * la app (CLI-226), se suma al presupuesto abierto del paciente — o a uno
+ * nuevo —, que queda compartido, con el procedimiento ya vinculado.
+ */
+async function addUnplannedTreatment(
+  cat: Catalogs,
+  patientId: string,
+  doctorId: string,
+  date: string,
+): Promise<boolean> {
+  const t = cat.treatment('emergencia_odontologica');
+  const planned = await prisma.quote_items.count({
+    where: { treatment_id: t.id, quotes: { patient_id: patientId } },
+  });
+  if (planned > 0) {
+    return false;
+  }
+  const price = unitPrice(t);
+  const when = at(date, '12:00');
+  await prisma.$transaction(async (tx) => {
+    const open = await tx.quotes.findFirst({
+      where: {
+        patient_id: patientId,
+        status: { in: ['pending', 'partially_paid'] },
+      },
+      orderBy: { created_at: 'desc' },
+      select: { id: true },
+    });
+    const quoteId =
+      open?.id ??
+      (
+        await tx.quotes.create({
+          data: {
+            patient_id: patientId,
+            shared_at: when,
+            created_at: when,
+            updated_at: when,
+          },
+          select: { id: true },
+        })
+      ).id;
+    await tx.quotes.updateMany({
+      where: { id: quoteId, shared_at: null },
+      data: { shared_at: when },
+    });
+    const [item] = await insertQuoteItems(tx, quoteId, [
+      {
+        treatmentId: t.id,
+        toothNumber: null,
+        unitPrice: price,
+        quantity: 1,
+        subtotal: price,
+        currency: t.currency,
+        exchangeRate: t.currency === 'USD' ? USD_TO_BOB : null,
+      },
+    ]);
+    await tx.tooth_procedures.create({
+      data: {
+        patient_id: patientId,
+        treatment_id: t.id,
+        price_charged: price,
+        procedure_date: dateOnly(date),
+        performed_by: doctorId,
+        quote_item_id: item.id,
+        created_at: when,
+      },
+    });
+    await recalculateQuote(tx, quoteId);
+  });
+  return true;
 }
 
 /** Día (en Bolivia) de un turno. */
@@ -1316,6 +1414,8 @@ async function seedAppointments(
     ]);
   }
   const agenda = new Agenda(blocks);
+  /** Pacientes a los que ya se les tiró el dado de la urgencia fuera del plan (CLI-230). */
+  const unplannedRolled = new Set<string>();
   const horizon = addDays(today, 42);
 
   // Lo que ya existe (citas reales de staging, otras corridas) no se pisa.
@@ -1452,6 +1552,19 @@ async function seedAppointments(
         clinicDateOf(slot),
         visit.lines,
       );
+      // A algunos pacientes (uno de cada cinco, en su primera visita de
+      // tratamiento) el doctor les atendió además una urgencia.
+      if (!unplannedRolled.has(patient.id)) {
+        unplannedRolled.add(patient.id);
+        if (chance(0.2)) {
+          await addUnplannedTreatment(
+            cat,
+            patient.id,
+            patient.doctorId,
+            clinicDateOf(slot),
+          );
+        }
+      }
     }
     for (let i = 0; i < randInt(0, 2); i += 1) {
       const date = addDays(
