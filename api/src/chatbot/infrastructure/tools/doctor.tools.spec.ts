@@ -144,12 +144,14 @@ describe('doctor tools (CLI-92)', () => {
         appointments: [
           {
             date: '2026-09-26',
+            weekday: 'sábado',
             time: '09:30',
             patient: 'Yanina Galaburda',
             phone: '+59177842665',
           },
           {
             date: '2026-09-28',
+            weekday: 'lunes',
             time: '11:00',
             patient: 'Invitado Nuevo',
             phone: '+59170000000',
@@ -229,6 +231,7 @@ describe('doctor tools (CLI-92)', () => {
       expect(filters.from.getTime()).toBeGreaterThanOrEqual(before);
       expect(result).toEqual({
         date: '2026-09-26',
+        weekday: 'sábado',
         time: '09:30',
         patient: 'Yanina Galaburda',
         phone: '+59177842665',

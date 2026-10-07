@@ -10,7 +10,7 @@ import { linePerformedAt } from '../../../quotes/domain/QuoteBalance.js';
 import { PatientsService } from '../../../patients/application/patients.service.js';
 import { TreatmentRepository } from '../../../treatments/domain/TreatmentRepository.js';
 import type { ITreatmentRepository } from '../../../treatments/domain/TreatmentRepository.js';
-import { clinicDate, clinicTime } from './clinic-time.js';
+import { clinicDate, clinicTime, clinicWeekday } from './clinic-time.js';
 import {
   MyAppointmentsArgsDto,
   MyTreatmentsArgsDto,
@@ -38,10 +38,10 @@ const NO_PROFILE = {
   note: 'El usuario todavía no tiene ficha de paciente en la clínica.',
 };
 
-// En vivo el modelo ofrecía "si deseas pagar, avísame" o "pagar por la web"
-// (CLI-145): el bot solo consulta.
+// En vivo el modelo ofrecía "si deseas pagar, avísame" (CLI-145): el bot no
+// cobra. Desde CLI-218 el paciente sí puede pagar con QR en "Mi presupuesto".
 const PAYMENT_NOTE =
-  'El asistente no cobra ni agenda pagos: el saldo se paga en la clínica (efectivo, QR o transferencia).';
+  'El asistente no cobra: el saldo se paga con QR desde "Mi presupuesto" en la web, o en la clínica (efectivo, QR o transferencia).';
 
 const QUOTE_STATUS_LABEL: Record<string, string> = {
   pending: 'pendiente',
@@ -66,6 +66,7 @@ function balanceOf(quote: Quote): number {
 function appointmentView(appointment: PatientAppointment) {
   return {
     date: clinicDate(appointment.appointmentDatetime),
+    weekday: clinicWeekday(appointment.appointmentDatetime),
     time: clinicTime(appointment.appointmentDatetime),
     doctor: appointment.doctorName,
     treatment: appointment.treatmentName,
@@ -323,9 +324,8 @@ export class GetMyPendingTreatmentsTool implements ChatTool<object> {
     );
     return {
       treatments: unpaid.flatMap((q) => groupItems(q.items, names)),
-      // No hay vínculo entre un ítem presupuestado y el procedimiento
-      // realizado: "pendiente" se deriva de los presupuestos sin pagar.
-      note: `Según los presupuestos que todavía no están pagados por completo. Para saber cuáles ya se realizaron, consultar al doctor. ${PAYMENT_NOTE}`,
+      // Desde CLI-226 cada línea sabe si el doctor ya la realizó.
+      note: `De los presupuestos que todavía no están pagados por completo; cada tratamiento dice si ya se realizó o está por realizar. ${PAYMENT_NOTE}`,
     };
   }
 }

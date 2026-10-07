@@ -11,6 +11,7 @@ import {
   clinicDayStart,
   clinicTime,
   daysBetween,
+  weekdayOf,
 } from './clinic-time.js';
 import {
   ClinicAgendaArgsDto,
@@ -173,7 +174,7 @@ export class GetClinicFinancialReportTool implements ChatTool<ClinicReportArgsDt
 export class GetClinicAgendaTool implements ChatTool<ClinicAgendaArgsDto> {
   readonly name = 'get_clinic_agenda';
   readonly description =
-    'Citas confirmadas de un día (por defecto hoy) de la clínica o de un doctor: hora, doctor y paciente.';
+    'Citas confirmadas de un día (por defecto hoy) de la clínica o de un doctor, con hora, doctor y paciente: para "¿qué citas hay el jueves?" o "¿con quién?". Un día por llamada.';
   readonly parameters: JsonSchema = {
     type: 'object',
     properties: {
@@ -201,6 +202,7 @@ export class GetClinicAgendaTool implements ChatTool<ClinicAgendaArgsDto> {
     });
     return {
       date,
+      weekday: weekdayOf(date),
       total: appointments.length,
       appointments: appointments.slice(0, MAX_AGENDA_ITEMS).map((a) => ({
         time: clinicTime(a.appointmentDatetime),

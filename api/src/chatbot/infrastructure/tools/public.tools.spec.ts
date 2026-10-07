@@ -111,13 +111,19 @@ describe('public tools', () => {
       });
     });
 
-    it('filtra por tema', async () => {
+    it('filtra por tema y suma siempre las generales (seguros, niños, contacto)', async () => {
       const faq = (await tool.execute(anonymous, {
         topic: 'pagos',
-      })) as object[];
+      })) as { question: string }[];
 
       expect(faq).toHaveLength(
-        CLINIC_FAQ.filter((entry) => entry.topic === 'pagos').length,
+        CLINIC_FAQ.filter(
+          (entry) => entry.topic === 'pagos' || entry.topic === 'general',
+        ).length,
+      );
+      // CLI-233: con un tema puntual el modelo inventó que aceptan seguros.
+      expect(faq.map((entry) => entry.question)).toContain(
+        '¿Trabajan con seguros médicos?',
       );
     });
   });
@@ -168,6 +174,25 @@ describe('public tools', () => {
       })) as { services: Array<{ name: string }> };
 
       expect(result.services.map((s) => s.name)).toEqual(['Implante']);
+    });
+
+    it('también busca por nombre: el modelo pasa "limpieza" como categoría (CLI-233)', async () => {
+      const result = (await tool().execute(anonymous, {
+        category: 'limpieza',
+      })) as { services: Array<{ name: string }> };
+
+      expect(result.services.map((s) => s.name)).toEqual(['Limpieza']);
+    });
+
+    it('si nada coincide, devuelve la lista entera en vez de una vacía', async () => {
+      const result = (await tool().execute(anonymous, {
+        category: 'blanqueamiento',
+      })) as { services: Array<{ name: string }> };
+
+      expect(result.services.map((s) => s.name)).toEqual([
+        'Limpieza',
+        'Implante',
+      ]);
     });
 
     it('tolera tratamientos sin descripción', async () => {
@@ -263,6 +288,7 @@ describe('public tools', () => {
           days: [
             {
               date: '2026-10-05',
+              weekday: 'lunes',
               available: 7,
               firstTimes: [
                 '09:00',

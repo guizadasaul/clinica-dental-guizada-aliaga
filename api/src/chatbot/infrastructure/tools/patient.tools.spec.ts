@@ -201,6 +201,7 @@ describe('patient tools (CLI-91)', () => {
       );
       expect(result).toEqual({
         date: '2026-09-28',
+        weekday: 'lunes',
         time: '10:00',
         doctor: 'Dr. Ariel Guizada',
         treatment: 'Consulta',

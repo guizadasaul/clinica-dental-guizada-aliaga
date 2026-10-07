@@ -151,7 +151,7 @@ describe('Evals del chatbot (Groq real)', () => {
         channel: 'web',
         sessionId,
         anonToken,
-        text: turn.user,
+        text: turn.user.replace('{nextAppointmentDay}', fx.nextAppointmentDay),
         locale: 'es',
       });
       sessionId = actor.kind === 'user' ? reply.sessionId : undefined;
@@ -162,7 +162,7 @@ describe('Evals del chatbot (Groq real)', () => {
       const run = lastRun as AgentRunResult | null;
       const tools = run?.toolCalls.map((t) => t.name) ?? [];
       turns.push({
-        user: turn.user,
+        user: turn.user.replace('{nextAppointmentDay}', fx.nextAppointmentDay),
         reply: reply.reply,
         tools,
         toolResults,

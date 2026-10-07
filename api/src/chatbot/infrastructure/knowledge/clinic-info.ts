@@ -84,7 +84,7 @@ export const CLINIC_FAQ: readonly FaqEntry[] = [
       'En la clínica aceptamos efectivo, QR y transferencia bancaria. La primera consulta se paga solo por QR, al reservar online.',
   },
   {
-    topic: 'pagos',
+    topic: 'general',
     question: '¿Trabajan con seguros médicos?',
     answer: 'No, por el momento no trabajamos con seguros médicos.',
   },

@@ -238,6 +238,7 @@ describe('admin tools (CLI-93)', () => {
       });
       expect(result).toEqual({
         date: '2026-09-26',
+        weekday: 'sábado',
         total: 2,
         appointments: [
           {

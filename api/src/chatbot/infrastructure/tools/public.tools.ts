@@ -11,7 +11,12 @@ import {
   FAQ_TOPICS,
 } from '../knowledge/clinic-info.js';
 import { CLINIC_UTC_OFFSET } from '../../../appointments/domain/ClinicSchedule.js';
-import { clinicDate, clinicTime, normalizeText } from './clinic-time.js';
+import {
+  clinicDate,
+  clinicTime,
+  normalizeText,
+  weekdayOf,
+} from './clinic-time.js';
 import {
   GetAvailableSlotsArgsDto,
   GetBookingLinkArgsDto,
@@ -70,8 +75,13 @@ export class GetFaqTool implements ChatTool<GetFaqArgsDto> {
   readonly argsDto = GetFaqArgsDto;
 
   execute(_actor: unknown, args: GetFaqArgsDto): Promise<unknown> {
+    // Las de "general" (seguros, niños, contacto, urgencias) van siempre: con
+    // un tema puntual el modelo no las pedía y llegó a inventar que la
+    // clínica acepta seguros (CLI-233).
     const entries = args.topic
-      ? CLINIC_FAQ.filter((entry) => entry.topic === args.topic)
+      ? CLINIC_FAQ.filter(
+          (entry) => entry.topic === args.topic || entry.topic === 'general',
+        )
       : CLINIC_FAQ;
     return Promise.resolve(
       entries.map(({ question, answer }) => ({ question, answer })),
@@ -83,7 +93,7 @@ export class GetFaqTool implements ChatTool<GetFaqArgsDto> {
 export class ListServicesTool implements ChatTool<ListServicesArgsDto> {
   readonly name = 'list_services';
   readonly description =
-    'Tratamientos de la clínica con categoría, descripción y precio base en Bs. Categoría opcional (ej. "Ortodoncia").';
+    'Tratamientos de la clínica con categoría, descripción y precio base en Bs. Filtro opcional por categoría o nombre (ej. "Ortodoncia", "limpieza").';
   readonly parameters: JsonSchema = {
     type: 'object',
     properties: { category: { type: 'string', maxLength: 50 } },
@@ -96,20 +106,28 @@ export class ListServicesTool implements ChatTool<ListServicesArgsDto> {
   async execute(_actor: unknown, args: ListServicesArgsDto): Promise<unknown> {
     const treatments = await this.treatmentsService.findActive();
     const wanted = args.category ? normalizeText(args.category) : null;
-    const services = treatments
-      .filter((t) => !wanted || normalizeText(t.categoryName).includes(wanted))
-      .map((t) => ({
-        name: t.name,
-        category: t.categoryName,
-        description: truncate(t.description, DESCRIPTION_MAX_CHARS),
-        // basePriceBob solo viene para tratamientos en USD (ya convertido);
-        // null si no hay tipo de cambio disponible.
-        priceBob: t.currency === 'BOB' ? t.basePrice : t.basePriceBob,
-        ...(t.currency !== 'BOB' && {
-          originalPrice: t.basePrice,
-          originalCurrency: t.currency,
-        }),
-      }));
+    // El modelo suele pasar el nombre del tratamiento ("limpieza") como
+    // categoría: se busca en los dos, y si nada coincide va la lista entera
+    // (antes salía vacía y respondía "no puedo consultar el precio", CLI-233).
+    const matching = wanted
+      ? treatments.filter((t) =>
+          [t.categoryName, t.name].some((text) =>
+            normalizeText(text).includes(wanted),
+          ),
+        )
+      : treatments;
+    const services = (matching.length > 0 ? matching : treatments).map((t) => ({
+      name: t.name,
+      category: t.categoryName,
+      description: truncate(t.description, DESCRIPTION_MAX_CHARS),
+      // basePriceBob solo viene para tratamientos en USD (ya convertido);
+      // null si no hay tipo de cambio disponible.
+      priceBob: t.currency === 'BOB' ? t.basePrice : t.basePriceBob,
+      ...(t.currency !== 'BOB' && {
+        originalPrice: t.basePrice,
+        originalCurrency: t.currency,
+      }),
+    }));
     return {
       services,
       note: 'Precios base referenciales; el costo final sale del presupuesto tras la evaluación. Si varios tratamientos coinciden con lo que pide el usuario (ej. "resina"), nómbralos todos con su precio.',
@@ -194,6 +212,7 @@ export class GetAvailableSlotsTool implements ChatTool<GetAvailableSlotsArgsDto>
             .filter(([, slots]) => slots.length > 0)
             .map(([date, slots]) => ({
               date,
+              weekday: weekdayOf(date),
               available: slots.length,
               firstTimes: slots
                 .slice(0, FIRST_SLOTS_PER_DAY)
