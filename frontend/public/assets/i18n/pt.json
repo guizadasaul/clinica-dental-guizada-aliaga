@@ -353,8 +353,8 @@
     "privacy": "Guardamos a conversa por 30 dias. Não compartilhe dados sensíveis.",
     "welcome": {
       "guest": "Olá! Sou o assistente da clínica. Posso informar horários, serviços e preços, e ajudar você a agendar uma consulta.",
-      "patient": "Olá! Você pode me perguntar sobre suas próximas consultas, seus orçamentos ou seu saldo pendente.",
-      "doctor": "Olá! Posso mostrar sua agenda, seu próximo paciente, seus pacientes e seus números do mês.",
+      "patient": "Olá! Você pode me perguntar sobre suas consultas, seus tratamentos e seu saldo, e pagar com QR aqui mesmo.",
+      "doctor": "Olá! Posso mostrar sua agenda, seus pacientes (ou o resumo de um deles), quem lhe deve e seus números do mês.",
       "admin": "Olá! Posso passar os relatórios da clínica, a agenda do dia e os tratamentos mais realizados."
     },
     "errors": {
@@ -363,6 +363,19 @@
       "generic": "Não consegui enviar sua mensagem. Verifique sua conexão e tente novamente.",
       "clear": "Não consegui apagar a conversa. Tente novamente.",
       "busy": "Ainda estou respondendo sua mensagem anterior. Aguarde um momento e tente novamente."
+    },
+    "qr": {
+      "title": "QR de pagamento de Bs. {{amount}}",
+      "alt": "Código QR para pagar Bs. {{amount}}",
+      "expires": "Escaneie pelo app do seu banco. Vence em 30 minutos.",
+      "check": "Já paguei",
+      "download": "Baixar QR",
+      "cancel": "Cancelar",
+      "stillPending": "O pagamento ainda não foi creditado. Aguarde um momento e tente de novo.",
+      "error": "Não consegui verificar o pagamento. Tente de novo.",
+      "statusPaid": "Pagamento recebido",
+      "statusCancelled": "Este QR não está mais válido.",
+      "paidMessage": "Pronto! Recebemos seu pagamento de Bs. {{amount}}. Obrigado."
     }
   }
 }

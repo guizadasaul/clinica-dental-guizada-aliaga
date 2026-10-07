@@ -4,6 +4,7 @@ import { Observable, catchError, map, of, tap, throwError } from 'rxjs';
 import { AuthService } from '../../../auth/application/auth.service';
 import { environment } from '../../../../environments/environment';
 import type {
+  ChatAttachment,
   ChatLink,
   ChatMessageResponse,
   PublicChatMessageResponse,
@@ -28,6 +29,7 @@ export type ChatMode = 'account' | 'guest';
 export interface ChatbotReply {
   reply: string;
   links: ChatLink[];
+  attachments: ChatAttachment[];
 }
 
 interface StoredUserSession {
@@ -118,7 +120,11 @@ export class ChatbotService {
         const stored: StoredUserSession = { uid, sessionId: res.sessionId };
         this.storage.set(USER_SESSION_KEY, JSON.stringify(stored));
       }),
-      map(({ reply, links }) => ({ reply, links })),
+      map(({ reply, links, attachments }) => ({
+        reply,
+        links,
+        attachments: attachments ?? [],
+      })),
       catchError((error: unknown) => {
         // La conversación ya no existe (retención de 30 días o borrada desde
         // otro dispositivo): se empieza una nueva, una sola vez.
@@ -147,7 +153,8 @@ export class ChatbotService {
       .post<PublicChatMessageResponse>(`${this.baseUrl}/public/chat/messages`, body)
       .pipe(
         tap((res) => this.storage.set(GUEST_TOKEN_KEY, res.sessionToken)),
-        map(({ reply, links }) => ({ reply, links })),
+        // El chat público nunca trae adjuntos: el QR es solo para pacientes.
+        map(({ reply, links }) => ({ reply, links, attachments: [] })),
       );
   }
 

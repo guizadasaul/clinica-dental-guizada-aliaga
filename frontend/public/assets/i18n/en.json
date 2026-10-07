@@ -353,8 +353,8 @@
     "privacy": "We keep the conversation for 30 days. Don't share sensitive data.",
     "welcome": {
       "guest": "Hi! I'm the clinic's assistant. I can tell you about opening hours, services and prices, and help you book an appointment.",
-      "patient": "Hi! You can ask me about your upcoming appointments, your quotes or your pending balance.",
-      "doctor": "Hi! I can show you your schedule, your next patient, your patients and your monthly numbers.",
+      "patient": "Hi! You can ask me about your appointments, your treatments and your balance, and pay by QR right here.",
+      "doctor": "Hi! I can show you your schedule, your patients (or a summary of one of them), who owes you and your numbers for the month.",
       "admin": "Hi! I can give you the clinic reports, today's schedule and the most performed treatments."
     },
     "errors": {
@@ -363,6 +363,19 @@
       "generic": "I couldn't send your message. Check your connection and try again.",
       "clear": "I couldn't delete the conversation. Please try again.",
       "busy": "I'm still answering your previous message. Please wait a moment and try again."
+    },
+    "qr": {
+      "title": "Payment QR for Bs. {{amount}}",
+      "alt": "QR code to pay Bs. {{amount}}",
+      "expires": "Scan it from your banking app. It expires in 30 minutes.",
+      "check": "I paid",
+      "download": "Download QR",
+      "cancel": "Cancel",
+      "stillPending": "The payment has not come through yet. Wait a moment and try again.",
+      "error": "I couldn’t check the payment. Please try again.",
+      "statusPaid": "Payment received",
+      "statusCancelled": "This QR is no longer valid.",
+      "paidMessage": "Done! We received your payment of Bs. {{amount}}. Thank you."
     }
   }
 }
