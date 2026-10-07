@@ -578,6 +578,27 @@ describe('PatientsListComponent — búsqueda, acciones y menú', () => {
       expect(menu.style.right).toBe('100px');
     });
 
+    it('cerca del borde de abajo se abre hacia arriba, para que no quede fuera de la pantalla (CLI-249)', async () => {
+      const context = setup();
+      await settle(context.fixture);
+      const trigger = el<HTMLButtonElement>(context.fixture, '.patients-list__menu-trigger');
+      vi.spyOn(trigger, 'getBoundingClientRect').mockReturnValue({
+        top: 660,
+        bottom: 704,
+        right: 380,
+      } as DOMRect);
+      Object.defineProperty(window, 'innerWidth', { value: 390, configurable: true });
+      Object.defineProperty(window, 'innerHeight', { value: 760, configurable: true });
+
+      trigger.click();
+      context.fixture.detectChanges();
+
+      const menu = el<HTMLElement>(context.fixture, '.patients-list__menu');
+      expect(menu.style.top).toBe('');
+      expect(menu.style.bottom).toBe('108px');
+      expect(menu.style.right).toBe('10px');
+    });
+
     it('el mismo botón lo cierra', async () => {
       const { fixture, trigger } = await openMenu();
 

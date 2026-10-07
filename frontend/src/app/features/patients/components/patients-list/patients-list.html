@@ -88,8 +88,8 @@
                   <span>{{ fullName(p) }}</span>
                 </div>
               </td>
-              <td class="patients-list__cell">{{ phoneLabel(p) }}</td>
-              <td class="patients-list__cell">
+              <td class="patients-list__cell" data-label="Teléfono">{{ phoneLabel(p) }}</td>
+              <td class="patients-list__cell" data-label="Doctor">
                 <span
                   class="patients-list__badge"
                   [class.patients-list__badge--pending]="!p.patient?.assignedDoctorId"
@@ -97,7 +97,7 @@
                   {{ doctorName(p.patient?.assignedDoctorId) }}
                 </span>
               </td>
-              <td class="patients-list__cell">
+              <td class="patients-list__cell" data-label="Estado">
                 @if (!p.patient) {
                   <span class="patients-list__badge patients-list__badge--pending">Sin ficha</span>
                 } @else if (p.dentalExamsCount === 0) {
@@ -184,6 +184,7 @@
                       class="patients-list__menu"
                       role="menu"
                       [style.top.px]="menuPosition()!.top"
+                      [style.bottom.px]="menuPosition()!.bottom"
                       [style.right.px]="menuPosition()!.right"
                     >
                       @if (p.patient && p.dentalExamsCount > 0 && p.hasAccount) {

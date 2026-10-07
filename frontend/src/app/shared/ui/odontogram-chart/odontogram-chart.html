@@ -1,5 +1,11 @@
 <div class="odontogram-chart" [class.odontogram-chart--readonly]="!interactive()">
 
+  <!-- CLI-249: en el celular el dibujo no se achica hasta dientes de 16 px; se desliza de costado. -->
+  <p class="odontogram-chart__swipe-hint">
+    <span class="material-symbols-outlined" aria-hidden="true">swipe</span>
+    Desliza de costado para ver todos los dientes.
+  </p>
+  <div class="odontogram-chart__scroll">
   <!-- Chart: static drawing + interactive overlay (618x554 grid) -->
   <fieldset class="odontogram-chart__canvas">
     <legend class="visually-hidden">Selector de dientes</legend>
@@ -65,6 +71,7 @@
       }
     </svg>
   </fieldset>
+  </div>
 
   <!-- Legend -->
   @if (legendItems().length > 0) {

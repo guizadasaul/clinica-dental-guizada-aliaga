@@ -8,6 +8,7 @@ import {
   computed,
 } from '@angular/core';
 import { DecimalPipe } from '@angular/common';
+import { ScrollIntoViewOnMobileDirective } from '../../../../shared/directives/scroll-into-view-on-mobile.directive';
 import { HttpErrorResponse } from '@angular/common/http';
 import { TreatmentsService } from '../../services/treatments.service';
 import type { Treatment, ToothProcedure, TreatmentApplicationType, ToothSurfaceCode } from '../../models/treatment.model';
@@ -97,7 +98,7 @@ export interface ProcedureRegisteredEvent {
   selector: 'app-register-treatment-odontogram',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [DecimalPipe, OdontogramChartComponent, CatalogPickerComponent],
+  imports: [DecimalPipe, OdontogramChartComponent, CatalogPickerComponent, ScrollIntoViewOnMobileDirective],
   templateUrl: './register-treatment-odontogram.html',
   styleUrl: './register-treatment-odontogram.scss',
 })

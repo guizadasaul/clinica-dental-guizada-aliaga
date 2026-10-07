@@ -50,7 +50,16 @@
       return false;
     }
     const r = el.getBoundingClientRect();
-    return r.width > 0 && r.height > 0;
+    if (r.width === 0 || r.height === 0) {
+      return false;
+    }
+    // Recortado entero con clip-path (encabezados solo para lectores de pantalla).
+    for (let p = el; p && p !== win.document.body; p = p.parentElement) {
+      if (win.getComputedStyle(p).clipPath === 'inset(50%)') {
+        return false;
+      }
+    }
+    return true;
   }
 
   /** Dentro de un contenedor con scroll horizontal propio: desbordar ahí es intencional. */

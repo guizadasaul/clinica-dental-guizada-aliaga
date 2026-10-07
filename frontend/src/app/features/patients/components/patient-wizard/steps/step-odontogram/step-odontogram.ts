@@ -10,6 +10,7 @@ import {
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { DatePipe } from '@angular/common';
+import { ScrollIntoViewOnMobileDirective } from '../../../../../../shared/directives/scroll-into-view-on-mobile.directive';
 import type {
   DentalExam,
   DentalExamFinding,
@@ -127,7 +128,14 @@ function findingsSignature(drafts: readonly FindingDraft[]): string {
   selector: 'app-step-odontogram',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [FormsModule, DatePipe, OdontogramChartComponent, DentalExamHistoryComponent, CatalogPickerComponent],
+  imports: [
+    FormsModule,
+    DatePipe,
+    OdontogramChartComponent,
+    DentalExamHistoryComponent,
+    CatalogPickerComponent,
+    ScrollIntoViewOnMobileDirective,
+  ],
   templateUrl: './step-odontogram.html',
   styleUrl: './step-odontogram.scss',
 })

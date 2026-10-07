@@ -24,6 +24,12 @@ import { PaginationComponent, PAGE_SIZE } from '../../../../shared/ui/pagination
 import { clampPage, pageSlice } from '../../../../shared/utils/pagination.util';
 import { PatientDeleteDialogComponent } from '../patient-delete-dialog/patient-delete-dialog';
 
+/** Abre hacia abajo (`top`) o, cerca del borde inferior, hacia arriba (`bottom`). */
+type MenuPosition = { top?: number; bottom?: number; right: number };
+
+/** Lo que ocupa el menú ⋮ completo: con menos espacio debajo, abre hacia arriba. */
+const MENU_MIN_SPACE_BELOW = 320;
+
 @Component({
   selector: 'app-patients-list',
   standalone: true,
@@ -66,7 +72,7 @@ export class PatientsListComponent implements OnInit {
   // `overflow-x: auto` — por spec de CSS eso fuerza `overflow-y` a `auto`
   // también, así que cualquier menú `absolute` que se quisiera salir de esa
   // caja quedaba recortado.
-  protected readonly menuPosition = signal<{ top: number; right: number } | null>(null);
+  protected readonly menuPosition = signal<MenuPosition | null>(null);
 
   @HostListener('document:click', ['$event'])
   onDocumentClick(event: MouseEvent): void {
@@ -260,10 +266,14 @@ export class PatientsListComponent implements OnInit {
       return;
     }
     const rect = trigger.getBoundingClientRect();
-    this.menuPosition.set({
-      top: rect.bottom + 8,
-      right: window.innerWidth - rect.right,
-    });
+    const right = window.innerWidth - rect.right;
+    // Cerca del borde de abajo (pasa seguido en el celular), el menú abre
+    // hacia arriba: si no, sus últimas opciones quedaban fuera de la pantalla.
+    if (window.innerHeight - rect.bottom < MENU_MIN_SPACE_BELOW) {
+      this.menuPosition.set({ bottom: window.innerHeight - rect.top + 8, right });
+      return;
+    }
+    this.menuPosition.set({ top: rect.bottom + 8, right });
   }
 
   /** Tratamiento y presupuesto solo con ficha y diagnóstico terminado (CLI-189); no depende de la cuenta. */
