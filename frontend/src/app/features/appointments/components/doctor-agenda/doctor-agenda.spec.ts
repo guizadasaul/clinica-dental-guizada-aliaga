@@ -84,7 +84,10 @@ function setup(
       // El doctor logueado — en la agenda común solo sus turnos abren la ficha.
       { provide: AuthService, useValue: { currentUser: signal({ id: 'doctor-a' }) } },
       // CLI-248: el ancho de pantalla decide entre la semana y la vista de un día.
-      { provide: ViewportService, useValue: { isMobile: signal(mobile) } },
+      {
+        provide: ViewportService,
+        useValue: { isMobile: signal(mobile), isCompact: signal(mobile) },
+      },
     ],
   });
   const fixture = TestBed.createComponent(DoctorAgendaComponent);

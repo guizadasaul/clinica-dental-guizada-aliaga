@@ -1,3 +1,5 @@
+@use 'breakpoints' as bp;
+
 // Selector de 2 semanas — solo var(--token), sin hex hardcodeado.
 
 .week-picker {
@@ -249,5 +251,12 @@
   &:hover {
     background: var(--color-primary);
     color: white;
+  }
+}
+
+// Celular (CLI-252): "Cambiar doctor" medía 31 px de alto.
+@include bp.down(md) {
+  .week-picker__change-doctor {
+    min-height: 44px;
   }
 }

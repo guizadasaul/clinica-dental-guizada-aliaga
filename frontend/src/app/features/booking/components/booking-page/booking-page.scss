@@ -1,3 +1,5 @@
+@use 'breakpoints' as bp;
+
 .booking-page {
   max-width: 40rem;
   margin: 0 auto;
@@ -61,5 +63,12 @@
     box-shadow: var(--shadow-md);
 
     @media (min-width: 640px) { padding: var(--space-8); }
+  }
+}
+
+// Celular (CLI-252): "Volver al inicio" medía 21 px de alto.
+@include bp.down(md) {
+  .booking-page__home-link {
+    min-height: 44px;
   }
 }
