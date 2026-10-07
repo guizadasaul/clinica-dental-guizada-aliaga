@@ -4,7 +4,7 @@ const DATE_REGEX = /^\d{4}-\d{2}-\d{2}$/;
 
 export class ListAppointmentsQueryDto {
   @IsOptional()
-  @IsIn(['held', 'confirmed', 'attended', 'expired', 'cancelled'])
+  @IsIn(['held', 'confirmed', 'attended', 'expired', 'cancelled', 'no_show'])
   status?: string;
 
   @IsOptional()

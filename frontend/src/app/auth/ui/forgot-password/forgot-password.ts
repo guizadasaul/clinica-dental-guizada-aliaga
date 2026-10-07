@@ -19,7 +19,7 @@ export class ForgotPasswordComponent {
   private readonly authService = inject(AuthService);
   private readonly destroyRef = inject(DestroyRef);
 
-  protected readonly email = field('', (v) => (isValidEmail(v) ? null : 'Ingresá un correo válido.'));
+  protected readonly email = field('', (v) => (isValidEmail(v) ? null : 'Ingresa un correo válido.'));
   protected readonly loading = signal(false);
   protected readonly errorMessage = signal<string | null>(null);
   protected readonly submitted = signal(false);

@@ -38,8 +38,72 @@
           [class.chat-msg--assistant]="entry.role === 'assistant'"
           [class.chat-msg--error]="entry.role === 'error'"
         >
-          @if (entry.errorKey) {
-            {{ entry.errorKey | translate }}
+          @if (entry.qr; as card) {
+            <div class="chat-qr" [attr.data-state]="card.state">
+              <p class="chat-qr__title">
+                {{ 'chatbot.qr.title' | translate: { amount: card.payment.amountBob } }}
+              </p>
+              @if (card.state === 'paid') {
+                <p class="chat-qr__status chat-qr__status--paid">
+                  <span class="material-symbols-outlined" aria-hidden="true">check_circle</span>
+                  {{ 'chatbot.qr.statusPaid' | translate }}
+                </p>
+              } @else if (card.state === 'cancelled') {
+                <p class="chat-qr__status">{{ 'chatbot.qr.statusCancelled' | translate }}</p>
+              } @else {
+                <img
+                  class="chat-qr__image"
+                  [src]="qrImage(card)"
+                  [alt]="'chatbot.qr.alt' | translate: { amount: card.payment.amountBob }"
+                  width="200"
+                  height="200"
+                />
+                @if (card.payment.lines.length > 0) {
+                  <ul class="chat-qr__lines">
+                    @for (line of card.payment.lines; track $index) {
+                      <li>{{ line.treatment }}: Bs. {{ line.amountBob }}</li>
+                    }
+                  </ul>
+                }
+                <p class="chat-qr__hint">{{ 'chatbot.qr.expires' | translate }}</p>
+                @if (card.state === 'waiting') {
+                  <output class="chat-qr__status">
+                    {{ 'chatbot.qr.stillPending' | translate }}
+                  </output>
+                }
+                @if (card.state === 'error') {
+                  <p class="chat-qr__status chat-qr__status--error" role="alert">
+                    {{ 'chatbot.qr.error' | translate }}
+                  </p>
+                }
+                <div class="chat-qr__actions">
+                  <button
+                    type="button"
+                    class="chat-qr__btn chat-qr__btn--primary"
+                    [disabled]="card.state === 'busy'"
+                    (click)="checkQr(entry.id)"
+                  >
+                    {{ 'chatbot.qr.check' | translate }}
+                  </button>
+                  <a
+                    class="chat-qr__btn"
+                    [href]="qrImage(card)"
+                    download="qr-clinica-guizada-aliaga.png"
+                    >{{ 'chatbot.qr.download' | translate }}</a
+                  >
+                  <button
+                    type="button"
+                    class="chat-qr__btn chat-qr__btn--ghost"
+                    [disabled]="card.state === 'busy'"
+                    (click)="cancelQr(entry.id)"
+                  >
+                    {{ 'chatbot.qr.cancel' | translate }}
+                  </button>
+                </div>
+              }
+            </div>
+          } @else if (entry.errorKey) {
+            {{ entry.errorKey | translate: entry.errorParams }}
           } @else {
             @for (segment of entry.segments; track $index) {
               @if (segment.href) {

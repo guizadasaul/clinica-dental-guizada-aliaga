@@ -8,20 +8,30 @@ import {
   effect,
   untracked,
   DestroyRef,
+  ElementRef,
   HostListener,
+  Injector,
+  afterNextRender,
+  viewChild,
 } from '@angular/core';
 import { NgTemplateOutlet } from '@angular/common';
-import { firstValueFrom } from 'rxjs';
+import { firstValueFrom, forkJoin, map } from 'rxjs';
 import { AppointmentsService } from '../../services/appointments.service';
 import { AuthService } from '../../../../auth/application/auth.service';
 import { FALLBACK_DOCTOR_COLOR } from '../../../../shared/constants/doctor-colors';
 import { PatientWizardComponent } from '../../../patients/components/patient-wizard/patient-wizard';
-import type { AppointmentAgendaItem, DoctorScheduleBlock } from '../../models/appointment.model';
+import type {
+  AppointmentAgendaItem,
+  DoctorScheduleBlock,
+  TimeBlock,
+} from '../../models/appointment.model';
 import { isWithinSchedule, minutesToHhmm } from '../../models/clinic-schedule.util';
 import {
   BookAppointmentDialogComponent,
   type AgendaSlot,
+  type BusyInterval,
 } from '../book-appointment-dialog/book-appointment-dialog';
+import { TimeBlockDialogComponent } from '../time-block-dialog/time-block-dialog';
 import { AppointmentDetailDialogComponent } from '../appointment-detail-dialog/appointment-detail-dialog';
 import { appointmentPatientLabel } from '../../models/appointment-patient-label';
 import { PageHeaderComponent } from '../../../../shared/ui/page-header/page-header';
@@ -204,6 +214,7 @@ function assignLanes(
     PageHeaderComponent,
     PatientWizardComponent,
     BookAppointmentDialogComponent,
+    TimeBlockDialogComponent,
     AppointmentDetailDialogComponent,
     NgTemplateOutlet,
   ],
@@ -235,15 +246,22 @@ export class DoctorAgendaComponent {
     return this.readOnly() ? 'Agenda' : 'Mi agenda';
   });
 
-  // Grilla horaria: 09:00–21:00 en franjas de 30 min (igual duración que
-  // reserva cada cita, ver SLOT_MINUTES en api/src/appointments/domain/ClinicSchedule.ts).
-  protected readonly GRID_START_HOUR = 9;
+  // Grilla horaria de 24 horas, de 00:00 a 24:00, en franjas de 30 min (igual
+  // duración que reserva cada cita, ver SLOT_MINUTES en
+  // api/src/appointments/domain/ClinicSchedule.ts). Se scrollea hacia arriba y
+  // hacia abajo; al abrir arranca en las 09:00 (CLI-192).
+  protected readonly GRID_START_HOUR = 0;
   protected readonly GRID_END_HOUR = 24;
+  /** Hora a la que queda el scroll al abrir y al cambiar de semana. */
+  protected readonly DEFAULT_SCROLL_HOUR = 9;
   protected readonly SLOT_MINUTES = 30;
   protected readonly ROW_HEIGHT_PX = 40;
   protected readonly totalSlots =
     ((this.GRID_END_HOUR - this.GRID_START_HOUR) * 60) / this.SLOT_MINUTES;
   protected readonly gridHeightPx = this.totalSlots * this.ROW_HEIGHT_PX;
+  /** Scroll (px) que deja la hora por defecto justo debajo del encabezado fijo. */
+  protected readonly defaultScrollPx =
+    ((this.DEFAULT_SCROLL_HOUR - this.GRID_START_HOUR) * 60 / this.SLOT_MINUTES) * this.ROW_HEIGHT_PX;
 
   protected readonly hourMarks: HourMark[] = Array.from(
     { length: this.GRID_END_HOUR - this.GRID_START_HOUR + 1 },
@@ -260,13 +278,11 @@ export class DoctorAgendaComponent {
 
   // Sábado y domingo comparten una sexta columna (mismo ancho que el resto),
   // dividida horizontalmente por la mitad — cada mitad es un panel con la
-  // misma escala 9:00–24:00 que el resto de la semana (para poder registrar
+  // misma escala 00:00–24:00 que el resto de la semana (para poder registrar
   // una emergencia a cualquier hora), con scroll vertical propio e
-  // independiente entre sí. El viewport de cada panel ocupa el alto completo
-  // disponible de la columna (sin dejar espacio vacío abajo) — igual debe
-  // scrollearse para ver más allá de las primeras horas visibles.
-  protected readonly DIVIDER_HEIGHT_PX = 54;
-  protected readonly panelViewportPx = (this.gridHeightPx - this.DIVIDER_HEIGHT_PX) / 2;
+  // independiente entre sí. La columna queda fija a la vista (sticky) con el
+  // alto del área visible de la grilla, partido entre los dos paneles por CSS
+  // (CLI-192): con 24 horas ya no se puede igualar el alto de los demás días.
 
   protected readonly panelSlotLabels: SlotLabel[] = Array.from(
     { length: this.totalSlots },
@@ -301,6 +317,10 @@ export class DoctorAgendaComponent {
   );
   /** Horario de atención del doctor — sombrea lo que queda fuera. */
   protected readonly schedule = signal<DoctorScheduleBlock[]>([]);
+  /** CLI-195: horarios que el doctor apartó, de la semana visible. */
+  protected readonly timeBlocks = signal<TimeBlock[]>([]);
+  /** CLI-195: con valor, el diálogo de reservar horario está abierto (un horario existente o uno nuevo). */
+  protected readonly blockDialog = signal<{ block: TimeBlock | null; date: string } | null>(null);
   /** Horario clickeado: con valor, el modal de "Agendar cita" está abierto. */
   protected readonly bookingSlot = signal<AgendaSlot | null>(null);
   /** CLI-151: turno propio clickeado — con valor, el detalle está abierto. */
@@ -420,6 +440,24 @@ export class DoctorAgendaComponent {
     return lanes;
   });
 
+  /** CLI-195: los horarios apartados, recortados a cada día visible (minutos desde las 00:00). */
+  protected readonly blockSegmentsByDate = computed(() => {
+    const result = new Map<string, { block: TimeBlock; start: number; end: number }[]>();
+    for (const date of this.visibleDates()) {
+      const dayStart = new Date(`${date}T00:00:00-04:00`).getTime();
+      const segments: { block: TimeBlock; start: number; end: number }[] = [];
+      for (const block of this.timeBlocks()) {
+        const start = Math.max(0, (new Date(block.startsAt).getTime() - dayStart) / 60000);
+        const end = Math.min(1440, (new Date(block.endsAt).getTime() - dayStart) / 60000);
+        if (end > start) {
+          segments.push({ block, start, end });
+        }
+      }
+      result.set(date, segments);
+    }
+    return result;
+  });
+
   /** Franjas de cada día visible, con qué está libre para agendar y qué cae fuera de horario. */
   protected readonly cellsByDate = computed(() => {
     const cells = new Map<string, AgendaCell[]>();
@@ -437,10 +475,13 @@ export class DoctorAgendaComponent {
         const start = hour * 60 + minute;
         return { start, end: start + this.durationOf(a) };
       });
+      const blocked = this.blockSegmentsByDate().get(date) ?? [];
       const dayCells: AgendaCell[] = [];
       for (let i = 0; i < this.totalSlots; i++) {
         const minutes = this.GRID_START_HOUR * 60 + i * this.SLOT_MINUTES;
-        const occupied = busy.some((b) => b.start < minutes + this.SLOT_MINUTES && minutes < b.end);
+        const occupied =
+          busy.some((b) => b.start < minutes + this.SLOT_MINUTES && minutes < b.end) ||
+          blocked.some((b) => b.start < minutes + this.SLOT_MINUTES && minutes < b.end);
         const past = new Date(`${date}T${minutesToHhmm(minutes)}:00-04:00`).getTime() <= now;
         dayCells.push({
           minutes,
@@ -456,24 +497,48 @@ export class DoctorAgendaComponent {
     return cells;
   });
 
-  /** Minutos en que empieza la próxima cita del día después del horario elegido (el modal avisa si la duración la pisa). */
-  protected readonly nextBusyMinutes = computed(() => {
+  /**
+   * Las demás citas del día del horario elegido, como intervalos en minutos
+   * (CLI-194): el modal deja elegir la hora de inicio y la duración, y avisa si
+   * pisan alguna. La que se está reprogramando no cuenta.
+   */
+  protected readonly busyIntervals = computed<BusyInterval[]>(() => {
     const slot = this.bookingSlot();
     if (!slot) {
-      return null;
+      return [];
     }
     const movingId = this.rescheduling()?.id;
-    const starts = this.appointmentsFor(slot.date)
+    const appointments = this.appointmentsFor(slot.date)
       .filter((a) => a.id !== movingId)
       .map((a) => {
         const { hour, minute } = laPazHourMinute(a.appointmentDatetime);
-        return hour * 60 + minute;
-      })
-      .filter((start) => start > slot.minutes);
-    return starts.length > 0 ? Math.min(...starts) : null;
+        const start = hour * 60 + minute;
+        return { start, end: start + this.durationOf(a) };
+      });
+    const blocks = (this.blockSegmentsByDate().get(slot.date) ?? []).map((b) => ({
+      start: b.start,
+      end: b.end,
+    }));
+    return [...appointments, ...blocks];
   });
 
+  private readonly injector = inject(Injector);
+  private readonly gridRef = viewChild<ElementRef<HTMLElement>>('grid');
+
   constructor() {
+    // Al abrir la agenda y al cambiar de semana, la vista queda en las 09:00
+    // (la grilla es de 24 horas). La grilla solo existe tras cargar; el efecto
+    // vuelve a correr cuando aparece y cuando cambian los días visibles.
+    effect(() => {
+      const grid = this.gridRef();
+      this.visibleDates();
+      if (!grid) {
+        return;
+      }
+      afterNextRender(() => this.scrollToDefaultHour(grid.nativeElement), {
+        injector: this.injector,
+      });
+    });
     // Reactivo a doctorId (no a selectedDate, que ya dispara su propio
     // reload explícito desde onPrevPage/onNextPage/onToday) — cambia cuando
     // el admin elige otro doctor desde el panel sin desmontar el componente.
@@ -494,6 +559,14 @@ export class DoctorAgendaComponent {
       },
       { allowSignalWrites: true },
     );
+  }
+
+  /** Pone el scroll de la grilla (y el de cada panel de fin de semana) en la hora por defecto. */
+  private scrollToDefaultHour(grid: HTMLElement): void {
+    grid.scrollTop = this.defaultScrollPx;
+    grid.querySelectorAll<HTMLElement>('.agenda-mini-panel').forEach((panel) => {
+      panel.scrollTop = this.defaultScrollPx;
+    });
   }
 
   /** Sin horario cargado solo no se sombrea nada — agendar sigue funcionando. */
@@ -573,6 +646,17 @@ export class DoctorAgendaComponent {
     this.followUpPick.set(null);
   }
 
+  /** CLI-208: marcar o deshacer "No asistió" — el turno se actualiza en su lugar, sin recargar. */
+  protected onAttendanceChanged(updated: AppointmentAgendaItem): void {
+    this.detailAppointment.set(null);
+    this.appointments.update((list) => list.map((a) => (a.id === updated.id ? updated : a)));
+    this.showNotice(
+      updated.status === 'no_show'
+        ? `Marcada como "No asistió": ${this.patientLabel(updated)}`
+        : `Se deshizo "No asistió": ${this.patientLabel(updated)}`,
+    );
+  }
+
   protected onCancelled(cancelled: AppointmentAgendaItem): void {
     this.detailAppointment.set(null);
     this.showNotice(`Cita cancelada: ${this.patientLabel(cancelled)}`);
@@ -607,14 +691,26 @@ export class DoctorAgendaComponent {
     try {
       const from = this.selectedDate();
       const to = addDaysToDateString(from, this.VIEW_DAYS);
+      // Aparte de las citas: no demora ni rompe la carga de la agenda.
+      void this.loadTimeBlocks(from, to);
+      const filters = {
+        from,
+        to,
+        doctorId: this.doctorId() ?? undefined,
+        scope: this.effectiveScope() === 'all' ? ('all' as const) : undefined,
+      };
+      // CLI-208: las "No asistió" siguen en la agenda (atenuadas) para poder deshacerlo.
       const result = await firstValueFrom(
-        this.appointmentsService.getAgenda({
-          status: 'confirmed',
-          from,
-          to,
-          doctorId: this.doctorId() ?? undefined,
-          scope: this.effectiveScope() === 'all' ? 'all' : undefined,
-        }),
+        forkJoin([
+          this.appointmentsService.getAgenda({ ...filters, status: 'confirmed' }),
+          this.appointmentsService.getAgenda({ ...filters, status: 'no_show' }),
+        ]).pipe(
+          map(([confirmed, noShow]) =>
+            [...confirmed, ...noShow].sort((a, b) =>
+              a.appointmentDatetime.localeCompare(b.appointmentDatetime),
+            ),
+          ),
+        ),
       );
       this.appointments.set(result);
     } catch {
@@ -622,6 +718,55 @@ export class DoctorAgendaComponent {
     } finally {
       this.loading.set(false);
     }
+  }
+
+  /** CLI-195: solo en la agenda propia; si falla, la agenda se ve igual (el backend igual los respeta). */
+  private async loadTimeBlocks(from: string, to: string): Promise<void> {
+    if (!this.canBook()) {
+      this.timeBlocks.set([]);
+      return;
+    }
+    try {
+      this.timeBlocks.set(await firstValueFrom(this.appointmentsService.getTimeBlocks(from, to)));
+    } catch {
+      this.timeBlocks.set([]);
+    }
+  }
+
+  protected blockTopPx(start: number): number {
+    return ((start - this.GRID_START_HOUR * 60) / this.SLOT_MINUTES) * this.ROW_HEIGHT_PX;
+  }
+
+  protected blockHeightPx(start: number, end: number): number {
+    return ((end - start) / this.SLOT_MINUTES) * this.ROW_HEIGHT_PX;
+  }
+
+  protected blocksFor(date: string) {
+    return this.blockSegmentsByDate().get(date) ?? [];
+  }
+
+  protected onNewBlock(): void {
+    this.blockDialog.set({ block: null, date: this.selectedDate() });
+  }
+
+  protected onOpenBlock(block: TimeBlock, date: string): void {
+    this.blockDialog.set({ block, date });
+  }
+
+  protected onBlockClosed(): void {
+    this.blockDialog.set(null);
+  }
+
+  protected onBlockSaved(): void {
+    this.blockDialog.set(null);
+    this.showNotice('Horario reservado.');
+    void this.load();
+  }
+
+  protected onBlockRemoved(): void {
+    this.blockDialog.set(null);
+    this.showNotice('Reserva quitada.');
+    void this.load();
   }
 
   protected appointmentsFor(date: string): AppointmentAgendaItem[] {
@@ -672,6 +817,9 @@ export class DoctorAgendaComponent {
     }
     if (a.source === 'doctor') {
       parts.push('Agendada por el doctor');
+    }
+    if (a.status === 'no_show') {
+      parts.push('No asistió');
     }
     if (this.effectiveScope() === 'all') {
       parts.unshift(a.doctorName ?? 'Doctor');

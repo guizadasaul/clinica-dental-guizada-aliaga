@@ -36,6 +36,8 @@ describe('AddQuoteItemDto', () => {
     ['treatmentId', 'consulta'],
     ['toothNumbers', [10]],
     ['toothNumbers', [86]],
+    ['toothNumbers', [19]],
+    ['toothNumbers', [56]],
     ['toothNumbers', 16],
     ['customPrice', 0],
     ['customPrice', 1.999],

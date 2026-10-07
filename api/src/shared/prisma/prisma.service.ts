@@ -63,6 +63,10 @@ export class PrismaService implements OnModuleInit, OnModuleDestroy {
   get quote_qr_charges() {
     return this._client.quote_qr_charges;
   }
+  // CLI-218: los e2e arman grupos multi-diente fuera de una transacción.
+  get application_groups() {
+    return this._client.application_groups;
+  }
   get xray_documents() {
     return this._client.xray_documents;
   }
@@ -89,6 +93,10 @@ export class PrismaService implements OnModuleInit, OnModuleDestroy {
   }
   get doctor_schedule_blocks() {
     return this._client.doctor_schedule_blocks;
+  }
+
+  get doctor_time_blocks() {
+    return this._client.doctor_time_blocks;
   }
   get chat_sessions() {
     return this._client.chat_sessions;

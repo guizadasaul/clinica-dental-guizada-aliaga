@@ -29,7 +29,6 @@ const PATIENT: Patient = {
   familyHistory: null,
   documentType: null,
   dni: null,
-  documentExtension: null,
   createdAt: '2026-01-01T00:00:00.000Z',
   updatedAt: '2026-01-01T00:00:00.000Z',
   assignedDoctorId: null,
@@ -111,7 +110,7 @@ async function settle(fixture: ReturnType<typeof setup>['fixture']): Promise<voi
 
 function fillOf(root: HTMLElement, toothNumber: number): string | null {
   return root
-    .querySelector(`.odontogram-chart__cell[aria-label="Diente ${toothNumber}"] .odontogram-chart__cell-shape`)
+    .querySelector(`.odontogram-chart__cell[data-tooth="${toothNumber}"] .odontogram-chart__cell-shape`)
     ?.getAttribute('fill') ?? null;
 }
 
@@ -133,7 +132,7 @@ describe('ClinicalRecordViewComponent — exámenes dentales', () => {
   it('el odontograma es de solo lectura: sin role=button ni tabindex', async () => {
     const { fixture } = setup();
     await settle(fixture);
-    const cell = (fixture.nativeElement as HTMLElement).querySelector('.odontogram-chart__cell[aria-label="Diente 16"]');
+    const cell = (fixture.nativeElement as HTMLElement).querySelector('.odontogram-chart__cell[data-tooth="16"]');
 
     expect(cell?.getAttribute('role')).toBeNull();
     expect(cell?.getAttribute('tabindex')).toBeNull();
@@ -218,6 +217,22 @@ describe('ClinicalRecordViewComponent — ficha', () => {
     updatedAt: '2026-09-01T00:00:00Z',
   };
 
+  it('avisa si el teléfono está en otra cuenta y no sirve para iniciar sesión (CLI-143)', async () => {
+    const record = await text(setupRecord({ patient: { phone: '71234567', phoneLoginError: 'phone_in_use' } }));
+    expect(record).toContain('ya está registrado en otra cuenta');
+  });
+
+  it('avisa si no se pudo habilitar el teléfono por otro motivo (CLI-143)', async () => {
+    const record = await text(setupRecord({ patient: { phone: '71234567', phoneLoginError: 'unknown' } }));
+    expect(record).toContain('No se pudo habilitar este teléfono');
+  });
+
+  it('sin marca no muestra ningún aviso sobre el teléfono', async () => {
+    const record = await text(setupRecord({ patient: { phone: '71234567', phoneLoginError: null } }));
+    expect(record).not.toContain('otra cuenta');
+    expect(record).not.toContain('No se pudo habilitar');
+  });
+
   it('muestra el nombre completo, con el apellido materno si lo tiene', async () => {
     expect(await text(setupRecord({ patient: { lastNameMaternal: 'Rojas' } }))).toContain('Julian Alvarez Rojas');
   });
@@ -228,7 +243,7 @@ describe('ClinicalRecordViewComponent — ficha', () => {
     [{ dni: 'AB123', documentType: 'pasaporte' }, 'Pasaporte AB123'],
     [{ dni: '99', documentType: 'otro' }, 'otro 99'],
     [{ dni: '1234567', documentType: null }, '1234567'],
-    [{ dni: '1234567', documentType: 'ci', documentExtension: 'LP' }, 'CI 1234567 LP'],
+    [{ dni: '1234567-LP', documentType: 'ci' }, 'CI 1234567-LP'],
   ] as const)('documento %o se muestra como "%s"', async (patient, label) => {
     const fixture = setupRecord({ patient: patient as Partial<Patient> });
     await text(fixture);

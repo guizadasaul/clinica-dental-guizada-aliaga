@@ -91,7 +91,7 @@ describe('TreatmentScopePickerComponent', () => {
     const { root, last } = setup();
 
     expect(last()).toBeNull();
-    expect(root.textContent).toContain('Elegí un tratamiento del catálogo para continuar');
+    expect(root.textContent).toContain('Elige un tratamiento del catálogo para continuar');
   });
 
   it('un tratamiento general es válido sin piezas y no muestra el odontograma', () => {
@@ -188,6 +188,18 @@ describe('TreatmentScopePickerComponent', () => {
       expect(tooth(26).classList).toContain('tsp__tooth--selected');
       expect(tooth(16).classList).not.toContain('tsp__tooth--selected');
     });
+
+    it('también se puede elegir un diente de leche (CLI-180)', () => {
+      const { root, choose, click, last, tooth } = setup();
+      choose('uno');
+
+      expect(root.querySelectorAll('.tsp__arch--deciduous .tsp__tooth')).toHaveLength(20);
+      click(54);
+
+      expect(last()?.toothNumbers).toEqual([54]);
+      expect(tooth(54).closest('.tsp__arch--deciduous')).not.toBeNull();
+      expect(tooth(16).closest('.tsp__arch--deciduous')).toBeNull();
+    });
   });
 
   describe('varias piezas', () => {
@@ -232,6 +244,14 @@ describe('TreatmentScopePickerComponent', () => {
       expect(tooth(16).classList).toContain('tsp__tooth--selected');
       expect(tooth(46).classList).not.toContain('tsp__tooth--selected');
       expect(root.textContent).toContain('toda la arcada/boca');
+    });
+
+    it('la arcada no resalta los dientes de leche, como la registra la API', () => {
+      const { choose, tooth } = setup();
+
+      choose('arcada');
+
+      expect(tooth(54).classList).not.toContain('tsp__tooth--selected');
     });
 
     it('los clicks no cambian nada', () => {

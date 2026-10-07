@@ -106,6 +106,20 @@ describe('DashboardPageComponent', () => {
     expect(root.querySelector('.layout__overlay')).toBeNull();
   });
 
+  // CLI-187: los reportes son solo del administrador.
+  it('el menú del doctor no tiene Reportes y el del administrador sí', () => {
+    const labels = (role: 'odontologist' | 'admin') => {
+      const { fixture } = setup({ role });
+      return [...(fixture.nativeElement as HTMLElement).querySelectorAll('.sidebar__link')].map(
+        (l) => l.textContent?.trim() ?? '',
+      );
+    };
+
+    expect(labels('odontologist').some((l) => l.includes('Reportes'))).toBe(false);
+    TestBed.resetTestingModule();
+    expect(labels('admin').some((l) => l.includes('Reportes'))).toBe(true);
+  });
+
   it('el panel puede pedir cambiar de sección', () => {
     const { fixture } = setup({ role: 'admin' });
     const panel = fixture.debugElement.query(By.directive(AdminDashboardStub))

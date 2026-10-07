@@ -48,7 +48,7 @@
         @if (onlyDentalExam()) {
           <h3 class="wizard__success-title">¡Diagnóstico guardado!</h3>
           <p class="wizard__success-text">
-            Se guardó una nueva versión del examen dental; podés verla en la historia clínica del paciente.
+            Se guardó una nueva versión del examen dental; puedes verla en la historia clínica del paciente.
           </p>
         } @else {
           <h3 class="wizard__success-title">¡Ficha registrada correctamente!</h3>
@@ -70,27 +70,34 @@
         </div>
       }
 
-      @if (currentStep() === 1) {
-        <app-step-patient-data
-          [loading]="loading()"
-          [existingPatient]="existingPatient()"
-          (submitStep)="onStep1Submit($event)"
-        />
+      @if (visitedSteps().includes(1)) {
+        <div [hidden]="currentStep() !== 1">
+          <app-step-patient-data
+            [loading]="loading()"
+            [existingPatient]="existingPatient()"
+            [fieldOptions]="fieldOptions()"
+            (submitStep)="onStep1Submit($event)"
+          />
+        </div>
       }
-      @if (currentStep() === 2) {
-        <app-step-medical-history
-          [loading]="loading()"
-          [catalog]="medicalConditionsCatalog()"
-          (submitStep)="onStep2Submit($event)"
-          (back)="goBack()"
-        />
+      @if (visitedSteps().includes(2)) {
+        <div [hidden]="currentStep() !== 2">
+          <app-step-medical-history
+            [loading]="loading()"
+            [catalog]="medicalConditionsCatalog()"
+            (submitStep)="onStep2Submit($event)"
+            (back)="goBack()"
+          />
+        </div>
       }
-      @if (currentStep() === 3) {
-        <app-step-oral-hygiene
-          [loading]="loading()"
-          (submitStep)="onStep3Submit($event)"
-          (back)="goBack()"
-        />
+      @if (visitedSteps().includes(3)) {
+        <div [hidden]="currentStep() !== 3">
+          <app-step-oral-hygiene
+            [loading]="loading()"
+            (submitStep)="onStep3Submit($event)"
+            (back)="goBack()"
+          />
+        </div>
       }
       @if (currentStep() === 4) {
         <app-step-odontogram

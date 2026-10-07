@@ -16,8 +16,8 @@ const HOUR_MS = 3_600_000;
 
 // Sin SupabaseAuthGuard a propósito: cualquier visitante de la landing,
 // con o sin cuenta, puede dejar un comentario. Queda en status "pending"
-// (default de Prisma) hasta aprobarse a mano — todavía no hay pantalla
-// de moderación, así que findApproved() es la única lectura pública.
+// (default de Prisma) hasta que el administrador lo aprueba desde su panel
+// (AdminTestimonialsController); findApproved() es la única lectura pública.
 @Controller('public/testimonials')
 export class TestimonialsController {
   constructor(private readonly testimonialsService: TestimonialsService) {}

@@ -32,11 +32,11 @@ interface SeedTreatment {
 const TREATMENT_CATEGORIES: SeedTreatmentCategory[] = [
   { code: 'basicos', name: 'Básicos', color: '#334155' },
   { code: 'operatoria_dental', name: 'Operatoria dental', color: '#16a34a' },
-  { code: 'periodoncia', name: 'Periodoncia', color: '#0f766e' },
-  { code: 'endodoncia', name: 'Endodoncia', color: '#a21caf' },
+  { code: 'periodoncia', name: 'Periodoncia', color: '#3f6212' },
+  { code: 'endodoncia', name: 'Endodoncia', color: '#86198f' },
   { code: 'cirugia_oral', name: 'Cirugía oral', color: '#9f1239' },
   { code: 'protesis_removible', name: 'Prótesis removible', color: '#4338ca' },
-  { code: 'protesis_fija', name: 'Prótesis fija', color: '#0369a1' },
+  { code: 'protesis_fija', name: 'Prótesis fija', color: '#1e3a8a' },
   { code: 'ortodoncia', name: 'Ortodoncia', color: '#854d0e' },
 ];
 
@@ -562,81 +562,6 @@ const CATALOG: SeedTreatment[] = [
     currency: 'BOB',
   },
 ];
-
-interface SeedTestimonial {
-  id: string;
-  name: string;
-  treatment: string;
-  comment: string;
-}
-
-/**
- * Testimonios de prueba para CLI-35 (verificar el carrusel + el botón
- * "Deja un comentario" con más de 3-4 tarjetas). `id` fijo por entrada:
- * así el upsert es idempotente entre reinicios del contenedor, igual que
- * `upsertCatalog` de arriba.
- */
-const TEST_TESTIMONIALS: SeedTestimonial[] = [
-  {
-    id: '3f6a8b1c-1a2d-4e3f-9b7a-1c2d3e4f5a01',
-    name: 'Sofía Ramírez',
-    treatment: 'Blanqueamiento dental láser',
-    comment:
-      'Después de años sin animarme a sonreír en las fotos, hice el blanqueamiento láser y no lo podía creer: en una sola sesión noté la diferencia. El equipo me hizo sentir súper cómoda todo el tiempo.',
-  },
-  {
-    id: '3f6a8b1c-1a2d-4e3f-9b7a-1c2d3e4f5a02',
-    name: 'Marcelo Quispe',
-    treatment: 'Ortodoncia con brackets metálicos',
-    comment:
-      'Empecé el tratamiento de ortodoncia hace un año y ver el avance mes a mes fue increíble. Siempre me explicaron cada paso con paciencia, nunca me sentí apurado en las consultas.',
-  },
-  {
-    id: '3f6a8b1c-1a2d-4e3f-9b7a-1c2d3e4f5a03',
-    name: 'Daniela Fernández',
-    treatment: 'Implante',
-    comment:
-      'Tenía mucho miedo de hacerme un implante, pero el Dr. Ariel y su equipo me acompañaron en todo el proceso. El resultado quedó perfecto, ni se nota que no es mi diente original.',
-  },
-  {
-    id: '3f6a8b1c-1a2d-4e3f-9b7a-1c2d3e4f5a04',
-    name: 'Rodrigo Salazar',
-    treatment: 'Limpieza, profilaxis y flúor',
-    comment:
-      'Vengo cada seis meses a mi limpieza y siempre salgo contento. La atención es rápida, puntual y el consultorio está impecable.',
-  },
-  {
-    id: '3f6a8b1c-1a2d-4e3f-9b7a-1c2d3e4f5a05',
-    name: 'Valentina Ortiz',
-    treatment: 'Corona de porcelana libre de metal',
-    comment:
-      'Me hice una corona de porcelana y el color quedó idéntico al resto de mis dientes. Se nota la dedicación en cada detalle.',
-  },
-];
-
-async function upsertTestimonials() {
-  for (const t of TEST_TESTIMONIALS) {
-    await prisma.testimonials.upsert({
-      where: { id: t.id },
-      create: {
-        id: t.id,
-        name: t.name,
-        treatment: t.treatment,
-        comment: t.comment,
-        status: 'approved',
-      },
-      update: {
-        name: t.name,
-        treatment: t.treatment,
-        comment: t.comment,
-        status: 'approved',
-      },
-    });
-  }
-  console.log(
-    `✓ ${TEST_TESTIMONIALS.length} testimonios de prueba sincronizados.`,
-  );
-}
 
 interface SeedDiagnosisCategory {
   code: string;
@@ -1377,7 +1302,6 @@ async function main() {
   await upsertToothSurfacesCatalog();
   await upsertMedicalConditionsCatalog();
   await deactivateLegacyMedicalConditions();
-  await upsertTestimonials();
 }
 
 main()

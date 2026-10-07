@@ -16,7 +16,7 @@
       "label": "Excelencia Clínica Boutique",
       "titleLine1": "Dale a tu vida,",
       "titleLine2": "una mejor sonrisa.",
-      "subtitle": "Una experiencia boutique que combina excelencia clínica con calidez humana. Su bienestar es nuestro enfoque principal, en un ambiente diseñado para la tranquilidad.",
+      "subtitle": "Una experiencia boutique que combina excelencia clínica con calidez humana. Tu bienestar es nuestro enfoque principal, en un ambiente diseñado para la tranquilidad.",
       "ctaPrimary": "Agendar Cita",
       "ctaSecondary": "Llamar Ahora",
       "statsAriaLabel": "Estadísticas de la clínica",
@@ -186,23 +186,23 @@
       "form": {
         "trigger": "Deja un comentario",
         "close": "Cerrar",
-        "title": "Contanos tu experiencia",
+        "title": "Cuéntanos tu experiencia",
         "subtitle": "Tu comentario se publica después de ser revisado por el equipo.",
         "nameLabel": "Nombre completo",
         "namePlaceholder": "Ej: María García",
         "treatmentLabel": "Tratamiento recibido",
         "treatmentPlaceholder": "Ej: Blanqueamiento Dental",
         "commentLabel": "Tu comentario",
-        "commentPlaceholder": "Contanos cómo fue tu experiencia con nosotros...",
+        "commentPlaceholder": "Cuéntanos cómo fue tu experiencia con nosotros...",
         "wordCount": "{{count}}/{{min}} palabras mínimo ({{max}} máximo)",
         "submit": "Enviar comentario",
         "submitting": "Enviando...",
         "success": "¡Gracias por tu comentario! Se publicará después de ser revisado.",
         "errors": {
-          "name": "Ingresá tu nombre completo.",
-          "treatment": "Contanos qué tratamiento recibiste.",
+          "name": "Ingresa tu nombre completo.",
+          "treatment": "Cuéntanos qué tratamiento recibiste.",
           "comment": "Tu comentario tiene {{count}} palabras — necesita entre {{min}} y {{max}}.",
-          "generic": "No pudimos enviar tu comentario. Intentá de nuevo más tarde.",
+          "generic": "No pudimos enviar tu comentario. Intenta de nuevo más tarde.",
           "nameInvalidChars": "El nombre solo puede tener letras.",
           "treatmentInvalid": "El tratamiento tiene caracteres no permitidos.",
           "commentHtml": "Tu comentario no puede contener etiquetas HTML.",
@@ -238,7 +238,7 @@
       }
     },
     "contact": {
-      "eyebrow": "Encontranos",
+      "eyebrow": "Encuéntranos",
       "title": "Ubicación y Contacto",
       "addressTitle": "Dirección",
       "addressLine1": "Edificio Guizada, 1er piso — Carmela Serruto entre Suárez Miranda y Waldo Ballivián",
@@ -266,14 +266,14 @@
       "copyright": "© 2026 Clínica Dental Guizada-Aliaga. Todos los derechos reservados."
     },
     "noProfileBanner": {
-      "title": "Todavía no tenés una cuenta de paciente",
-      "body": "Reservá tu primera consulta para crear tu cuenta de paciente.",
+      "title": "Todavía no tienes una cuenta de paciente",
+      "body": "Reserva tu primera consulta para crear tu cuenta de paciente.",
       "cta": "Ver horarios disponibles",
       "dismissAriaLabel": "Cerrar aviso"
     },
     "booking": {
-      "title": "Reservá tu consulta",
-      "subtitle": "Horarios reales de esta semana y la próxima, en bloques de 30 minutos. Elegí el que te acomode y confirmá con un pago simple por QR.",
+      "title": "Reserva tu consulta",
+      "subtitle": "Horarios reales de esta semana y la próxima, en bloques de 30 minutos. Elige el que te acomode y confirma con un pago simple por QR.",
       "close": "Cerrar",
       "guestContact": {
         "firstNameLabel": "Nombre",
@@ -290,14 +290,14 @@
         "submit": "Continuar",
         "submitting": "Guardando...",
         "errors": {
-          "firstNameEmpty": "Ingresá tu nombre.",
+          "firstNameEmpty": "Ingresa tu nombre.",
           "firstNameInvalid": "El nombre solo puede tener letras.",
-          "lastNamePaternalEmpty": "Ingresá tu apellido paterno.",
+          "lastNamePaternalEmpty": "Ingresa tu apellido paterno.",
           "lastNamePaternalInvalid": "El apellido paterno solo puede tener letras.",
           "lastNameMaternalInvalid": "El apellido materno solo puede tener letras.",
           "nameTooLong": "El nombre es demasiado largo.",
-          "phone": "Ingresá un número de teléfono válido.",
-          "email": "Ingresá un correo válido, o dejalo vacío."
+          "phone": "Ingresa un número de teléfono válido.",
+          "email": "Ingresa un correo válido o déjalo vacío."
         }
       }
     }
@@ -319,7 +319,7 @@
   "auth": {
     "login": {
       "title": "Iniciar sesión",
-      "subtitle": "Accedé al sistema de gestión clínica",
+      "subtitle": "Accede al sistema de gestión clínica",
       "identifierLabel": "Correo o teléfono",
       "passwordLabel": "Contraseña",
       "showPassword": "Mostrar contraseña",
@@ -331,12 +331,12 @@
       "googleButton": "Continuar con Google",
       "googleButtonLoading": "Conectando...",
       "backToHome": "Volver al inicio",
-      "resetSuccess": "Tu contraseña fue actualizada. Iniciá sesión con tu nueva contraseña.",
+      "resetSuccess": "Tu contraseña fue actualizada. Inicia sesión con tu nueva contraseña.",
       "errors": {
         "required": "Correo/teléfono y contraseña son obligatorios.",
-        "invalidIdentifier": "Ingresá un correo o un teléfono válido.",
+        "invalidIdentifier": "Ingresa un correo o un teléfono válido.",
         "generic": "No se pudo iniciar sesión.",
-        "googleFailed": "No se pudo iniciar sesión con Google. Intentá nuevamente."
+        "googleFailed": "No se pudo iniciar sesión con Google. Intenta nuevamente."
       }
     }
   },
@@ -348,21 +348,34 @@
     "clear": "Borrar conversación",
     "send": "Enviar mensaje",
     "inputLabel": "Tu mensaje para el asistente",
-    "placeholder": "Escribí tu consulta…",
+    "placeholder": "Escribe tu consulta…",
     "typing": "Escribiendo…",
     "privacy": "Guardamos la conversación 30 días. No compartas datos sensibles.",
     "welcome": {
       "guest": "¡Hola! Soy el asistente de la clínica. Puedo contarte horarios, servicios y precios, y ayudarte a reservar una cita.",
-      "patient": "¡Hola! Podés preguntarme por tus próximas citas, tus presupuestos o tu saldo pendiente.",
-      "doctor": "¡Hola! Puedo mostrarte tu agenda, tu próximo paciente, tus pacientes y tus números del mes.",
+      "patient": "¡Hola! Puedes preguntarme por tus citas, tus tratamientos y tu saldo, y pagar con QR aquí mismo.",
+      "doctor": "¡Hola! Puedo mostrarte tu agenda, tus pacientes (o el resumen de uno en particular), quién te debe y tus números del mes.",
       "admin": "¡Hola! Puedo darte los reportes de la clínica, la agenda del día y los tratamientos más realizados."
     },
     "errors": {
-      "limit": "Alcanzaste el límite de mensajes por ahora. Probá de nuevo más tarde.",
-      "unavailable": "El asistente no está disponible en este momento. En horario de atención podés escribir a Dr. Ariel Guizada (+591 674 02602) o Dra. Marylu Aliaga (+591 577 29544).",
-      "generic": "No pude enviar tu mensaje. Revisá tu conexión y probá de nuevo.",
-      "clear": "No pude borrar la conversación. Probá de nuevo.",
-      "busy": "Todavía estoy respondiendo tu mensaje anterior. Esperá un momento y volvé a intentar."
+      "limit": "Alcanzaste el límite de mensajes por ahora. Prueba de nuevo más tarde.",
+      "unavailable": "El asistente no está disponible en este momento. En horario de atención puedes escribir a Dr. Ariel Guizada (+591 674 02602) o Dra. Marylu Aliaga (+591 577 29544).",
+      "generic": "No pude enviar tu mensaje. Revisa tu conexión y prueba de nuevo.",
+      "clear": "No pude borrar la conversación. Prueba de nuevo.",
+      "busy": "Todavía estoy respondiendo tu mensaje anterior. Espera un momento y vuelve a intentarlo."
+    },
+    "qr": {
+      "title": "QR de pago por Bs. {{amount}}",
+      "alt": "Código QR para pagar Bs. {{amount}}",
+      "expires": "Escanéalo desde la app de tu banco. Vence en 30 minutos.",
+      "check": "Ya pagué",
+      "download": "Descargar QR",
+      "cancel": "Anular",
+      "stillPending": "Todavía no se acredita el pago. Espera un momento y vuelve a intentarlo.",
+      "error": "No pude consultar el pago. Prueba de nuevo.",
+      "statusPaid": "Pago recibido",
+      "statusCancelled": "Este QR ya no está vigente.",
+      "paidMessage": "¡Listo! Recibimos tu pago de Bs. {{amount}}. Gracias."
     }
   }
 }

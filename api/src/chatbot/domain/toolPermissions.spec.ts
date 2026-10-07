@@ -28,16 +28,23 @@ const PUBLIC_TOOLS = [
 const PATIENT_TOOLS = [
   'get_my_next_appointment',
   'get_my_appointments',
+  'get_my_visits',
   'get_my_quotes',
   'get_my_balance',
   'get_my_treatments',
   'get_my_pending_treatments',
+  'create_my_qr_payment',
+  'check_my_qr_payment',
+  'cancel_my_qr_payment',
 ];
 const DOCTOR_TOOLS = [
   'get_my_agenda',
   'get_my_next_patient',
   'get_my_patients',
+  'get_my_patient_summary',
+  'get_my_patients_with_balance',
   'get_my_monthly_stats',
+  'get_my_top_treatments',
 ];
 const ADMIN_TOOLS = [
   'get_clinic_operational_report',

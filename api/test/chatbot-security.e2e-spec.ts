@@ -43,7 +43,10 @@ const DOCTOR_TOOLS = [
   'get_my_agenda',
   'get_my_next_patient',
   'get_my_patients',
+  'get_my_patient_summary',
+  'get_my_patients_with_balance',
   'get_my_monthly_stats',
+  'get_my_top_treatments',
 ];
 const FINAL_REPLY = 'Listo.';
 
@@ -219,6 +222,16 @@ describe('Chatbot: autorización (e2e) — CLI-95', () => {
       await expectNoForeignData(turn);
     });
 
+    it('3b. A ve su presupuesto numerado y nunca el de B (CLI-235)', async () => {
+      const turn = await callTool(fx.patientA.token, 'get_my_quotes');
+
+      expect(turn.result['data']).toMatchObject({
+        total: 1,
+        quotes: [{ quote: 1, totalBob: A_QUOTE.total, paidBob: A_QUOTE.paid }],
+      });
+      await expectNoForeignData(turn);
+    });
+
     it('4. un reporte de admin pedido por el modelo se deniega sin tocar el service', async () => {
       const spy = jest.spyOn(reports, 'getFinancialReport');
 
@@ -292,6 +305,52 @@ describe('Chatbot: autorización (e2e) — CLI-95', () => {
       });
       await expectNoForeignData(turn);
     });
+
+    it('8b. el resumen de un paciente de otro doctor da not_found (CLI-234)', async () => {
+      const turn = await callTool(fx.doctor1.token, 'get_my_patient_summary', {
+        name: `${PATIENT_B.firstName} ${PATIENT_B.lastName}`,
+      });
+
+      expect(turn.result['data']).toMatchObject({ error: 'not_found' });
+      await expectNoForeignData(turn);
+    });
+
+    it('8c. el resumen de su paciente trae su saldo real (CLI-234)', async () => {
+      const turn = await callTool(fx.doctor1.token, 'get_my_patient_summary', {
+        name: PATIENT_A.firstName,
+      });
+
+      expect(turn.result['data']).toMatchObject({
+        name: `${PATIENT_A.firstName} ${PATIENT_A.lastName}`,
+        quote: { balanceBob: A_QUOTE.total - A_QUOTE.paid },
+      });
+      await expectNoForeignData(turn);
+    });
+
+    it('8d. "quién me debe" lista solo a sus pacientes (CLI-234)', async () => {
+      const turn = await callTool(
+        fx.doctor1.token,
+        'get_my_patients_with_balance',
+      );
+
+      expect(turn.result['data']).toMatchObject({
+        total: 1,
+        totalBalanceBob: A_QUOTE.total - A_QUOTE.paid,
+      });
+      await expectNoForeignData(turn);
+    });
+
+    it('8e. un patientId en el resumen se rechaza (CLI-234)', async () => {
+      const turn = await callTool(fx.doctor1.token, 'get_my_patient_summary', {
+        name: PATIENT_B.firstName,
+        patientId: fx.patientB.patientId,
+      });
+
+      expect(turn.result).toEqual({
+        error: 'invalid_arguments',
+        fields: ['patientId'],
+      });
+    });
   });
 
   describe('administrador', () => {
@@ -309,20 +368,31 @@ describe('Chatbot: autorización (e2e) — CLI-95', () => {
         },
       );
 
-      expect(turn.result['data']).toMatchObject({
-        totals: {
-          collectedBob: A_QUOTE.paid,
-          pendingBob: A_QUOTE.total - A_QUOTE.paid + B_QUOTE.total,
-        },
-        doctors: expect.arrayContaining([
+      const data = turn.result['data'] as {
+        totals: { collectedBob: number; pendingBob: number };
+        doctors: { doctor: string; collectedBob: number; pendingBob: number }[];
+      };
+      expect(data.doctors).toEqual(
+        expect.arrayContaining([
           {
             doctor: DOCTOR_1_NAME,
             collectedBob: A_QUOTE.paid,
             pendingBob: A_QUOTE.total - A_QUOTE.paid,
           },
           { doctor: DOCTOR_2_NAME, collectedBob: 0, pendingBob: B_QUOTE.total },
-        ]) as unknown,
-      });
+        ]),
+      );
+      // Los totales son la suma de todas las filas. No se comparan contra
+      // números fijos: los e2e corren en paralelo y otras suites crean
+      // presupuestos de pacientes sin doctor asignado (CLI-218).
+      expect(data.totals.collectedBob).toBeCloseTo(
+        data.doctors.reduce((sum, d) => sum + d.collectedBob, 0),
+        2,
+      );
+      expect(data.totals.pendingBob).toBeCloseTo(
+        data.doctors.reduce((sum, d) => sum + d.pendingBob, 0),
+        2,
+      );
     });
   });
 
@@ -377,6 +447,22 @@ describe('Chatbot: autorización (e2e) — CLI-95', () => {
 
       expect(turn.result).toEqual({ error: 'not_allowed' });
     });
+
+    it.each([
+      'create_my_qr_payment',
+      'check_my_qr_payment',
+      'cancel_my_qr_payment',
+    ])(
+      '11b. el pago con QR (%s) se deniega a un visitante y a un doctor (CLI-236)',
+      async (name) => {
+        for (const token of [null, fx.doctor1.token]) {
+          const turn = await callTool(token, name);
+
+          expect(turn.result).toEqual({ error: 'not_allowed' });
+          expect(turn.body).not.toHaveProperty('attachments.0');
+        }
+      },
+    );
 
     it('12. una tool inexistente devuelve unknown_tool', async () => {
       const turn = await callTool(null, 'query_database', {

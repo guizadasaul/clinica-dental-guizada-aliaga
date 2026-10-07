@@ -1,5 +1,6 @@
 export interface CreatePatientRequest {
-  userId: string;
+  /** Sin userId, el backend crea un paciente nuevo (llegó sin reserva previa, CLI-171). */
+  userId?: string;
   firstName: string;
   lastNamePaternal: string;
   lastNameMaternal?: string;
@@ -10,9 +11,10 @@ export interface CreatePatientRequest {
   address: string;
   zona: string;
   ciudad: string;
-  // El teléfono del PACIENTE sigue opcional — a diferencia del contacto de
-  // emergencia, no está en la lista de campos obligatorios.
+  // Teléfono o correo: hace falta al menos uno de los dos (CLI-181); cada uno
+  // por separado es opcional.
   phone?: string;
+  email?: string;
   emergencyContactFirstName: string;
   emergencyContactLastName: string;
   emergencyContactPhone: string;
@@ -22,9 +24,8 @@ export interface CreatePatientRequest {
   lastVisitTreatment?: string;
   familyHistory?: string;
   documentType: string;
+  /** La extensión de la CI va dentro, con guion: 1234567-LP (CLI-177). */
   dni: string;
-  /** null = sin extensión (también la borra en un update). */
-  documentExtension: string | null;
 }
 
 export interface UpdatePatientRequest {
@@ -49,13 +50,11 @@ export interface UpdatePatientRequest {
   familyHistory?: string;
   documentType?: string;
   dni?: string;
-  documentExtension?: string | null;
   email?: string;
 }
 
 export interface MedicalConditionEntryRequest {
   code: string;
-  diagnosedAt?: string;
   notes?: string;
 }
 

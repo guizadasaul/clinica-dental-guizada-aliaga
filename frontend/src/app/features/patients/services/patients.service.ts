@@ -2,7 +2,7 @@ import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import type { Observable } from 'rxjs';
 import { environment } from '../../../../environments/environment';
-import type { PatientWithUser, Patient, PatientProfileStatus, MedicalHistory, HygieneHabits, ClinicalExam, OdontogramEntry } from '../models/patient.model';
+import type { PatientWithUser, Patient, PatientFieldOptions, PatientProfileStatus, MedicalHistory, HygieneHabits, ClinicalExam, OdontogramEntry } from '../models/patient.model';
 import type { DentalExam, DentalExamVersionSummary } from '../models/dental-exam.model';
 import type {
   CreatePatientRequest,
@@ -13,6 +13,7 @@ import type {
   CreateOdontogramEntriesRequest,
 } from '../models/patient.request';
 import type { CreateDentalExamRequest } from '../models/dental-exam.request';
+import type { PatientClinicalRecord } from '../models/clinical-record.model';
 
 @Injectable({ providedIn: 'root' })
 export class PatientsService {
@@ -32,6 +33,21 @@ export class PatientsService {
 
   getMyPatientStatus(): Observable<PatientProfileStatus> {
     return this.http.get<PatientProfileStatus>(`${this.base}/me/status`);
+  }
+
+  /** CLI-213: historia clínica inicial del paciente logueado, para "Mi perfil". */
+  getMyClinicalRecord(): Observable<PatientClinicalRecord> {
+    return this.http.get<PatientClinicalRecord>(`${this.base}/me/clinical-record`);
+  }
+
+  /** Lugares de nacimiento, zonas y ciudades ya usados (CLI-178). */
+  getFieldOptions(): Observable<PatientFieldOptions> {
+    return this.http.get<PatientFieldOptions>(`${this.base}/field-options`);
+  }
+
+  /** Baja lógica (CLI-184): el paciente deja de verse y de poder entrar, pero no se borra nada. */
+  deletePatient(userId: string): Observable<void> {
+    return this.http.delete<void>(`${this.base}/users/${userId}`);
   }
 
   createPatient(data: CreatePatientRequest): Observable<Patient> {

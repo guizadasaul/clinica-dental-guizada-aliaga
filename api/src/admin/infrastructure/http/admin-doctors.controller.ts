@@ -121,4 +121,11 @@ export class AdminDoctorsController {
   ): Promise<AdminDoctorDetail> {
     return this.adminDoctorsService.deactivateDoctor(id);
   }
+
+  @Patch(':id/reactivate')
+  reactivate(
+    @Param('id', ParseUUIDPipe) id: string,
+  ): Promise<AdminDoctorDetail> {
+    return this.adminDoctorsService.reactivateDoctor(id);
+  }
 }

@@ -26,6 +26,7 @@
     "@ngx-translate/http-loader": "^17.0.0",
     "@supabase/supabase-js": "^2.111.0",
     "autoprefixer": "^10.5.0",
+    "echarts": "^6.1.0",
     "gsap": "^3.15.0",
     "libphonenumber-js": "^1.13.11",
     "postcss": "^8.5.15",

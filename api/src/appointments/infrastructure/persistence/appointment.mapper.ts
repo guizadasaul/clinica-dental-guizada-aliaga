@@ -40,6 +40,7 @@ export class AppointmentMapper {
       patients: (patients & { users: users }) | null;
       users: users & { doctor_profiles: doctor_profiles | null };
       treatments: treatments | null;
+      cancelled_by_user?: { display_name: string | null } | null;
     },
   ): AppointmentWithPatient {
     return new AppointmentWithPatient(
@@ -63,6 +64,8 @@ export class AppointmentMapper {
       record.treatments?.name ?? null,
       record.notes,
       record.cancelled_at,
+      record.cancel_reason,
+      record.cancelled_by_user?.display_name ?? null,
     );
   }
 
@@ -75,6 +78,7 @@ export class AppointmentMapper {
       durationMinutes: record.duration_minutes,
       doctorName: record.users.display_name,
       treatmentName: record.treatments?.name ?? null,
+      status: record.status,
     };
   }
 }

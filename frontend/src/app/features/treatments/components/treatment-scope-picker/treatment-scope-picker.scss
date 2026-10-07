@@ -283,6 +283,11 @@
     .tsp__tooth { flex-direction: column-reverse; }
   }
 
+  // Dientes de leche: más chicos, para distinguirlos de los permanentes.
+  &__arch--deciduous {
+    .tsp__tooth-svg { transform: scale(0.8); }
+  }
+
   &__arch-separator {
     display: flex;
     align-items: center;

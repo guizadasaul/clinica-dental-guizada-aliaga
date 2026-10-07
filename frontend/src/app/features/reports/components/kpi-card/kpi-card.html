@@ -1,0 +1,20 @@
+<article class="kpi-card">
+  <div class="kpi-card__top">
+    <span class="kpi-card__label">{{ label() }}</span>
+    <span class="material-symbols-outlined kpi-card__icon" aria-hidden="true">{{ icon() }}</span>
+  </div>
+  <p class="kpi-card__value">{{ value() }}</p>
+  @if (trend(); as t) {
+    <p
+      class="kpi-card__delta"
+      [class.kpi-card__delta--good]="positive() === true"
+      [class.kpi-card__delta--bad]="positive() === false"
+    >
+      <span class="material-symbols-outlined" aria-hidden="true">{{ trendIcon() }}</span>
+      <span>{{ deltaText() }}</span>
+      <span class="kpi-card__delta-hint">vs. período anterior</span>
+    </p>
+  } @else {
+    <p class="kpi-card__hint">{{ hint() ?? 'Sin datos del período anterior' }}</p>
+  }
+</article>

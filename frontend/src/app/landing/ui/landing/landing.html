@@ -120,11 +120,10 @@
   <!-- Capas de fondo con parallax (más lentas que el contenido) -->
   <div class="hero__backdrop" aria-hidden="true">
     <span class="hero__glow"></span>
+    <!-- Marca de agua (CLI-163): las dos partes del isotipo, una a cada lado. -->
+    <span class="hero__watermark hero__watermark--left"></span>
+    <span class="hero__watermark hero__watermark--right"></span>
   </div>
-
-  <!-- Esporas naranjas: campo de partículas sutil, más denso en el centro
-       donde converge el abanico. Huyen del cursor. Solo decorativo. -->
-  <div aria-hidden="true"><canvas #spores class="hero__spores"></canvas></div>
 
   <div class="hero__content">
     <h1 id="hero-title" class="hero__title">
@@ -184,9 +183,11 @@
       } @else {
         <app-week-slot-picker
           [slotsByDate]="bookingSlotsByDate()"
+          [doctorName]="bookingSelectedDoctorName()"
           [loading]="bookingLoading()"
           [error]="bookingError()"
           (slotSelected)="onBookingSlotSelected($event)"
+          (changeDoctor)="onBookingChangeDoctor()"
         />
       }
     </dialog>

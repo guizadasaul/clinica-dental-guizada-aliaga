@@ -2,6 +2,5 @@
 export interface MedicalConditionEntry {
   code: string;
   name: string;
-  diagnosedAt: Date | null;
   notes: string | null;
 }

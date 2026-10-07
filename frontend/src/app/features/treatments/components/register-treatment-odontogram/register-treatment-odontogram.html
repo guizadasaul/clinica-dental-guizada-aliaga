@@ -5,7 +5,7 @@
     <div class="rto__chart">
 
       <div class="rto__toolbar">
-        <p class="rto__chart-hint">Hacé clic en un diente para registrar un tratamiento en esa pieza.</p>
+        <p class="rto__chart-hint">Haz clic en un diente para registrar un tratamiento en esa pieza.</p>
         <button
           type="button"
           class="rto__btn rto__btn--secondary"
@@ -20,6 +20,7 @@
       <app-odontogram-chart
         [toothColor]="toothColorMap()"
         [selectedTeeth]="chartSelectedTeeth()"
+        [toothNames]="toothNames()"
         [treatedTeeth]="treatedTeeth()"
         [legendItems]="legendItems()"
         (toothClick)="onToothClick($event)"
@@ -67,7 +68,7 @@
 
           @if (treatment.applicationType === 'single_tooth' || treatment.applicationType === 'multiple_teeth') {
             @if (panelToothNumbers().length === 0) {
-              <p class="rto__panel-hint">Hacé clic en {{ treatment.applicationType === 'single_tooth' ? 'un diente' : 'una o más piezas' }} del odontograma.</p>
+              <p class="rto__panel-hint">Haz clic en {{ treatment.applicationType === 'single_tooth' ? 'un diente' : 'una o más piezas' }} del odontograma.</p>
             } @else {
               <!-- Surfaces — una por cada diente seleccionado (CLI-41), no un juego copiado a cada uno -->
               @for (n of panelToothNumbers(); track n) {
@@ -135,6 +136,28 @@
                 (input)="panelPriceCharged.set(+$any($event.target).value)"
               />
             </div>
+          }
+
+          <!-- CLI-228: qué pasa con el presupuesto del paciente -->
+          @if (panelReadyForPlan()) {
+            @if (panelPlanLine()) {
+              <p class="rto__plan-note">
+                <span class="material-symbols-outlined" aria-hidden="true">task_alt</span>
+                <span>
+                  Está en el presupuesto: se marcará como realizado.
+                  @if (panelPriceChanges()) {
+                    El presupuesto decía {{ currencySymbol(treatment.currency) }} {{ panelPlanPrice() | number:'1.2-2' }}; quedará en {{ currencySymbol(treatment.currency) }} {{ panelCharge() | number:'1.2-2' }}.
+                  }
+                </span>
+              </p>
+            } @else {
+              <p class="rto__plan-note rto__plan-note--new">
+                <span class="material-symbols-outlined" aria-hidden="true">add_circle</span>
+                <span>
+                  No está en el presupuesto: se sumarán {{ currencySymbol(treatment.currency) }} {{ panelCharge() | number:'1.2-2' }} al presupuesto del paciente.
+                </span>
+              </p>
+            }
           }
 
           <!-- Procedure date -->

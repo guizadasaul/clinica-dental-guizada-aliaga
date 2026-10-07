@@ -51,7 +51,7 @@ describe('SupabaseAdminService', () => {
 
       await expect(
         service.setConfirmedPhone('auth-1', '+59170000000'),
-      ).resolves.toBeUndefined();
+      ).resolves.toEqual({ ok: true });
       expect(createClient).not.toHaveBeenCalled();
       expect(warn).toHaveBeenCalled();
     });
@@ -67,10 +67,9 @@ describe('SupabaseAdminService', () => {
     it('confirma el teléfono sin mandar SMS', async () => {
       admin.updateUserById.mockResolvedValue({ error: null });
 
-      await new SupabaseAdminService().setConfirmedPhone(
-        'auth-1',
-        '+59170000000',
-      );
+      await expect(
+        new SupabaseAdminService().setConfirmedPhone('auth-1', '+59170000000'),
+      ).resolves.toEqual({ ok: true });
 
       expect(admin.updateUserById).toHaveBeenCalledWith('auth-1', {
         phone: '+59170000000',
@@ -79,13 +78,37 @@ describe('SupabaseAdminService', () => {
       expect(error).not.toHaveBeenCalled();
     });
 
-    it('si Supabase falla, lo registra pero no corta el flujo', async () => {
-      admin.updateUserById.mockResolvedValue({ error: { message: 'boom' } });
+    it('si Supabase falla por otro motivo, lo registra y devuelve "unknown" sin lanzar', async () => {
+      admin.updateUserById.mockResolvedValue({
+        error: { message: 'boom', status: 502 },
+      });
 
       await expect(
         new SupabaseAdminService().setConfirmedPhone('auth-1', '+59170000000'),
-      ).resolves.toBeUndefined();
+      ).resolves.toEqual({ ok: false, reason: 'unknown' });
       expect(error).toHaveBeenCalled();
+    });
+
+    // CLI-143: updateUserById con un teléfono de otra cuenta responde este
+    // 500 genérico, sin código (verificado contra Supabase real).
+    it('el 500 "Error updating user" de un teléfono repetido es "phone_in_use"', async () => {
+      admin.updateUserById.mockResolvedValue({
+        error: { message: 'Error updating user', status: 500 },
+      });
+
+      await expect(
+        new SupabaseAdminService().setConfirmedPhone('auth-1', '+59170000000'),
+      ).resolves.toEqual({ ok: false, reason: 'phone_in_use' });
+    });
+
+    it('el código phone_exists también es "phone_in_use"', async () => {
+      admin.updateUserById.mockResolvedValue({
+        error: { message: 'Phone exists', status: 422, code: 'phone_exists' },
+      });
+
+      await expect(
+        new SupabaseAdminService().setConfirmedPhone('auth-1', '+59170000000'),
+      ).resolves.toEqual({ ok: false, reason: 'phone_in_use' });
     });
   });
 

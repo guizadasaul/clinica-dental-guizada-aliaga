@@ -1,4 +1,10 @@
-import { BadRequestException, Logger, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  Logger,
+  NotFoundException,
+  UnprocessableEntityException,
+} from '@nestjs/common';
 import { UserRole } from '../../auth/domain/value-objects/UserRole';
 import type { ChatActor } from '../domain/ChatActor';
 import type { ChatTool } from '../domain/ChatTool';
@@ -118,6 +124,7 @@ describe('ToolExecutor', () => {
       status: 'ok',
       content: wrapped({ name: 'Clínica' }),
       links: [],
+      attachments: [],
     });
   });
 
@@ -154,6 +161,7 @@ describe('ToolExecutor', () => {
       status: 'error',
       content: JSON.stringify({ error: 'unknown_tool' }),
       links: [],
+      attachments: [],
     });
   });
 
@@ -231,6 +239,9 @@ describe('ToolExecutor', () => {
   it.each([
     [new NotFoundException('Paciente con id 123 no encontrado'), 'not_found'],
     [new BadRequestException('Rango inválido'), 'invalid_request'],
+    // CLI-236: reglas de negocio del QR (ya hay uno pendiente, línea pagada).
+    [new ConflictException('Ya tienes un QR pendiente'), 'invalid_request'],
+    [new UnprocessableEntityException('Línea ya pagada'), 'invalid_request'],
   ])('traduce %p a un código genérico sin el mensaje', async (error, code) => {
     const failing = tool('get_faq', () => Promise.reject(error));
 
@@ -241,6 +252,7 @@ describe('ToolExecutor', () => {
       status: 'error',
       content: JSON.stringify({ error: code }),
       links: [],
+      attachments: [],
     });
     expect(errorSpy).not.toHaveBeenCalled();
   });
@@ -311,7 +323,47 @@ describe('ToolExecutor', () => {
       status: 'ok',
       content: wrapped({ date: '2026-09-26', time: '10:00' }),
       links: [{ label: 'Reservar', url: 'http://localhost:4200/reservar?x=1' }],
+      attachments: [],
     });
+  });
+
+  it('separa los adjuntos (el QR): la imagen y el chargeId nunca van al modelo', async () => {
+    const qr = {
+      type: 'qr_payment' as const,
+      chargeId: 'charge-secret-id',
+      amountBob: 1050,
+      imageBase64: 'iVBORw0KGgoIMAGEN',
+      lines: [{ treatment: 'Endodoncia', amountBob: 800 }],
+    };
+    const withQr = tool('get_faq', () =>
+      Promise.resolve(new ToolOutputWithLinks({ amountBob: 1050 }, [], [qr])),
+    );
+
+    const result = await executor(withQr).execute(patient, call('get_faq'));
+
+    expect(result.attachments).toEqual([qr]);
+    expect(result.content).toBe(wrapped({ amountBob: 1050 }));
+    expect(result.content).not.toContain('charge-secret-id');
+    expect(result.content).not.toContain('IMAGEN');
+  });
+
+  it('una tool con timeoutMs propio usa ese tope en vez de CHAT_TOOL_TIMEOUT_MS', async () => {
+    process.env['CHAT_TOOL_TIMEOUT_MS'] = '10';
+    const slowButAllowed = {
+      ...tool(
+        'list_doctors',
+        () =>
+          new Promise((resolve) => setTimeout(() => resolve({ ok: 1 }), 50)),
+      ),
+      timeoutMs: 1_000,
+    };
+
+    const result = await executor(slowButAllowed).execute(
+      anonymous,
+      call('list_doctors'),
+    );
+
+    expect(result.status).toBe('ok');
   });
 
   it('serializa un resultado undefined como null', async () => {

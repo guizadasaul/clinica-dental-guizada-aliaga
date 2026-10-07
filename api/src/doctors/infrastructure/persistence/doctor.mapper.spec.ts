@@ -63,6 +63,25 @@ describe('DoctorMapper', () => {
     expect(doctor.isBookable).toBe(false);
   });
 
+  it.each([
+    ['71234567', '+59171234567'],
+    ['59171234567', '+59171234567'],
+    ['+591 674 02602', '+59167402602'],
+  ])('normaliza el teléfono %s a E.164 (CLI-166)', (stored, e164) => {
+    expect(DoctorMapper.toDomain(fakeRecord({}, { phone: stored })).phone).toBe(
+      e164,
+    );
+  });
+
+  it.each([[null], ['abc'], ['123']])(
+    'un teléfono ausente o inválido (%s) queda en null (CLI-166)',
+    (stored) => {
+      expect(
+        DoctorMapper.toDomain(fakeRecord({}, { phone: stored })).phone,
+      ).toBeNull();
+    },
+  );
+
   it('exposes the agenda color (CLI-110)', () => {
     expect(DoctorMapper.toDomain(fakeRecord()).color).toBe('#db2777');
   });

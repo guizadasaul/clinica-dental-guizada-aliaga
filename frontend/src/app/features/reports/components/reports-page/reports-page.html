@@ -1,144 +1,369 @@
 <div class="reports-page">
   <app-page-header title="Reportes" subtitle="Indicadores operativos y financieros de la clínica" />
 
-  <div class="reports-page__filters">
-    <div class="reports-page__range">
-      <label class="reports-page__range-field">
-        <span>Desde</span>
-        <input type="date" [value]="from()" (change)="onFromInput($event)" />
-      </label>
-      <label class="reports-page__range-field">
-        <span>Hasta</span>
-        <input type="date" [value]="to()" (change)="onToInput($event)" />
-      </label>
-      <button type="button" class="reports-page__btn reports-page__btn--primary" (click)="applyRange()">
-        <span class="material-symbols-outlined">refresh</span>
-        Actualizar
-      </button>
+  <!-- Filtros (CLI-199): rango rápido + doctor; cada cambio recarga solo. -->
+  <section class="reports-page__filters" aria-label="Filtros de los reportes">
+    <fieldset class="reports-page__presets">
+      <legend class="visually-hidden">Período</legend>
+      @for (p of presets; track p.key) {
+        <button
+          type="button"
+          class="reports-page__preset"
+          [attr.aria-pressed]="preset() === p.key"
+          (click)="selectPreset(p.key)"
+        >
+          {{ p.label }}
+        </button>
+      }
+    </fieldset>
+
+    @if (preset() === 'custom') {
+      <div class="reports-page__custom">
+        <label for="reports-from">Desde</label>
+        <input id="reports-from" type="date" [value]="customRange().from" (change)="onCustomDate('from', $event)" />
+        <label for="reports-to">Hasta</label>
+        <input id="reports-to" type="date" [value]="customRange().to" (change)="onCustomDate('to', $event)" />
+      </div>
+    }
+
+    <div class="reports-page__doctor">
+      <label for="reports-doctor">Doctor</label>
+      <select id="reports-doctor" (change)="onDoctorChange($event)">
+        <option value="" [selected]="selectedDoctorId() === null">Todos los doctores</option>
+        @for (doctor of doctors(); track doctor.id) {
+          <option [value]="doctor.id" [selected]="selectedDoctorId() === doctor.id">{{ doctorLabel(doctor) }}</option>
+        }
+      </select>
     </div>
 
-    <div class="reports-page__doctor-filter">
-      <button
-        type="button"
-        class="reports-page__chip"
-        [class.reports-page__chip--active]="selectedDoctorId() === null"
-        (click)="selectAllDoctors()"
-      >
-        Todos los doctores
-      </button>
-      <app-doctor-picker
-        [doctors]="doctors()"
-        [loading]="doctorsLoading()"
-        (doctorSelected)="selectDoctor($event)"
-      />
-    </div>
-  </div>
+    <p class="reports-page__period">
+      <strong>{{ rangeLabel() }}</strong>&nbsp;<span>· comparado con los {{ rangeDays() }} días anteriores</span>
+    </p>
+
+    @if (customError()) {
+      <p class="reports-page__custom-error">{{ customError() }}</p>
+    }
+  </section>
 
   @if (error()) {
-    <div class="reports-page__banner reports-page__banner--error">
-      <span class="material-symbols-outlined">error</span>
+    <div class="reports-page__banner">
+      <span class="material-symbols-outlined" aria-hidden="true">error</span>
       <span>{{ error() }}</span>
-    </div>
-  }
-
-  <div class="reports-page__tabs" role="tablist" aria-label="Tipo de reporte">
-    <button
-      type="button"
-      role="tab"
-      class="reports-page__tab"
-      [class.reports-page__tab--active]="tab() === 'operational'"
-      [attr.aria-selected]="tab() === 'operational'"
-      (click)="setTab('operational')"
-    >
-      Operativo
-    </button>
-    <button
-      type="button"
-      role="tab"
-      class="reports-page__tab"
-      [class.reports-page__tab--active]="tab() === 'financial'"
-      [attr.aria-selected]="tab() === 'financial'"
-      (click)="setTab('financial')"
-    >
-      Financiero
-    </button>
-  </div>
-
-  @if (loading()) {
-    <p class="reports-page__loading">Cargando reportes...</p>
-  } @else if (tab() === 'operational') {
-    <div class="reports-page__table-wrap">
-      @if (!operationalReport() || operationalReport()!.doctors.length === 0) {
-        <p class="reports-page__empty">Sin datos para el rango elegido.</p>
-      } @else {
-        <table class="reports-page__table">
-          <thead>
-            <tr>
-              <th>Doctor</th>
-              <th>Confirmados</th>
-              <th>En espera</th>
-              <th>Vencidos</th>
-              <th>Atendidos</th>
-              <th>Canceladas</th>
-              <th>Total turnos</th>
-              <th>Pacientes nuevos</th>
-              <th>Ocupación</th>
-            </tr>
-          </thead>
-          <tbody>
-            @for (row of operationalReport()!.doctors; track row.doctorId) {
-              <tr>
-                <td class="reports-page__cell--name">{{ row.doctorName ?? 'Sin nombre' }}</td>
-                <td>{{ statusCount(row, 'confirmed') }}</td>
-                <td>{{ statusCount(row, 'held') }}</td>
-                <td>{{ statusCount(row, 'expired') }}</td>
-                <td>{{ statusCount(row, 'attended') }}</td>
-                <td>{{ statusCount(row, 'cancelled') }}</td>
-                <td>{{ row.totalAppointments }}</td>
-                <td>{{ row.newPatients }}</td>
-                <td>{{ occupancyPercent(row) }}%</td>
-              </tr>
-            }
-          </tbody>
-        </table>
-        <p class="reports-page__note">
-          "Ocupación" compara los turnos confirmados contra la capacidad teórica de slots del horario del doctor en el
-          rango elegido. "Atendidos" refleja el estado tal cual está guardado — hoy no existe un flujo de check-in
-          propio que transicione un turno a ese estado.
-        </p>
-        <p class="reports-page__note">
-          "Canceladas" son las citas que el doctor canceló desde su agenda: se informan aparte y no suman a "Total turnos".
-        </p>
-      }
+      <button type="button" class="reports-page__retry" (click)="retry()">Reintentar</button>
     </div>
   } @else {
-    <div class="reports-page__table-wrap">
-      @if (!financialReport() || financialReport()!.doctors.length === 0) {
-        <p class="reports-page__empty">Sin datos para el rango elegido.</p>
-      } @else {
-        <table class="reports-page__table">
-          <thead>
-            <tr>
-              <th>Doctor</th>
-              <th>Cobrado en el rango</th>
-              <th>Pendiente actual</th>
-            </tr>
-          </thead>
-          <tbody>
-            @for (row of financialReport()!.doctors; track row.doctorId ?? 'unassigned') {
-              <tr>
-                <td class="reports-page__cell--name">{{ row.doctorName ?? 'Sin doctor asignado' }}</td>
-                <td>Bs. {{ row.collected | number: '1.2-2' }}</td>
-                <td>Bs. {{ row.pending | number: '1.2-2' }}</td>
-              </tr>
-            }
-          </tbody>
-        </table>
-        <p class="reports-page__note">
-          "Cobrado" es la suma de pagos registrados en el rango elegido. "Pendiente" es el saldo actual de
-          presupuestos no pagados — no depende del rango de fechas.
-        </p>
-      }
+    <!-- KPIs -->
+    @if (kpis(); as k) {
+      <section class="reports-page__kpis" aria-label="Resumen del período" [class.reports-page--refreshing]="loading()">
+        <app-kpi-card label="Citas" icon="event_available" [value]="formatCount(k.appointments)" [delta]="deltas().appointments" />
+        <app-kpi-card label="Cobrado" icon="payments" [value]="formatMoney(k.collected)" [delta]="deltas().collected" />
+        <app-kpi-card label="Pendiente" icon="account_balance_wallet" [value]="formatMoney(k.pending)" hint="Saldo actual por cobrar" />
+        <app-kpi-card label="Ocupación" icon="donut_large" [value]="formatPercent(k.occupancyRate)" [delta]="deltas().occupancyRate" />
+        <app-kpi-card label="Pacientes nuevos" icon="person_add" [value]="formatCount(k.newPatients)" [delta]="deltas().newPatients" />
+        <app-kpi-card
+          label="Canceladas"
+          icon="event_busy"
+          [value]="formatCount(k.cancelled)"
+          [delta]="deltas().cancelled"
+          [lowerIsBetter]="true"
+        />
+      </section>
+    } @else {
+      <div class="reports-page__kpis" aria-busy="true">
+        @for (i of skeletons; track i) {
+          <div class="reports-page__skeleton reports-page__skeleton--kpi"></div>
+        }
+      </div>
+    }
+
+    <div class="reports-page__tabs" role="tablist" aria-label="Tipo de reporte">
+      <button
+        type="button"
+        role="tab"
+        id="reports-tab-operational"
+        class="reports-page__tab"
+        aria-controls="reports-panel-operational"
+        [attr.aria-selected]="tab() === 'operational'"
+        (click)="setTab('operational')"
+      >
+        Operativo
+      </button>
+      <button
+        type="button"
+        role="tab"
+        id="reports-tab-financial"
+        class="reports-page__tab"
+        aria-controls="reports-panel-financial"
+        [attr.aria-selected]="tab() === 'financial'"
+        (click)="setTab('financial')"
+      >
+        Financiero
+      </button>
     </div>
+
+    @if (!kpis()) {
+      <div class="reports-page__grid" aria-busy="true">
+        <div class="reports-page__skeleton reports-page__skeleton--chart reports-page__panel--wide"></div>
+        <div class="reports-page__skeleton reports-page__skeleton--chart"></div>
+        <div class="reports-page__skeleton reports-page__skeleton--chart"></div>
+      </div>
+    } @else if (tab() === 'operational') {
+      <div
+        id="reports-panel-operational"
+        role="tabpanel"
+        aria-labelledby="reports-tab-operational"
+        class="reports-page__grid"
+        [class.reports-page--refreshing]="loading()"
+      >
+        <article class="reports-page__panel reports-page__panel--wide">
+          <header class="reports-page__panel-head">
+            <div>
+              <h2 class="reports-page__panel-title">Citas por {{ weekly() ? 'semana' : 'día' }}</h2>
+              <p class="reports-page__panel-sub">Apiladas por estado. Las canceladas no suman al total de citas.</p>
+            </div>
+            <ul class="reports-page__legend" aria-label="Estados">
+              @for (s of statuses; track s.key) {
+                <li><i [style.background]="s.color"></i>{{ s.label }}</li>
+              }
+            </ul>
+          </header>
+          @if (!trends()) {
+            <p class="reports-page__empty">No se pudo cargar la evolución del período.</p>
+          } @else if (!hasAppointments()) {
+            <p class="reports-page__empty">No hay citas en el período elegido.</p>
+          } @else {
+            <figure class="reports-page__figure" aria-label="Barras apiladas de citas por día según su estado; el detalle está en la tabla por doctor">
+              <app-chart [option]="appointmentsByDay()" [height]="320" />
+            </figure>
+          }
+        </article>
+
+        <article class="reports-page__panel">
+          <header>
+            <h2 class="reports-page__panel-title">Estado de las citas</h2>
+            <p class="reports-page__panel-sub">Proporción del período</p>
+          </header>
+          @if (!hasAppointments()) {
+            <p class="reports-page__empty">Sin citas para mostrar.</p>
+          } @else {
+            <figure class="reports-page__figure" aria-label="Anillo con la proporción de citas por estado">
+              <app-chart [option]="statusDonut()" />
+            </figure>
+          }
+        </article>
+
+        <article class="reports-page__panel">
+          <header>
+            <h2 class="reports-page__panel-title">Ocupación por doctor</h2>
+            <p class="reports-page__panel-sub">Citas confirmadas y atendidas sobre la capacidad de su horario</p>
+          </header>
+          @if (doctorRows().length === 0) {
+            <p class="reports-page__empty">Sin doctores para mostrar.</p>
+          } @else {
+            <figure class="reports-page__figure" aria-label="Barras con el porcentaje de ocupación de cada doctor">
+              <app-chart [option]="occupancy()" [height]="occupancyHeight()" />
+            </figure>
+          }
+        </article>
+
+        <article class="reports-page__panel reports-page__panel--wide">
+          <header>
+            <h2 class="reports-page__panel-title">Tratamientos más realizados</h2>
+            <p class="reports-page__panel-sub">Cada pieza tratada cuenta una vez</p>
+          </header>
+          @if (topTreatments() === null) {
+            <p class="reports-page__empty">No se pudieron cargar los tratamientos.</p>
+          } @else if (topTreatments()!.length === 0) {
+            <p class="reports-page__empty">No hay tratamientos registrados en el período.</p>
+          } @else {
+            <figure class="reports-page__figure" aria-label="Barras con los tratamientos más realizados">
+              <app-chart [option]="topTreatmentsChart()" [height]="topTreatmentsHeight()" />
+            </figure>
+          }
+        </article>
+
+        <article class="reports-page__panel reports-page__panel--wide">
+          <header class="reports-page__panel-head">
+            <h2 class="reports-page__panel-title">Detalle por doctor</h2>
+            <button type="button" class="reports-page__export" [disabled]="doctorRows().length === 0" (click)="exportDoctors()">
+              <span class="material-symbols-outlined" aria-hidden="true">download</span>
+              Exportar CSV
+            </button>
+          </header>
+          @if (doctorRows().length === 0) {
+            <p class="reports-page__empty">Sin datos para el período elegido.</p>
+          } @else {
+            <div class="reports-page__table-wrap">
+              <table class="reports-page__table">
+                <thead>
+                  <tr>
+                    <th scope="col">Doctor</th>
+                    @for (s of statuses; track s.key) {
+                      <th scope="col" class="reports-page__num">{{ s.label }}</th>
+                    }
+                    <th scope="col" class="reports-page__num">Total citas</th>
+                    <th scope="col" class="reports-page__num">Pacientes nuevos</th>
+                    <th scope="col">Ocupación</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (row of doctorRows(); track row.doctorId) {
+                    <tr>
+                      <th scope="row" class="reports-page__name">{{ row.doctorName ?? 'Sin nombre' }}</th>
+                      @for (s of statuses; track s.key) {
+                        <td class="reports-page__num">{{ statusCount(row, s.key) }}</td>
+                      }
+                      <td class="reports-page__num">{{ row.totalAppointments }}</td>
+                      <td class="reports-page__num">{{ row.newPatients }}</td>
+                      <td>
+                        <span class="reports-page__occ">
+                          <span class="reports-page__occ-bar"><i [style.width.%]="occupancyPercent(row)"></i></span>
+                          {{ occupancyPercent(row) }}%
+                        </span>
+                      </td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </div>
+            <p class="reports-page__note">
+              Ocupación compara las citas confirmadas y atendidas con la capacidad teórica del horario de cada doctor en el período.
+            </p>
+          }
+        </article>
+
+        <article class="reports-page__panel reports-page__panel--wide">
+          <header class="reports-page__panel-head">
+            <div>
+              <h2 class="reports-page__panel-title">Citas canceladas</h2>
+              <p class="reports-page__panel-sub">La más reciente primero</p>
+            </div>
+            <button type="button" class="reports-page__export" [disabled]="cancellations().length === 0" (click)="exportCancellations()">
+              <span class="material-symbols-outlined" aria-hidden="true">download</span>
+              Exportar CSV
+            </button>
+          </header>
+          @if (cancellations().length === 0) {
+            <p class="reports-page__empty">No hay citas canceladas en el período elegido.</p>
+          } @else {
+            <div class="reports-page__table-wrap">
+              <table class="reports-page__table reports-page__table--cancellations">
+                <thead>
+                  <tr>
+                    <th scope="col">Cita</th>
+                    <th scope="col">Paciente</th>
+                    <th scope="col">Doctor</th>
+                    <th scope="col">Cancelada el</th>
+                    <th scope="col">Cancelada por</th>
+                    <th scope="col">Motivo</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (c of cancellations(); track c.appointmentId) {
+                    <tr>
+                      <td>{{ formatDateTime(c.appointmentDatetime) }}</td>
+                      <td class="reports-page__name">{{ c.patientName ?? 'Sin nombre' }}</td>
+                      <td>{{ c.doctorName ?? 'Sin nombre' }}</td>
+                      <td>{{ c.cancelledAt ? formatDateTime(c.cancelledAt) : '—' }}</td>
+                      <td>{{ c.cancelledByName ?? '—' }}</td>
+                      <td class="reports-page__reason">{{ c.cancelReason ?? 'Sin motivo' }}</td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </div>
+          }
+        </article>
+      </div>
+    } @else {
+      <div
+        id="reports-panel-financial"
+        role="tabpanel"
+        aria-labelledby="reports-tab-financial"
+        class="reports-page__grid"
+        [class.reports-page--refreshing]="loading()"
+      >
+        <article class="reports-page__panel reports-page__panel--wide">
+          <header>
+            <h2 class="reports-page__panel-title">Cobrado por {{ weekly() ? 'semana' : 'día' }}</h2>
+            <p class="reports-page__panel-sub">Pagos registrados en el período, en bolivianos</p>
+          </header>
+          @if (!trends()) {
+            <p class="reports-page__empty">No se pudo cargar la evolución del período.</p>
+          } @else if (!hasCollected()) {
+            <p class="reports-page__empty">No hay pagos registrados en el período elegido.</p>
+          } @else {
+            <figure class="reports-page__figure" aria-label="Área con el monto cobrado por día; los totales están en la tabla">
+              <app-chart [option]="collectedByDay()" [height]="320" />
+            </figure>
+          }
+        </article>
+
+        <article class="reports-page__panel reports-page__panel--wide">
+          <header class="reports-page__panel-head">
+            <div>
+              <h2 class="reports-page__panel-title">Cobrado y pendiente por doctor</h2>
+              <p class="reports-page__panel-sub">El pendiente es el saldo actual y no depende del período</p>
+            </div>
+            <ul class="reports-page__legend" aria-label="Series">
+              <li><i class="reports-page__swatch--collected"></i>Cobrado</li>
+              <li><i class="reports-page__swatch--pending"></i>Pendiente</li>
+            </ul>
+          </header>
+          @if (!hasFinancialRows()) {
+            <p class="reports-page__empty">Sin cobros ni saldos pendientes.</p>
+          } @else {
+            <figure class="reports-page__figure" aria-label="Barras con lo cobrado y lo pendiente de cada doctor">
+              <app-chart [option]="financialByDoctor()" [height]="financialHeight()" />
+            </figure>
+          }
+        </article>
+
+        <article class="reports-page__panel reports-page__panel--wide">
+          <header class="reports-page__panel-head">
+            <h2 class="reports-page__panel-title">Detalle financiero</h2>
+            <button type="button" class="reports-page__export" [disabled]="financialRows().length === 0" (click)="exportFinancial()">
+              <span class="material-symbols-outlined" aria-hidden="true">download</span>
+              Exportar CSV
+            </button>
+          </header>
+          @if (financialRows().length === 0) {
+            <p class="reports-page__empty">Sin datos para el período elegido.</p>
+          } @else {
+            <div class="reports-page__table-wrap">
+              <table class="reports-page__table">
+                <thead>
+                  <tr>
+                    <th scope="col">Doctor</th>
+                    <th scope="col" class="reports-page__num">Cobrado en el período</th>
+                    <th scope="col" class="reports-page__num">Pendiente actual</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (row of financialRows(); track row.doctorId ?? 'unassigned') {
+                    <tr>
+                      <th scope="row" class="reports-page__name">{{ row.doctorName ?? 'Sin doctor asignado' }}</th>
+                      <td class="reports-page__num">{{ formatMoney(row.collected) }}</td>
+                      <td class="reports-page__num">{{ formatMoney(row.pending) }}</td>
+                    </tr>
+                  }
+                </tbody>
+                <tfoot>
+                  <tr>
+                    <th scope="row">Total</th>
+                    <td class="reports-page__num">{{ formatMoney(financialTotals().collected) }}</td>
+                    <td class="reports-page__num">{{ formatMoney(financialTotals().pending) }}</td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+            <p class="reports-page__note">
+              Cobrado es la suma de pagos registrados en el período. Pendiente es el saldo actual de los presupuestos sin
+              pagar por completo.
+            </p>
+          }
+        </article>
+      </div>
+    }
   }
 </div>

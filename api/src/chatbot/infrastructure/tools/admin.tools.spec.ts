@@ -102,7 +102,7 @@ describe('admin tools (CLI-93)', () => {
           {
             doctorId: 'd1',
             doctorName: 'Saul Guizada',
-            appointmentsByStatus: { confirmed: 5, expired: 1 },
+            appointmentsByStatus: { confirmed: 2, attended: 3, no_show: 1 },
             totalAppointments: 6,
             confirmedAppointments: 5,
             newPatients: 1,
@@ -112,7 +112,7 @@ describe('admin tools (CLI-93)', () => {
           {
             doctorId: 'd2',
             doctorName: 'Marylu Aliaga',
-            appointmentsByStatus: { confirmed: 2, held: 1, raro: 1 },
+            appointmentsByStatus: { confirmed: 2, cancelled: 1, raro: 1 },
             totalAppointments: 2,
             confirmedAppointments: 2,
             newPatients: 0,
@@ -139,19 +139,20 @@ describe('admin tools (CLI-93)', () => {
           {
             doctor: 'Saul Guizada',
             occupancyPercent: 5,
-            // CLI-145: etiquetas en castellano, para que no llame
-            // "cancelaciones" a las vencidas.
+            // CLI-145: etiquetas en castellano; CLI-224: los 4 estados
+            // de Reportes.
             appointmentsByStatus: {
-              confirmadas: 5,
-              'vencidas sin pagar (no son cancelaciones)': 1,
+              'confirmadas (todavía no llegó la hora)': 2,
+              'atendidas (confirmadas cuya hora ya pasó)': 3,
+              'no asistió (el paciente no vino)': 1,
             },
           },
           {
             doctor: 'Marylu Aliaga',
             occupancyPercent: 4,
             appointmentsByStatus: {
-              confirmadas: 2,
-              'reservas en curso (sin pagar todavía)': 1,
+              'confirmadas (todavía no llegó la hora)': 2,
+              'canceladas por el doctor (no suman al total)': 1,
               raro: 1,
             },
           },
@@ -237,6 +238,7 @@ describe('admin tools (CLI-93)', () => {
       });
       expect(result).toEqual({
         date: '2026-09-26',
+        weekday: 'sábado',
         total: 2,
         appointments: [
           {

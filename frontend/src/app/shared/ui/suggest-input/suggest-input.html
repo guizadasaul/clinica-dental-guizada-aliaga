@@ -1,0 +1,19 @@
+<ng-content />
+@if (expanded()) {
+  <div class="suggest-input__list" [id]="listId">
+    @for (option of matches(); track option; let i = $index) {
+      <!-- Cada sugerencia es un botón, interactivo de por sí. Sin tabulación propia:
+           el foco queda en el campo de texto y se navega con las flechas. -->
+      <button
+        type="button"
+        tabindex="-1"
+        class="suggest-input__option"
+        [id]="listId + '-' + i"
+        [class.suggest-input__option--active]="i === active()"
+        (mousedown)="onOptionMousedown($event, option)"
+      >
+        {{ option }}
+      </button>
+    }
+  </div>
+}

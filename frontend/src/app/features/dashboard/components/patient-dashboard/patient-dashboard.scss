@@ -1,35 +1,33 @@
-// ─── Patient Dashboard ────────────────────────────────────────────────────────
+// ─── Inicio del paciente (CLI-216: mismo lenguaje que el inicio del doctor) ─
 
 .patient {
-  padding: var(--space-8) var(--space-8) var(--space-12);
-  max-width: 1000px;
   display: flex;
   flex-direction: column;
   gap: var(--space-8);
+  max-width: 1000px;
+  padding: var(--space-8) var(--space-8) var(--space-12);
 
   @media (max-width: 767px) {
-    padding: var(--space-6) var(--space-4) var(--space-10);
     gap: var(--space-6);
+    padding: var(--space-6) var(--space-4) var(--space-10);
   }
 }
-
-// ─── Header ──────────────────────────────────────────────────────────────────
 
 .patient__header {
   position: relative;
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  padding: var(--space-8) var(--space-8);
-  background: var(--color-navy);
+  padding: var(--space-8);
   border-radius: var(--radius-xl);
+  background: var(--color-navy);
   overflow: hidden;
 
   &::before {
     content: '';
     position: absolute;
     inset: 0;
-    background: radial-gradient(ellipse at 80% 50%, rgb(232 152 88 / 0.15) 0%, transparent 60%);
+    background: radial-gradient(ellipse at 80% 50%, rgb(232 152 88 / 0.35) 0%, transparent 60%);
     pointer-events: none;
   }
 }
@@ -40,20 +38,20 @@
 }
 
 .patient__date {
+  margin: 0 0 var(--space-2);
   font-family: var(--font-body);
   font-size: var(--font-size-xs);
-  color: var(--color-primary-light);
-  text-transform: capitalize;
   letter-spacing: 0.04em;
-  margin: 0 0 var(--space-2);
+  text-transform: capitalize;
+  color: var(--color-primary-light);
 }
 
 .patient__title {
+  margin: 0 0 var(--space-2);
   font-family: var(--font-headline);
   font-size: var(--font-size-3xl);
-  color: #fff;
-  margin: 0 0 var(--space-2);
   line-height: 1.2;
+  color: #fff;
 
   @media (max-width: 767px) {
     font-size: var(--font-size-2xl);
@@ -61,85 +59,34 @@
 }
 
 .patient__subtitle {
+  margin: 0;
   font-family: var(--font-body);
   font-size: var(--font-size-sm);
   color: rgb(255 255 255 / 0.55);
-  margin: 0;
 }
 
-.patient__header-deco {
-  height: 4rem;
-  opacity: 0.3;
-  align-self: center;
+.patient__badge {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   flex-shrink: 0;
+  width: 72px;
+  height: 72px;
+  border: 2px solid rgb(232 152 88 / 0.4);
+  border-radius: 50%;
+  background: rgb(232 152 88 / 0.2);
+
+  .material-symbols-outlined {
+    font-size: 36px;
+    color: var(--color-primary-light);
+  }
 
   @media (max-width: 600px) {
     display: none;
   }
 }
-
-// ─── Stats ────────────────────────────────────────────────────────────────────
-
-.patient__stats {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: var(--space-4);
-
-  @media (max-width: 600px) {
-    grid-template-columns: 1fr;
-    gap: var(--space-3);
-  }
-}
-
-.stat-card {
-  display: flex;
-  align-items: center;
-  gap: var(--space-4);
-  background: #fff;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-xl);
-  padding: var(--space-5) var(--space-5);
-  box-shadow: var(--shadow-sm);
-}
-
-.stat-card__icon {
-  font-size: 28px;
-  flex-shrink: 0;
-  padding: var(--space-3);
-  border-radius: var(--radius-lg);
-
-  &--primary {
-    color: var(--color-primary-dark);
-    background: var(--color-primary-subtle);
-  }
-
-  &--tertiary {
-    color: var(--color-tertiary);
-    background: rgb(0 104 121 / 0.08);
-  }
-
-  &--navy {
-    color: var(--color-navy);
-    background: rgb(26 43 75 / 0.08);
-  }
-}
-
-.stat-card__value {
-  font-family: var(--font-headline);
-  font-size: var(--font-size-2xl);
-  color: var(--color-text);
-  margin: 0;
-  line-height: 1;
-}
-
-.stat-card__label {
-  font-family: var(--font-body);
-  font-size: var(--font-size-xs);
-  color: var(--color-text-muted);
-  margin: var(--space-1) 0 0;
-}
-
-// ─── Section ─────────────────────────────────────────────────────────────────
 
 .patient__section {
   display: flex;
@@ -147,274 +94,234 @@
   gap: var(--space-4);
 }
 
-.patient__section-title {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  font-family: var(--font-headline);
-  font-size: var(--font-size-lg);
-  color: var(--color-text);
+.patient__muted {
   margin: 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
+
+.patient__link,
+.kpi__link {
+  padding: 0;
+  border: none;
+  background: none;
+  font-family: var(--font-body);
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  color: var(--color-primary-dark);
+  cursor: pointer;
+
+  &:hover {
+    text-decoration: underline;
+  }
+}
+
+.patient__link {
+  display: inline-flex;
+  align-items: center;
+  align-self: flex-start;
+  gap: var(--space-1);
 
   .material-symbols-outlined {
-    font-size: 20px;
+    font-size: 1rem;
+  }
+}
+
+// ─── Próxima cita (como una fila de la agenda del doctor) ────────────────────
+
+.appointment {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  padding: var(--space-4) var(--space-5);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xl);
+  background: #fff;
+  box-shadow: var(--shadow-sm);
+}
+
+.appointment__time {
+  flex-shrink: 0;
+  min-width: 72px;
+  font-family: var(--font-headline);
+  font-size: var(--font-size-base);
+  color: var(--color-primary-dark);
+}
+
+.appointment__body {
+  flex: 1;
+  min-width: 0;
+}
+
+.appointment__date {
+  margin: 0;
+  font-family: var(--font-body);
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.appointment__meta {
+  margin: 0;
+  font-family: var(--font-body);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+}
+
+.appointment__badge {
+  flex-shrink: 0;
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--radius-full);
+  background: var(--color-success-light);
+  font-family: var(--font-body);
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  color: #16a34a;
+}
+
+.patient-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  padding: var(--space-12) var(--space-8);
+  border: 1.5px dashed var(--color-border);
+  border-radius: var(--radius-xl);
+  background: #fff;
+  text-align: center;
+}
+
+.patient-empty__icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 64px;
+  height: 64px;
+  margin-bottom: var(--space-2);
+  border-radius: 50%;
+  background: var(--color-primary-subtle);
+
+  .material-symbols-outlined {
+    font-size: 32px;
     color: var(--color-primary-dark);
   }
 }
 
-// ─── Appointment empty ────────────────────────────────────────────────────────
-
-.appointment-empty {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: var(--space-12) var(--space-8);
-  background: #fff;
-  border: 1.5px dashed var(--color-border);
-  border-radius: var(--radius-xl);
-  text-align: center;
-  gap: var(--space-2);
-}
-
-.appointment-empty__icon {
-  width: 64px;
-  height: 64px;
-  border-radius: 50%;
-  background: var(--color-primary-subtle);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin-bottom: var(--space-2);
-
-  .material-symbols-outlined {
-    font-size: 32px;
-    color: var(--color-primary);
-  }
-}
-
-.appointment-empty__text {
+.patient-empty__text {
+  margin: 0;
   font-family: var(--font-body);
   font-size: var(--font-size-base);
   font-weight: 600;
   color: var(--color-text);
-  margin: 0;
 }
 
-.appointment-empty__sub {
+.patient-empty__sub {
+  margin: 0;
   font-family: var(--font-body);
   font-size: var(--font-size-sm);
   color: var(--color-text-muted);
-  margin: 0;
 }
 
-.appointment-empty__cta {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  margin-top: var(--space-4);
-  padding: var(--space-3) var(--space-6);
-  background: var(--color-primary);
-  color: #fff;
-  border: none;
-  border-radius: var(--radius-full);
-  font-family: var(--font-body);
-  font-size: var(--font-size-sm);
-  font-weight: 600;
-  cursor: pointer;
-  transition: background var(--transition-fast);
+// ─── Resumen (mismas KPIs que el doctor) ─────────────────────────────────────
 
-  .material-symbols-outlined {
-    font-size: 18px;
-  }
-
-  &:hover {
-    background: var(--color-primary-dark);
-  }
-}
-
-// ─── Quick actions ────────────────────────────────────────────────────────────
-
-.actions-grid {
+.kpis {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
   gap: var(--space-4);
 
-  @media (max-width: 600px) {
+  @media (max-width: 480px) {
     grid-template-columns: 1fr;
   }
 }
 
-.action-card {
-  position: relative;
+.kpi {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
   gap: var(--space-1);
-  padding: var(--space-6);
-  border-radius: var(--radius-xl);
-  border: 1px solid var(--color-border);
-  background: #fff;
-  text-align: left;
-  cursor: pointer;
-  transition: transform var(--transition-fast), box-shadow var(--transition-fast), border-color var(--transition-fast);
-
-  &:hover {
-    transform: translateY(-2px);
-    box-shadow: var(--shadow-md);
-  }
-
-  &--primary {
-    &:hover { border-color: var(--color-primary); }
-    .action-card__icon { color: var(--color-primary-dark); background: var(--color-primary-subtle); }
-  }
-
-  &--tertiary {
-    &:hover { border-color: var(--color-tertiary); }
-    .action-card__icon { color: var(--color-tertiary); background: rgb(0 104 121 / 0.08); }
-  }
-
-  &--navy {
-    &:hover { border-color: var(--color-navy); }
-    .action-card__icon { color: var(--color-navy); background: rgb(26 43 75 / 0.08); }
-  }
-
-  &--muted {
-    &:hover { border-color: var(--color-gray-400); }
-    .action-card__icon { color: var(--color-gray-600); background: var(--color-gray-100); }
-  }
-}
-
-.action-card__icon {
-  font-size: 24px;
-  padding: var(--space-2) var(--space-2);
-  border-radius: var(--radius-lg);
-  margin-bottom: var(--space-2);
-}
-
-.action-card__label {
-  font-family: var(--font-body);
-  font-size: var(--font-size-base);
-  font-weight: 700;
-  color: var(--color-text);
-  margin: 0;
-}
-
-.action-card__desc {
-  font-family: var(--font-body);
-  font-size: var(--font-size-xs);
-  color: var(--color-text-muted);
-  margin: 0;
-  line-height: 1.4;
-}
-
-.action-card__arrow {
-  position: absolute;
-  right: var(--space-4);
-  top: 50%;
-  transform: translateY(-50%);
-  font-size: 18px;
-  color: var(--color-gray-300);
-  transition: color var(--transition-fast), right var(--transition-fast);
-
-  .action-card:hover & {
-    color: var(--color-text-muted);
-    right: var(--space-3);
-  }
-}
-
-// ─── No profile state ─────────────────────────────────────────────────────────
-
-.patient__no-profile {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0.75rem;
-  padding: 3rem 1.5rem;
-  color: #6b7280;
-  text-align: center;
-
-  p { margin: 0; font-size: 0.9375rem; }
-}
-
-.patient__no-profile-icon {
-  font-size: 2.5rem;
-  color: #d1d5db;
-}
-
-// CLI-153: próxima cita real del paciente.
-.appointment-next {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-4);
   padding: var(--space-5);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-xl);
   background: #fff;
 }
 
-.appointment-next__when {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-
-  .material-symbols-outlined {
-    font-size: 2rem;
-    color: var(--color-tertiary);
-  }
+.kpi__icon {
+  margin-bottom: var(--space-2);
+  padding: var(--space-2);
+  border-radius: var(--radius-lg);
+  background: var(--color-primary-subtle);
+  font-size: 24px;
+  color: var(--color-primary-dark);
 }
 
-.appointment-next__date {
-  margin: 0;
+.kpi__value {
   font-family: var(--font-headline);
-  font-size: var(--font-size-lg);
+  font-size: var(--font-size-2xl);
+  font-weight: 700;
+  line-height: 1.1;
   color: var(--color-text);
 }
 
-.appointment-next__time {
-  margin: 0;
-  font-weight: 600;
+.kpi__label {
+  font-family: var(--font-body);
+  font-size: var(--font-size-sm);
+  line-height: 1.4;
   color: var(--color-text-muted);
 }
 
-.appointment-next__facts {
+// ─── Contacto ────────────────────────────────────────────────────────────────
+
+.patient__contact {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--space-3) var(--space-8);
+  align-items: center;
+  gap: var(--space-2) var(--space-4);
   margin: 0;
-
-  dt {
-    font-size: var(--font-size-xs);
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-    color: var(--color-text-muted);
-  }
-
-  dd {
-    margin: 0;
-    color: var(--color-text);
-  }
-}
-
-.appointment-next__later {
-  padding-top: var(--space-3);
-  border-top: 1px solid var(--color-border);
   font-size: var(--font-size-sm);
-  color: var(--color-text);
-
-  ul {
-    margin: var(--space-1) 0 0;
-    padding-left: var(--space-5);
-  }
-}
-
-.appointment-next__later-title {
-  margin: 0;
-  font-weight: 600;
-}
-
-.appointment-next__loading {
   color: var(--color-text-muted);
-  font-size: var(--font-size-sm);
+}
+
+.patient__whatsapp {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-2) var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: #fff;
+  font-weight: 600;
+  color: var(--color-text);
+  text-decoration: none;
+  transition: border-color var(--transition-fast);
+
+  .material-symbols-outlined {
+    font-size: 1.125rem;
+    color: var(--color-primary-dark);
+  }
+
+  &:hover {
+    border-color: var(--color-primary);
+  }
+}
+
+// ─── Sin ficha ───────────────────────────────────────────────────────────────
+
+.patient__no-profile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-12) var(--space-6);
+  color: var(--color-text-muted);
+  text-align: center;
+
+  p {
+    margin: 0;
+  }
+}
+
+.patient__no-profile-icon {
+  font-size: 2.5rem;
+  color: var(--color-gray-300);
 }

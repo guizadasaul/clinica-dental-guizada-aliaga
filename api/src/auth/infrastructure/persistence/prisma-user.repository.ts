@@ -33,6 +33,15 @@ export class PrismaUserRepository implements UserRepository {
       .map((record) => UserMapper.toDomain(record));
   }
 
+  async findByEmail(email: string): Promise<User | null> {
+    const record = await this.prisma.users.findFirst({
+      // Solo cuentas activas: el correo de un paciente eliminado (CLI-184) se
+      // puede volver a registrar.
+      where: { email: { equals: email, mode: 'insensitive' }, is_active: true },
+    });
+    return record ? UserMapper.toDomain(record) : null;
+  }
+
   async findByAuthUserId(authUserId: string): Promise<User | null> {
     const record = await this.prisma.users.findUnique({
       where: { auth_user_id: authUserId },
@@ -98,9 +107,18 @@ export class PrismaUserRepository implements UserRepository {
         // email en el login, así que es seguro re-vincular esa fila al
         // auth_user_id actual en vez de romper con 500 y dejar afuera a
         // alguien que sí tiene una cuenta legítima.
-        const keepRelinkedName = await this.isDoctor({ email: data.email });
+        // users.email es único solo entre los activos (CLI-184): el que choca
+        // es siempre una fila activa; la de un paciente eliminado no cuenta.
+        const owner = await this.prisma.users.findFirst({
+          where: { email: data.email, is_active: true },
+          select: { id: true },
+        });
+        if (!owner) {
+          throw error;
+        }
+        const keepRelinkedName = await this.isDoctor({ id: owner.id });
         const record = await this.prisma.users.update({
-          where: { email: data.email },
+          where: { id: owner.id },
           data: {
             auth_user_id: data.authUserId,
             ...(!keepRelinkedName && { display_name: data.displayName }),
@@ -192,6 +210,9 @@ export class PrismaUserRepository implements UserRepository {
           ...(data.phone !== undefined && { phone: data.phone }),
           ...(data.displayName !== undefined && {
             display_name: data.displayName,
+          }),
+          ...(data.phoneLoginError !== undefined && {
+            phone_login_error: data.phoneLoginError,
           }),
           updated_at: new Date(),
         },

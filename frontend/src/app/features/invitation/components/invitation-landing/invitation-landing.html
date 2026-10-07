@@ -11,9 +11,9 @@
       <span class="register-confirm-icon material-symbols-outlined" aria-hidden="true">
         mark_email_read
       </span>
-      <h1 class="login-card__title">Revisá tu correo</h1>
+      <h1 class="login-card__title">Revisa tu correo</h1>
       <p class="login-card__subtitle">
-        Te enviamos un correo de confirmación a <strong>{{ email() }}</strong>. Hacé clic en el enlace para activar tu cuenta y completar tu registro.
+        Te enviamos un correo de confirmación a <strong>{{ email() }}</strong>. Haz clic en el enlace para activar tu cuenta y completar tu registro.
       </p>
     } @else if (valid()) {
       <h1 class="login-card__title">{{ copy().title }}</h1>
@@ -26,7 +26,7 @@
         </div>
       }
 
-      <div class="channel-toggle" role="tablist" aria-label="Elegí cómo registrarte">
+      <div class="channel-toggle" role="tablist" aria-label="Elige cómo registrarte">
         <button
           type="button"
           role="tab"
@@ -71,7 +71,7 @@
             <app-phone-input id="invite-phone" (changed)="onPhoneChanged($event)" />
             @if (phoneHint()) {
               <p class="phone-hint">
-                Usá el número que diste en la clínica, terminado en <strong>{{ phoneHint() }}</strong>.
+                Usa el número que diste en la clínica, terminado en <strong>{{ phoneHint() }}</strong>.
               </p>
             }
           </div>

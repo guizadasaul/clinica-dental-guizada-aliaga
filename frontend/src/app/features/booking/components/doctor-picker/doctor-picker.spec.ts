@@ -11,6 +11,7 @@ function fakeDoctor(overrides: Partial<Doctor> = {}): Doctor {
     photoUrl: null,
     displayOrder: 0,
     isBookable: true,
+    phone: null,
     ...overrides,
   };
 }

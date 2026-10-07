@@ -52,6 +52,8 @@ describe('DoctorAppointmentsController', () => {
     getDoctorSchedule: jest.fn(),
     rescheduleByDoctor: jest.fn(),
     cancelByDoctor: jest.fn(),
+    markNoShow: jest.fn(),
+    undoNoShow: jest.fn(),
   };
 
   beforeEach(() => {
@@ -237,6 +239,76 @@ describe('DoctorAppointmentsController', () => {
     it('solo los pueden usar odontólogos, no el admin', () => {
       expect(rolesOf('rescheduleByDoctor')).toEqual([UserRole.ODONTOLOGIST]);
       expect(rolesOf('cancelByDoctor')).toEqual([UserRole.ODONTOLOGIST]);
+    });
+  });
+
+  // CLI-208
+  describe('markNoShow / undoNoShow', () => {
+    it('marca y deshace "No asistió" en la agenda del doctor autenticado', async () => {
+      await controller.markNoShow(fakeDoctor('doctor-a'), 'appt-1');
+      await controller.undoNoShow(fakeDoctor('doctor-a'), 'appt-1');
+
+      expect(mockService.markNoShow).toHaveBeenCalledWith('doctor-a', 'appt-1');
+      expect(mockService.undoNoShow).toHaveBeenCalledWith('doctor-a', 'appt-1');
+    });
+
+    it('solo los pueden usar odontólogos, no el admin', () => {
+      expect(rolesOf('markNoShow')).toEqual([UserRole.ODONTOLOGIST]);
+      expect(rolesOf('undoNoShow')).toEqual([UserRole.ODONTOLOGIST]);
+    });
+  });
+
+  // CLI-195: horarios que el doctor aparta de su agenda.
+  describe('horarios reservados', () => {
+    const service = {
+      createTimeBlock: jest.fn(),
+      listTimeBlocks: jest.fn(),
+      deleteTimeBlock: jest.fn(),
+    };
+    const blocksController = new DoctorAppointmentsController(
+      service as unknown as AppointmentsService,
+    );
+
+    beforeEach(() => jest.clearAllMocks());
+
+    it('crea siempre para el doctor de la sesión', async () => {
+      const dto = {
+        startsAt: '2026-10-06T14:00:00-04:00',
+        endsAt: '2026-10-06T16:00:00-04:00',
+        reason: 'curso',
+      };
+
+      await blocksController.createTimeBlock(fakeDoctor('doctor-a'), dto);
+
+      expect(service.createTimeBlock).toHaveBeenCalledWith('doctor-a', dto);
+    });
+
+    it('lista los del doctor de la sesión con los días como medianoche de Bolivia', async () => {
+      await blocksController.listTimeBlocks(fakeDoctor('doctor-a'), {
+        from: '2026-10-05',
+        to: '2026-10-12',
+      });
+
+      expect(service.listTimeBlocks).toHaveBeenCalledWith(
+        'doctor-a',
+        new Date('2026-10-05T00:00:00-04:00'),
+        new Date('2026-10-12T00:00:00-04:00'),
+      );
+    });
+
+    it('quita solo dentro de los propios', async () => {
+      await blocksController.deleteTimeBlock(fakeDoctor('doctor-a'), 'block-1');
+
+      expect(service.deleteTimeBlock).toHaveBeenCalledWith(
+        'doctor-a',
+        'block-1',
+      );
+    });
+
+    it('solo los usan odontólogos, no el admin', () => {
+      expect(rolesOf('createTimeBlock')).toEqual([UserRole.ODONTOLOGIST]);
+      expect(rolesOf('listTimeBlocks')).toEqual([UserRole.ODONTOLOGIST]);
+      expect(rolesOf('deleteTimeBlock')).toEqual([UserRole.ODONTOLOGIST]);
     });
   });
 });

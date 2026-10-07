@@ -32,6 +32,7 @@
       class="agenda-slot"
       [class.agenda-slot--readonly]="!canOpen(appt)"
       [class.agenda-slot--moving]="rescheduling()?.id === appt.id"
+      [class.agenda-slot--no-show]="appt.status === 'no_show'"
       [style.--slot-color]="slotColor(appt)"
       [style.top.px]="apptTopPx(appt)"
       [style.height.px]="apptHeightPx(appt)"
@@ -44,6 +45,9 @@
         {{ formatDatetime(appt.appointmentDatetime) }}
         @if (appt.source === 'doctor') {
           <span class="material-symbols-outlined agenda-slot__source" aria-hidden="true">event_repeat</span>
+        }
+        @if (appt.status === 'no_show') {
+          <span class="agenda-slot__badge">No asistió</span>
         }
       </span>
       <span class="agenda-slot__patient">{{ patientLabel(appt) }}</span>
@@ -74,13 +78,36 @@
         ></div>
       }
     }
+    @for (seg of blocksFor(date); track seg.block.id) {
+      <button
+        type="button"
+        class="agenda-block"
+        [style.top.px]="blockTopPx(seg.start)"
+        [style.height.px]="blockHeightPx(seg.start, seg.end)"
+        [attr.title]="seg.block.reason || 'Horario reservado'"
+        (click)="onOpenBlock(seg.block, date)"
+      >
+        <span class="material-symbols-outlined agenda-block__icon" aria-hidden="true">event_busy</span>
+        <span class="agenda-block__text">{{ seg.block.reason || 'Horario reservado' }}</span>
+      </button>
+    }
   </ng-template>
+
+  @if (blockDialog(); as dialog) {
+    <app-time-block-dialog
+      [date]="dialog.date"
+      [block]="dialog.block"
+      (saved)="onBlockSaved()"
+      (removed)="onBlockRemoved()"
+      (closed)="onBlockClosed()"
+    />
+  }
 
   @if (bookingSlot(); as slot) {
     <app-book-appointment-dialog
       [slot]="slot"
       [schedule]="schedule()"
-      [nextBusyMinutes]="nextBusyMinutes()"
+      [busyIntervals]="busyIntervals()"
       [appointment]="rescheduling()"
       [followUpOf]="followUpPick()"
       (booked)="onBooked($event)"
@@ -94,6 +121,7 @@
       (openRecord)="onOpenRecord($event)"
       (reschedule)="onStartReschedule($event)"
       (cancelled)="onCancelled($event)"
+      (attendanceChanged)="onAttendanceChanged($event)"
       (closed)="onDetailClosed()"
     />
   }
@@ -102,7 +130,7 @@
     <output class="agenda__pick">
       <span class="material-symbols-outlined" aria-hidden="true">event_repeat</span>
       <span>
-        {{ rescheduling() ? 'Elegí el nuevo horario para la cita de' : 'Elegí el horario de la próxima cita de' }}
+        {{ rescheduling() ? 'Elige el nuevo horario para la cita de' : 'Elige el horario de la próxima cita de' }}
         <strong>{{ patientLabel(picked) }}</strong>
       </span>
       <button type="button" class="agenda__pick-cancel" (click)="onStopPicking()">Cancelar</button>
@@ -151,6 +179,12 @@
       <button type="button" class="agenda__nav-btn" (click)="onNextPage()" aria-label="Página siguiente">
         <span class="material-symbols-outlined">chevron_right</span>
       </button>
+      @if (canBook()) {
+        <button type="button" class="agenda__block-btn" (click)="onNewBlock()">
+          <span class="material-symbols-outlined" aria-hidden="true">event_busy</span>
+          Reservar horario
+        </button>
+      }
     </div>
 
     @if (effectiveScope() === 'all' && doctorLegend().length > 0) {
@@ -178,7 +212,7 @@
     <!-- Siempre el mismo alto: si el texto apareciera o desapareciera, movería la grilla bajo el cursor. -->
     @if (canBook()) {
       <p class="agenda__hint agenda__hint--inline">
-        {{ picking() ? 'Hacé click en el horario que elija el paciente.' : 'Hacé click en un horario libre para agendar una cita.' }}
+        {{ picking() ? 'Haz clic en el horario que elija el paciente.' : 'Haz clic en un horario libre para agendar una cita.' }}
       </p>
     }
 
@@ -187,6 +221,7 @@
     } @else {
       <div class="agenda-grid-wrap">
         <div
+          #grid
           class="agenda-grid"
           [style.gridTemplateColumns]="gridTemplateColumns"
         >
@@ -206,8 +241,8 @@
 
           @for (day of dayHeaders(); track day.date) {
             @if (day.isWeekend) {
-              <div class="agenda-grid__day-col agenda-grid__day-col--split" [style.height.px]="gridHeightPx">
-                <div class="agenda-mini-panel" [style.height.px]="panelViewportPx">
+              <div class="agenda-grid__day-col agenda-grid__day-col--split">
+                <div class="agenda-mini-panel">
                   <div class="agenda-mini-panel__inner" [style.height.px]="gridHeightPx">
                     @for (slot of panelSlotLabels; track slot.offset) {
                       <div
@@ -233,7 +268,7 @@
                   <span class="agenda-grid__day-weekday">{{ day.weekendSecond!.weekday }}</span>
                   <span class="agenda-grid__day-num">{{ day.weekendSecond!.dayNum }}</span>
                 </div>
-                <div class="agenda-mini-panel" [style.height.px]="panelViewportPx">
+                <div class="agenda-mini-panel">
                   <div class="agenda-mini-panel__inner" [style.height.px]="gridHeightPx">
                     @for (slot of panelSlotLabels; track slot.offset) {
                       <div

@@ -18,12 +18,15 @@ import { AuthService } from '../../../../auth/application/auth.service';
 import type { Patient, PatientWithUser, PatientInviteContact } from '../../models/patient.model';
 import type { Doctor } from '../../../booking/models/booking.model';
 import { PageHeaderComponent } from '../../../../shared/ui/page-header/page-header';
+import { PaginationComponent, PAGE_SIZE } from '../../../../shared/ui/pagination/pagination';
+import { clampPage, pageSlice } from '../../../../shared/utils/pagination.util';
+import { PatientDeleteDialogComponent } from '../patient-delete-dialog/patient-delete-dialog';
 
 @Component({
   selector: 'app-patients-list',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [PageHeaderComponent],
+  imports: [PageHeaderComponent, PatientDeleteDialogComponent, PaginationComponent],
   templateUrl: './patients-list.html',
   styleUrl: './patients-list.scss',
 })
@@ -39,6 +42,8 @@ export class PatientsListComponent implements OnInit {
   readonly readOnly = input(false);
 
   readonly startWizard = output<string>();
+  /** "Nuevo paciente": alguien que llegó sin reserva previa (CLI-171). */
+  readonly newPatient = output<void>();
   readonly openOdontogram = output<string>();
   /** Diagnóstico nuevo desde cero para un paciente que ya tiene uno (CLI-109). */
   readonly newDiagnosis = output<string>();
@@ -81,6 +86,11 @@ export class PatientsListComponent implements OnInit {
     }
   }
 
+  // Baja lógica (CLI-184): el paciente que se está por eliminar y el estado de la llamada.
+  protected readonly deleting = signal<PatientWithUser | null>(null);
+  protected readonly deleteBusy = signal(false);
+  protected readonly deleteError = signal<string | null>(null);
+
   protected readonly patients = signal<PatientWithUser[]>([]);
   protected readonly doctors = signal<Doctor[]>([]);
   // Conveniencia de UI, no de seguridad — sin filtrar, la lista sigue
@@ -104,6 +114,42 @@ export class PatientsListComponent implements OnInit {
     void this.loadDoctors();
   }
 
+  protected askDelete(patient: PatientWithUser): void {
+    this.openMenuFor.set(null);
+    this.menuPosition.set(null);
+    this.deleteError.set(null);
+    this.deleting.set(patient);
+  }
+
+  protected cancelDelete(): void {
+    this.deleting.set(null);
+    this.deleteError.set(null);
+  }
+
+  protected async confirmDelete(): Promise<void> {
+    const target = this.deleting();
+    if (!target || this.deleteBusy()) {
+      return;
+    }
+    this.deleteBusy.set(true);
+    this.deleteError.set(null);
+    try {
+      await firstValueFrom(this.patientsService.deletePatient(target.userId));
+      this.deleting.set(null);
+      await this.loadPatients();
+    } catch (err) {
+      // Los rechazos (citas futuras, saldo) traen el motivo en el mensaje de la API.
+      const message = (err as { error?: { message?: unknown } })?.error?.message;
+      this.deleteError.set(
+        typeof message === 'string' && message.trim()
+          ? message
+          : 'No se pudo eliminar al paciente. Intenta de nuevo.',
+      );
+    } finally {
+      this.deleteBusy.set(false);
+    }
+  }
+
   private async loadPatients(): Promise<void> {
     const forcedDoctorId = this.forcedDoctorId();
     const myDoctorId = this.authService.currentUser()?.id ?? undefined;
@@ -123,6 +169,7 @@ export class PatientsListComponent implements OnInit {
 
   protected toggleOnlyMine(): void {
     this.onlyMine.update((v) => !v);
+    this.requestedPage.set(1);
     void this.loadPatients();
   }
 
@@ -144,6 +191,25 @@ export class PatientsListComponent implements OnInit {
       return name.includes(q) || phone.includes(q);
     });
   });
+
+  /** Página pedida; la que se ve (`currentPage`) se ajusta si la lista se achicó (CLI-204). */
+  private readonly requestedPage = signal(1);
+  protected readonly currentPage = computed(() =>
+    clampPage(this.requestedPage(), this.filtered().length, PAGE_SIZE),
+  );
+  protected readonly visible = computed(() =>
+    pageSlice(this.filtered(), this.currentPage(), PAGE_SIZE),
+  );
+
+  protected onFilter(value: string): void {
+    this.filter.set(value);
+    this.requestedPage.set(1);
+  }
+
+  protected goToPage(page: number): void {
+    this.closeMenu();
+    this.requestedPage.set(page);
+  }
 
   protected fullName(p: PatientWithUser): string {
     if (p.patient) {
@@ -192,6 +258,30 @@ export class PatientsListComponent implements OnInit {
       top: rect.bottom + 8,
       right: window.innerWidth - rect.right,
     });
+  }
+
+  /** Tratamiento y presupuesto solo con ficha y diagnóstico terminado (CLI-189); no depende de la cuenta. */
+  protected canTreat(p: PatientWithUser): boolean {
+    return !!p.patient && p.dentalExamsCount > 0;
+  }
+
+  protected onMenuRegisterTreatment(p: PatientWithUser): void {
+    this.closeMenu();
+    if (p.patient && this.canTreat(p)) {
+      this.registerTreatment.emit(p.patient.id);
+    }
+  }
+
+  protected onMenuBuildQuote(p: PatientWithUser): void {
+    this.closeMenu();
+    if (p.patient && this.canTreat(p)) {
+      this.buildQuote.emit(p.patient.id);
+    }
+  }
+
+  private closeMenu(): void {
+    this.openMenuFor.set(null);
+    this.menuPosition.set(null);
   }
 
   protected onRegisterTreatment(patientId: string): void {

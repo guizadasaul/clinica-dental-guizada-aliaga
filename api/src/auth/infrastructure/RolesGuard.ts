@@ -10,6 +10,7 @@ import { UserRepository } from '../domain/UserRepository.js';
 import type { UserRepository as IUserRepository } from '../domain/UserRepository.js';
 import { UserRole } from '../domain/value-objects/UserRole.js';
 import type { User } from '../domain/User.js';
+import { ACCOUNT_DISABLED_MESSAGE } from '../domain/account-disabled.js';
 import { ROLES_KEY } from './roles.decorator.js';
 import type { AuthenticatedRequest } from './SupabaseAuthGuard.js';
 
@@ -48,9 +49,12 @@ export class RolesGuard implements CanActivate {
     const appUser = await this.userRepository.findByAuthUserId(
       request.user.uid,
     );
+    if (appUser && !appUser.isActive) {
+      throw new ForbiddenException(ACCOUNT_DISABLED_MESSAGE);
+    }
     if (!appUser || !required.includes(appUser.role)) {
       throw new ForbiddenException(
-        'No tenés permiso para realizar esta acción',
+        'No tienes permiso para realizar esta acción',
       );
     }
 

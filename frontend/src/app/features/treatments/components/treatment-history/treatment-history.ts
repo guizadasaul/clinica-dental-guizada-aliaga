@@ -46,6 +46,12 @@ export class TreatmentHistoryComponent {
   private readonly treatmentsService = inject(TreatmentsService);
 
   readonly patientId = input.required<string>();
+  /**
+   * true en el panel del paciente: GET /patients/:id/tooth-procedures es solo
+   * para odontólogos, así que el paciente pide su propio historial por sesión
+   * (CLI-102).
+   */
+  readonly mine = input(false);
   readonly closed = output<void>();
 
   protected readonly treatments = toSignal(
@@ -101,7 +107,10 @@ export class TreatmentHistoryComponent {
       if (!id) { return; }
       this.loading.set(true);
       this.loadError.set(false);
-      this.treatmentsService.getToothProcedures(id).subscribe({
+      const procedures$ = this.mine()
+        ? this.treatmentsService.getMyToothProcedures()
+        : this.treatmentsService.getToothProcedures(id);
+      procedures$.subscribe({
         next: (procs) => {
           this.procedures.set(procs);
           this.loading.set(false);

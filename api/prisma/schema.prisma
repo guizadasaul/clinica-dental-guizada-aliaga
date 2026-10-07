@@ -109,6 +109,8 @@ model appointments {
   /// libera el turno: los índices únicos de abajo solo cuentan held/confirmed.
   cancelled_at             DateTime?   @db.Timestamptz(6)
   cancelled_by             String?     @db.Uuid
+  /// CLI-103: motivo de la cancelación (antes se agregaba a `notes` como "Cancelada: ...").
+  cancel_reason            String?     @db.VarChar(200)
   patients                 patients?   @relation(fields: [patient_id], references: [id], onUpdate: NoAction)
   treatments               treatments? @relation(fields: [treatment_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   users                    users       @relation("AppointmentDoctor", fields: [doctor_id], references: [id], onDelete: Restrict, onUpdate: NoAction)
@@ -354,9 +356,8 @@ model patients {
   family_history                 String?
   /// CI/pasaporte/nit (CLI-54, ver DOCUMENT_TYPES) — null solo si dni también es null. La unicidad real es (document_type, dni), no dni solo: un pasaporte y una CI pueden coincidir en número sin ser la misma persona.
   document_type                  String?                      @db.VarChar(20)
-  dni                            String?                      @db.VarChar(20)
-  /// Extensión/complemento de la CI boliviana (ej. "LP", "1A") — solo con document_type = 'ci'. No entra en la unicidad: (document_type, dni) sigue siendo la clave.
-  document_extension             String?                      @db.VarChar(12)
+  /// Número de CI, NIT o pasaporte (CLI-177): 5 a 12 caracteres, letras en mayúscula, números y guiones (CHECK patients_dni_format_check). La extensión de la CI va dentro con guion (1234567-LP).
+  dni                            String?                      @db.VarChar(12)
   /// Doctor asignado (CLI-61) — informativo, no restringe acceso: cualquier
   /// odontólogo logueado sigue viendo y editando cualquier paciente (decisión
   /// de alcance de la épica). Nullable porque un paciente puede no tener
@@ -366,6 +367,9 @@ model patients {
   assigned_doctor_id             String?                      @db.Uuid
   created_at                     DateTime                     @default(now()) @db.Timestamptz(6)
   updated_at                     DateTime                     @default(now()) @db.Timestamptz(6)
+  /// Baja lógica (CLI-184): la ficha eliminada no se borra, queda marcada con quién y cuándo. La persona queda con users.is_active = false.
+  deleted_at                     DateTime?                    @db.Timestamptz(6)
+  deleted_by                     String?                      @db.Uuid
   appointments                   appointments[]
   clinical_exams                 clinical_exams[]
   hygiene_habits                 hygiene_habits?
@@ -380,12 +384,14 @@ model patients {
   // cuenta se maneja con users.is_active, no con borrado físico.
   users                          users                        @relation("PatientAccount", fields: [user_id], references: [id], onDelete: Restrict, onUpdate: NoAction)
   assigned_doctor                users?                       @relation("PatientAssignedDoctor", fields: [assigned_doctor_id], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  deleted_by_user                users?                       @relation("PatientDeletedBy", fields: [deleted_by], references: [id], onDelete: SetNull, onUpdate: NoAction)
   quotes                         quotes[]
   tooth_procedures               tooth_procedures[]
   xray_documents                 xray_documents[]
   patient_invites                patient_invites[]
 
-  @@unique([document_type, dni], map: "patients_document_type_dni_key")
+  // Parcial (CLI-184): un documento eliminado se puede volver a registrar.
+  @@unique([document_type, dni], map: "patients_document_type_dni_key", where: raw("(deleted_at IS NULL)"))
 }
 
 model patient_invites {
@@ -421,21 +427,40 @@ model payments {
 /// de estado va primero y con guarda `status = 'pending'`, así dos
 /// verificaciones simultáneas no duplican el pago.
 model quote_qr_charges {
-  id                    String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  quote_id              String    @db.Uuid
-  amount                Decimal   @db.Decimal(10, 2)
-  baneco_qr_id          String    @unique @db.VarChar(50)
-  baneco_transaction_id String    @unique @db.VarChar(50)
+  id                    String                  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  quote_id              String                  @db.Uuid
+  amount                Decimal                 @db.Decimal(10, 2)
+  baneco_qr_id          String                  @unique @db.VarChar(50)
+  baneco_transaction_id String                  @unique @db.VarChar(50)
   qr_image              String
   /// pending | paid | cancelled
-  status                String    @default("pending") @db.VarChar(20)
-  payment_id            String?   @unique @db.Uuid
-  created_at            DateTime  @default(now()) @db.Timestamptz(6)
-  updated_at            DateTime  @default(now()) @db.Timestamptz(6)
-  quotes                quotes    @relation(fields: [quote_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  payments              payments? @relation(fields: [payment_id], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  status                String                  @default("pending") @db.VarChar(20)
+  payment_id            String?                 @unique @db.Uuid
+  created_at            DateTime                @default(now()) @db.Timestamptz(6)
+  updated_at            DateTime                @default(now()) @db.Timestamptz(6)
+  quotes                quotes                  @relation(fields: [quote_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  payments              payments?               @relation(fields: [payment_id], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  /// CLI-218: tratamientos que cubre un QR que generó el paciente (vacío en los del doctor).
+  lines                 quote_qr_charge_lines[]
 
   @@index([quote_id], map: "idx_quote_qr_charges_quote")
+}
+
+/// CLI-218: qué tratamiento (fila suelta o grupo multi-diente) y cuánto cubre
+/// un QR que generó el paciente. Al pagarse, el pago (quote_qr_charges.payment_id)
+/// queda asignado a estas líneas en vez de repartirse en orden.
+model quote_qr_charge_lines {
+  id                   String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  qr_charge_id         String              @db.Uuid
+  quote_item_id        String?             @db.Uuid
+  application_group_id String?             @db.Uuid
+  amount               Decimal             @db.Decimal(10, 2)
+  created_at           DateTime            @default(now()) @db.Timestamptz(6)
+  quote_qr_charges     quote_qr_charges    @relation(fields: [qr_charge_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  quote_items          quote_items?        @relation(fields: [quote_item_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  application_groups   application_groups? @relation(fields: [application_group_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([qr_charge_id], map: "idx_quote_qr_charge_lines_charge")
 }
 
 /// Precio y tratamiento compartidos por un grupo de quote_items que
@@ -447,43 +472,46 @@ model quote_qr_charges {
 /// application_group_id) es la única forma soportada de borrarlo — ver
 /// removeItemGroup.
 model application_groups {
-  id               String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  id               String                  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   /// NULL para un grupo de tooth_procedures (CLI-53) — esos no cuelgan de
   /// ningún presupuesto, son procedimientos ya realizados.
-  quote_id         String?            @db.Uuid
-  treatment_id     String             @db.Uuid
-  unit_price       Decimal            @db.Decimal(10, 2)
-  subtotal         Decimal            @db.Decimal(10, 2)
-  currency         String             @default("BOB") @db.VarChar(3)
-  exchange_rate    Decimal?           @db.Decimal(12, 5)
-  created_at       DateTime           @default(now()) @db.Timestamptz(6)
-  quotes           quotes?            @relation(fields: [quote_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  treatments       treatments         @relation(fields: [treatment_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  quote_id         String?                 @db.Uuid
+  treatment_id     String                  @db.Uuid
+  unit_price       Decimal                 @db.Decimal(10, 2)
+  subtotal         Decimal                 @db.Decimal(10, 2)
+  currency         String                  @default("BOB") @db.VarChar(3)
+  exchange_rate    Decimal?                @db.Decimal(12, 5)
+  created_at       DateTime                @default(now()) @db.Timestamptz(6)
+  quotes           quotes?                 @relation(fields: [quote_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  treatments       treatments              @relation(fields: [treatment_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   quote_items      quote_items[]
   tooth_procedures tooth_procedures[]
+  qr_charge_lines  quote_qr_charge_lines[]
 
   @@index([quote_id], map: "idx_application_groups_quote")
 }
 
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
 model quote_items {
-  id                   String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  quote_id             String              @db.Uuid
-  treatment_id         String              @db.Uuid
+  id                   String                  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  quote_id             String                  @db.Uuid
+  treatment_id         String                  @db.Uuid
   tooth_number         Int?
-  application_group_id String?             @db.Uuid
+  application_group_id String?                 @db.Uuid
   /// NULL cuando application_group_id está seteado (CLI-45) — el precio de
   /// una aplicación multiple_teeth vive una sola vez en application_groups,
   /// no repetido/mentido por fila. Solo las filas sueltas (single_tooth,
   /// general) tienen su propio precio acá.
-  unit_price           Decimal?            @db.Decimal(10, 2)
-  quantity             Int                 @default(1)
-  subtotal             Decimal?            @db.Decimal(10, 2)
-  currency             String?             @db.VarChar(3)
-  exchange_rate        Decimal?            @db.Decimal(12, 5)
-  quotes               quotes              @relation(fields: [quote_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  treatments           treatments          @relation(fields: [treatment_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  application_groups   application_groups? @relation(fields: [application_group_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  unit_price           Decimal?                @db.Decimal(10, 2)
+  quantity             Int                     @default(1)
+  subtotal             Decimal?                @db.Decimal(10, 2)
+  currency             String?                 @db.VarChar(3)
+  exchange_rate        Decimal?                @db.Decimal(12, 5)
+  quotes               quotes                  @relation(fields: [quote_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  treatments           treatments              @relation(fields: [treatment_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  application_groups   application_groups?     @relation(fields: [application_group_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  qr_charge_lines      quote_qr_charge_lines[]
+  tooth_procedures     tooth_procedures[]
 
   @@index([quote_id], map: "idx_quote_items_quote")
   @@index([application_group_id], map: "idx_quote_items_application_group")
@@ -522,6 +550,9 @@ model tooth_procedures {
   price_charged            Decimal?                   @db.Decimal(10, 2)
   /// Para aplicaciones por unidad/caja (elásticos, cera ortodóntica, CLI-41) — price_charged = quantity × treatments.base_price. 1 para el resto.
   quantity                 Int                        @default(1)
+  /// CLI-226: la fila del presupuesto que este procedimiento cumple. Una
+  /// fila se cumple una sola vez; NULL si todavía no se vinculó.
+  quote_item_id            String?                    @unique(map: "idx_tooth_procedures_quote_item") @db.Uuid
   procedure_date           DateTime                   @default(dbgenerated("CURRENT_DATE")) @db.Date
   notes                    String?
   performed_by             String                     @db.Uuid
@@ -530,6 +561,7 @@ model tooth_procedures {
   users                    users                      @relation(fields: [performed_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
   treatments               treatments                 @relation(fields: [treatment_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   application_groups       application_groups?        @relation(fields: [application_group_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  quote_items              quote_items?               @relation(fields: [quote_item_id], references: [id], onDelete: SetNull, onUpdate: NoAction)
   xray_documents           xray_documents[]
   tooth_procedure_surfaces tooth_procedure_surfaces[]
 
@@ -696,24 +728,44 @@ model doctor_schedule_blocks {
   @@index([doctor_id, weekday])
 }
 
+/// Horario que el doctor aparta de su agenda (CLI-195): emergencia, curso, etc. Tiene CHECK ends_at > starts_at (doctor_time_blocks_range_check).
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model doctor_time_blocks {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  doctor_id  String   @db.Uuid
+  starts_at  DateTime @db.Timestamptz(6)
+  ends_at    DateTime @db.Timestamptz(6)
+  reason     String?  @db.VarChar(200)
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  users      users    @relation(fields: [doctor_id], references: [id], onDelete: Restrict, onUpdate: NoAction)
+
+  @@index([doctor_id, starts_at])
+}
+
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
 model users {
   id                      String                    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   auth_user_id            String?                   @unique @db.Uuid
-  email                   String?                   @unique @db.VarChar(255)
+  /// Único solo entre los activos (CLI-184): el correo de un paciente eliminado se puede volver a registrar.
+  email                   String?                   @unique(map: "users_email_key", where: raw("is_active")) @db.VarChar(255)
   display_name            String?                   @db.VarChar(255)
   photo_url               String?
   phone                   String?                   @db.VarChar(20)
+  /// Por qué `phone` no quedó habilitado como login en Supabase Auth (CLI-143):
+  /// 'phone_in_use' | 'unknown'. NULL = habilitado o todavía sin cuenta.
+  phone_login_error       String?                   @db.VarChar(20)
   is_active               Boolean                   @default(true)
   created_at              DateTime                  @default(now()) @db.Timestamptz(6)
   updated_at              DateTime                  @default(now()) @db.Timestamptz(6)
   role                    UserRole                  @unique(map: "idx_one_admin_user", where: raw("(role = 'admin'::\"UserRole\")")) @default(patient)
   patients                patients?                 @relation("PatientAccount")
   assigned_patients       patients[]                @relation("PatientAssignedDoctor")
+  deleted_patients        patients[]                @relation("PatientDeletedBy")
   appointments            appointments[]            @relation("AppointmentDoctor")
   cancelled_appointments  appointments[]            @relation("AppointmentCancelledBy")
   doctor_profiles         doctor_profiles?
   doctor_schedule_blocks  doctor_schedule_blocks[]
+  doctor_time_blocks      doctor_time_blocks[]
   tooth_procedures        tooth_procedures[]
   dental_exams            dental_exams[]
   patient_invites         patient_invites[]

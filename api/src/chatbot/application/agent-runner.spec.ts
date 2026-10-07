@@ -38,6 +38,7 @@ function toolsPort(
     status: 'ok',
     content: JSON.stringify({ data: { tool: call.name } }),
     links: [],
+    attachments: [],
   }),
 ) {
   const port = {
@@ -118,6 +119,7 @@ describe('AgentRunner', () => {
       status: 'denied',
       content: '{"error":"not_allowed"}',
       links: [],
+      attachments: [],
     }));
 
     const result = await run(llm, tools, { audit });
@@ -302,6 +304,7 @@ describe('AgentRunner', () => {
       status: 'denied',
       content: JSON.stringify({ error: 'not_allowed' }),
       links: [],
+      attachments: [],
     }));
 
     const result = await run(llm, tools);
@@ -379,6 +382,79 @@ describe('AgentRunner', () => {
     expect(result.llmLatencyMs).toBeGreaterThanOrEqual(0);
   });
 
+  describe('adjuntos: el QR de pago (CLI-236)', () => {
+    const QR = {
+      type: 'qr_payment' as const,
+      chargeId: 'charge-1',
+      amountBob: 1050,
+      imageBase64: 'iVBORw0KGgoQR',
+      lines: [{ treatment: 'Endodoncia', amountBob: 1050 }],
+    };
+
+    function qrPort() {
+      return toolsPort((call) => ({
+        toolName: call.name,
+        status: 'ok',
+        content: JSON.stringify({ data: { amountBob: 1050 } }),
+        links: [],
+        attachments: call.name === 'create_my_qr_payment' ? [QR] : [],
+      }));
+    }
+
+    it('devuelve el QR aparte del texto; el modelo nunca recibe la imagen', async () => {
+      const llm = new FakeLlmProvider([
+        toolCallResponse({ name: 'create_my_qr_payment' }),
+        textResponse('Listo, aquí tienes tu QR por Bs. 1050.'),
+      ]);
+
+      const result = await run(llm, qrPort());
+
+      expect(result.attachments).toEqual([QR]);
+      expect(result.reply).toBe('Listo, aquí tienes tu QR por Bs. 1050.');
+      expect(JSON.stringify(llm.requests)).not.toContain('iVBORw0KGgoQR');
+      expect(JSON.stringify(llm.requests)).not.toContain('charge-1');
+    });
+
+    it('si el modelo pide el mismo QR dos veces va una sola tarjeta', async () => {
+      const llm = new FakeLlmProvider([
+        toolCallResponse(
+          { name: 'create_my_qr_payment' },
+          { name: 'create_my_qr_payment' },
+        ),
+        textResponse('Aquí está.'),
+      ]);
+
+      const result = await run(llm, qrPort());
+
+      expect(result.attachments).toHaveLength(1);
+    });
+
+    it('si el modelo no escribe nada, contesta una frase corta y conserva el QR', async () => {
+      const llm = new FakeLlmProvider([
+        toolCallResponse({ name: 'create_my_qr_payment' }),
+        textResponse(''),
+      ]);
+
+      const result = await run(llm, qrPort());
+
+      expect(result.reply).toContain('Ya pagué');
+      expect(result.attachments).toEqual([QR]);
+      expect(result.errorCode).toBeNull();
+    });
+
+    it('con fallback no devuelve el QR (queda pendiente y se vuelve a mostrar)', async () => {
+      const llm = new FakeLlmProvider([
+        toolCallResponse({ name: 'create_my_qr_payment' }),
+        new LlmUnavailableError(),
+      ]);
+
+      const result = await run(llm, qrPort());
+
+      expect(result.errorCode).toBe('llm_unavailable');
+      expect(result.attachments).toEqual([]);
+    });
+  });
+
   describe('links', () => {
     const BOOKING_URL =
       'http://localhost:4200/reservar?slot=2026-09-26T14%3A00%3A00.000Z&doctorId=ac984e91-3391-4729-93e8-a89a495b7053';
@@ -397,6 +473,7 @@ describe('AgentRunner', () => {
                 },
               ]
             : [],
+        attachments: [],
       }));
     }
 

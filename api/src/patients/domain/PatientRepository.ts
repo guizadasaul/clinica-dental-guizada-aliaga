@@ -1,3 +1,5 @@
+import type { PatientFieldOptions } from './place-names';
+import type { CreatePlaceholderUserData } from '../../auth/domain/UserRepository';
 import type { Patient } from './Patient';
 import type { MedicalHistory } from './MedicalHistory';
 import type { HygieneHabits } from './HygieneHabits';
@@ -23,6 +25,8 @@ export interface CreatePatientData {
   zona?: string;
   ciudad?: string;
   phone?: string;
+  /** Correo de contacto (CLI-181): va a users.email, no a patients. */
+  email?: string;
   emergencyContactFirstName?: string;
   emergencyContactLastName?: string;
   emergencyContactPhone?: string;
@@ -33,8 +37,6 @@ export interface CreatePatientData {
   familyHistory?: string;
   documentType?: string;
   dni?: string;
-  /** null borra la extensión (ej. al pasar de CI a pasaporte). */
-  documentExtension?: string | null;
   /** CLI-58: el doctor que hace el alta manual, si quien crea la ficha es odontólogo. */
   assignedDoctorId?: string;
 }
@@ -61,14 +63,11 @@ export interface UpdatePatientData {
   familyHistory?: string;
   documentType?: string;
   dni?: string;
-  /** null borra la extensión (ej. al pasar de CI a pasaporte). */
-  documentExtension?: string | null;
 }
 
 /** Ya resuelta contra el catálogo (medicalConditionId, no el code) — el service hace esa resolución. */
 export interface MedicalConditionEntryData {
   medicalConditionId: string;
-  diagnosedAt?: Date;
   notes?: string;
 }
 
@@ -148,12 +147,16 @@ export interface CreateToothProcedureData {
   surfaceCodes?: string[];
   notes?: string;
   performedBy: string;
+  /** CLI-226: la fila del presupuesto que cumple. */
+  quoteItemId?: string;
 }
 
 export interface ToothProcedureGroupMember {
   toothNumber: number;
   /** Códigos de tooth_surfaces (CLI-49) — [] o undefined si ninguna. */
   surfaceCodes?: string[];
+  /** CLI-226: la fila del presupuesto (de esta pieza) que cumple. */
+  quoteItemId?: string;
 }
 
 /**
@@ -170,12 +173,42 @@ export interface CreateToothProcedureGroupData {
   performedBy: string;
 }
 
+/** Lo que se registra: filas sueltas, o un grupo multi-diente con un precio (CLI-226). */
+export type ToothProceduresToCreate =
+  | { kind: 'rows'; rows: CreateToothProcedureData[] }
+  | { kind: 'group'; group: CreateToothProcedureGroupData };
+
+/** Lo que impide dar de baja a un paciente (CLI-184). */
+export interface PatientDeletionBlockers {
+  /** Citas confirmadas o en espera con fecha futura. */
+  futureAppointments: number;
+  /** Saldo pendiente de sus presupuestos activos, en la moneda de los presupuestos. */
+  balance: number;
+}
+
 export interface IPatientRepository {
   /** CLI-58: doctorId es un filtro de conveniencia, no de seguridad — sin él devuelve todos los pacientes, igual que siempre (visibilidad compartida). */
   findAllWithUsers(doctorId?: string): Promise<PatientWithUser[]>;
+  /** Lugares de nacimiento, zonas y ciudades ya usados, el más usado primero (CLI-178). */
+  findFieldOptions(): Promise<PatientFieldOptions>;
   findPatientById(id: string): Promise<Patient | null>;
   findByUserId(userId: string): Promise<Patient | null>;
   create(userId: string, data: CreatePatientData): Promise<Patient>;
+  /** Paciente nuevo sin cuenta ni reserva previa (CLI-171): usuario placeholder + ficha, atómico. */
+  createWithPlaceholderUser(
+    user: CreatePlaceholderUserData,
+    data: CreatePatientData,
+  ): Promise<Patient>;
+  /** Ficha por (tipo de documento, número) — la clave única real del paciente. */
+  findByDocument(documentType: string, dni: string): Promise<Patient | null>;
+  /** Citas futuras y saldo pendiente del paciente (por users.id; 0 y 0 si no tiene ficha). */
+  findDeletionBlockers(userId: string): Promise<PatientDeletionBlockers>;
+  /**
+   * Baja lógica (CLI-184), en una sola transacción: marca la ficha
+   * (deleted_at / deleted_by), deja la cuenta inactiva, revoca los canales de
+   * chat e invalida las invitaciones pendientes. No borra ninguna fila.
+   */
+  softDeletePatient(userId: string, deletedBy: string): Promise<void>;
   /** null si el patientId no existe. */
   updatePatient(id: string, data: UpdatePatientData): Promise<Patient | null>;
   upsertMedicalHistory(
@@ -194,6 +227,8 @@ export interface IPatientRepository {
   ): Promise<ClinicalExam>;
   /** El examen clínico más reciente (upsert por día — puede haber uno distinto por fecha). */
   findLatestClinicalExam(patientId: string): Promise<ClinicalExam | null>;
+  /** CLI-213: el examen clínico más antiguo — el de la primera visita. */
+  findFirstClinicalExam(patientId: string): Promise<ClinicalExam | null>;
   createOdontogramEntries(
     patientId: string,
     entries: OdontogramEntryData[],

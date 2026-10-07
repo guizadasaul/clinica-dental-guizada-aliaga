@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   HttpCode,
   HttpStatus,
@@ -25,7 +26,6 @@ import { CreateMedicalHistoryDto } from './dto/create-medical-history.dto.js';
 import { CreateHygieneHabitsDto } from './dto/create-hygiene-habits.dto.js';
 import { CreateClinicalExamDto } from './dto/create-clinical-exam.dto.js';
 import { CreateOdontogramEntriesDto } from './dto/create-odontogram-entries.dto.js';
-import { CreateToothProcedureDto } from './dto/create-tooth-procedure.dto.js';
 import { CreateDentalExamDto } from './dto/create-dental-exam.dto.js';
 
 @Controller('patients')
@@ -44,9 +44,34 @@ export class PatientsController {
     return this.patientsService.findMyPatient(currentUser.uid);
   }
 
+  /** Lugares de nacimiento, zonas y ciudades ya usados, para sugerirlos en la ficha (CLI-178). */
+  @Get('field-options')
+  @Roles(UserRole.ODONTOLOGIST)
+  findFieldOptions() {
+    return this.patientsService.findFieldOptions();
+  }
+
   @Get('me/status')
   getMyPatientStatus(@CurrentUser() currentUser: AuthenticatedUser) {
     return this.patientsService.findMyPatientStatus(currentUser.uid);
+  }
+
+  /**
+   * Historial de tratamientos del propio paciente (CLI-102). La ficha sale
+   * de la sesión, nunca de un parámetro: GET /:patientId/tooth-procedures
+   * sigue siendo solo para odontólogos.
+   */
+  @Get('me/tooth-procedures')
+  @Roles(UserRole.PATIENT)
+  findMyToothProcedures(@CurrentUser() currentUser: AuthenticatedUser) {
+    return this.patientsService.findMyToothProcedures(currentUser.uid);
+  }
+
+  // CLI-213: "Mi perfil" — historia clínica inicial, solo lectura.
+  @Get('me/clinical-record')
+  @Roles(UserRole.PATIENT)
+  findMyClinicalRecord(@CurrentUser() currentUser: AuthenticatedUser) {
+    return this.patientsService.findMyClinicalRecord(currentUser.uid);
   }
 
   @Post()
@@ -68,6 +93,7 @@ export class PatientsController {
       zona: dto.zona,
       ciudad: dto.ciudad,
       phone: dto.phone,
+      email: dto.email,
       emergencyContactFirstName: dto.emergencyContactFirstName,
       emergencyContactLastName: dto.emergencyContactLastName,
       emergencyContactPhone: dto.emergencyContactPhone,
@@ -80,8 +106,22 @@ export class PatientsController {
       familyHistory: dto.familyHistory,
       documentType: dto.documentType,
       dni: dto.dni,
-      documentExtension: dto.documentExtension,
     });
+  }
+
+  /**
+   * Baja lógica de un paciente de la lista (CLI-184): no borra nada, la ficha
+   * y la cuenta quedan dadas de baja. Se identifica por users.id porque la
+   * lista también trae personas sin ficha.
+   */
+  @Delete('users/:userId')
+  @Roles(UserRole.ODONTOLOGIST)
+  @HttpCode(HttpStatus.NO_CONTENT)
+  async deletePatient(
+    @CurrentUser() currentUser: AuthenticatedUser,
+    @Param('userId', ParseUUIDPipe) userId: string,
+  ): Promise<void> {
+    await this.patientsService.deletePatient(currentUser.uid, userId);
   }
 
   @Patch(':id')
@@ -114,7 +154,6 @@ export class PatientsController {
       familyHistory: dto.familyHistory,
       documentType: dto.documentType,
       dni: dto.dni,
-      documentExtension: dto.documentExtension,
       email: dto.email,
     });
   }
@@ -129,7 +168,6 @@ export class PatientsController {
     return this.patientsService.upsertMedicalHistory(id, {
       conditions: dto.conditions?.map((c) => ({
         code: c.code,
-        diagnosedAt: c.diagnosedAt ? new Date(c.diagnosedAt) : undefined,
         notes: c.notes,
       })),
       otherDiseases: dto.otherDiseases,
@@ -221,33 +259,6 @@ export class PatientsController {
         customPrice: e.customPrice,
         notes: e.notes,
       })),
-    );
-  }
-
-  @Post(':patientId/tooth-procedures')
-  @Roles(UserRole.ODONTOLOGIST)
-  @HttpCode(HttpStatus.CREATED)
-  createToothProcedure(
-    @Param('patientId', ParseUUIDPipe) patientId: string,
-    @CurrentUser() currentUser: AuthenticatedUser,
-    @Body() dto: CreateToothProcedureDto,
-  ) {
-    return this.patientsService.createToothProcedure(
-      patientId,
-      currentUser.uid,
-      {
-        teeth: dto.teeth.map((t) => ({
-          number: t.number,
-          surfaces: t.surfaces,
-        })),
-        treatmentId: dto.treatmentId,
-        priceCharged: dto.priceCharged,
-        quantity: dto.quantity,
-        procedureDate: dto.procedureDate
-          ? new Date(dto.procedureDate)
-          : undefined,
-        notes: dto.notes,
-      },
     );
   }
 

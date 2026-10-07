@@ -9,6 +9,7 @@ import {
 import {
   AgendaFilters,
   AttachQrData,
+  type AttendanceStatus,
   CreateByDoctorData,
   CreateHoldData,
   GuestContactData,
@@ -32,6 +33,8 @@ const AGENDA_INCLUDE = {
   // El doctor del turno (CLI-110): nombre y color para la agenda común.
   users: { include: { doctor_profiles: true } },
   treatments: true,
+  // Quién canceló (CLI-103): el detalle de una cita cancelada lo muestra.
+  cancelled_by_user: { select: { display_name: true } },
 } satisfies Prisma.appointmentsInclude;
 
 @Injectable()
@@ -71,7 +74,15 @@ export class PrismaAppointmentsRepository implements IAppointmentRepository {
     const records = await this.prisma.appointments.findMany({
       where: {
         patient_id: patientId,
-        status: AppointmentStatus.CONFIRMED,
+        // CLI-208: `attended` también es una visita; `no_show` no, salvo
+        // que se pida para el registro de visitas (CLI-209).
+        status: {
+          in: [
+            AppointmentStatus.CONFIRMED,
+            AppointmentStatus.ATTENDED,
+            ...(filters.includeNoShow ? [AppointmentStatus.NO_SHOW] : []),
+          ],
+        },
         ...((filters.from || filters.to) && {
           appointment_datetime: {
             ...(filters.from && { gte: filters.from }),
@@ -240,29 +251,43 @@ export class PrismaAppointmentsRepository implements IAppointmentRepository {
     cancelledBy: string,
     reason: string | null,
   ): Promise<AppointmentWithPatient | null> {
-    const count = await this.prisma.transaction(async (tx) => {
-      const current = await tx.appointments.findFirst({
-        where: { id, doctor_id: doctorId, status: AppointmentStatus.CONFIRMED },
-        select: { notes: true },
-      });
-      if (!current) {
-        return 0;
-      }
-      const reasonLine = reason ? `Cancelada: ${reason}` : null;
-      const notes =
-        [current.notes, reasonLine].filter(Boolean).join('\n') || null;
-      const result = await tx.appointments.updateMany({
-        where: { id, doctor_id: doctorId, status: AppointmentStatus.CONFIRMED },
-        data: {
-          status: AppointmentStatus.CANCELLED,
-          cancelled_at: new Date(),
-          cancelled_by: cancelledBy,
-          notes,
-        },
-      });
-      return result.count;
+    // El motivo va a su propia columna (CLI-103): las notas del turno quedan
+    // como estaban. El WHERE con status hace la transición idempotente.
+    const result = await this.prisma.appointments.updateMany({
+      where: { id, doctor_id: doctorId, status: AppointmentStatus.CONFIRMED },
+      data: {
+        status: AppointmentStatus.CANCELLED,
+        cancelled_at: new Date(),
+        cancelled_by: cancelledBy,
+        cancel_reason: reason,
+      },
     });
-    return count === 0 ? null : this.findForDoctor(id, doctorId);
+    return result.count === 0 ? null : this.findForDoctor(id, doctorId);
+  }
+
+  async setAttendance(
+    id: string,
+    doctorId: string,
+    from: AttendanceStatus,
+    to: AttendanceStatus,
+  ): Promise<AppointmentWithPatient | null> {
+    try {
+      const result = await this.prisma.appointments.updateMany({
+        where: { id, doctor_id: doctorId, status: from },
+        data: { status: to },
+      });
+      return result.count === 0 ? null : this.findForDoctor(id, doctorId);
+    } catch (error: unknown) {
+      // Deshacer vuelve a `confirmed`: si en el medio se agendó otra cita
+      // activa a esa misma hora, el índice único lo rechaza.
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2002'
+      ) {
+        throw new SlotUnavailableError();
+      }
+      throw error;
+    }
   }
 
   async updateGuestContact(
@@ -275,15 +300,16 @@ export class PrismaAppointmentsRepository implements IAppointmentRepository {
     // atada a la cuenta de otra persona (o, sin el fix de confirmación, en
     // un hold trabado para siempre — ver prisma-booking-confirmation).
     if (data.email) {
-      const emailOwner = await this.prisma.users.findUnique({
-        where: { email: data.email },
+      // Solo cuentas activas: un paciente eliminado (CLI-184) no bloquea la reserva.
+      const emailOwner = await this.prisma.users.findFirst({
+        where: { email: data.email, is_active: true },
       });
       if (emailOwner) {
         throw new GuestEmailBelongsToAccountError();
       }
     }
     const phoneOwner = await this.prisma.users.findFirst({
-      where: { phone: data.phone },
+      where: { phone: data.phone, is_active: true },
     });
     if (phoneOwner) {
       throw new GuestPhoneBelongsToAccountError();

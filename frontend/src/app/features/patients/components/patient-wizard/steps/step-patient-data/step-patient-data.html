@@ -11,7 +11,7 @@
           type="text"
           [value]="firstName.value()"
           (input)="firstName.set($any($event.target).value)"
-          (blur)="firstName.markTouched()"
+          (blur)="firstName.markTouched(); tidy(firstName)"
           maxlength="100"
           placeholder="Ej: María"
           [attr.aria-invalid]="firstName.showError() || null"
@@ -30,7 +30,7 @@
           type="text"
           [value]="lastNamePaternal.value()"
           (input)="lastNamePaternal.set($any($event.target).value)"
-          (blur)="lastNamePaternal.markTouched()"
+          (blur)="lastNamePaternal.markTouched(); tidy(lastNamePaternal)"
           maxlength="100"
           placeholder="Ej: García"
           [attr.aria-invalid]="lastNamePaternal.showError() || null"
@@ -49,7 +49,7 @@
           type="text"
           [value]="lastNameMaternal.value()"
           (input)="lastNameMaternal.set($any($event.target).value)"
-          (blur)="lastNameMaternal.markTouched()"
+          (blur)="lastNameMaternal.markTouched(); tidy(lastNameMaternal)"
           maxlength="100"
           placeholder="Ej: López"
           [attr.aria-invalid]="lastNameMaternal.showError() || null"
@@ -78,19 +78,22 @@
       </div>
       <div class="step-form__field">
         <label class="step-form__label" for="birthPlace">Lugar de nacimiento <span class="step-form__req">*</span></label>
-        <input
-          id="birthPlace"
-          class="step-form__input"
-          [class.step-form__input--invalid]="birthPlace.showError()"
-          type="text"
-          [value]="birthPlace.value()"
-          (input)="birthPlace.set($any($event.target).value)"
-          (blur)="birthPlace.markTouched()"
-          maxlength="150"
-          placeholder="Ej: Cochabamba"
-          [attr.aria-invalid]="birthPlace.showError() || null"
-          [attr.aria-describedby]="birthPlace.showError() ? 'birthPlace-err' : null"
-        />
+        <app-suggest-input [suggestions]="fieldOptions().birthPlaces">
+          <input
+            #suggestField
+            id="birthPlace"
+            class="step-form__input"
+            [class.step-form__input--invalid]="birthPlace.showError()"
+            type="text"
+            [value]="birthPlace.value()"
+            (input)="birthPlace.set($any($event.target).value)"
+            (blur)="birthPlace.markTouched(); tidy(birthPlace)"
+            maxlength="150"
+            placeholder="Ej: Cochabamba"
+            [attr.aria-invalid]="birthPlace.showError() || null"
+            [attr.aria-describedby]="birthPlace.showError() ? 'birthPlace-err' : null"
+          />
+        </app-suggest-input>
         @if (birthPlace.showError()) {
           <p class="step-form__field-error" id="birthPlace-err" role="alert">{{ birthPlace.error() }}</p>
         }
@@ -125,7 +128,7 @@
           type="text"
           [value]="occupation.value()"
           (input)="occupation.set($any($event.target).value)"
-          (blur)="occupation.markTouched()"
+          (blur)="occupation.markTouched(); tidy(occupation)"
           maxlength="150"
           placeholder="Ej: Docente"
           [attr.aria-invalid]="occupation.showError() || null"
@@ -166,8 +169,8 @@
           [value]="dni.value()"
           (input)="dni.set($any($event.target).value)"
           (blur)="dni.markTouched()"
-          maxlength="20"
-          placeholder="Ej: 12345678"
+          [attr.maxlength]="dniMaxLength"
+          [placeholder]="isCi() ? 'Ej: 1234567 o 1234567-LP' : 'Ej: 1234567'"
           [attr.aria-invalid]="dni.showError() || null"
           [attr.aria-describedby]="dni.showError() ? 'dni-err' : null"
         />
@@ -175,30 +178,31 @@
           <p class="step-form__field-error" id="dni-err" role="alert">{{ dni.error() }}</p>
         }
       </div>
-      @if (isCi()) {
-        <div class="step-form__field">
-          <label class="step-form__label" for="documentExtension">Extensión</label>
-          <input
-            id="documentExtension"
-            class="step-form__input"
-            [class.step-form__input--invalid]="documentExtension.showError()"
-            type="text"
-            [value]="documentExtension.value()"
-            (input)="documentExtension.set($any($event.target).value)"
-            (blur)="documentExtension.markTouched()"
-            [attr.maxlength]="documentExtensionMaxLength"
-            placeholder="Ej: LP o 1A"
-            [attr.aria-invalid]="documentExtension.showError() || null"
-            [attr.aria-describedby]="documentExtension.showError() ? 'documentExtension-err' : null"
-          />
-          @if (documentExtension.showError()) {
-            <p class="step-form__field-error" id="documentExtension-err" role="alert">{{ documentExtension.error() }}</p>
-          }
-        </div>
-      }
       <div class="step-form__field">
         <span class="step-form__label">Teléfono</span>
         <app-phone-input [value]="phoneE164()" [disabled]="loading()" (changed)="onPhoneChanged($event)" />
+      </div>
+      <div class="step-form__field">
+        <label class="step-form__label" for="email">Correo electrónico</label>
+        <input
+          id="email"
+          class="step-form__input"
+          [class.step-form__input--invalid]="email.showError()"
+          type="email"
+          autocomplete="off"
+          [value]="email.value()"
+          (input)="email.set($any($event.target).value)"
+          (blur)="email.markTouched()"
+          maxlength="255"
+          placeholder="Ej: ana@correo.com"
+          [attr.aria-invalid]="email.showError() || null"
+          [attr.aria-describedby]="email.showError() ? 'email-err' : null"
+        />
+        @if (email.showError()) {
+          <p class="step-form__field-error" id="email-err" role="alert">{{ email.error() }}</p>
+        } @else {
+          <p class="step-form__hint">Teléfono o correo: con uno de los dos basta.</p>
+        }
       </div>
     </div>
     <div class="step-form__field step-form__field--full">
@@ -210,7 +214,7 @@
         type="text"
         [value]="address.value()"
         (input)="address.set($any($event.target).value)"
-        (blur)="address.markTouched()"
+        (blur)="address.markTouched(); tidy(address)"
         maxlength="300"
         placeholder="Ej: Av. Heroínas 456"
         [attr.aria-invalid]="address.showError() || null"
@@ -222,38 +226,44 @@
     </div>
     <div class="step-form__field">
       <label class="step-form__label" for="zona">Zona <span class="step-form__req">*</span></label>
-      <input
-        id="zona"
-        class="step-form__input"
-        [class.step-form__input--invalid]="zona.showError()"
-        type="text"
-        [value]="zona.value()"
-        (input)="zona.set($any($event.target).value)"
-        (blur)="zona.markTouched()"
-        maxlength="100"
-        placeholder="Ej: Zona Norte"
-        [attr.aria-invalid]="zona.showError() || null"
-        [attr.aria-describedby]="zona.showError() ? 'zona-err' : null"
-      />
+      <app-suggest-input [suggestions]="fieldOptions().zonas">
+        <input
+          #suggestField
+          id="zona"
+          class="step-form__input"
+          [class.step-form__input--invalid]="zona.showError()"
+          type="text"
+          [value]="zona.value()"
+          (input)="zona.set($any($event.target).value)"
+          (blur)="zona.markTouched(); tidy(zona)"
+          maxlength="100"
+          placeholder="Ej: Zona Norte"
+          [attr.aria-invalid]="zona.showError() || null"
+          [attr.aria-describedby]="zona.showError() ? 'zona-err' : null"
+        />
+      </app-suggest-input>
       @if (zona.showError()) {
         <p class="step-form__field-error" id="zona-err" role="alert">{{ zona.error() }}</p>
       }
     </div>
     <div class="step-form__field">
       <label class="step-form__label" for="ciudad">Ciudad <span class="step-form__req">*</span></label>
-      <input
-        id="ciudad"
-        class="step-form__input"
-        [class.step-form__input--invalid]="ciudad.showError()"
-        type="text"
-        [value]="ciudad.value()"
-        (input)="ciudad.set($any($event.target).value)"
-        (blur)="ciudad.markTouched()"
-        maxlength="100"
-        placeholder="Ej: Cochabamba"
-        [attr.aria-invalid]="ciudad.showError() || null"
-        [attr.aria-describedby]="ciudad.showError() ? 'ciudad-err' : null"
-      />
+      <app-suggest-input [suggestions]="fieldOptions().ciudades">
+        <input
+          #suggestField
+          id="ciudad"
+          class="step-form__input"
+          [class.step-form__input--invalid]="ciudad.showError()"
+          type="text"
+          [value]="ciudad.value()"
+          (input)="ciudad.set($any($event.target).value)"
+          (blur)="ciudad.markTouched(); tidy(ciudad)"
+          maxlength="100"
+          placeholder="Ej: Cochabamba"
+          [attr.aria-invalid]="ciudad.showError() || null"
+          [attr.aria-describedby]="ciudad.showError() ? 'ciudad-err' : null"
+        />
+      </app-suggest-input>
       @if (ciudad.showError()) {
         <p class="step-form__field-error" id="ciudad-err" role="alert">{{ ciudad.error() }}</p>
       }
@@ -272,7 +282,7 @@
           type="text"
           [value]="emergencyContactFirstName.value()"
           (input)="emergencyContactFirstName.set($any($event.target).value)"
-          (blur)="emergencyContactFirstName.markTouched()"
+          (blur)="emergencyContactFirstName.markTouched(); tidy(emergencyContactFirstName)"
           [attr.maxlength]="personNameMaxLength"
           placeholder="Ej: Carlos Andrés"
           [attr.aria-invalid]="emergencyContactFirstName.showError() || null"
@@ -291,7 +301,7 @@
           type="text"
           [value]="emergencyContactLastName.value()"
           (input)="emergencyContactLastName.set($any($event.target).value)"
-          (blur)="emergencyContactLastName.markTouched()"
+          (blur)="emergencyContactLastName.markTouched(); tidy(emergencyContactLastName)"
           [attr.maxlength]="personNameMaxLength"
           placeholder="Ej: García López"
           [attr.aria-invalid]="emergencyContactLastName.showError() || null"
@@ -321,7 +331,7 @@
           type="text"
           [value]="emergencyContactRelationship.value()"
           (input)="emergencyContactRelationship.set($any($event.target).value)"
-          (blur)="emergencyContactRelationship.markTouched()"
+          (blur)="emergencyContactRelationship.markTouched(); tidy(emergencyContactRelationship)"
           maxlength="100"
           placeholder="Ej: Esposo/a"
           [attr.aria-invalid]="emergencyContactRelationship.showError() || null"

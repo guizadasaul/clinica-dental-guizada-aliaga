@@ -35,7 +35,12 @@
     <div class="rp__qr">
       <img class="rp__qr-img" [src]="'data:image/png;base64,' + c.qrImageBase64" alt="QR de cobro BANECO" />
       <p class="rp__qr-amount">Bs. {{ c.amount | number: '1.2-2' }}</p>
-      <p class="rp__hint">Mostrale el QR al paciente. Cuando pague desde su app, apretá "Verificar pago".</p>
+      <!-- CLI-103: regla de la clínica, visible para el paciente al momento de pagar. -->
+      <p class="rp__no-refund">
+        <span class="material-symbols-outlined" aria-hidden="true">info</span>
+        La clínica no realiza reembolsos.
+      </p>
+      <p class="rp__hint">Muéstrale el QR al paciente. Cuando pague desde su app, presiona "Verificar pago".</p>
 
       @if (notice()) {
         <p class="rp__notice">{{ notice() }}</p>

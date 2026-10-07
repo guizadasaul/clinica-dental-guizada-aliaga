@@ -17,6 +17,7 @@ const DOCTOR_A: Doctor = {
   photoUrl: null,
   displayOrder: 0,
   isBookable: true,
+  phone: null,
 };
 const DOCTOR_B: Doctor = { ...DOCTOR_A, id: 'doctor-b', displayName: 'Dra. Marylu' };
 
@@ -53,7 +54,6 @@ function fakePatientWithUser(overrides: Partial<PatientWithUser> = {}): PatientW
       familyHistory: null,
       documentType: null,
       dni: null,
-      documentExtension: null,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
       assignedDoctorId: 'doctor-a',
@@ -85,7 +85,10 @@ function setup(
   doctors: Doctor[] = [DOCTOR_A, DOCTOR_B],
   authService = createAuthServiceStub(),
 ) {
-  const patientsService = { getAll: vi.fn().mockReturnValue(of(patients)) };
+  const patientsService = {
+    getAll: vi.fn().mockReturnValue(of(patients)),
+    deletePatient: vi.fn().mockReturnValue(of(undefined)),
+  };
   const bookingService = { getDoctors: vi.fn().mockReturnValue(of(doctors)) };
   TestBed.configureTestingModule({
     imports: [PatientsListComponent],
@@ -173,12 +176,48 @@ describe('PatientsListComponent', () => {
       expect.stringContaining('Nuevo diagnóstico'),
       expect.stringContaining('Corregir diagnóstico actual'),
       expect.stringContaining('Ver historia clínica'),
+      expect.stringContaining('Registrar tratamiento'),
+      expect.stringContaining('Hacer presupuesto'),
+      expect.stringContaining('Eliminar paciente'),
     ]);
 
     items[0].click();
     await settle(fixture);
     expect(emitted).toEqual(['patient-1']);
     expect(el(fixture, '.patients-list__menu')).toBeFalsy();
+  });
+});
+
+describe('PatientsListComponent — Nuevo paciente (CLI-171)', () => {
+  it('el botón "Nuevo paciente" emite newPatient, para alguien que llegó sin reserva', async () => {
+    const { fixture } = setup();
+    let emitted = 0;
+    fixture.componentInstance.newPatient.subscribe(() => emitted++);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    el<HTMLButtonElement>(fixture, '.patients-list__new-btn').click();
+
+    expect(emitted).toBe(1);
+  });
+
+  it('también está con la lista vacía: ahí es justo cuando más hace falta', async () => {
+    const { fixture } = setup([]);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(el(fixture, '.patients-list__new-btn')).not.toBeNull();
+  });
+
+  it('en modo solo lectura (admin viendo a un doctor) no aparece', async () => {
+    const { fixture } = setup();
+    fixture.componentRef.setInput('readOnly', true);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(el(fixture, '.patients-list__new-btn')).toBeNull();
   });
 });
 
@@ -298,6 +337,220 @@ describe('PatientsListComponent — búsqueda, acciones y menú', () => {
     expect(rows(fixture)[0].textContent).toContain('Sin asignar');
   });
 
+  // CLI-184: eliminar un paciente (baja lógica).
+  describe('eliminar paciente (CLI-184)', () => {
+    function menuItems(fixture: ReturnType<typeof setup>['fixture']): HTMLElement[] {
+      return [...(fixture.nativeElement as HTMLElement).querySelectorAll<HTMLElement>('.patients-list__menu-item')];
+    }
+
+    async function openDialog(patients: PatientWithUser[] = [fakePatientWithUser()]) {
+      const context = setup(patients);
+      await settle(context.fixture);
+      el<HTMLButtonElement>(context.fixture, '.patients-list__menu-trigger').click();
+      await settle(context.fixture);
+      menuItems(context.fixture).find((i) => i.textContent?.includes('Eliminar paciente'))!.click();
+      await settle(context.fixture);
+      return context;
+    }
+
+    function typeWord(fixture: ReturnType<typeof setup>['fixture'], value: string): void {
+      const input = el<HTMLInputElement>(fixture, '#delete-modal-confirm');
+      input.value = value;
+      input.dispatchEvent(new Event('input'));
+      fixture.detectChanges();
+    }
+
+    const confirmButton = (fixture: ReturnType<typeof setup>['fixture']) =>
+      el<HTMLButtonElement>(fixture, '.delete-modal__btn--danger');
+
+    it('todas las filas tienen el menú ⋮, también una persona sin ficha, con tratamiento y presupuesto deshabilitados', async () => {
+      const { fixture } = setup([
+        fakePatientWithUser(),
+        fakePatientWithUser({ userId: 'user-3', patient: null, displayName: null }),
+      ]);
+      await settle(fixture);
+
+      const triggers = (fixture.nativeElement as HTMLElement).querySelectorAll<HTMLButtonElement>('.patients-list__menu-trigger');
+      expect(triggers).toHaveLength(2);
+      triggers[1].click();
+      await settle(fixture);
+      expect(menuItems(fixture).map((i) => i.textContent?.trim())).toEqual([
+        expect.stringContaining('Registrar tratamiento'),
+        expect.stringContaining('Hacer presupuesto'),
+        expect.stringContaining('Eliminar paciente'),
+      ]);
+      const [treatment, quote] = menuItems(fixture) as HTMLButtonElement[];
+      expect(treatment.disabled).toBe(true);
+      expect(quote.disabled).toBe(true);
+    });
+
+    it('en modo solo lectura (panel de admin) no hay menú ni opción de eliminar', async () => {
+      const { fixture } = setup();
+      fixture.componentRef.setInput('readOnly', true);
+      await settle(fixture);
+
+      expect(el(fixture, '.patients-list__menu-trigger')).toBeNull();
+    });
+
+    it('abre la alerta con el nombre del paciente y cierra el menú', async () => {
+      const { fixture } = await openDialog();
+
+      expect(el(fixture, '.patients-list__menu')).toBeNull();
+      expect(el(fixture, '.delete-modal__text')?.textContent).toContain('Juana Perez');
+      expect(confirmButton(fixture).disabled).toBe(true);
+    });
+
+    it('nombra al paciente con el nombre de la ficha, no con el de la cuenta', async () => {
+      const { fixture } = await openDialog([fakePatientWithUser({ displayName: 'Saul Ariel Guizada Aliaga' })]);
+
+      const text = el(fixture, '.delete-modal__text')?.textContent ?? '';
+      expect(text).toContain('Juana Perez');
+      expect(text).not.toContain('Saul Ariel');
+    });
+
+    it('solo se habilita al escribir "eliminar" (sin importar mayúsculas ni espacios)', async () => {
+      const { fixture } = await openDialog();
+
+      typeWord(fixture, 'elimin');
+      expect(confirmButton(fixture).disabled).toBe(true);
+      typeWord(fixture, '  ELIMINAR ');
+      expect(confirmButton(fixture).disabled).toBe(false);
+    });
+
+    it('al confirmar da de baja al paciente, cierra la alerta y recarga la lista', async () => {
+      const { fixture, patientsService } = await openDialog();
+      typeWord(fixture, 'eliminar');
+
+      el<HTMLFormElement>(fixture, '.delete-modal form').dispatchEvent(new Event('submit'));
+      await settle(fixture);
+
+      expect(patientsService.deletePatient).toHaveBeenCalledWith('user-1');
+      expect(patientsService.getAll).toHaveBeenCalledTimes(2);
+      expect(el(fixture, '.delete-modal')).toBeNull();
+    });
+
+    it('sin escribir la palabra no elimina aunque se envíe el formulario', async () => {
+      const { fixture, patientsService } = await openDialog();
+
+      el<HTMLFormElement>(fixture, '.delete-modal form').dispatchEvent(new Event('submit'));
+      await settle(fixture);
+
+      expect(patientsService.deletePatient).not.toHaveBeenCalled();
+    });
+
+    it('si la API rechaza la baja (citas, saldo) muestra el motivo y deja la alerta abierta', async () => {
+      const { fixture, patientsService } = await openDialog();
+      patientsService.deletePatient.mockReturnValue(
+        throwError(() => ({ error: { message: 'No se puede eliminar a Juana Perez: tiene 1 cita pendiente.' } })),
+      );
+      typeWord(fixture, 'eliminar');
+
+      el<HTMLFormElement>(fixture, '.delete-modal form').dispatchEvent(new Event('submit'));
+      await settle(fixture);
+
+      expect(el(fixture, '.delete-modal__error')?.textContent).toContain('tiene 1 cita pendiente');
+      expect(patientsService.getAll).toHaveBeenCalledTimes(1);
+    });
+
+    it('un error sin mensaje usable muestra uno genérico', async () => {
+      const { fixture, patientsService } = await openDialog();
+      patientsService.deletePatient.mockReturnValue(throwError(() => new Error('red')));
+      typeWord(fixture, 'eliminar');
+
+      el<HTMLFormElement>(fixture, '.delete-modal form').dispatchEvent(new Event('submit'));
+      await settle(fixture);
+
+      expect(el(fixture, '.delete-modal__error')?.textContent).toContain('No se pudo eliminar');
+    });
+
+    it('"Cancelar", Escape y el fondo cierran la alerta sin eliminar', async () => {
+      const { fixture, patientsService } = await openDialog();
+
+      el<HTMLButtonElement>(fixture, '.delete-modal__btn--ghost').click();
+      await settle(fixture);
+      expect(el(fixture, '.delete-modal')).toBeNull();
+
+      el<HTMLButtonElement>(fixture, '.patients-list__menu-trigger').click();
+      await settle(fixture);
+      menuItems(fixture).at(-1)!.click();
+      await settle(fixture);
+      el<HTMLElement>(fixture, '.delete-modal').dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+      await settle(fixture);
+      expect(el(fixture, '.delete-modal')).toBeNull();
+
+      el<HTMLButtonElement>(fixture, '.patients-list__menu-trigger').click();
+      await settle(fixture);
+      menuItems(fixture).at(-1)!.click();
+      await settle(fixture);
+      el<HTMLElement>(fixture, '.delete-modal').click();
+      await settle(fixture);
+      expect(el(fixture, '.delete-modal')).toBeNull();
+      expect(patientsService.deletePatient).not.toHaveBeenCalled();
+    });
+  });
+
+  // CLI-189: tratamiento y presupuesto solo después de terminar el diagnóstico.
+  describe('tratamiento y presupuesto desde el menú ⋮ (CLI-189)', () => {
+    async function openRowMenu(patients: PatientWithUser[], row = 0) {
+      const context = setup(patients);
+      await settle(context.fixture);
+      const triggers = (context.fixture.nativeElement as HTMLElement).querySelectorAll<HTMLButtonElement>(
+        '.patients-list__menu-trigger',
+      );
+      triggers[row].click();
+      await settle(context.fixture);
+      const items = [
+        ...(context.fixture.nativeElement as HTMLElement).querySelectorAll<HTMLButtonElement>('.patients-list__menu-item'),
+      ];
+      const byLabel = (label: string) => items.find((i) => i.textContent?.includes(label))!;
+      return { ...context, byLabel };
+    }
+
+    const NO_DIAGNOSIS = fakePatientWithUser({ dentalExamsCount: 0 });
+
+    it('sin diagnóstico quedan deshabilitados, con la pista, y no emiten nada', async () => {
+      const { fixture, byLabel } = await openRowMenu([NO_DIAGNOSIS]);
+      const emitted: string[] = [];
+      fixture.componentInstance.registerTreatment.subscribe((id) => emitted.push(`t:${id}`));
+      fixture.componentInstance.buildQuote.subscribe((id) => emitted.push(`q:${id}`));
+
+      expect(byLabel('Registrar tratamiento').disabled).toBe(true);
+      expect(byLabel('Hacer presupuesto').disabled).toBe(true);
+      expect(el(fixture, '.patients-list__menu-hint')?.textContent).toContain('terminar el diagnóstico');
+      byLabel('Registrar tratamiento').click();
+      byLabel('Hacer presupuesto').click();
+      expect(emitted).toEqual([]);
+    });
+
+    it('con diagnóstico se habilitan, sin pista, y emiten el id de la ficha', async () => {
+      const { fixture, byLabel } = await openRowMenu([fakePatientWithUser()]);
+      const emitted: string[] = [];
+      fixture.componentInstance.registerTreatment.subscribe((id) => emitted.push(`t:${id}`));
+      fixture.componentInstance.buildQuote.subscribe((id) => emitted.push(`q:${id}`));
+
+      expect(byLabel('Registrar tratamiento').disabled).toBe(false);
+      expect(el(fixture, '.patients-list__menu-hint')).toBeNull();
+      byLabel('Registrar tratamiento').click();
+      fixture.detectChanges();
+      el<HTMLButtonElement>(fixture, '.patients-list__menu-trigger').click();
+      fixture.detectChanges();
+      [...(fixture.nativeElement as HTMLElement).querySelectorAll<HTMLButtonElement>('.patients-list__menu-item')]
+        .find((i) => i.textContent?.includes('Hacer presupuesto'))!
+        .click();
+      fixture.detectChanges();
+
+      expect(emitted).toEqual(['t:patient-1', 'q:patient-1']);
+      expect(el(fixture, '.patients-list__menu')).toBeNull();
+    });
+
+    it('un paciente pendiente de cuenta con diagnóstico también puede (no depende de la cuenta)', async () => {
+      const { byLabel } = await openRowMenu([fakePatientWithUser({ hasAccount: false })]);
+
+      expect(byLabel('Registrar tratamiento').disabled).toBe(false);
+      expect(byLabel('Hacer presupuesto').disabled).toBe(false);
+    });
+  });
+
   describe('menú ⋮', () => {
     async function openMenu() {
       const context = setup();
@@ -371,5 +624,70 @@ describe('PatientsListComponent — búsqueda, acciones y menú', () => {
       expect(events).toEqual(['patient-1', 'patient-1']);
       expect(el(fixture, '.patients-list__menu')).toBeNull();
     });
+  });
+});
+
+describe('PatientsListComponent — paginación (CLI-204)', () => {
+  const many = Array.from({ length: 23 }, (_, i) =>
+    fakePatientWithUser({
+      userId: `user-${i}`,
+      patient: {
+        ...fakePatientWithUser().patient!,
+        id: `patient-${i}`,
+        firstName: `Paciente${String(i + 1).padStart(2, '0')}`,
+      },
+    }),
+  );
+
+  const root = (fixture: ReturnType<typeof setup>['fixture']) => fixture.nativeElement as HTMLElement;
+  const rowCount = (fixture: ReturnType<typeof setup>['fixture']) =>
+    root(fixture).querySelectorAll('.patients-list__row').length;
+  const click = (fixture: ReturnType<typeof setup>['fixture'], label: string) => {
+    root(fixture).querySelector<HTMLButtonElement>(`button[aria-label="${label}"]`)!.click();
+    fixture.detectChanges();
+  };
+
+  it('muestra como máximo 10 por página y recorre las páginas', async () => {
+    const { fixture } = setup(many);
+    await settle(fixture);
+
+    expect(rowCount(fixture)).toBe(10);
+    expect(root(fixture).textContent).toContain('Página 1 de 3');
+    expect(root(fixture).textContent).toContain('Paciente01');
+
+    click(fixture, 'Página siguiente');
+    click(fixture, 'Página siguiente');
+    expect(rowCount(fixture)).toBe(3);
+    expect(root(fixture).textContent).toContain('Paciente21');
+
+    click(fixture, 'Página anterior');
+    expect(rowCount(fixture)).toBe(10);
+  });
+
+  it('el subtítulo cuenta todos los pacientes, no solo los de la página', async () => {
+    const { fixture } = setup(many);
+    await settle(fixture);
+
+    expect(root(fixture).textContent).toContain('23 pacientes');
+  });
+
+  it('con 10 o menos no muestra la paginación', async () => {
+    const { fixture } = setup(many.slice(0, 10));
+    await settle(fixture);
+
+    expect(root(fixture).querySelector('.pagination')).toBeNull();
+  });
+
+  it('al buscar vuelve a la página 1', async () => {
+    const { fixture } = setup(many);
+    await settle(fixture);
+    click(fixture, 'Página siguiente');
+
+    const search = el<HTMLInputElement>(fixture, '.patients-list__search');
+    search.value = 'Paciente';
+    search.dispatchEvent(new Event('input'));
+    fixture.detectChanges();
+
+    expect(root(fixture).textContent).toContain('Página 1 de 3');
   });
 });

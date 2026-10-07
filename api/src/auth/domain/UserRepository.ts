@@ -1,3 +1,4 @@
+import type { PhoneLoginError } from './value-objects/PhoneLoginError';
 import { User } from './User';
 import { UserRole } from './value-objects/UserRole';
 
@@ -28,6 +29,8 @@ export interface UpdateContactInfoData {
   email?: string;
   phone?: string;
   displayName?: string;
+  /** null limpia la marca (CLI-143). */
+  phoneLoginError?: PhoneLoginError | null;
 }
 
 export interface UserRepository {
@@ -39,6 +42,8 @@ export interface UserRepository {
    * número (CLI-146). Puede haber varios: users.phone no es único.
    */
   findActiveByPhone(e164: string): Promise<User[]>;
+  /** Por correo, sin importar mayúsculas (CLI-181); null si nadie lo tiene. */
+  findByEmail(email: string): Promise<User | null>;
   upsertByAuthUserId(data: UpsertUserData): Promise<User>;
 
   /** Crea un User "placeholder" sin identidad de Supabase (authUserId: null). */

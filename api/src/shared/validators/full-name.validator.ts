@@ -46,6 +46,12 @@ const LOWERCASE_PARTICLES = new Set([
   'der',
   'di',
   'du',
+  // Conjunción y preposiciones comunes en direcciones y ocupaciones (CLI-183):
+  // "Calle Sucre y Bolívar", "Ingeniero en Sistemas".
+  'y',
+  'en',
+  'con',
+  'al',
 ]);
 
 // Capitaliza la primera letra de la palabra y también la que sigue a un guion
@@ -83,11 +89,11 @@ export function normalizeFullName(value: string): string {
 
 function reasonMessage(value: unknown, requireTwoWords: boolean): string {
   if (typeof value !== 'string') {
-    return 'Ingresá tu nombre completo.';
+    return 'Ingresa tu nombre completo.';
   }
   const normalized = normalizeFullName(value);
   if (normalized === '') {
-    return 'Ingresá tu nombre completo.';
+    return 'Ingresa tu nombre completo.';
   }
   if (requireTwoWords) {
     const words = normalized.split(' ');

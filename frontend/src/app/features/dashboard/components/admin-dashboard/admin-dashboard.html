@@ -10,23 +10,74 @@
       <app-logo class="admin__header-deco" tone="light" />
     </header>
 
-    <!-- Quick access -->
-    <section class="admin__section">
-      <h2 class="section-title">Accesos rápidos</h2>
-      <div class="actions-grid">
-        <button type="button" class="action-card action-card--primary" (click)="onGoTo('doctors')">
-          <span class="material-symbols-outlined action-card__icon" aria-hidden="true">group</span>
-          <p class="action-card__label">Doctores</p>
-          <p class="action-card__desc">Alta y gestión de los doctores de la clínica</p>
-          <span class="material-symbols-outlined action-card__arrow" aria-hidden="true">arrow_forward</span>
-        </button>
-        <button type="button" class="action-card action-card--tertiary" (click)="onGoTo('reports')">
-          <span class="material-symbols-outlined action-card__icon" aria-hidden="true">bar_chart</span>
-          <p class="action-card__label">Reportes</p>
-          <p class="action-card__desc">Indicadores operativos y financieros</p>
-          <span class="material-symbols-outlined action-card__arrow" aria-hidden="true">arrow_forward</span>
+    <!-- Reportes rápidos (CLI-197) -->
+    <section class="admin__section" aria-labelledby="admin-quick-reports-title">
+      <div class="admin__section-head">
+        <div>
+          <h2 id="admin-quick-reports-title" class="section-title">Reportes rápidos</h2>
+          <p class="admin__section-sub">Últimos 30 días, comparado con los 30 días anteriores.</p>
+        </div>
+        <button type="button" class="admin__link" (click)="onGoTo('reports')">
+          Ver todos los reportes
+          <span class="material-symbols-outlined" aria-hidden="true">arrow_forward</span>
         </button>
       </div>
+
+      @if (kpisError()) {
+        <div class="admin__banner">
+          <span class="material-symbols-outlined" aria-hidden="true">error</span>
+          <span>{{ kpisError() }}</span>
+          <button type="button" class="admin__retry" (click)="loadKpis()">Reintentar</button>
+        </div>
+      } @else if (kpisLoading() || !kpis()) {
+        <div class="kpi-grid" aria-busy="true">
+          @for (i of skeletons; track i) {
+            <div class="kpi-skeleton"></div>
+          }
+        </div>
+      } @else {
+        @let k = kpis()!;
+        @let prev = previousKpis();
+        <div class="kpi-grid">
+          <app-kpi-card
+            label="Citas"
+            icon="event_available"
+            [value]="formatCount(k.appointments)"
+            [delta]="prev ? change(k.appointments, prev.appointments) : null"
+          />
+          <app-kpi-card
+            label="Cobrado"
+            icon="payments"
+            [value]="formatMoney(k.collected)"
+            [delta]="prev ? change(k.collected, prev.collected) : null"
+          />
+          <app-kpi-card
+            label="Pendiente"
+            icon="account_balance_wallet"
+            [value]="formatMoney(k.pending)"
+            hint="Saldo actual por cobrar"
+          />
+          <app-kpi-card
+            label="Ocupación"
+            icon="donut_large"
+            [value]="formatPercent(k.occupancyRate)"
+            [delta]="prev ? occupancyChange(k.occupancyRate, prev.occupancyRate) : null"
+          />
+          <app-kpi-card
+            label="Pacientes nuevos"
+            icon="person_add"
+            [value]="formatCount(k.newPatients)"
+            [delta]="prev ? change(k.newPatients, prev.newPatients) : null"
+          />
+          <app-kpi-card
+            label="Canceladas"
+            icon="event_busy"
+            [value]="formatCount(k.cancelled)"
+            [delta]="prev ? change(k.cancelled, prev.cancelled) : null"
+            [lowerIsBetter]="true"
+          />
+        </div>
+      }
     </section>
   </div>
 }
@@ -37,4 +88,8 @@
 
 @if (activeNav() === 'reports') {
   <div class="page"><app-reports-page /></div>
+}
+
+@if (activeNav() === 'testimonials') {
+  <div class="page"><app-testimonial-review /></div>
 }

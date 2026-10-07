@@ -11,6 +11,7 @@ import type { InboundWhatsappMessage } from '../domain/WhatsappInbound';
 import { WhatsappSender, WhatsappSendError } from '../domain/WhatsappSender';
 import type { WhatsappSender as IWhatsappSender } from '../domain/WhatsappSender';
 import type { ChatLink } from '../domain/ChatLink';
+import type { ChatAttachment } from '../domain/ChatAttachment';
 import { ActorResolver } from './actor-resolver';
 import type { ChannelSender } from './actor-resolver';
 import {
@@ -30,13 +31,14 @@ export interface ResolvedInboundMessage {
 /** Respuestas fijas del canal (tuteo, igual que el agente). */
 export const WHATSAPP_REPLIES = {
   nonText:
-    'Por ahora solo puedo leer mensajes de texto. Escríbeme tu consulta, por favor.',
+    'Por ahora solo puedo leer mensajes de texto. Cuéntame por escrito en qué te ayudo y con gusto te respondo.',
   linked:
-    'Listo, este número quedó vinculado a tu cuenta. Ya puedes consultarme por tus citas y tu información.',
+    '¡Listo! Este número quedó vinculado a tu cuenta. Ya puedes preguntarme por tus citas, tus tratamientos y tu saldo.',
   linkFailed:
     'No pude vincular este número. Revisa el código en la web o pide uno nuevo (vence a los 10 minutos).',
-  limit: 'Alcanzaste el límite de mensajes por hoy. Prueba de nuevo mañana.',
-  busy: 'Todavía estoy respondiendo tu mensaje anterior. Espera un momento.',
+  limit:
+    'Por hoy alcanzaste el límite de mensajes. Escríbeme mañana y con gusto te ayudo.',
+  busy: 'Todavía estoy respondiendo tu mensaje anterior. Escríbeme de nuevo cuando te llegue mi respuesta.',
   ambiguousHint:
     'Este número está registrado en más de una cuenta, así que te atiendo como visitante. Para consultar tus datos, pide un código de vinculación en la web de la clínica.',
 } as const;
@@ -57,6 +59,20 @@ function withLinks(reply: string, links: ChatLink[]): string {
   return [reply, ...links.map((link) => `${link.label}: ${link.url}`)].join(
     '\n\n',
   );
+}
+
+interface WhatsappReply {
+  text: string;
+  attachments: ChatAttachment[];
+}
+
+function textOnly(text: string): WhatsappReply {
+  return { text, attachments: [] };
+}
+
+/** WhatsApp no tiene los botones de la tarjeta web: se paga y se avisa por texto. */
+function qrCaption(qr: ChatAttachment): string {
+  return `QR de pago por Bs. ${qr.amountBob}. Vence en 30 minutos. Cuando pagues, escríbeme "ya pagué".`;
 }
 
 /**
@@ -146,9 +162,13 @@ export class WhatsappInboundService {
       return resolved;
     }
 
-    const reply = await this.replyFor(resolved);
+    const { text, attachments } = await this.replyFor(resolved);
     try {
-      await this.sender.sendText(number, reply);
+      await this.sender.sendText(number, text);
+      // El QR de pago va como imagen aparte, después del texto (CLI-236).
+      for (const qr of attachments) {
+        await this.sender.sendImage(number, qr.imageBase64, qrCaption(qr));
+      }
     } catch (error) {
       if (!(error instanceof WhatsappSendError)) throw error;
       this.logger.warn(
@@ -162,16 +182,18 @@ export class WhatsappInboundService {
     message,
     number,
     sender,
-  }: ResolvedInboundMessage): Promise<string> {
+  }: ResolvedInboundMessage): Promise<WhatsappReply> {
     if (message.type !== 'text' || !message.text) {
-      return WHATSAPP_REPLIES.nonText;
+      return textOnly(WHATSAPP_REPLIES.nonText);
     }
     const command = LINK_COMMAND.exec(message.text.trim());
     if (command) {
       const result = await this.linking.redeem('whatsapp', number, command[1]);
-      return result.status === 'linked'
-        ? WHATSAPP_REPLIES.linked
-        : WHATSAPP_REPLIES.linkFailed;
+      return textOnly(
+        result.status === 'linked'
+          ? WHATSAPP_REPLIES.linked
+          : WHATSAPP_REPLIES.linkFailed,
+      );
     }
 
     try {
@@ -186,11 +208,15 @@ export class WhatsappInboundService {
           : { anonToken: anonTokenFor(number), serverIssuedAnonToken: true }),
       });
       const reply = withLinks(result.reply, result.links);
-      return sender.match === 'ambiguous'
-        ? `${WHATSAPP_REPLIES.ambiguousHint}\n\n${reply}`
-        : reply;
+      return {
+        text:
+          sender.match === 'ambiguous'
+            ? `${WHATSAPP_REPLIES.ambiguousHint}\n\n${reply}`
+            : reply,
+        attachments: result.attachments,
+      };
     } catch (error) {
-      return this.replyForError(error);
+      return textOnly(this.replyForError(error));
     }
   }
 

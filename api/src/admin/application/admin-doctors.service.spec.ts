@@ -11,6 +11,7 @@ const mockAdminDoctorRepo = {
   create: jest.fn(),
   update: jest.fn(),
   deactivate: jest.fn(),
+  reactivate: jest.fn(),
 };
 
 const mockPatientInvitesService = {
@@ -199,15 +200,39 @@ describe('AdminDoctorsService', () => {
   });
 
   describe('updateDoctor', () => {
-    it('throws NotFoundException when the repository returns null', async () => {
-      mockAdminDoctorRepo.update.mockResolvedValue(null);
+    it('throws NotFoundException when the doctor does not exist', async () => {
+      mockAdminDoctorRepo.findById.mockResolvedValue(null);
 
       await expect(
         service.updateDoctor('missing', { displayName: 'X' }),
       ).rejects.toThrow(NotFoundException);
+      expect(mockAdminDoctorRepo.update).not.toHaveBeenCalled();
+    });
+
+    it('throws NotFoundException when the repository update returns null', async () => {
+      mockAdminDoctorRepo.findById.mockResolvedValue(DOCTOR);
+      mockAdminDoctorRepo.update.mockResolvedValue(null);
+
+      await expect(
+        service.updateDoctor('doctor-1', { displayName: 'X' }),
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it('throws ConflictException and does not update a deactivated doctor (CLI-198)', async () => {
+      mockAdminDoctorRepo.findById.mockResolvedValue({
+        ...DOCTOR,
+        isActive: false,
+        isBookable: false,
+      });
+
+      await expect(
+        service.updateDoctor('doctor-1', { isBookable: true }),
+      ).rejects.toThrow(new ConflictException('El doctor está dado de baja'));
+      expect(mockAdminDoctorRepo.update).not.toHaveBeenCalled();
     });
 
     it('returns the updated doctor on the happy path', async () => {
+      mockAdminDoctorRepo.findById.mockResolvedValue(DOCTOR);
       mockAdminDoctorRepo.update.mockResolvedValue(DOCTOR);
 
       const result = await service.updateDoctor('doctor-1', {
@@ -218,6 +243,50 @@ describe('AdminDoctorsService', () => {
         specialty: 'Endodoncia',
       });
       expect(result).toEqual(DOCTOR);
+    });
+  });
+
+  describe('reactivateDoctor (CLI-201)', () => {
+    it('throws NotFoundException when the doctor does not exist', async () => {
+      mockAdminDoctorRepo.findById.mockResolvedValue(null);
+
+      await expect(service.reactivateDoctor('missing')).rejects.toThrow(
+        NotFoundException,
+      );
+      expect(mockAdminDoctorRepo.reactivate).not.toHaveBeenCalled();
+    });
+
+    it('throws ConflictException when the doctor is already active', async () => {
+      mockAdminDoctorRepo.findById.mockResolvedValue(DOCTOR);
+
+      await expect(service.reactivateDoctor('doctor-1')).rejects.toThrow(
+        new ConflictException('El doctor ya está habilitado'),
+      );
+      expect(mockAdminDoctorRepo.reactivate).not.toHaveBeenCalled();
+    });
+
+    it('reactivates a deactivated doctor', async () => {
+      mockAdminDoctorRepo.findById.mockResolvedValue({
+        ...DOCTOR,
+        isActive: false,
+        isBookable: false,
+      });
+      mockAdminDoctorRepo.reactivate.mockResolvedValue(DOCTOR);
+
+      expect(await service.reactivateDoctor('doctor-1')).toEqual(DOCTOR);
+      expect(mockAdminDoctorRepo.reactivate).toHaveBeenCalledWith('doctor-1');
+    });
+
+    it('throws NotFoundException if the doctor disappears before reactivating', async () => {
+      mockAdminDoctorRepo.findById.mockResolvedValue({
+        ...DOCTOR,
+        isActive: false,
+      });
+      mockAdminDoctorRepo.reactivate.mockResolvedValue(null);
+
+      await expect(service.reactivateDoctor('doctor-1')).rejects.toThrow(
+        NotFoundException,
+      );
     });
   });
 

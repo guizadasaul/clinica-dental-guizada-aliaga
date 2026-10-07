@@ -36,7 +36,6 @@ function patientRow(overrides: Partial<PatientRecord> = {}): PatientRecord {
     family_history: null,
     document_type: null,
     dni: null,
-    document_extension: null,
     created_at: CREATED,
     updated_at: UPDATED,
     assigned_doctor_id: null,
@@ -46,6 +45,19 @@ function patientRow(overrides: Partial<PatientRecord> = {}): PatientRecord {
 }
 
 describe('PatientMapper.toDomainPatient', () => {
+  it('trae la marca de teléfono no habilitado como login desde users (CLI-143)', () => {
+    const row = patientRow();
+    const patient = PatientMapper.toDomainPatient({
+      ...row,
+      users: { ...row.users, phone_login_error: 'phone_in_use' },
+    });
+
+    expect(patient.phoneLoginError).toBe('phone_in_use');
+    expect(
+      PatientMapper.toDomainPatient(patientRow()).phoneLoginError,
+    ).toBeNull();
+  });
+
   it('toma el teléfono de users y deja en null lo opcional vacío', () => {
     const patient = PatientMapper.toDomainPatient(patientRow());
 
@@ -148,13 +160,8 @@ describe('PatientMapper.toDomainMedicalHistory', () => {
     expect(history.gestationLmpDate).toBe(lmp);
     expect(history.gestationTrimester).toBe(1);
     expect(history.conditions).toEqual([
-      {
-        code: 'diabetes',
-        name: 'Diabetes',
-        diagnosedAt: new Date('2020-01-01'),
-        notes: 'tipo 2',
-      },
-      { code: 'asma', name: 'Asma', diagnosedAt: null, notes: null },
+      { code: 'diabetes', name: 'Diabetes', notes: 'tipo 2' },
+      { code: 'asma', name: 'Asma', notes: null },
     ]);
     expect(history.medications).toEqual([
       {

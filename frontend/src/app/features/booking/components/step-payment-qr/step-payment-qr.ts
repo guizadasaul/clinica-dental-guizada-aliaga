@@ -1,7 +1,10 @@
-import { Component, ChangeDetectionStrategy, inject, input, output, signal } from '@angular/core';
+import { Component, ChangeDetectionStrategy, computed, inject, input, output, signal } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 import { BookingService } from '../../services/booking.service';
 
+const QR_FILE_NAME = 'qr-pago-clinica-guizada-aliaga.png';
+
+/** Sin teléfono del doctor, "Contactanos" cae al WhatsApp de la clínica. */
 const CLINIC_PHONE = '+59157744250';
 
 @Component({
@@ -15,10 +18,24 @@ export class StepPaymentQrComponent {
   readonly appointmentId = input.required<string>();
   readonly qrImageBase64 = input.required<string>();
   readonly amount = input.required<number>();
+  /** Doctor elegido (CLI-166): a él va el botón "Contactanos". */
+  readonly doctorName = input<string | null>(null);
+  readonly doctorPhone = input<string | null>(null);
   readonly confirmed = output<void>();
 
-  protected readonly clinicPhoneHref = `tel:${CLINIC_PHONE}`;
-  protected readonly clinicPhoneLabel = CLINIC_PHONE;
+  /**
+   * WhatsApp con el doctor elegido y un mensaje listo — sin emojis, que
+   * wa.me los corrompe. El número no se muestra: solo viaja en el enlace.
+   */
+  protected readonly contactHref = computed(() => {
+    const phone = (this.doctorPhone() ?? CLINIC_PHONE).replace(/\D/g, '');
+    const greeting = this.doctorName() ? `Hola ${this.doctorName()}` : 'Hola';
+    const text = `${greeting}, acabo de reservar una cita y quiero consultarte sobre mi pago.`;
+    return `https://wa.me/${phone}?text=${encodeURIComponent(text)}`;
+  });
+  /** El QR ya llega en base64: sirve tanto para mostrarlo como para descargarlo (CLI-170), sin otra llamada. */
+  protected readonly qrDataUrl = computed(() => `data:image/png;base64,${this.qrImageBase64()}`);
+  protected readonly qrFileName = QR_FILE_NAME;
   protected readonly checkingNow = signal(false);
   protected readonly justCheckedNotPaid = signal(false);
 

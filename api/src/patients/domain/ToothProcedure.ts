@@ -7,6 +7,8 @@ export interface ToothProcedure {
   toothNumber: number | null;
   applicationGroupId: string | null;
   treatmentId: string;
+  /** CLI-211: nombre del tratamiento, para el historial del paciente. */
+  treatmentName: string;
   /**
    * Del tratamiento aplicado (CLI-107) — el odontograma de tratamientos
    * pinta el diente con el color de la categoría, y los de arcada/boca
@@ -24,5 +26,9 @@ export interface ToothProcedure {
   surfaces: ToothSurfaceCode[];
   notes: string | null;
   performedBy: string;
+  /** CLI-211: nombre de quien lo realizó (el paciente no ve ids). */
+  performedByName: string | null;
+  /** CLI-226: la fila del presupuesto que cumplió; null si no se vinculó. */
+  quoteItemId: string | null;
   createdAt: Date;
 }

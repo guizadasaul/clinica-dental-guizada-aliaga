@@ -190,7 +190,7 @@ describe('PrismaAppointmentsRepository', () => {
   });
 
   describe('findForPatient (CLI-91)', () => {
-    it('trae solo citas confirmadas de ESE paciente, con doctor y tratamiento', async () => {
+    it('trae solo citas confirmadas (o attended) de ESE paciente, con doctor y tratamiento', async () => {
       const from = new Date('2026-09-25T12:00:00Z');
       prismaMock.appointments.findMany.mockResolvedValue([
         fakeAppointmentRecord({
@@ -211,7 +211,7 @@ describe('PrismaAppointmentsRepository', () => {
       expect(prismaMock.appointments.findMany).toHaveBeenCalledWith({
         where: {
           patient_id: 'patient-1',
-          status: 'confirmed',
+          status: { in: ['confirmed', 'attended'] },
           appointment_datetime: { gte: from },
         },
         include: { users: true, treatments: true },
@@ -225,6 +225,7 @@ describe('PrismaAppointmentsRepository', () => {
           durationMinutes: 60,
           doctorName: 'Dr. Ariel Guizada',
           treatmentName: 'Limpieza',
+          status: 'confirmed',
         },
       ]);
     });
@@ -252,6 +253,23 @@ describe('PrismaAppointmentsRepository', () => {
       };
       expect(args.where).toMatchObject({ appointment_datetime: { lt: to } });
       expect(item).toMatchObject({ doctorName: null, treatmentName: null });
+    });
+
+    it('con includeNoShow suma las "No asistió" y sin limit trae todas (CLI-209)', async () => {
+      prismaMock.appointments.findMany.mockResolvedValue([]);
+
+      await repo.findForPatient('patient-1', {
+        order: 'desc',
+        includeNoShow: true,
+      });
+
+      const args = (
+        prismaMock.appointments.findMany.mock.calls as unknown[][]
+      )[0][0] as { where: Record<string, unknown>; take?: number };
+      expect(args.where.status).toEqual({
+        in: ['confirmed', 'attended', 'no_show'],
+      });
+      expect(args.take).toBeUndefined();
     });
 
     it('sin rango no filtra por fecha', async () => {
@@ -497,19 +515,19 @@ describe('PrismaAppointmentsRepository', () => {
   });
 
   describe('cancel', () => {
-    it('pasa a cancelled con quién y cuándo, agregando el motivo a las notas', async () => {
-      prismaMock.appointments.findFirst
-        .mockResolvedValueOnce({ notes: 'control' })
-        .mockResolvedValueOnce(
-          fakeAppointmentRecord({
-            status: 'cancelled',
-            cancelled_at: NOW,
-            doctor_id: 'doctor-1',
-            patients: null,
-            users: { display_name: 'Dr. Saul', doctor_profiles: null },
-            treatments: null,
-          }),
-        );
+    it('pasa a cancelled con quién, cuándo y el motivo en su propia columna (CLI-103)', async () => {
+      prismaMock.appointments.findFirst.mockResolvedValueOnce(
+        fakeAppointmentRecord({
+          status: 'cancelled',
+          cancelled_at: NOW,
+          cancel_reason: 'no puede venir',
+          doctor_id: 'doctor-1',
+          patients: null,
+          users: { display_name: 'Dr. Saul', doctor_profiles: null },
+          treatments: null,
+          cancelled_by_user: { display_name: 'Dr. Saul' },
+        }),
+      );
       prismaMock.appointments.updateMany.mockResolvedValue({ count: 1 });
 
       const result = await repo.cancel(
@@ -533,34 +551,99 @@ describe('PrismaAppointmentsRepository', () => {
       expect(call.data).toMatchObject({
         status: 'cancelled',
         cancelled_by: 'doctor-1',
-        notes: 'control\nCancelada: no puede venir',
+        cancel_reason: 'no puede venir',
       });
+      // Las notas del turno no se tocan.
+      expect(call.data).not.toHaveProperty('notes');
       expect(call.data.cancelled_at).toBeInstanceOf(Date);
-      expect(result).toMatchObject({ status: 'cancelled', cancelledAt: NOW });
+      expect(result).toMatchObject({
+        status: 'cancelled',
+        cancelledAt: NOW,
+        cancelReason: 'no puede venir',
+        cancelledByName: 'Dr. Saul',
+      });
     });
 
-    it('sin motivo ni notas previas deja las notas en null', async () => {
-      prismaMock.appointments.findFirst
-        .mockResolvedValueOnce({ notes: null })
-        .mockResolvedValueOnce(null);
+    it('sin motivo guarda cancel_reason en null', async () => {
+      prismaMock.appointments.findFirst.mockResolvedValueOnce(null);
       prismaMock.appointments.updateMany.mockResolvedValue({ count: 1 });
 
       await repo.cancel('appt-1', 'doctor-1', 'doctor-1', null);
 
       expect(prismaMock.appointments.updateMany).toHaveBeenCalledWith(
         expect.objectContaining({
-          data: expect.objectContaining({ notes: null }) as unknown,
+          data: expect.objectContaining({ cancel_reason: null }) as unknown,
         }),
       );
     });
 
-    it('devuelve null sin escribir si ya no estaba confirmada', async () => {
-      prismaMock.appointments.findFirst.mockResolvedValue(null);
+    it('devuelve null si ya no estaba confirmada (no se actualizó nada)', async () => {
+      prismaMock.appointments.updateMany.mockResolvedValue({ count: 0 });
 
       await expect(
         repo.cancel('appt-1', 'doctor-1', 'doctor-1', null),
       ).resolves.toBeNull();
-      expect(prismaMock.appointments.updateMany).not.toHaveBeenCalled();
+      expect(prismaMock.appointments.findFirst).not.toHaveBeenCalled();
+    });
+  });
+
+  // CLI-208
+  describe('setAttendance', () => {
+    it('mueve el estado solo si la cita del doctor está en `from`', async () => {
+      prismaMock.appointments.updateMany.mockResolvedValue({ count: 1 });
+      prismaMock.appointments.findFirst.mockResolvedValueOnce(
+        fakeAppointmentRecord({
+          status: 'no_show',
+          doctor_id: 'doctor-1',
+          patients: null,
+          users: { display_name: 'Dr. Saul', doctor_profiles: null },
+          treatments: null,
+          cancelled_by_user: null,
+        }),
+      );
+
+      const result = await repo.setAttendance(
+        'appt-1',
+        'doctor-1',
+        'confirmed',
+        'no_show',
+      );
+
+      expect(prismaMock.appointments.updateMany).toHaveBeenCalledWith({
+        where: { id: 'appt-1', doctor_id: 'doctor-1', status: 'confirmed' },
+        data: { status: 'no_show' },
+      });
+      expect(result).toMatchObject({ status: 'no_show' });
+    });
+
+    it('null si ya no estaba en `from`', async () => {
+      prismaMock.appointments.updateMany.mockResolvedValue({ count: 0 });
+
+      await expect(
+        repo.setAttendance('appt-1', 'doctor-1', 'no_show', 'confirmed'),
+      ).resolves.toBeNull();
+      expect(prismaMock.appointments.findFirst).not.toHaveBeenCalled();
+    });
+
+    it('traduce el choque del índice único a SlotUnavailableError', async () => {
+      prismaMock.appointments.updateMany.mockRejectedValue(
+        new Prisma.PrismaClientKnownRequestError('unique', {
+          code: 'P2002',
+          clientVersion: 'test',
+        }),
+      );
+
+      await expect(
+        repo.setAttendance('appt-1', 'doctor-1', 'no_show', 'confirmed'),
+      ).rejects.toThrow(SlotUnavailableError);
+    });
+
+    it('propaga cualquier otro error', async () => {
+      prismaMock.appointments.updateMany.mockRejectedValue(new Error('boom'));
+
+      await expect(
+        repo.setAttendance('appt-1', 'doctor-1', 'confirmed', 'no_show'),
+      ).rejects.toThrow('boom');
     });
   });
 
@@ -680,7 +763,7 @@ describe('PrismaAppointmentsRepository', () => {
     });
 
     it('throws GuestEmailBelongsToAccountError when the email already belongs to a user, without touching appointments', async () => {
-      prismaMock.users.findUnique.mockResolvedValue({ id: 'user-1' });
+      prismaMock.users.findFirst.mockResolvedValue({ id: 'user-1' });
 
       await expect(
         repo.updateGuestContact(
@@ -695,8 +778,8 @@ describe('PrismaAppointmentsRepository', () => {
           NOW,
         ),
       ).rejects.toThrow(GuestEmailBelongsToAccountError);
-      expect(prismaMock.users.findUnique).toHaveBeenCalledWith({
-        where: { email: 'ya@existe.com' },
+      expect(prismaMock.users.findFirst).toHaveBeenCalledWith({
+        where: { email: 'ya@existe.com', is_active: true },
       });
       expect(prismaMock.appointments.updateMany).not.toHaveBeenCalled();
     });
@@ -718,7 +801,7 @@ describe('PrismaAppointmentsRepository', () => {
         ),
       ).rejects.toThrow(GuestPhoneBelongsToAccountError);
       expect(prismaMock.users.findFirst).toHaveBeenCalledWith({
-        where: { phone: '70011122' },
+        where: { phone: '70011122', is_active: true },
       });
       expect(prismaMock.appointments.updateMany).not.toHaveBeenCalled();
     });

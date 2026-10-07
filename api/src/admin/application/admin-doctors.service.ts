@@ -21,6 +21,8 @@ export interface CreateDoctorResult {
   doctor: AdminDoctorDetail;
 }
 
+const DEACTIVATED_DOCTOR_MESSAGE = 'El doctor está dado de baja';
+
 @Injectable()
 export class AdminDoctorsService {
   constructor(
@@ -62,7 +64,7 @@ export class AdminDoctorsService {
       throw new ConflictException('El doctor ya se registró');
     }
     if (!doctor.isActive) {
-      throw new ConflictException('El doctor está dado de baja');
+      throw new ConflictException(DEACTIVATED_DOCTOR_MESSAGE);
     }
     return this.patientInvitesService.createInviteForUser(
       id,
@@ -76,11 +78,32 @@ export class AdminDoctorsService {
     );
   }
 
+  /**
+   * Un doctor dado de baja ya no se edita (CLI-198): su ficha queda como
+   * historial. Sin este chequeo, un PATCH podía volver a marcarlo reservable.
+   */
   async updateDoctor(
     id: string,
     data: UpdateAdminDoctorData,
   ): Promise<AdminDoctorDetail> {
+    const current = await this.findById(id);
+    if (!current.isActive) {
+      throw new ConflictException(DEACTIVATED_DOCTOR_MESSAGE);
+    }
     const doctor = await this.adminDoctorRepo.update(id, data);
+    if (!doctor) {
+      throw new NotFoundException('Doctor no encontrado');
+    }
+    return doctor;
+  }
+
+  /** CLI-201: solo un doctor dado de baja se puede volver a habilitar. */
+  async reactivateDoctor(id: string): Promise<AdminDoctorDetail> {
+    const current = await this.findById(id);
+    if (current.isActive) {
+      throw new ConflictException('El doctor ya está habilitado');
+    }
+    const doctor = await this.adminDoctorRepo.reactivate(id);
     if (!doctor) {
       throw new NotFoundException('Doctor no encontrado');
     }

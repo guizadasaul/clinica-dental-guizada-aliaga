@@ -64,20 +64,77 @@ describe('CreatePatientDto', () => {
   });
 
   // Entrada real usada en la verificación manual del plan: espacios de más +
-  // mayúsculas mezcladas en el nombre, DNI con puntos.
-  it('normaliza nombre con espacios de más y mayúsculas mezcladas, y DNI con puntos', async () => {
+  // mayúsculas mezcladas en el nombre, documento en minúsculas con extensión.
+  it('normaliza nombre con espacios de más y mayúsculas mezcladas, y el documento a mayúsculas', async () => {
     const dto = plainToInstance(CreatePatientDto, {
       ...VALID_PATIENT,
       firstName: '  aDrIaN   ',
       lastNamePaternal: 'mercado',
-      dni: '12.345.678',
+      dni: ' 1234567-lp ',
     });
     const errors = await validate(dto);
     expect(errors).toHaveLength(0);
     expect(dto.firstName).toBe('Adrian');
     expect(dto.lastNamePaternal).toBe('Mercado');
-    expect(dto.dni).toBe('12345678');
+    expect(dto.dni).toBe('1234567-LP');
   });
+
+  // CLI-183: los textos cortos van con mayúscula inicial y un solo espacio; los
+  // largos solo sin espacios de más.
+  it('deja ocupación, dirección y parentesco con mayúscula inicial y un solo espacio', async () => {
+    const dto = plainToInstance(CreatePatientDto, {
+      ...VALID_PATIENT,
+      occupation: '  ingeniero   en sistemas ',
+      address: 'av.   6 de agosto   y calle sucre',
+      emergencyContactRelationship: ' madre ',
+    });
+    expect(await validate(dto)).toHaveLength(0);
+    expect(dto.occupation).toBe('Ingeniero en Sistemas');
+    expect(dto.address).toBe('Av. 6 de Agosto y Calle Sucre');
+    expect(dto.emergencyContactRelationship).toBe('Madre');
+  });
+
+  it('lugar, zona, ciudad y nombres también: "  santa   cruz " → "Santa Cruz"', async () => {
+    const dto = plainToInstance(CreatePatientDto, {
+      ...VALID_PATIENT,
+      firstName: ' juan   carlos ',
+      birthPlace: '  santa   cruz ',
+      zona: 'zona   norte',
+      ciudad: ' cochabamba ',
+    });
+    expect(await validate(dto)).toHaveLength(0);
+    expect(dto.firstName).toBe('Juan Carlos');
+    expect(dto.birthPlace).toBe('Santa Cruz');
+    expect(dto.zona).toBe('Zona Norte');
+    expect(dto.ciudad).toBe('Cochabamba');
+  });
+
+  it('los textos largos conservan su redacción y solo pierden los espacios de más', async () => {
+    const dto = plainToInstance(CreatePatientDto, {
+      ...VALID_PATIENT,
+      consultationReason: '  dolor   en la muela   DERECHA ',
+      lastVisitTreatment: ' Limpieza   dental ',
+      familyHistory: ' diabetes   en la madre ',
+    });
+    expect(await validate(dto)).toHaveLength(0);
+    expect(dto.consultationReason).toBe('dolor en la muela DERECHA');
+    expect(dto.lastVisitTreatment).toBe('Limpieza dental');
+    expect(dto.familyHistory).toBe('diabetes en la madre');
+  });
+
+  // CLI-177: sin espacios ni puntos (se rechazan, no se borran) y hasta 12.
+  it.each([['12.345.678'], ['12 345 678'], ['1234567890123']])(
+    'rechaza el documento %p con un mensaje que nombra el tipo',
+    async (dni) => {
+      const errors = await validatePatient({ documentType: 'ci', dni });
+      const dniError = errors.find((e) => e.property === 'dni');
+      expect(dniError).toBeDefined();
+      expect(JSON.stringify(dniError?.constraints)).toContain(
+        'El número de CI',
+      );
+      expect(JSON.stringify(dniError?.constraints)).not.toContain('DNI');
+    },
+  );
 
   it('rechaza una fecha de nacimiento futura', async () => {
     const errors = await validatePatient({ birthDate: isoDaysFromNow(1) });
@@ -104,7 +161,7 @@ describe('CreatePatientDto', () => {
     expect(errors.some((e) => e.property === 'lastDentistVisit')).toBe(true);
   });
 
-  it('rechaza un DNI mal formado luego de normalizar (muy corto)', async () => {
+  it('rechaza un documento mal formado luego de normalizar (muy corto)', async () => {
     const errors = await validatePatient({ dni: '123' });
     expect(errors.some((e) => e.property === 'dni')).toBe(true);
   });
@@ -151,6 +208,31 @@ describe('CreatePatientDto', () => {
   it('rechaza un teléfono que no está en E.164', async () => {
     const errors = await validatePatient({ phone: '77842665' });
     expect(errors.some((e) => e.property === 'phone')).toBe(true);
+  });
+
+  // CLI-181: el correo es opcional en el DTO (la regla "teléfono o correo" la
+  // aplica el servicio) y llega normalizado.
+  it('acepta un correo válido y lo deja sin espacios y en minúsculas', async () => {
+    const dto = plainToInstance(CreatePatientDto, {
+      ...VALID_PATIENT,
+      email: '  Ana.Arce@Mail.COM ',
+    });
+    expect(await validate(dto)).toHaveLength(0);
+    expect(dto.email).toBe('ana.arce@mail.com');
+  });
+
+  it('rechaza un correo con formato inválido', async () => {
+    const errors = await validatePatient({ email: 'ana@' });
+    expect(errors.some((e) => e.property === 'email')).toBe(true);
+  });
+
+  it('un correo vacío se trata como no enviado', async () => {
+    const dto = plainToInstance(CreatePatientDto, {
+      ...VALID_PATIENT,
+      email: '',
+    });
+    expect(await validate(dto)).toHaveLength(0);
+    expect(dto.email).toBeUndefined();
   });
 
   it('"" en un campo de texto opcional se trata como no enviado (EmptyToUndefined)', async () => {
@@ -232,48 +314,18 @@ describe('CreatePatientDto', () => {
     },
   );
 
-  describe('documentExtension', () => {
-    it('es opcional', async () => {
-      expect(
-        await validatePatient({ documentExtension: undefined }),
-      ).toHaveLength(0);
-      expect(await validatePatient({ documentExtension: null })).toHaveLength(
-        0,
-      );
-      expect(await validatePatient({ documentExtension: '' })).toHaveLength(0);
+  // CLI-177: ya no hay campo de extensión; si llega, la API lo rechaza.
+  it('rechaza documentExtension (la extensión va dentro del número)', async () => {
+    // Mismas opciones que el ValidationPipe de la app (app.config.ts).
+    const dto = plainToInstance(CreatePatientDto, {
+      ...VALID_PATIENT,
+      documentExtension: 'LP',
     });
-
-    it('normaliza a mayúsculas sin espacios ni guiones', async () => {
-      const dto = plainToInstance(CreatePatientDto, {
-        ...VALID_PATIENT,
-        documentExtension: ' 1-a ',
-      });
-      expect(await validate(dto)).toHaveLength(0);
-      expect(dto.documentExtension).toBe('1A');
+    const errors = await validate(dto, {
+      whitelist: true,
+      forbidNonWhitelisted: true,
     });
-
-    it('acepta hasta 12 caracteres y rechaza 13', async () => {
-      expect(
-        await validatePatient({ documentExtension: 'A'.repeat(12) }),
-      ).toHaveLength(0);
-      const errors = await validatePatient({
-        documentExtension: 'A'.repeat(13),
-      });
-      expect(errors.some((e) => e.property === 'documentExtension')).toBe(true);
-    });
-
-    it('rechaza caracteres que no sean letras ni números', async () => {
-      const errors = await validatePatient({ documentExtension: 'L/P' });
-      expect(errors.some((e) => e.property === 'documentExtension')).toBe(true);
-    });
-
-    it('solo se acepta para una CI', async () => {
-      const errors = await validatePatient({
-        documentType: 'pasaporte',
-        documentExtension: 'LP',
-      });
-      expect(errors.some((e) => e.property === 'documentExtension')).toBe(true);
-    });
+    expect(errors.some((e) => e.property === 'documentExtension')).toBe(true);
   });
 
   // "admin'--" es, carácter por carácter, letras + apostrofo + guiones — la

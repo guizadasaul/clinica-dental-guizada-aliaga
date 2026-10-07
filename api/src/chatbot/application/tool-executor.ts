@@ -1,9 +1,11 @@
 import {
   BadRequestException,
+  ConflictException,
   Inject,
   Injectable,
   Logger,
   NotFoundException,
+  UnprocessableEntityException,
 } from '@nestjs/common';
 import type { ChatActor } from '../domain/ChatActor';
 import { chatAuditContext } from '../domain/ChatAudit';
@@ -113,6 +115,7 @@ export class ToolExecutor implements ToolExecutionPort {
     try {
       const result = await this.withTimeout(
         tool.execute(actor, validation.value),
+        tool.timeoutMs,
       );
       if (result instanceof ToolOutputWithLinks) {
         return {
@@ -120,6 +123,7 @@ export class ToolExecutor implements ToolExecutionPort {
           status: 'ok',
           content: this.serialize(result.data),
           links: result.links,
+          attachments: result.attachments,
         };
       }
       return {
@@ -127,6 +131,7 @@ export class ToolExecutor implements ToolExecutionPort {
         status: 'ok',
         content: this.serialize(result),
         links: [],
+        attachments: [],
       };
     } catch (error) {
       return this.error(
@@ -137,11 +142,13 @@ export class ToolExecutor implements ToolExecutionPort {
     }
   }
 
-  private async withTimeout<T>(promise: Promise<T>): Promise<T> {
-    const timeoutMs = readEnvInt(
-      'CHAT_TOOL_TIMEOUT_MS',
-      DEFAULT_TOOL_TIMEOUT_MS,
-    );
+  private async withTimeout<T>(
+    promise: Promise<T>,
+    toolTimeoutMs: number | undefined,
+  ): Promise<T> {
+    const timeoutMs =
+      toolTimeoutMs ??
+      readEnvInt('CHAT_TOOL_TIMEOUT_MS', DEFAULT_TOOL_TIMEOUT_MS);
     let timer: NodeJS.Timeout | undefined;
     const timeout = new Promise<never>((_resolve, reject) => {
       timer = setTimeout(() => reject(new ToolTimeoutError()), timeoutMs);
@@ -156,7 +163,15 @@ export class ToolExecutor implements ToolExecutionPort {
   private errorCodeFor(toolName: string, error: unknown): ToolErrorCode {
     if (error instanceof ToolTimeoutError) return 'timeout';
     if (error instanceof NotFoundException) return 'not_found';
-    if (error instanceof BadRequestException) return 'invalid_request';
+    // Reglas de negocio que rechazan el pedido (ej. un QR que no se puede
+    // generar, CLI-236): el modelo recibe el código, no el detalle.
+    if (
+      error instanceof BadRequestException ||
+      error instanceof ConflictException ||
+      error instanceof UnprocessableEntityException
+    ) {
+      return 'invalid_request';
+    }
     // El detalle queda solo en el log del servidor, nunca vuelve al modelo.
     this.logger.error(`La tool ${toolName} falló`, error);
     return 'internal_error';
@@ -196,6 +211,7 @@ export class ToolExecutor implements ToolExecutionPort {
       status,
       content: JSON.stringify({ error: code, ...extra }),
       links: [],
+      attachments: [],
     };
   }
 }

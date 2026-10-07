@@ -30,6 +30,20 @@ describe('CreateToothProcedureDto', () => {
     expect(errors).toHaveLength(0);
   });
 
+  // CLI-180: solo dientes que existen en la numeración FDI.
+  it.each([[19], [20], [56], [70], [49]])(
+    'rechaza el diente %i (no existe en FDI)',
+    async (number) => {
+      const errors = await validateProcedure({ teeth: [{ number }] });
+      expect(errors.some((e) => e.property === 'teeth')).toBe(true);
+    },
+  );
+
+  it.each([[11], [48], [51], [85]])('acepta el diente %i', async (number) => {
+    const errors = await validateProcedure({ teeth: [{ number }] });
+    expect(errors).toHaveLength(0);
+  });
+
   it('acepta teeth vacío (tratamientos de arcada/boca completa/sin diente)', async () => {
     const errors = await validateProcedure({ teeth: [] });
     expect(errors).toHaveLength(0);
@@ -77,16 +91,7 @@ describe('CreateToothProcedureDto', () => {
     expect(errors.some((e) => e.property === 'priceCharged')).toBe(true);
   });
 
-  // A diferencia de create-odontogram-entries.dto.ts, teeth[].number acá NO
-  // lleva IsFdiToothNumber() (fuera de alcance de CLI-39/CLI-41 para este
-  // DTO) — sigue validando solo con @Min(11) @Max(85), así que 19
-  // (inexistente en FDI) todavía pasa.
-  it('un diente FDI inexistente (19) todavía pasa Min/Max en teeth[].number', async () => {
-    const errors = await validateProcedure({ teeth: [{ number: 19 }] });
-    expect(errors).toHaveLength(0);
-  });
-
-  it('rechaza un número de diente fuera de Min/Max', async () => {
+  it('rechaza un número de diente inexistente (9)', async () => {
     const errors = await validateProcedure({ teeth: [{ number: 9 }] });
     expect(errors.length).toBeGreaterThan(0);
   });

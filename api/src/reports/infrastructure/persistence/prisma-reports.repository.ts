@@ -8,11 +8,13 @@ import {
 } from '../../../appointments/domain/ClinicSchedule.js';
 import type { WeeklyScheduleBlock } from '../../../appointments/domain/ClinicSchedule.js';
 import { AppointmentStatus } from '../../../appointments/domain/Appointment.js';
-import type {
-  AppointmentStatusCounts,
-  DoctorOperationalRow,
-  OperationalReport,
-  ReportParams,
+import {
+  reportedAppointmentStatus,
+  type AppointmentStatusCounts,
+  type CancelledAppointmentRow,
+  type DoctorOperationalRow,
+  type OperationalReport,
+  type ReportParams,
 } from '../../domain/OperationalReport.js';
 import type {
   DoctorFinancialRow,
@@ -20,6 +22,7 @@ import type {
 } from '../../domain/FinancialReport.js';
 import type { IReportsRepository } from '../../domain/ReportsRepository.js';
 import type { TopTreatmentsReport } from '../../domain/TopTreatmentsReport.js';
+import type { TrendDay, TrendsReport } from '../../domain/TrendsReport.js';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -53,6 +56,13 @@ function lastInclusiveDateString(toExclusive: Date): string {
   return toClinicDateString(new Date(toExclusive.getTime() - 1));
 }
 
+function fullName(
+  first: string | null | undefined,
+  last: string | null | undefined,
+): string | null {
+  return [first, last].filter(Boolean).join(' ') || null;
+}
+
 @Injectable()
 export class PrismaReportsRepository implements IReportsRepository {
   constructor(private readonly prisma: PrismaService) {}
@@ -71,43 +81,71 @@ export class PrismaReportsRepository implements IReportsRepository {
     const to = lastInclusiveDateString(params.to);
 
     if (doctors.length === 0) {
-      return { from, to, doctors: [] };
+      return { from, to, doctors: [], cancellations: [] };
     }
 
     const doctorIds = doctors.map((d) => d.id);
 
-    const [statusCounts, patientCounts, scheduleBlocks] = await Promise.all([
-      this.prisma.appointments.groupBy({
-        by: ['doctor_id', 'status'],
-        where: {
-          appointment_datetime: { gte: params.from, lt: params.to },
-          doctor_id: { in: doctorIds },
-        },
-        _count: { _all: true },
-      }),
-      // CLI-65: "atendidos" se reporta con los estados reales que existen
-      // hoy en appointments (held/confirmed/expired, y cancelled desde
-      // CLI-149) — no hay ningún flujo
-      // que transicione una cita a 'attended' (no existe check-in), así que
-      // ese estado nunca aparece poblado. No se inventa ese flujo acá.
-      this.prisma.patients.groupBy({
-        by: ['assigned_doctor_id'],
-        where: {
-          created_at: { gte: params.from, lt: params.to },
-          assigned_doctor_id: { in: doctorIds },
-        },
-        _count: { _all: true },
-      }),
-      this.prisma.doctor_schedule_blocks.findMany({
-        where: { doctor_id: { in: doctorIds } },
-      }),
-    ]);
+    const [appointments, patientCounts, scheduleBlocks, cancelled] =
+      await Promise.all([
+        // CLI-224: fecha y estado de cada cita, porque una confirmada se
+        // reporta como atendida si su hora ya pasó (ver
+        // reportedAppointmentStatus).
+        this.prisma.appointments.findMany({
+          where: {
+            appointment_datetime: { gte: params.from, lt: params.to },
+            doctor_id: { in: doctorIds },
+          },
+          select: { doctor_id: true, status: true, appointment_datetime: true },
+        }),
+        this.prisma.patients.groupBy({
+          by: ['assigned_doctor_id'],
+          where: {
+            created_at: { gte: params.from, lt: params.to },
+            assigned_doctor_id: { in: doctorIds },
+          },
+          _count: { _all: true },
+        }),
+        this.prisma.doctor_schedule_blocks.findMany({
+          where: { doctor_id: { in: doctorIds } },
+        }),
+        // CLI-103: mismo rango y doctores que el conteo de canceladas.
+        this.prisma.appointments.findMany({
+          where: {
+            status: AppointmentStatus.CANCELLED,
+            appointment_datetime: { gte: params.from, lt: params.to },
+            doctor_id: { in: doctorIds },
+          },
+          select: {
+            id: true,
+            appointment_datetime: true,
+            doctor_id: true,
+            cancelled_at: true,
+            cancel_reason: true,
+            guest_first_name: true,
+            guest_last_name_paternal: true,
+            patients: {
+              select: { first_name: true, last_name_paternal: true },
+            },
+            users: { select: { display_name: true } },
+            cancelled_by_user: { select: { display_name: true } },
+          },
+          orderBy: { appointment_datetime: 'desc' },
+        }),
+      ]);
 
+    const now = new Date();
     const statusByDoctor = new Map<string, AppointmentStatusCounts>();
-    for (const row of statusCounts) {
-      const counts = statusByDoctor.get(row.doctor_id) ?? {};
-      counts[row.status] = row._count._all;
-      statusByDoctor.set(row.doctor_id, counts);
+    for (const appointment of appointments) {
+      const status = reportedAppointmentStatus(
+        appointment.status,
+        appointment.appointment_datetime,
+        now,
+      );
+      if (!status) continue;
+      const counts = statusByDoctor.get(appointment.doctor_id) ?? {};
+      counts[status] = (counts[status] ?? 0) + 1;
+      statusByDoctor.set(appointment.doctor_id, counts);
     }
 
     const newPatientsByDoctor = new Map<string, number>();
@@ -140,7 +178,9 @@ export class PrismaReportsRepository implements IReportsRepository {
           status === AppointmentStatus.CANCELLED ? sum : sum + count,
         0,
       );
-      const confirmedAppointments = appointmentsByStatus['confirmed'] ?? 0;
+      const confirmedAppointments =
+        (appointmentsByStatus['confirmed'] ?? 0) +
+        (appointmentsByStatus['attended'] ?? 0);
 
       const schedule = groupBlocksByWeekday(
         blocksByDoctor.get(doctor.id) ?? [],
@@ -167,7 +207,21 @@ export class PrismaReportsRepository implements IReportsRepository {
       };
     });
 
-    return { from, to, doctors: rows };
+    const cancellations: CancelledAppointmentRow[] = cancelled.map((a) => ({
+      appointmentId: a.id,
+      appointmentDatetime: a.appointment_datetime,
+      doctorId: a.doctor_id,
+      doctorName: a.users.display_name,
+      patientName: fullName(
+        a.patients?.first_name ?? a.guest_first_name,
+        a.patients?.last_name_paternal ?? a.guest_last_name_paternal,
+      ),
+      cancelledAt: a.cancelled_at,
+      cancelledByName: a.cancelled_by_user?.display_name ?? null,
+      cancelReason: a.cancel_reason,
+    }));
+
+    return { from, to, doctors: rows, cancellations };
   }
 
   async getFinancialReport(params: ReportParams): Promise<FinancialReport> {
@@ -300,5 +354,74 @@ export class PrismaReportsRepository implements IReportsRepository {
         count: g._count._all,
       })),
     };
+  }
+
+  /**
+   * Serie diaria (CLI-199): citas por estado según la fecha de la cita, y
+   * cobrado según la fecha del pago — ambas en el huso de la clínica. El
+   * filtro por doctor sigue el mismo criterio que los otros reportes: la cita
+   * por su doctor, el pago por el doctor asignado al paciente del presupuesto.
+   */
+  async getTrends(params: ReportParams): Promise<TrendsReport> {
+    const from = toClinicDateString(params.from);
+    const to = lastInclusiveDateString(params.to);
+
+    const [appointments, payments] = await Promise.all([
+      this.prisma.appointments.findMany({
+        where: {
+          appointment_datetime: { gte: params.from, lt: params.to },
+          ...(params.doctorId && { doctor_id: params.doctorId }),
+        },
+        select: { appointment_datetime: true, status: true },
+      }),
+      this.prisma.payments.findMany({
+        where: { payment_date: { gte: params.from, lt: params.to } },
+        select: {
+          payment_date: true,
+          amount: true,
+          quotes: {
+            select: { patients: { select: { assigned_doctor_id: true } } },
+          },
+        },
+      }),
+    ]);
+
+    const days = new Map<string, TrendDay>(
+      enumerateDateStrings(params.from, params.to).map((date) => [
+        date,
+        { date, appointmentsByStatus: {}, collected: 0 },
+      ]),
+    );
+
+    const now = new Date();
+    for (const appointment of appointments) {
+      const status = reportedAppointmentStatus(
+        appointment.status,
+        appointment.appointment_datetime,
+        now,
+      );
+      const day = days.get(
+        toClinicDateString(appointment.appointment_datetime),
+      );
+      if (status && day) {
+        day.appointmentsByStatus[status] =
+          (day.appointmentsByStatus[status] ?? 0) + 1;
+      }
+    }
+
+    for (const payment of payments) {
+      const doctorId = payment.quotes.patients.assigned_doctor_id;
+      if (params.doctorId && doctorId !== params.doctorId) {
+        continue;
+      }
+      const day = days.get(toClinicDateString(payment.payment_date));
+      if (day) {
+        // Redondeo a centavos: sumar Decimals como number acumula error binario.
+        day.collected =
+          Math.round((day.collected + Number(payment.amount)) * 100) / 100;
+      }
+    }
+
+    return { from, to, days: [...days.values()] };
   }
 }

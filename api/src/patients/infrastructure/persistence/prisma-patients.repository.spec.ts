@@ -191,9 +191,7 @@ describe('PrismaPatientsRepository.upsertMedicalHistory', () => {
     const repo = new PrismaPatientsRepository(mockPrisma as never);
 
     await repo.upsertMedicalHistory('patient-1', {
-      conditions: [
-        { medicalConditionId: 'cond-1', diagnosedAt: new Date('2020-01-01') },
-      ],
+      conditions: [{ medicalConditionId: 'cond-1' }],
     });
 
     expect(mockTx.patient_medical_conditions.deleteMany).toHaveBeenCalledWith({
@@ -289,7 +287,7 @@ describe('PrismaPatientsRepository.findMedicalHistory', () => {
     const result = await repo.findMedicalHistory('patient-1');
 
     expect(result?.conditions).toEqual([
-      { code: 'diabetes', name: 'Diabetes', diagnosedAt: null, notes: null },
+      { code: 'diabetes', name: 'Diabetes', notes: null },
     ]);
   });
 });
@@ -369,7 +367,9 @@ describe('PrismaPatientsRepository.findAllWithUsers', () => {
     await repo.findAllWithUsers();
 
     expect(mockPrisma.users.findMany).toHaveBeenCalledWith(
-      expect.objectContaining({ where: { role: 'patient' } }),
+      expect.objectContaining({
+        where: { role: 'patient', is_active: true },
+      }),
     );
   });
 
@@ -385,6 +385,7 @@ describe('PrismaPatientsRepository.findAllWithUsers', () => {
       expect.objectContaining({
         where: {
           role: 'patient',
+          is_active: true,
           patients: { assigned_doctor_id: 'doctor-a' },
         },
       }),
@@ -444,6 +445,125 @@ describe('PrismaPatientsRepository.create', () => {
         }) as Record<string, unknown>,
       }),
     );
+  });
+});
+
+// CLI-171: paciente que llega sin reserva previa — usuario placeholder + ficha, atómico.
+describe('PrismaPatientsRepository.createWithPlaceholderUser', () => {
+  function setup(patientCreate: jest.Mock = jest.fn()) {
+    const tx = {
+      users: { create: jest.fn().mockResolvedValue({ id: 'new-user' }) },
+      patients: {
+        create: patientCreate.mockResolvedValue({
+          id: 'patient-1',
+          users: { phone: '71234567' },
+        }),
+      },
+    };
+    const prisma = {
+      transaction: jest.fn((fn: (t: unknown) => unknown) => fn(tx)),
+    };
+    return { tx, prisma, repo: new PrismaPatientsRepository(prisma as never) };
+  }
+
+  const DATA = {
+    firstName: 'Ana',
+    lastNamePaternal: 'Arce',
+    birthDate: new Date('1990-01-01'),
+    assignedDoctorId: 'doctor-1',
+  };
+
+  it('crea el usuario sin cuenta ni email y la ficha con ese usuario, en una transacción', async () => {
+    const { tx, prisma, repo } = setup();
+
+    await repo.createWithPlaceholderUser(
+      { displayName: 'Ana Arce', phone: '71234567' },
+      DATA,
+    );
+
+    expect(prisma.transaction).toHaveBeenCalledTimes(1);
+    expect(tx.users.create).toHaveBeenCalledWith({
+      data: {
+        auth_user_id: null,
+        email: null,
+        display_name: 'Ana Arce',
+        phone: '71234567',
+        role: 'patient',
+      },
+    });
+    expect(tx.patients.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          user_id: 'new-user',
+          first_name: 'Ana',
+          assigned_doctor_id: 'doctor-1',
+        }) as Record<string, unknown>,
+      }),
+    );
+  });
+
+  it('si falla la ficha dentro de la transacción, el error sube (Prisma revierte también el usuario)', async () => {
+    const { tx, repo } = setup(
+      jest.fn().mockRejectedValue(new Error('Unique constraint failed')),
+    );
+    tx.patients.create.mockRejectedValue(new Error('Unique constraint failed'));
+
+    await expect(
+      repo.createWithPlaceholderUser({ displayName: 'Ana', phone: null }, DATA),
+    ).rejects.toThrow('Unique constraint failed');
+  });
+});
+
+describe('PrismaPatientsRepository.findFieldOptions (CLI-178)', () => {
+  it('devuelve los valores usados de cada campo, el más usado primero y sin vacíos', async () => {
+    const groupBy = jest.fn(({ by }: { by: string[] }) => {
+      const column = by[0];
+      const rows: Record<string, { value: string | null; n: number }[]> = {
+        birth_place: [
+          { value: 'Oruro', n: 1 },
+          { value: 'Cochabamba', n: 3 },
+          { value: 'La Paz', n: 1 },
+        ],
+        zona: [
+          { value: 'Zona Norte', n: 2 },
+          { value: '  ', n: 4 },
+        ],
+        ciudad: [],
+      };
+      return Promise.resolve(
+        rows[column].map((r) => ({ [column]: r.value, _count: { _all: r.n } })),
+      );
+    });
+    const repo = new PrismaPatientsRepository({
+      patients: { groupBy },
+    } as never);
+
+    await expect(repo.findFieldOptions()).resolves.toEqual({
+      birthPlaces: ['Cochabamba', 'La Paz', 'Oruro'],
+      zonas: ['Zona Norte'],
+      ciudades: [],
+    });
+    expect(groupBy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        by: ['zona'],
+        where: { zona: { not: null }, deleted_at: null },
+      }),
+    );
+  });
+});
+
+describe('PrismaPatientsRepository.findByDocument', () => {
+  it('busca por (tipo de documento, número) entre las fichas no eliminadas', async () => {
+    const findFirst = jest.fn().mockResolvedValue(null);
+    const repo = new PrismaPatientsRepository({
+      patients: { findFirst },
+    } as never);
+
+    await expect(repo.findByDocument('ci', '1234567')).resolves.toBeNull();
+    expect(findFirst).toHaveBeenCalledWith({
+      where: { document_type: 'ci', dni: '1234567', deleted_at: null },
+      include: { users: true },
+    });
   });
 });
 
@@ -552,12 +672,13 @@ describe('PrismaPatientsRepository.updatePatient', () => {
       lastVisitTreatment: 'Limpieza',
       familyHistory: 'Diabetes',
       documentType: 'ci',
-      dni: '1234567',
-      documentExtension: 'LP',
+      dni: '1234567-LP',
     });
 
     expect(update).toHaveBeenCalledWith(
-      expect.objectContaining({ where: { id: 'patient-1' } }),
+      expect.objectContaining({
+        where: { id: 'patient-1', deleted_at: null },
+      }),
     );
     expect(updateData(update)).toEqual({
       first_name: 'Ana',
@@ -579,8 +700,7 @@ describe('PrismaPatientsRepository.updatePatient', () => {
       last_visit_treatment: 'Limpieza',
       family_history: 'Diabetes',
       document_type: 'ci',
-      dni: '1234567',
-      document_extension: 'LP',
+      dni: '1234567-LP',
       updated_at: expect.any(Date) as Date,
     });
   });
@@ -703,8 +823,8 @@ describe('PrismaPatientsRepository — lecturas', () => {
   });
 
   describe.each([
-    ['findPatientById', { id: 'patient-1' }],
-    ['findByUserId', { user_id: 'patient-1' }],
+    ['findPatientById', { id: 'patient-1', deleted_at: null }],
+    ['findByUserId', { user_id: 'patient-1', deleted_at: null }],
   ] as const)('%s', (method, where) => {
     it('busca con el usuario incluido y mapea la fila', async () => {
       jest
@@ -763,6 +883,26 @@ describe('PrismaPatientsRepository — lecturas', () => {
     expect(findFirst).toHaveBeenCalledWith({
       where: { patient_id: 'patient-1' },
       orderBy: { exam_date: 'desc' },
+    });
+  });
+
+  it('findFirstClinicalExam trae el examen más antiguo o null (CLI-213)', async () => {
+    jest
+      .spyOn(PatientMapper, 'toDomainClinicalExam')
+      .mockReturnValue('mapped' as never);
+    const findFirst = jest
+      .fn()
+      .mockResolvedValueOnce(ROW)
+      .mockResolvedValueOnce(null);
+    const repo = repoWith({ clinical_exams: { findFirst } });
+
+    await expect(repo.findFirstClinicalExam('patient-1')).resolves.toBe(
+      'mapped',
+    );
+    await expect(repo.findFirstClinicalExam('patient-1')).resolves.toBeNull();
+    expect(findFirst).toHaveBeenCalledWith({
+      where: { patient_id: 'patient-1' },
+      orderBy: [{ exam_date: 'asc' }, { created_at: 'asc' }],
     });
   });
 
@@ -832,6 +972,26 @@ describe('PrismaPatientsRepository — lecturas', () => {
     expect(findFirst).toHaveBeenCalledWith(
       expect.objectContaining({ orderBy: { version: 'desc' } }),
     );
+  });
+
+  // CLI-179: con varios diagnósticos en un diente, todas las pantallas
+  // tienen que pintar el mismo — el orden de los hallazgos no puede depender
+  // de Postgres.
+  it('pide los hallazgos en orden fijo: primero los de un diente, después por diente e id', async () => {
+    jest.spyOn(DentalExamMapper, 'toDomain').mockReturnValue('exam' as never);
+    const findFirst = jest.fn().mockResolvedValue(ROW);
+    const repo = repoWith({ dental_exams: { findFirst } });
+
+    await repo.findCurrentDentalExam('patient-1');
+
+    const args = (findFirst.mock.calls as unknown[][])[0][0] as {
+      include: { dental_exam_findings: { orderBy: unknown } };
+    };
+    expect(args.include.dental_exam_findings.orderBy).toEqual([
+      { application_group_id: { sort: 'asc', nulls: 'first' } },
+      { tooth_number: 'asc' },
+      { id: 'asc' },
+    ]);
   });
 
   it('findDentalExam acota el examen al paciente (no deja leer uno ajeno)', async () => {
@@ -981,5 +1141,82 @@ describe('PrismaPatientsRepository.createToothProcedures', () => {
       tooth_procedure_surfaces: undefined,
     });
     expect(rows[1].procedure_date).toBeInstanceOf(Date);
+  });
+});
+
+// CLI-184: baja lógica.
+describe('PrismaPatientsRepository — baja lógica (CLI-184)', () => {
+  it('findDeletionBlockers sin ficha devuelve 0 y 0 sin consultar citas ni presupuestos', async () => {
+    const appointmentsCount = jest.fn();
+    const repo = new PrismaPatientsRepository({
+      patients: { findUnique: jest.fn().mockResolvedValue(null) },
+      appointments: { count: appointmentsCount },
+    } as never);
+
+    await expect(repo.findDeletionBlockers('user-1')).resolves.toEqual({
+      futureAppointments: 0,
+      balance: 0,
+    });
+    expect(appointmentsCount).not.toHaveBeenCalled();
+  });
+
+  it('findDeletionBlockers cuenta las citas futuras y suma lo que falta pagar', async () => {
+    const appointmentsCount = jest.fn().mockResolvedValue(2);
+    const quotesFindMany = jest.fn().mockResolvedValue([
+      { total_amount: '300.00', total_paid: '100.50' },
+      { total_amount: '50.00', total_paid: '80.00' },
+    ]);
+    const repo = new PrismaPatientsRepository({
+      patients: { findUnique: jest.fn().mockResolvedValue({ id: 'p1' }) },
+      appointments: { count: appointmentsCount },
+      quotes: { findMany: quotesFindMany },
+    } as never);
+
+    await expect(repo.findDeletionBlockers('user-1')).resolves.toEqual({
+      futureAppointments: 2,
+      balance: 199.5,
+    });
+    expect(appointmentsCount).toHaveBeenCalledWith({
+      where: {
+        patient_id: 'p1',
+        status: { in: ['held', 'confirmed'] },
+        appointment_datetime: { gt: expect.any(Date) as Date },
+      },
+    });
+    expect(quotesFindMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          patient_id: 'p1',
+          status: { in: ['pending', 'partially_paid'] },
+          total_amount: { gt: 0 },
+        },
+      }),
+    );
+  });
+
+  it('softDeletePatient marca la ficha y la cuenta, revoca canales e invitaciones, y no borra nada', async () => {
+    const tx = {
+      users: { update: jest.fn() },
+      patients: { updateMany: jest.fn(), delete: jest.fn() },
+      chat_channel_identities: { updateMany: jest.fn() },
+      patient_invites: { updateMany: jest.fn() },
+    };
+    const repo = new PrismaPatientsRepository({
+      transaction: jest.fn((fn: (t: unknown) => unknown) => fn(tx)),
+    } as never);
+
+    await repo.softDeletePatient('user-1', 'doctor-1');
+
+    expect(tx.users.update).toHaveBeenCalledWith({
+      where: { id: 'user-1' },
+      data: { is_active: false, updated_at: expect.any(Date) as Date },
+    });
+    expect(tx.patients.updateMany).toHaveBeenCalledWith({
+      where: { user_id: 'user-1', deleted_at: null },
+      data: expect.objectContaining({ deleted_by: 'doctor-1' }) as object,
+    });
+    expect(tx.chat_channel_identities.updateMany).toHaveBeenCalledTimes(1);
+    expect(tx.patient_invites.updateMany).toHaveBeenCalledTimes(1);
+    expect(tx.patients.delete).not.toHaveBeenCalled();
   });
 });

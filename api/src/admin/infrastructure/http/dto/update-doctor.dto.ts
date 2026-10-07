@@ -21,7 +21,7 @@ import { PersonNamePart } from '../../../../shared/validators/person-name-part.v
 import { IsE164Phone } from '../../../../shared/validators/phone.validator.js';
 import { HEX_COLOR_REGEX } from '../../../../shared/doctor-color-palette.js';
 import { NoHtml } from '../../../../shared/validators/text-safety.validator.js';
-import { ScheduleBlockDto } from './schedule-block.dto.js';
+import { IsValidSchedule, ScheduleBlockDto } from './schedule-block.dto.js';
 
 export class UpdateDoctorDto {
   @IsOptional()
@@ -100,6 +100,7 @@ export class UpdateDoctorDto {
 
   @IsOptional()
   @IsArray()
+  @IsValidSchedule()
   @ValidateNested({ each: true })
   @Type(() => ScheduleBlockDto)
   scheduleBlocks?: ScheduleBlockDto[];

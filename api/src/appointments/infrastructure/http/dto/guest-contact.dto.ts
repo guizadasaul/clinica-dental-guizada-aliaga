@@ -1,8 +1,18 @@
 import { Transform } from 'class-transformer';
-import { IsEmail, IsOptional, IsString, Matches, MaxLength, MinLength } from 'class-validator';
+import {
+  IsEmail,
+  IsOptional,
+  IsString,
+  Matches,
+  MaxLength,
+  MinLength,
+} from 'class-validator';
 import { EMAIL_RE } from '../../../../shared/validators/email.validator.js';
 import { IsPersonName } from '../../../../shared/validators/full-name.validator.js';
-import { EmptyToUndefined, NormalizeName } from '../../../../shared/validators/transforms.js';
+import {
+  EmptyToUndefined,
+  NormalizeName,
+} from '../../../../shared/validators/transforms.js';
 import {
   E164_RE,
   IsE164Phone,

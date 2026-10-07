@@ -347,7 +347,14 @@
     background: rgb(232 152 88 / 0.04);
   }
 
+  // Sábado y domingo apilados (CLI-192): la columna se queda a la vista, bajo el
+  // encabezado fijo, con el alto del área visible de la grilla; cada panel
+  // toma la mitad y scrollea por su cuenta.
   &--split {
+    position: sticky;
+    top: 3.375rem;
+    align-self: start;
+    height: calc(100vh - 130px - 3.375rem);
     display: flex;
     flex-direction: column;
     align-items: stretch;
@@ -355,8 +362,10 @@
 }
 
 // Sábado/domingo: cada mitad es un mini-calendario con scroll propio,
-// mostrando 9:00–12:00 sin scrollear y el resto (hasta 24:00) al scrollear.
+// con la misma grilla de 24 horas; arrancan en las 09:00 (CLI-192).
 .agenda-mini-panel {
+  flex: 1 1 0;
+  min-height: 0;
   overflow-y: auto;
   background: #fff;
 
@@ -425,7 +434,8 @@
   --slot-color: var(--color-tertiary);
 
   position: absolute;
-  z-index: 2;
+  // Por debajo del encabezado sticky del día (z-index 2): al hacer scroll se esconde bajo él.
+  z-index: 1;
   display: flex;
   flex-direction: column;
   justify-content: center;
@@ -446,6 +456,23 @@
 
   &--readonly {
     cursor: default;
+  }
+
+  // CLI-208: el paciente no vino — atenuada y tachada, pero se puede abrir para deshacerlo.
+  &--no-show {
+    border-left-style: dashed;
+    background: repeating-linear-gradient(
+      -45deg,
+      var(--color-gray-50),
+      var(--color-gray-50) 6px,
+      #fff 6px,
+      #fff 12px
+    );
+
+    .agenda-slot__patient {
+      color: var(--color-text-muted);
+      text-decoration: line-through;
+    }
   }
 
   // CLI-151: la cita que se está reprogramando deja libres sus franjas.
@@ -478,6 +505,18 @@
   font-size: 0.75rem;
   vertical-align: -0.125rem;
   margin-left: 0.125rem;
+}
+
+.agenda-slot__badge {
+  margin-left: 0.25rem;
+  padding: 0 0.375rem;
+  border-radius: var(--radius-full);
+  background: var(--color-error-light);
+  color: var(--color-error);
+  font-family: var(--font-body);
+  font-size: 0.625rem;
+  font-weight: 700;
+  white-space: nowrap;
 }
 
 // CLI-150: franjas de 30 min detrás de los turnos. Las libres se clickean
@@ -529,5 +568,74 @@
   .agenda-cell:hover &,
   .agenda-cell:focus-visible & {
     opacity: 1;
+  }
+}
+
+// CLI-195: horario que el doctor apartó (emergencia, curso…): franja rayada sobre las celdas.
+.agenda-block {
+  position: absolute;
+  left: 2px;
+  right: 2px;
+  z-index: 1;
+  display: flex;
+  align-items: flex-start;
+  gap: 0.25rem;
+  padding: 0.25rem 0.5rem;
+  overflow: hidden;
+  border: 1px solid var(--color-gray-300);
+  border-radius: var(--radius-md);
+  background: repeating-linear-gradient(
+    45deg,
+    var(--color-surface-var),
+    var(--color-surface-var) 6px,
+    var(--color-surface) 6px,
+    var(--color-surface) 12px
+  );
+  font-family: var(--font-body);
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  color: var(--color-text);
+  text-align: left;
+  cursor: pointer;
+
+  &:focus-visible {
+    outline: 3px solid var(--color-primary);
+    outline-offset: 1px;
+  }
+}
+
+.agenda-block__icon {
+  flex: none;
+  font-size: 1rem;
+}
+
+.agenda-block__text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.agenda__block-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-left: auto;
+  padding: var(--space-2) var(--space-4);
+  border: 1px solid var(--color-gray-300);
+  border-radius: var(--radius-full);
+  background: transparent;
+  font-family: var(--font-body);
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  color: var(--color-text);
+  cursor: pointer;
+
+  &:hover {
+    background: var(--color-surface-var);
+  }
+
+  &:focus-visible {
+    outline: 3px solid var(--color-primary);
+    outline-offset: 2px;
   }
 }

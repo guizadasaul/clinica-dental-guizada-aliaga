@@ -88,6 +88,19 @@ describe('AuthService', () => {
       });
     });
 
+    // CLI-184: un paciente eliminado (o un doctor dado de baja) no entra.
+    it('rechaza con 403 a una cuenta dada de baja y no la toca', async () => {
+      mockRepo.findByAuthUserId.mockResolvedValue({
+        ...mockUser,
+        isActive: false,
+      });
+
+      await expect(service.syncUser(authUser)).rejects.toThrow(
+        'Tu cuenta fue dada de baja.',
+      );
+      expect(mockRepo.upsertByAuthUserId).not.toHaveBeenCalled();
+    });
+
     it('does not create a row and throws NotFoundException for a brand-new login with no invite', async () => {
       mockRepo.findByAuthUserId.mockResolvedValue(null);
 
@@ -146,6 +159,9 @@ describe('AuthService', () => {
         new Date(),
       );
       mockRepo.linkAuthIdentity.mockResolvedValue(linkedUserWithPhone);
+      mockSupabaseAdminService.setConfirmedPhone.mockResolvedValue({
+        ok: true,
+      });
 
       const result = await service.syncUser(authUser, 'valid-invite-token');
 
@@ -154,6 +170,41 @@ describe('AuthService', () => {
         AUTH_USER_ID,
         '+59171234567',
       );
+      // Habilitado: se limpia cualquier marca anterior.
+      expect(mockRepo.updateContactInfo).toHaveBeenCalledWith('uuid-1', {
+        phoneLoginError: null,
+      });
+    });
+
+    it('if the phone is already on another Supabase account, the login still completes but the account is flagged (CLI-143)', async () => {
+      mockPatientInvitesService.redeem.mockResolvedValue({
+        patientId: 'patient-1',
+        userId: 'user-1',
+      });
+      const linkedUserWithPhone = new User(
+        'uuid-1',
+        AUTH_USER_ID,
+        'test@example.com',
+        UserRole.PATIENT,
+        'Test User',
+        '71234567',
+        null,
+        true,
+        new Date(),
+        new Date(),
+      );
+      mockRepo.linkAuthIdentity.mockResolvedValue(linkedUserWithPhone);
+      mockSupabaseAdminService.setConfirmedPhone.mockResolvedValue({
+        ok: false,
+        reason: 'phone_in_use',
+      });
+
+      const result = await service.syncUser(authUser, 'valid-invite-token');
+
+      expect(result).toBe(linkedUserWithPhone);
+      expect(mockRepo.updateContactInfo).toHaveBeenCalledWith('uuid-1', {
+        phoneLoginError: 'phone_in_use',
+      });
     });
 
     it('threads the phone from the JWT through to upsertByAuthUserId when present', async () => {
@@ -314,6 +365,17 @@ describe('AuthService', () => {
 
       expect(result).toBe(mockUser);
       expect(mockRepo.findByAuthUserId).toHaveBeenCalledWith(AUTH_USER_ID);
+    });
+
+    it('rechaza con 403 a una cuenta dada de baja (CLI-184)', async () => {
+      mockRepo.findByAuthUserId.mockResolvedValue({
+        ...mockUser,
+        isActive: false,
+      });
+
+      await expect(service.getCurrentUser(AUTH_USER_ID)).rejects.toThrow(
+        'Tu cuenta fue dada de baja.',
+      );
     });
 
     it('should throw NotFoundException when user does not exist', async () => {

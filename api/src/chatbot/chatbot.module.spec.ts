@@ -1,4 +1,5 @@
 import { Test } from '@nestjs/testing';
+import { ScheduleModule } from '@nestjs/schedule';
 import { PrismaModule } from '../shared/prisma/prisma.module';
 import { ChatbotModule } from './chatbot.module';
 import { UserRole } from '../auth/domain/value-objects/UserRole';
@@ -11,6 +12,10 @@ import { ToolExecutionPort } from './domain/ToolExecution';
  * compile()) para detectar errores de inyección de dependencias sin tener
  * que levantar toda la app.
  */
+// ScheduleModule es global en la app (lo registra PaymentsModule); desde
+// CLI-234 el chatbot importa FinancesModule, cuyo QrChargeReconciler lo usa.
+const MODULE_IMPORTS = [PrismaModule, ScheduleModule.forRoot(), ChatbotModule];
+
 describe('ChatbotModule', () => {
   const originalEnv = process.env;
 
@@ -29,7 +34,7 @@ describe('ChatbotModule', () => {
 
   it('resuelve todas sus dependencias', async () => {
     const moduleRef = await Test.createTestingModule({
-      imports: [PrismaModule, ChatbotModule],
+      imports: MODULE_IMPORTS,
     }).compile();
 
     expect(moduleRef.get(ChatService)).toBeInstanceOf(ChatService);
@@ -40,6 +45,10 @@ describe('ChatbotModule', () => {
   // llamada al LLM. Medido tras compactarlas: anónimo 1947, paciente 3383,
   // doctor 2631, admin 3355 caracteres; los topes dejan un 6-8 % de margen. Si
   // una tool nueva los supera, recortar descripciones antes de subirlos.
+  // CLI-234: el doctor suma 3 tools (resumen de paciente, deudores y ranking
+  // de tratamientos) y queda en 3616 → tope 3850. CLI-235: el paciente suma
+  // get_my_visits y las líneas numeradas del presupuesto → 3794, tope 4050.
+  // CLI-236: las 3 tools del pago con QR → 4602, tope 4900.
   it.each([
     ['anónimo', { kind: 'anonymous' as const }, 2100],
     [
@@ -50,7 +59,7 @@ describe('ChatbotModule', () => {
         role: UserRole.PATIENT,
         patientId: 'p1',
       },
-      3600,
+      4900,
     ],
     [
       'odontólogo',
@@ -60,7 +69,7 @@ describe('ChatbotModule', () => {
         role: UserRole.ODONTOLOGIST,
         patientId: null,
       },
-      2850,
+      3850,
     ],
     [
       'admin',
@@ -76,7 +85,7 @@ describe('ChatbotModule', () => {
     'las definiciones de tools de un %s no superan su tope de caracteres',
     async (_role, actor, maxChars) => {
       const moduleRef = await Test.createTestingModule({
-        imports: [PrismaModule, ChatbotModule],
+        imports: MODULE_IMPORTS,
       }).compile();
       const port = moduleRef.get<ToolExecutor>(ToolExecutionPort);
 
@@ -88,7 +97,7 @@ describe('ChatbotModule', () => {
 
   it('registra las tools públicas para un visitante anónimo', async () => {
     const moduleRef = await Test.createTestingModule({
-      imports: [PrismaModule, ChatbotModule],
+      imports: MODULE_IMPORTS,
     }).compile();
     const port = moduleRef.get<ToolExecutor>(ToolExecutionPort);
 
@@ -109,7 +118,7 @@ describe('ChatbotModule', () => {
 
   it('registra las tools del paciente, visibles solo para un paciente', async () => {
     const moduleRef = await Test.createTestingModule({
-      imports: [PrismaModule, ChatbotModule],
+      imports: MODULE_IMPORTS,
     }).compile();
     const port = moduleRef.get<ToolExecutor>(ToolExecutionPort);
     const patientTools = port
@@ -129,6 +138,10 @@ describe('ChatbotModule', () => {
         'get_my_balance',
         'get_my_treatments',
         'get_my_pending_treatments',
+        'get_my_visits',
+        'create_my_qr_payment',
+        'check_my_qr_payment',
+        'cancel_my_qr_payment',
       ]),
     );
     expect(
@@ -138,7 +151,7 @@ describe('ChatbotModule', () => {
 
   it('registra las tools del doctor, visibles solo para un odontólogo', async () => {
     const moduleRef = await Test.createTestingModule({
-      imports: [PrismaModule, ChatbotModule],
+      imports: MODULE_IMPORTS,
     }).compile();
     const port = moduleRef.get<ToolExecutor>(ToolExecutionPort);
     const doctorTools = port
@@ -164,7 +177,7 @@ describe('ChatbotModule', () => {
 
   it('registra las tools del admin, visibles solo para el administrador', async () => {
     const moduleRef = await Test.createTestingModule({
-      imports: [PrismaModule, ChatbotModule],
+      imports: MODULE_IMPORTS,
     }).compile();
     const port = moduleRef.get<ToolExecutor>(ToolExecutionPort);
     const adminTools = port

@@ -1,15 +1,12 @@
 import {
   BadRequestException,
+  ConflictException,
   Inject,
   Injectable,
   NotFoundException,
-  ServiceUnavailableException,
 } from '@nestjs/common';
 import { QuoteRepository } from '../domain/QuoteRepository';
-import type {
-  IQuoteRepository,
-  NewQuoteItemData,
-} from '../domain/QuoteRepository';
+import type { IQuoteRepository } from '../domain/QuoteRepository';
 import type { Quote } from '../domain/Quote';
 import { PaymentMethod } from '../domain/PaymentMethod';
 import { TreatmentRepository } from '../../treatments/domain/TreatmentRepository';
@@ -19,14 +16,11 @@ import {
   InvalidApplicationTypeError,
   typeAllowsQuantity,
 } from '../../treatments/domain/TreatmentApplicationType';
-import type { TreatmentApplicationType } from '../../treatments/domain/TreatmentApplicationType';
 import { PatientRepository } from '../../patients/domain/PatientRepository';
 import type { IPatientRepository } from '../../patients/domain/PatientRepository';
-import {
-  ExchangeRateProvider,
-  convertUsdToBob,
-} from '../../exchange-rate/domain/ExchangeRateProvider';
+import { ExchangeRateProvider } from '../../exchange-rate/domain/ExchangeRateProvider';
 import type { ExchangeRateProvider as IExchangeRateProvider } from '../../exchange-rate/domain/ExchangeRateProvider';
+import { buildQuoteLine, priceInBob } from './quote-pricing';
 
 interface AddQuoteItemInput {
   treatmentId: string;
@@ -39,10 +33,6 @@ interface AddPaymentInput {
   amount: number;
   paymentMethod?: string;
   notes?: string;
-}
-
-function round2(amount: number): number {
-  return Math.round(amount * 100) / 100;
 }
 
 /** No se cobra más que el saldo pendiente (CLI-159) — vale para efectivo y QR. */
@@ -69,6 +59,12 @@ export class QuotesService {
 
   async createForPatient(patientId: string, notes?: string): Promise<Quote> {
     await this.requirePatient(patientId);
+    // Solo después de terminar el diagnóstico (CLI-189).
+    if (!(await this.patientRepo.findCurrentDentalExam(patientId))) {
+      throw new ConflictException(
+        'Primero termina el diagnóstico del paciente.',
+      );
+    }
     return this.quoteRepo.createForPatient(patientId, notes ?? null);
   }
 
@@ -118,42 +114,23 @@ export class QuotesService {
       );
     }
 
-    const amount = data.customPrice ?? treatment.basePrice;
-    let unitPrice = amount;
-    let exchangeRate: number | null = null;
-    if (treatment.currency === 'USD') {
-      const rate = await this.exchangeRateProvider.getUsdToBob();
-      if (!rate) {
-        throw new ServiceUnavailableException(
-          'No se pudo obtener el tipo de cambio para calcular el precio en bolivianos. Intentá de nuevo en unos minutos.',
-        );
-      }
-      unitPrice = convertUsdToBob(amount, rate.rate);
-      exchangeRate = rate.rate;
-    }
-
-    if (treatment.applicationType === 'multiple_teeth') {
-      const sortedTeeth = [...toothNumbers].sort((a, b) => a - b);
-      return this.quoteRepo.addItemGroup(quoteId, {
-        treatmentId: treatment.id,
-        toothNumbers: sortedTeeth,
-        unitPrice,
-        subtotal: round2(unitPrice),
-        currency: treatment.currency,
-        exchangeRate,
-      });
-    }
-
-    const rows = this.buildQuoteItemRows(
+    const price = await priceInBob(
+      data.customPrice ?? treatment.basePrice,
+      treatment.currency,
+      this.exchangeRateProvider,
+    );
+    const line = buildQuoteLine(
       treatment.applicationType,
       toothNumbers,
       treatment.id,
-      unitPrice,
+      price.amount,
       quantity,
       treatment.currency,
-      exchangeRate,
+      price.exchangeRate,
     );
-    return this.quoteRepo.addItems(quoteId, rows);
+    return line.kind === 'group'
+      ? this.quoteRepo.addItemGroup(quoteId, line.group)
+      : this.quoteRepo.addItems(quoteId, line.rows);
   }
 
   async addPayment(quoteId: string, data: AddPaymentInput): Promise<Quote> {
@@ -193,6 +170,18 @@ export class QuotesService {
   }
 
   async removeItem(quoteId: string, itemId: string): Promise<Quote> {
+    // CLI-226: lo que ya se realizó se debe — no se quita del presupuesto.
+    const current = await this.quoteRepo.findById(quoteId);
+    const target = current?.items.find((i) => i.id === itemId);
+    if (target) {
+      const lineKey = target.applicationGroupId ?? target.id;
+      const line = current?.lines.find((l) => l.key === lineKey);
+      if (line?.performedAt) {
+        throw new ConflictException(
+          'Este tratamiento ya se realizó: no se puede quitar del presupuesto.',
+        );
+      }
+    }
     const quote = await this.quoteRepo.removeItemGroup(quoteId, itemId);
     if (!quote) {
       throw new NotFoundException(
@@ -200,40 +189,6 @@ export class QuotesService {
       );
     }
     return quote;
-  }
-
-  private buildQuoteItemRows(
-    applicationType: TreatmentApplicationType,
-    toothNumbers: number[],
-    treatmentId: string,
-    unitPrice: number,
-    quantity: number,
-    currency: string,
-    exchangeRate: number | null,
-  ): NewQuoteItemData[] {
-    const shared = { treatmentId, currency, exchangeRate };
-
-    if (applicationType === 'single_tooth') {
-      return [
-        {
-          ...shared,
-          toothNumber: toothNumbers[0],
-          unitPrice,
-          quantity: 1,
-          subtotal: round2(unitPrice),
-        },
-      ];
-    }
-
-    return [
-      {
-        ...shared,
-        toothNumber: null,
-        unitPrice,
-        quantity,
-        subtotal: round2(unitPrice * quantity),
-      },
-    ];
   }
 
   private async requirePatient(patientId: string): Promise<void> {

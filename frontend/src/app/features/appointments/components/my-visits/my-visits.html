@@ -1,0 +1,52 @@
+<div class="page">
+  <div class="visits">
+    <app-page-header title="Mis citas" subtitle="Tus próximas citas y todas tus visitas a la clínica." />
+
+    @if (loading()) {
+      <p class="visits__muted">Cargando tus citas...</p>
+    } @else {
+      <section class="visits__section">
+        <h2 class="section-title">Próximas</h2>
+        @for (u of upcoming(); track u.id) {
+          <div class="visit">
+            <div class="visit__time">{{ u.time }}</div>
+            <div class="visit__body">
+              <p class="visit__date">{{ u.when }}</p>
+              <p class="visit__meta">{{ u.title }}@if (u.doctorName) { · {{ u.doctorName }} }</p>
+            </div>
+            <span class="visit__badge visit__badge--confirmed">Confirmada</span>
+          </div>
+        } @empty {
+          <p class="visits__muted">No tienes citas programadas.</p>
+        }
+      </section>
+
+      <section class="visits__section">
+        <h2 class="section-title">Historial</h2>
+        @for (group of months(); track group.label) {
+          <h3 class="visits__month">{{ group.label }}</h3>
+          @for (v of group.visits; track v.id) {
+            <div class="visit" [class.visit--missed]="v.noShow">
+              <div class="visit__time">{{ v.time }}</div>
+              <div class="visit__body">
+                <p class="visit__date">{{ v.when }}</p>
+                <p class="visit__meta">{{ v.title }}@if (v.doctorName) { · {{ v.doctorName }} }</p>
+              </div>
+              @if (v.noShow) {
+                <span class="visit__badge visit__badge--missed">No asististe</span>
+              }
+            </div>
+          }
+        } @empty {
+          <div class="visits-empty">
+            <div class="visits-empty__icon" aria-hidden="true">
+              <span class="material-symbols-outlined">history</span>
+            </div>
+            <p class="visits-empty__text">Todavía no tienes visitas registradas</p>
+            <p class="visits-empty__sub">Después de tu primera cita la verás aquí.</p>
+          </div>
+        }
+      </section>
+    }
+  </div>
+</div>

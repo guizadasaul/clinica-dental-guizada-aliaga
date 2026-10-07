@@ -1,3 +1,5 @@
+import type { PaymentAllocation } from './QuoteBalance';
+
 export const QrChargeStatus = {
   PENDING: 'pending',
   PAID: 'paid',
@@ -18,4 +20,6 @@ export interface QrCharge {
   /** El pago que generó al confirmarse; null mientras no está pagado. */
   paymentId: string | null;
   createdAt: Date;
+  /** CLI-218: tratamientos que cubre (QR que generó el paciente); [] en los del doctor. */
+  lines: PaymentAllocation[];
 }

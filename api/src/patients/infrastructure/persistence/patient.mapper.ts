@@ -9,6 +9,7 @@ import type {
   users,
 } from '@prisma/client';
 import { Patient } from '../../domain/Patient';
+import type { PhoneLoginError } from '../../../auth/domain/value-objects/PhoneLoginError';
 import type { MedicalHistory } from '../../domain/MedicalHistory';
 import { HygieneHabits } from '../../domain/HygieneHabits';
 import { ClinicalExam } from '../../domain/ClinicalExam';
@@ -22,7 +23,13 @@ type MedicalHistoryRecord = medical_history & {
   patient_medications: patient_medications[];
 };
 
-type PatientRecordWithUser = patients & { users: { phone: string | null } };
+type PatientRecordWithUser = patients & {
+  users: {
+    phone: string | null;
+    phone_login_error?: string | null;
+    email?: string | null;
+  };
+};
 
 export class PatientMapper {
   // El teléfono vive en users.phone (CLI-51), no en patients — patients.user_id
@@ -52,10 +59,11 @@ export class PatientMapper {
       r.family_history ?? null,
       r.document_type ?? null,
       r.dni ?? null,
-      r.document_extension ?? null,
       r.created_at,
       r.updated_at,
       r.assigned_doctor_id ?? null,
+      (r.users.phone_login_error as PhoneLoginError | null | undefined) ?? null,
+      r.users.email ?? null,
     );
   }
 
@@ -66,7 +74,6 @@ export class PatientMapper {
       conditions: r.patient_medical_conditions.map((pmc) => ({
         code: pmc.medical_conditions.code,
         name: pmc.medical_conditions.name,
-        diagnosedAt: pmc.diagnosed_at ?? null,
         notes: pmc.notes ?? null,
       })),
       otherDiseases: r.other_diseases ?? null,

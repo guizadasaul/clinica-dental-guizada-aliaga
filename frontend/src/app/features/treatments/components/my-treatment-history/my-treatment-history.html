@@ -1,0 +1,49 @@
+<div class="page">
+  <div class="history">
+    <app-page-header title="Mi historial" subtitle="Los tratamientos que recibiste en la clínica.">
+      @if (categories().length > 1) {
+        <label actions class="history__filter">
+          <span class="history__sr">Filtrar por tipo de tratamiento</span>
+          <select class="history__select" (change)="onFilter($event)">
+            <option value="">Todos los tratamientos</option>
+            @for (c of categories(); track c) {
+              <option [value]="c" [selected]="filter() === c">{{ c }}</option>
+            }
+          </select>
+        </label>
+      }
+    </app-page-header>
+
+    @if (loading()) {
+      <p class="history__muted">Cargando tu historial...</p>
+    } @else if (failed()) {
+      <p class="history__error" role="alert">No pudimos cargar tu historial. Prueba de nuevo en un momento.</p>
+    } @else if (total() === 0) {
+      <div class="history-empty">
+        <div class="history-empty__icon" aria-hidden="true">
+          <span class="material-symbols-outlined">dentistry</span>
+        </div>
+        <p class="history-empty__text">Todavía no tienes tratamientos registrados</p>
+        <p class="history-empty__sub">Cuando el doctor registre un tratamiento, lo verás aquí.</p>
+      </div>
+    } @else {
+      <ul class="history__list">
+        @for (a of visible(); track a.id) {
+          <li class="treatment">
+            <div class="treatment__date">{{ a.date }}</div>
+            <div class="treatment__body">
+              <p class="treatment__name">{{ a.treatmentName }}</p>
+              @if (a.meta) {
+                <p class="treatment__meta">{{ a.meta }}</p>
+              }
+              @if (a.notes) {
+                <p class="treatment__notes">{{ a.notes }}</p>
+              }
+            </div>
+          </li>
+        }
+      </ul>
+      <app-pagination [total]="filtered().length" [page]="currentPage()" (pageChange)="goToPage($event)" />
+    }
+  </div>
+</div>

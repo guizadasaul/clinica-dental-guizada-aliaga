@@ -1,5 +1,6 @@
 import {
   IsDateString,
+  IsEmail,
   IsIn,
   IsNotEmpty,
   IsOptional,
@@ -11,15 +12,13 @@ import {
 import {
   EmptyToUndefined,
   NormalizeDni,
+  NormalizeEmail,
   NormalizeName,
+  NormalizeText,
   Trim,
 } from '../../../../shared/validators/transforms.js';
 import { IsPersonName } from '../../../../shared/validators/full-name.validator.js';
-import {
-  IsDni,
-  IsDocumentExtension,
-  IsOnlyForCi,
-} from '../../../../shared/validators/dni.validator.js';
+import { IsDni } from '../../../../shared/validators/dni.validator.js';
 import { IsE164Phone } from '../../../../shared/validators/phone.validator.js';
 import { NoHtml } from '../../../../shared/validators/text-safety.validator.js';
 import {
@@ -70,7 +69,9 @@ export class CreatePatientDto {
   // no queda completa sin lugar de nacimiento, sexo, ocupación, DNI,
   // dirección ni contacto de emergencia.
   @EmptyToUndefined()
-  @Trim()
+  // CLI-178: mayúscula inicial por palabra; el servicio además reusa el
+  // valor ya guardado si coincide sin importar mayúsculas ni tildes.
+  @NormalizeName()
   @IsString()
   @IsNotEmpty({ message: 'birthPlace es obligatorio' })
   @MinLength(3)
@@ -86,7 +87,7 @@ export class CreatePatientDto {
   sex: string;
 
   @EmptyToUndefined()
-  @Trim()
+  @NormalizeName()
   @IsString()
   @IsNotEmpty({ message: 'occupation es obligatorio' })
   @MinLength(3)
@@ -98,7 +99,7 @@ export class CreatePatientDto {
   // Postgres. Resto de la dirección (calle, número, referencias) — zona y
   // ciudad son campos propios (CLI-54), ver abajo.
   @EmptyToUndefined()
-  @Trim()
+  @NormalizeName()
   @IsString()
   @IsNotEmpty({ message: 'address es obligatorio' })
   @MinLength(3)
@@ -109,7 +110,9 @@ export class CreatePatientDto {
   // CLI-54: separado de address para poder reportar por zona sin parsear
   // texto libre.
   @EmptyToUndefined()
-  @Trim()
+  // CLI-178: mayúscula inicial por palabra; el servicio además reusa el
+  // valor ya guardado si coincide sin importar mayúsculas ni tildes.
+  @NormalizeName()
   @IsString()
   @IsNotEmpty({ message: 'zona es obligatorio' })
   @MinLength(2)
@@ -118,7 +121,9 @@ export class CreatePatientDto {
   zona: string;
 
   @EmptyToUndefined()
-  @Trim()
+  // CLI-178: mayúscula inicial por palabra; el servicio además reusa el
+  // valor ya guardado si coincide sin importar mayúsculas ni tildes.
+  @NormalizeName()
   @IsString()
   @IsNotEmpty({ message: 'ciudad es obligatorio' })
   @MinLength(2)
@@ -129,13 +134,23 @@ export class CreatePatientDto {
   // Salida siempre en E.164 (la emite <app-phone-input> en el frontend).
   // @MaxLength(20) por la columna VARCHAR(20), no por el formato en sí.
   // El teléfono del PACIENTE (a diferencia del de emergencia) sigue opcional
-  // — no estaba en la lista de campos que pasan a obligatorios.
+  // por sí solo: desde CLI-181 se exige al menos uno de teléfono o correo, y
+  // esa regla vive en PatientsService (también cuenta lo que el usuario ya
+  // tenga guardado).
   @IsOptional()
   @EmptyToUndefined()
   @Trim()
   @IsE164Phone()
   @MaxLength(20)
   phone?: string;
+
+  /** Correo de contacto (CLI-181): se guarda en users.email. */
+  @IsOptional()
+  @EmptyToUndefined()
+  @NormalizeEmail()
+  @IsEmail({}, { message: 'El correo electrónico no es válido.' })
+  @MaxLength(255)
+  email?: string;
 
   // Obligatorio: el contacto de emergencia completo (nombres, apellidos,
   // teléfono, parentesco) pasa a exigirse junto con los demás campos de la
@@ -164,7 +179,7 @@ export class CreatePatientDto {
   emergencyContactPhone: string;
 
   @EmptyToUndefined()
-  @Trim()
+  @NormalizeName()
   @IsString()
   @IsNotEmpty({ message: 'emergencyContactRelationship es obligatorio' })
   @MinLength(3)
@@ -177,7 +192,7 @@ export class CreatePatientDto {
   // caracteres, igual que el resto del texto libre del wizard.
   @IsOptional()
   @EmptyToUndefined()
-  @Trim()
+  @NormalizeText()
   @IsString()
   @MinLength(3)
   @MaxLength(1000)
@@ -195,7 +210,7 @@ export class CreatePatientDto {
   // MaxLength(500) es nuevo.
   @IsOptional()
   @EmptyToUndefined()
-  @Trim()
+  @NormalizeText()
   @IsString()
   @MinLength(3)
   @MaxLength(500)
@@ -205,7 +220,7 @@ export class CreatePatientDto {
   // MaxLength(1000) es nuevo.
   @IsOptional()
   @EmptyToUndefined()
-  @Trim()
+  @NormalizeText()
   @IsString()
   @MinLength(3)
   @MaxLength(1000)
@@ -220,25 +235,13 @@ export class CreatePatientDto {
   @IsIn(DOCUMENT_TYPES)
   documentType: string;
 
-  // dni + documentType son @@unique en la base — normalizado (mayúsculas,
-  // sin puntos ni espacios ni guiones) para que "12.345.678" y "12345678"
-  // no convivan como pacientes distintos. Obligatorio (antes opcional);
-  // DNI_RE ya exige 5-15 caracteres, por encima del mínimo de 3 del resto
-  // del texto libre.
+  // Número de CI, NIT o pasaporte (CLI-177): (documentType, dni) es único en
+  // la base. Se recortan los bordes y se pasa a mayúsculas; el resto lo
+  // valida IsDni (5 a 12 caracteres, letras, números y guiones, sin espacios
+  // ni puntos). La extensión de la CI va dentro con guion (1234567-LP).
   @EmptyToUndefined()
   @NormalizeDni()
-  @IsNotEmpty({ message: 'dni es obligatorio' })
+  @IsNotEmpty({ message: 'El número de documento es obligatorio' })
   @IsDni()
-  @MaxLength(20)
   dni: string;
-
-  // Extensión/complemento de la CI boliviana (ej. "LP", "1A"). Opcional; null
-  // la borra en un update. Misma normalización que el dni.
-  @IsOptional()
-  @EmptyToUndefined()
-  @NormalizeDni()
-  @IsDocumentExtension()
-  @IsOnlyForCi()
-  @MaxLength(12)
-  documentExtension?: string | null;
 }

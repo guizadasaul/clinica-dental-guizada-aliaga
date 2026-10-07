@@ -5,9 +5,11 @@
   </a>
 
   <div class="booking-page__header">
-    <h1 class="booking-page__title">Reservá tu consulta</h1>
-    <p class="booking-page__subtitle">Elegí un horario y confirmá tu lugar — el pago se realiza en el siguiente paso.</p>
+    <h1 class="booking-page__title">Reserva tu consulta</h1>
+    <p class="booking-page__subtitle">{{ subtitle() }}</p>
   </div>
+
+  <app-booking-progress [step]="step()" />
 
   @if (step() === 'contact' || step() === 'payment') {
     @if (holdExpiresAt()) {
@@ -32,9 +34,11 @@
       @case ('slot') {
         <app-week-slot-picker
           [slotsByDate]="slotsByDate()"
+          [doctorName]="selectedDoctorName()"
           [loading]="loading()"
           [error]="error()"
           (slotSelected)="onSlotSelected($event)"
+          (changeDoctor)="onChangeDoctor()"
         />
       }
       @case ('contact') {
@@ -46,6 +50,8 @@
             [appointmentId]="appointmentId()!"
             [qrImageBase64]="qrImageBase64()!"
             [amount]="amount()!"
+            [doctorName]="selectedDoctorName()"
+            [doctorPhone]="selectedDoctor()?.phone ?? null"
             (confirmed)="onPaymentConfirmed()"
           />
         }

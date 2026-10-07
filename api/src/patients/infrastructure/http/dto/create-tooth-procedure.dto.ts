@@ -11,7 +11,6 @@ import {
   IsOptional,
   IsDateString,
   IsString,
-  Max,
   MaxLength,
   Min,
   MinLength,
@@ -19,10 +18,11 @@ import {
 } from 'class-validator';
 import {
   EmptyToUndefined,
-  Trim,
+  NormalizeText,
 } from '../../../../shared/validators/transforms.js';
 import { NoHtml } from '../../../../shared/validators/text-safety.validator.js';
 import { TOOTH_SURFACE_CODES } from '../../../../shared/validators/tooth-surface.validator.js';
+import { IsFdiToothNumber } from '../../../../shared/validators/tooth.validator.js';
 
 // Boca completa permanente (32 piezas) — tope teórico de una sola aplicación.
 const MAX_TEETH_PER_APPLICATION = 32;
@@ -34,8 +34,9 @@ const MAX_TEETH_PER_APPLICATION = 32;
  * correcto para un tratamiento de multiple_teeth (p. ej. curetaje: cada
  * pieza puede tener caras afectadas distintas).
  *
- * Sin @IsFdiToothNumber() a propósito, igual que el DTO anterior — sigue
- * validando solo con @Min(11)/@Max(85), fuera de alcance de este cambio.
+ * El número se valida con @IsFdiToothNumber() (CLI-180): antes un
+ * @Min(11)/@Max(85) dejaba pasar dientes que no existen (19, 20, 56…), que se
+ * guardaban y nunca se pintaban.
  *
  * `surfaces` reemplaza los 5 booleanos paralelos (CLI-49) por códigos del
  * catálogo tooth_surfaces. Esto solo valida que sean códigos conocidos —
@@ -45,8 +46,7 @@ const MAX_TEETH_PER_APPLICATION = 32;
  */
 export class ToothApplicationDto {
   @IsInt()
-  @Min(11)
-  @Max(85)
+  @IsFdiToothNumber()
   number!: number;
 
   @IsOptional()
@@ -87,7 +87,7 @@ export class CreateToothProcedureDto {
 
   @IsOptional()
   @EmptyToUndefined()
-  @Trim()
+  @NormalizeText()
   @IsString()
   @MinLength(3)
   @MaxLength(500)

@@ -41,6 +41,17 @@ describe('normalizeFullName', () => {
   it('colapsa espacios repetidos y recorta', () => {
     expect(normalizeFullName('  Juan   Claros  ')).toBe('Juan Claros');
   });
+
+  // CLI-183: mismo resultado que el espejo de la API.
+  it.each([
+    ['calle sucre y bolívar', 'Calle Sucre y Bolívar'],
+    ['ingeniero EN sistemas', 'Ingeniero en Sistemas'],
+    ['santa cruz de la sierra', 'Santa Cruz de la Sierra'],
+    ['av. 6 de agosto', 'Av. 6 de Agosto'],
+    ['y griega', 'Y Griega'],
+  ])('normaliza "%s" a "%s"', (entrada, esperado) => {
+    expect(normalizeFullName(entrada)).toBe(esperado);
+  });
 });
 
 describe('validateFullName', () => {

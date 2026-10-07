@@ -29,6 +29,9 @@ export type NameValidationError = 'empty' | 'single-word' | 'invalid-chars' | 't
 const LOWERCASE_PARTICLES = new Set([
   'de', 'del', 'la', 'las', 'los', 'da', 'das', 'do', 'dos',
   'van', 'von', 'der', 'di', 'du',
+  // Conjunción y preposiciones comunes en direcciones y ocupaciones (CLI-183):
+  // "Calle Sucre y Bolívar", "Ingeniero en Sistemas".
+  'y', 'en', 'con', 'al',
 ]);
 
 // Capitaliza la primera letra de la palabra y también la que sigue a un guion

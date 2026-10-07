@@ -8,6 +8,7 @@ import {
   computed,
 } from '@angular/core';
 import { DecimalPipe } from '@angular/common';
+import { HttpErrorResponse } from '@angular/common/http';
 import { TreatmentsService } from '../../services/treatments.service';
 import type { Treatment, ToothProcedure, TreatmentApplicationType, ToothSurfaceCode } from '../../models/treatment.model';
 import type { ToothApplicationRequest } from '../../models/treatment.request';
@@ -17,7 +18,13 @@ import {
   OdontogramChartComponent,
   type OdontogramLegendItem,
 } from '../../../../shared/ui/odontogram-chart/odontogram-chart';
-import { examToothColorMap } from '../../../../shared/utils/odontogram-paint.util';
+import { examToothColorMap, examToothNames } from '../../../../shared/utils/odontogram-paint.util';
+import { clinicToday } from '../../../../shared/utils/clinic-date.util';
+import {
+  matchPlanLine,
+  planLinePrice,
+  type PlanLine,
+} from '../../../quotes/utils/treatment-plan';
 import {
   CatalogPickerComponent,
   type CatalogPickerExtraGroup,
@@ -25,7 +32,6 @@ import {
 } from '../../../../shared/ui/catalog-picker/catalog-picker';
 import {
   teethForApplicationType,
-  applicationTypeImpliesTeeth,
 } from '../../../../shared/constants/dental-chart.constants';
 import {
   TOOTH_SURFACE_CODES,
@@ -58,13 +64,14 @@ const SURFACE_LABELS: Record<ToothSurfaceCode, string> = {
 };
 
 /**
- * Dientes que pinta un tratamiento: el suyo, o toda la arcada/boca para los
- * de arcada (se guardan sin toothNumber). General, tejidos blandos, unidad,
- * etc. no pintan nada.
+ * Dientes que pinta un tratamiento ya realizado (CLI-179): solo los de un
+ * diente o de varios dientes concretos (una fila por diente). Los de arcada y
+ * boca completa (y los de tejido blando, prótesis, etc.) no pintan: se ven en
+ * el historial. Antes una limpieza de boca completa tapaba todos los
+ * diagnósticos.
  */
 function procedureTeeth(procedure: ToothProcedure): number[] {
-  if (procedure.toothNumber !== null) { return [procedure.toothNumber]; }
-  return teethForApplicationType(procedure.applicationType);
+  return procedure.toothNumber === null ? [] : [procedure.toothNumber];
 }
 
 /** Lo que emite un guardado exitoso — el padre lo agrega a su lista y muestra el mensaje. */
@@ -107,6 +114,8 @@ export class RegisterTreatmentOdontogramComponent {
   readonly procedures = input<ToothProcedure[]>([]);
   /** Ids de los tratamientos que más usa el doctor (CLI-118) — chip "Frecuentes" del selector. */
   readonly frequentTreatmentIds = input<readonly string[]>([]);
+  /** CLI-228: lo que falta realizar del presupuesto del paciente. */
+  readonly planLines = input<readonly PlanLine[]>([]);
   readonly procedureRegistered = output<ProcedureRegisteredEvent>();
 
   // Diagnósticos: mismo criterio que StepOdontogramComponent.legendItems (una
@@ -197,6 +206,9 @@ export class RegisterTreatmentOdontogramComponent {
   // odontogram_entries). Cada finding ya trae su propio toothNumber (los de
   // varios dientes se guardan como una fila por diente, ver DentalExamFinding).
   // Un tratamiento realizado pisa al diagnóstico del mismo diente (CLI-107).
+  /** Nombres de los diagnósticos por diente, para el indicador "+N" (CLI-179). */
+  protected readonly toothNames = computed(() => examToothNames(this.currentExam()?.findings ?? []));
+
   protected readonly toothColorMap = computed(() => {
     const map = examToothColorMap(this.currentExam()?.findings ?? []);
     for (const [n, color] of this.treatmentColorMap()) { map.set(n, color); }
@@ -207,11 +219,13 @@ export class RegisterTreatmentOdontogramComponent {
   protected readonly panelOpen = signal(false);
   protected readonly panelTreatmentId = signal('');
   protected readonly panelToothNumbers = signal<number[]>([]);
+  /** Último diente clicado: al pasar de varios dientes a uno, queda este (CLI-180). */
+  private readonly lastClickedTooth = signal<number | null>(null);
   /** Superficies por diente — cada diente seleccionado tiene su propio juego (CLI-41). */
   protected readonly panelSurfaces = signal<Map<number, ToothSurfaces>>(new Map());
   protected readonly panelPriceCharged = signal(0);
   protected readonly panelQuantity = signal(1);
-  protected readonly panelProcedureDate = signal(new Date().toISOString().substring(0, 10));
+  protected readonly panelProcedureDate = signal(clinicToday());
   protected readonly panelNotes = signal('');
   protected readonly saving = signal(false);
   protected readonly formError = signal<string | null>(null);
@@ -232,6 +246,52 @@ export class RegisterTreatmentOdontogramComponent {
     () => this.panelQuantity() * (this.panelTreatment()?.basePrice ?? 0),
   );
 
+  /** Lo que se va a cobrar, en la moneda del tratamiento. */
+  protected readonly panelCharge = computed(() =>
+    this.isQuantityBased() ? this.computedTotal() : this.panelPriceCharged(),
+  );
+
+  /**
+   * CLI-228: la línea del presupuesto que cumple lo que se está por
+   * registrar (mismas reglas que el backend). null si no está en el plan.
+   */
+  protected readonly panelPlanLine = computed<PlanLine | null>(() => {
+    const treatment = this.panelTreatment();
+    if (!treatment) { return null; }
+    return matchPlanLine(
+      this.planLines(),
+      treatment.id,
+      treatment.applicationType,
+      this.effectiveToothNumbers(),
+    );
+  });
+
+  /** El precio de esa línea en la moneda del tratamiento. */
+  protected readonly panelPlanPrice = computed<number | null>(() => {
+    const line = this.panelPlanLine();
+    const treatment = this.panelTreatment();
+    return line && treatment ? planLinePrice(line, treatment.currency) : null;
+  });
+
+  protected readonly panelPriceChanges = computed(() => {
+    const planned = this.panelPlanPrice();
+    return planned !== null && Math.abs(planned - this.panelCharge()) >= 0.005;
+  });
+
+  /** Ya hay piezas elegidas (o el tipo no lleva piezas): se puede decir qué pasa con el presupuesto. */
+  protected readonly panelReadyForPlan = computed(() => {
+    const type = this.panelApplicationType();
+    if (type === null) { return false; }
+    if (type === 'single_tooth' || type === 'multiple_teeth') {
+      return this.panelToothNumbers().length > 0;
+    }
+    return true;
+  });
+
+  protected currencySymbol(currency: string | undefined): string {
+    return currency === 'USD' ? '$' : 'Bs.';
+  }
+
   /** Dientes resaltados en el odontograma mientras el panel está abierto — arcadas se derivan solas. */
   protected readonly chartSelectedTeeth = computed<number[]>(() => {
     if (!this.panelOpen()) { return []; }
@@ -251,10 +311,13 @@ export class RegisterTreatmentOdontogramComponent {
       return;
     }
     const type = this.panelApplicationType();
-    if (type === 'single_tooth') {
+    if (type === null || type === 'single_tooth') {
+      // Sin tratamiento elegido todavía, el clic cambia el diente del panel.
+      this.lastClickedTooth.set(toothNumber);
       this.panelToothNumbers.set([toothNumber]);
       this.reconcileSurfaces();
     } else if (type === 'multiple_teeth') {
+      this.lastClickedTooth.set(toothNumber);
       this.panelToothNumbers.update((prev) =>
         prev.includes(toothNumber)
           ? prev.filter((n) => n !== toothNumber)
@@ -271,19 +334,31 @@ export class RegisterTreatmentOdontogramComponent {
     this.panelSurfaces.set(new Map());
     this.panelPriceCharged.set(0);
     this.panelQuantity.set(1);
-    this.panelProcedureDate.set(new Date().toISOString().substring(0, 10));
+    this.panelProcedureDate.set(clinicToday());
     this.panelNotes.set('');
     this.formError.set(null);
   }
 
   protected openPanelForTooth(toothNumber: number): void {
     this.resetPanelFields();
+    this.lastClickedTooth.set(toothNumber);
     this.panelToothNumbers.set([toothNumber]);
     this.panelOpen.set(true);
   }
 
+  /** CLI-228: abre el panel con una línea del presupuesto ya cargada (tratamiento, piezas y precio). */
+  openForPlanLine(line: PlanLine): void {
+    if (this.saving()) { return; }
+    this.resetPanelFields();
+    this.lastClickedTooth.set(line.toothNumbers.at(-1) ?? null);
+    this.panelToothNumbers.set([...line.toothNumbers]);
+    this.panelOpen.set(true);
+    this.onPanelTreatmentChange(line.treatmentId);
+  }
+
   protected onAddTreatmentClick(): void {
     this.resetPanelFields();
+    this.lastClickedTooth.set(null);
     this.panelToothNumbers.set([]);
     this.panelOpen.set(true);
   }
@@ -311,13 +386,27 @@ export class RegisterTreatmentOdontogramComponent {
     this.panelPriceCharged.set(treatment.basePrice);
     this.panelQuantity.set(1);
 
+    // Arcadas, boca completa y tipos sin diente no llevan dientes elegidos: el
+    // panel deja de decir "Diente #36" (CLI-180).
     const type = treatment.applicationType;
-    if (!applicationTypeImpliesTeeth(type)) {
+    if (type !== 'single_tooth' && type !== 'multiple_teeth') {
       this.panelToothNumbers.set([]);
     } else if (type === 'single_tooth' && this.panelToothNumbers().length > 1) {
-      this.panelToothNumbers.set(this.panelToothNumbers().slice(0, 1));
+      const teeth = this.panelToothNumbers();
+      const keep = teeth.find((n) => n === this.lastClickedTooth()) ?? teeth.at(-1);
+      this.panelToothNumbers.set(keep === undefined ? [] : [keep]);
     }
     this.reconcileSurfaces();
+
+    // Si está en el presupuesto, se propone lo que se le presupuestó (CLI-228).
+    const line = this.panelPlanLine();
+    if (line) {
+      if (this.isQuantityBased()) {
+        this.panelQuantity.set(line.quantity);
+      } else {
+        this.panelPriceCharged.set(planLinePrice(line, treatment.currency));
+      }
+    }
   }
 
   protected getSurface(toothNumber: number): ToothSurfaces {
@@ -364,17 +453,17 @@ export class RegisterTreatmentOdontogramComponent {
   protected async onPanelSave(): Promise<void> {
     const treatment = this.panelTreatment();
     if (!treatment) {
-      this.formError.set('Elegí un tratamiento.');
+      this.formError.set('Elige un tratamiento.');
       return;
     }
 
     const teeth = this.effectiveToothNumbers();
     if (treatment.applicationType === 'single_tooth' && teeth.length !== 1) {
-      this.formError.set('Este tratamiento requiere exactamente un diente — hacé clic en un diente del odontograma.');
+      this.formError.set('Este tratamiento requiere exactamente un diente: haz clic en un diente del odontograma.');
       return;
     }
     if (treatment.applicationType === 'multiple_teeth' && teeth.length < 1) {
-      this.formError.set('Este tratamiento requiere al menos un diente — hacé clic en los dientes del odontograma.');
+      this.formError.set('Este tratamiento requiere al menos un diente: haz clic en los dientes del odontograma.');
       return;
     }
 
@@ -391,6 +480,9 @@ export class RegisterTreatmentOdontogramComponent {
 
     this.saving.set(true);
     this.formError.set(null);
+    const planNote = this.panelPlanLine()
+      ? ' Se marcó como realizado en el presupuesto.'
+      : ` Se sumó ${this.currencySymbol(treatment.currency)} ${priceCharged.toFixed(2)} al presupuesto del paciente.`;
 
     const surfaces = this.panelSurfaces();
     const teethPayload: ToothApplicationRequest[] = teeth.map((number) => {
@@ -415,11 +507,15 @@ export class RegisterTreatmentOdontogramComponent {
 
       this.procedureRegistered.emit({
         procedures: result,
-        message: this.buildSuccessMessage(treatment, teeth),
+        message: this.buildSuccessMessage(treatment, teeth) + planNote,
       });
       this.panelOpen.set(false);
-    } catch {
-      this.formError.set('Error al guardar el tratamiento. Intentá de nuevo.');
+    } catch (error: unknown) {
+      // 409 (CLI-226): el presupuesto no deja ese precio — el backend dice por qué.
+      const conflict = error instanceof HttpErrorResponse && error.status === 409
+        ? (error.error as { message?: string } | null)?.message
+        : undefined;
+      this.formError.set(conflict ?? 'Error al guardar el tratamiento. Intenta de nuevo.');
     } finally {
       this.saving.set(false);
     }

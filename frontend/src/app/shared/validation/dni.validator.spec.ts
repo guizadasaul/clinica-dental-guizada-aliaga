@@ -1,41 +1,49 @@
-import { DNI_RE, normalizeDni, isValidDni } from './dni.validator';
+import { normalizeDni, DNI_RE, isValidDni, dniFormatMessage, documentNumberLabel } from './dni.validator';
 
-describe('normalizeDni', () => {
+describe('normalizeDni (CLI-177)', () => {
   it.each([
-    ['12.345.678', '12345678'],
-    ['12345678', '12345678'],
-    ['  12345678  ', '12345678'],
-    ['abc-123-def', 'ABC123DEF'],
-    ['a b c', 'ABC'],
-  ])('normaliza "%s" a "%s"', (entrada, esperado) => {
-    expect(normalizeDni(entrada)).toBe(esperado);
+    ['  1234567 ', '1234567'],
+    ['1234567-lp', '1234567-LP'],
+    // No borra nada del medio: espacios y puntos los rechaza la validación.
+    ['12.345.678', '12.345.678'],
+    ['12 345', '12 345'],
+  ])('%p → %p', (input, expected) => {
+    expect(normalizeDni(input)).toBe(expected);
   });
 });
 
-describe('DNI_RE', () => {
+describe('DNI_RE (CLI-177)', () => {
   it.each([
-    ['12345678', true],
-    ['ABC123DEF', true],
-    ['12345', true], // mínimo 5
-    ['123456789012345', true], // máximo 15
-    ['1234', false], // menos de 5
-    ['1234567890123456', false], // más de 15
-    ['12.345.678', false], // sin normalizar
-    ['', false],
-  ])('%s → %s', (value, expected) => {
+    ['1234567', true],
+    ['1234567-LP', true],
+    ['123456789012', true],
+    ['1234567890123', false],
+    ['1234', false],
+    ['12.345.678', false],
+    ['12 345', false],
+    ['-123456', false],
+    ['123456-', false],
+  ])('%p → %p', (value, expected) => {
     expect(DNI_RE.test(value)).toBe(expected);
   });
 });
 
 describe('isValidDni', () => {
-  it.each([
-    ['12.345.678', true], // se normaliza internamente antes de validar
-    ['  12345678  ', true],
-    ['abc-123-de', true],
-    ['1234', false],
-    ['1234567890123456', false],
-    ['', false],
-  ])('%s → %s', (value, expected) => {
-    expect(isValidDni(value)).toBe(expected);
+  it('normaliza mayúsculas y bordes antes de validar, pero no quita puntos ni espacios', () => {
+    expect(isValidDni(' 1234567-lp ')).toBe(true);
+    expect(isValidDni('12.345.678')).toBe(false);
+    expect(isValidDni('12 345 678')).toBe(false);
+  });
+});
+
+describe('mensajes', () => {
+  it('nombran el tipo de documento, nunca "DNI"', () => {
+    expect(documentNumberLabel('ci')).toBe('El número de CI');
+    expect(documentNumberLabel('pasaporte')).toBe('El número de pasaporte');
+    expect(documentNumberLabel('')).toBe('El número de documento');
+    for (const type of ['ci', 'nit', 'pasaporte', '']) {
+      expect(dniFormatMessage(type)).not.toContain('DNI');
+    }
+    expect(dniFormatMessage('ci')).toContain('1234567-LP');
   });
 });

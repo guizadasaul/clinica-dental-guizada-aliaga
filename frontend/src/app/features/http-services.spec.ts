@@ -10,6 +10,7 @@ import { PatientInvitesService } from './patient-invites/services/patient-invite
 import { AppointmentsService } from './appointments/services/appointments.service';
 import { BookingService } from './booking/services/booking.service';
 import { AdminDoctorsService } from './admin/services/admin-doctors.service';
+import { DoctorProfileService } from './settings/services/doctor-profile.service';
 
 const API = 'http://localhost:2999';
 
@@ -32,6 +33,7 @@ function services() {
     appointments: TestBed.inject(AppointmentsService),
     booking: TestBed.inject(BookingService),
     admin: TestBed.inject(AdminDoctorsService),
+    profile: TestBed.inject(DoctorProfileService),
   };
 }
 
@@ -158,6 +160,19 @@ function cases(s: ReturnType<typeof services>): Case[] {
       url: `${API}/patients/p1/dental-exams/e1`,
     },
     {
+      name: 'configuración: mi perfil de doctor',
+      call: () => s.profile.getMine(),
+      method: 'GET',
+      url: `${API}/doctors/me`,
+    },
+    {
+      name: 'configuración: guardar mi perfil de doctor',
+      call: () => s.profile.updateMine({ color: '#16a34a' }),
+      method: 'PATCH',
+      url: `${API}/doctors/me`,
+      body: { color: '#16a34a' },
+    },
+    {
       name: 'reportes: operativo de todos los doctores',
       call: () => s.reports.getOperational({ from: '2026-09-01', to: '2026-09-30' }),
       method: 'GET',
@@ -171,6 +186,20 @@ function cases(s: ReturnType<typeof services>): Case[] {
       method: 'GET',
       url: `${API}/admin/reports/financial`,
       params: { from: '2026-09-01', to: '2026-09-30', doctorId: 'doctor-1' },
+    },
+    {
+      name: 'reportes: serie diaria (CLI-199)',
+      call: () => s.reports.getTrends({ from: '2026-09-01', to: '2026-09-30', doctorId: 'doctor-1' }),
+      method: 'GET',
+      url: `${API}/admin/reports/trends`,
+      params: { from: '2026-09-01', to: '2026-09-30', doctorId: 'doctor-1' },
+    },
+    {
+      name: 'reportes: tratamientos más realizados',
+      call: () => s.reports.getTopTreatments({ from: '2026-09-01', to: '2026-09-30' }, 8),
+      method: 'GET',
+      url: `${API}/admin/reports/top-treatments`,
+      params: { from: '2026-09-01', to: '2026-09-30', limit: '8' },
     },
     {
       name: 'presupuestos: crear sin notas',
@@ -190,6 +219,33 @@ function cases(s: ReturnType<typeof services>): Case[] {
       call: () => s.quotes.getById('q1'),
       method: 'GET',
       url: `${API}/quotes/q1`,
+    },
+    {
+      name: 'paciente: generar QR por tratamientos (CLI-219)',
+      call: () => s.quotes.createMyQrCharge('q1', ['l1', 'l2']),
+      method: 'POST',
+      url: `${API}/patients/me/quotes/q1/qr-charges`,
+      body: { lineKeys: ['l1', 'l2'] },
+    },
+    {
+      name: 'paciente: QR pendiente (CLI-219)',
+      call: () => s.quotes.getMyPendingQrCharge(),
+      method: 'GET',
+      url: `${API}/patients/me/qr-charges/pending`,
+    },
+    {
+      name: 'paciente: verificar QR (CLI-219)',
+      call: () => s.quotes.verifyMyQrCharge('c1'),
+      method: 'POST',
+      url: `${API}/patients/me/qr-charges/c1/verify`,
+      body: {},
+    },
+    {
+      name: 'paciente: anular QR (CLI-219)',
+      call: () => s.quotes.cancelMyQrCharge('c1'),
+      method: 'POST',
+      url: `${API}/patients/me/qr-charges/c1/cancel`,
+      body: {},
     },
     {
       name: 'presupuestos: agregar ítem',
@@ -326,10 +382,56 @@ function cases(s: ReturnType<typeof services>): Case[] {
       body: {},
     },
     {
+      name: 'agenda: horarios reservados del rango (CLI-195)',
+      call: () => s.appointments.getTimeBlocks('2026-10-05', '2026-10-12'),
+      method: 'GET',
+      url: `${API}/appointments/blocks`,
+      params: { from: '2026-10-05', to: '2026-10-12' },
+    },
+    {
+      name: 'agenda: reservar un horario (CLI-195)',
+      call: () => s.appointments.createTimeBlock(body),
+      method: 'POST',
+      url: `${API}/appointments/blocks`,
+      body,
+    },
+    {
+      name: 'agenda: quitar un horario reservado (CLI-195)',
+      call: () => s.appointments.deleteTimeBlock('b1'),
+      method: 'DELETE',
+      url: `${API}/appointments/blocks/b1`,
+    },
+    {
       name: 'paciente: mis próximas citas (CLI-153)',
       call: () => s.appointments.getMyUpcoming(),
       method: 'GET',
       url: `${API}/patients/me/appointments`,
+    },
+    {
+      name: 'paciente: mi historia clínica inicial (CLI-213)',
+      call: () => s.patients.getMyClinicalRecord(),
+      method: 'GET',
+      url: `${API}/patients/me/clinical-record`,
+    },
+    {
+      name: 'paciente: mi registro de visitas (CLI-209)',
+      call: () => s.appointments.getMyPast(),
+      method: 'GET',
+      url: `${API}/patients/me/appointments`,
+      params: { scope: 'past' },
+    },
+    {
+      name: 'agenda: marcar "No asistió" (CLI-208)',
+      call: () => s.appointments.markNoShow('appt-1'),
+      method: 'POST',
+      url: `${API}/appointments/doctor/appt-1/no-show`,
+      body: {},
+    },
+    {
+      name: 'agenda: deshacer "No asistió" (CLI-208)',
+      call: () => s.appointments.undoNoShow('appt-1'),
+      method: 'DELETE',
+      url: `${API}/appointments/doctor/appt-1/no-show`,
     },
     {
       name: 'agenda: horario propio del doctor (CLI-148)',
@@ -422,6 +524,13 @@ function cases(s: ReturnType<typeof services>): Case[] {
       call: () => s.admin.deactivate('d1'),
       method: 'PATCH',
       url: `${API}/admin/doctors/d1/deactivate`,
+      body: {},
+    },
+    {
+      name: 'admin: volver a habilitar (CLI-201)',
+      call: () => s.admin.reactivate('d1'),
+      method: 'PATCH',
+      url: `${API}/admin/doctors/d1/reactivate`,
       body: {},
     },
   ];

@@ -7,6 +7,18 @@ export interface QuoteLine {
   readonly toothNumbers: number[];
   /** Siempre en Bs. */
   readonly total: number;
+  /** CLI-228: cuándo se realizó (todas sus filas); null = por realizar. */
+  readonly performedAt: string | null;
+}
+
+/** La fecha más reciente de las filas, si todas se realizaron (mismo criterio que el backend, CLI-226). */
+export function linePerformedAt(rows: readonly QuoteItem[]): string | null {
+  let latest: string | null = null;
+  for (const row of rows) {
+    if (!row.performedAt) { return null; }
+    if (latest === null || row.performedAt > latest) { latest = row.performedAt; }
+  }
+  return latest;
 }
 
 /**
@@ -25,6 +37,7 @@ export function groupQuoteLines(items: QuoteItem[]): QuoteLine[] {
     treatmentName: rows[0].treatmentName,
     toothNumbers: rows.map((r) => r.toothNumber).filter((n): n is number => n !== null),
     total: rows[0].subtotal,
+    performedAt: linePerformedAt(rows),
   }));
 }
 

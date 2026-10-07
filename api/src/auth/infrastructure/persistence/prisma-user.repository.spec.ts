@@ -36,6 +36,7 @@ describe('PrismaUserRepository', () => {
       updateMany: jest.Mock;
       upsert: jest.Mock;
       findUnique: jest.Mock;
+      findFirst: jest.Mock;
       findMany: jest.Mock;
     };
     doctor_profiles: { count: jest.Mock; updateMany: jest.Mock };
@@ -51,6 +52,7 @@ describe('PrismaUserRepository', () => {
         updateMany: jest.fn(),
         upsert: jest.fn(),
         findUnique: jest.fn(),
+        findFirst: jest.fn(),
         findMany: jest.fn(),
       },
       // Por defecto ningún user es doctor: los tests de pacientes/admin no cambian.
@@ -86,6 +88,7 @@ describe('PrismaUserRepository', () => {
         { code: 'P2002', clientVersion: 'test' },
       );
       prismaMock.users.upsert.mockRejectedValue(error);
+      prismaMock.users.findFirst.mockResolvedValue({ id: 'taken-user' });
       prismaMock.users.update.mockResolvedValue(
         fakeUserRecord({
           auth_user_id: AUTH_USER_ID,
@@ -101,8 +104,12 @@ describe('PrismaUserRepository', () => {
         photoUrl: null,
       });
 
+      expect(prismaMock.users.findFirst).toHaveBeenCalledWith({
+        where: { email: 'taken@b.com', is_active: true },
+        select: { id: true },
+      });
       expect(prismaMock.users.update).toHaveBeenCalledWith({
-        where: { email: 'taken@b.com' },
+        where: { id: 'taken-user' },
         data: expect.objectContaining({
           auth_user_id: AUTH_USER_ID,
         }) as Record<string, unknown>,
@@ -245,6 +252,7 @@ describe('PrismaUserRepository', () => {
       prismaMock.doctor_profiles.count
         .mockResolvedValueOnce(0) // por auth_user_id: todavía no es de nadie
         .mockResolvedValueOnce(1); // por email: la fila que se re-vincula es de un doctor
+      prismaMock.users.findFirst.mockResolvedValue({ id: 'doctor-row' });
       prismaMock.users.update.mockResolvedValue(
         fakeUserRecord({ auth_user_id: AUTH_USER_ID, role: 'odontologist' }),
       );
@@ -607,6 +615,19 @@ describe('PrismaUserRepository', () => {
         phone: '59170000000',
         updated_at: expect.any(Date) as Date,
       });
+    });
+
+    it('guarda y limpia la marca de teléfono no habilitado (CLI-143)', async () => {
+      prismaMock.users.update.mockResolvedValue(fakeUserRecord());
+
+      await repo.updateContactInfo(USER_ID, { phoneLoginError: 'unknown' });
+      await repo.updateContactInfo(USER_ID, { phoneLoginError: null });
+
+      const calls = prismaMock.users.update.mock.calls as [
+        { data: Record<string, unknown> },
+      ][];
+      expect(calls[0][0].data).toMatchObject({ phone_login_error: 'unknown' });
+      expect(calls[1][0].data).toMatchObject({ phone_login_error: null });
     });
 
     it('mapea email, teléfono y nombre cuando vienen', async () => {

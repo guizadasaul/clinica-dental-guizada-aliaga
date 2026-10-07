@@ -7,7 +7,7 @@ import {
 } from 'class-validator';
 import {
   EmptyToUndefined,
-  Trim,
+  NormalizeText,
 } from '../../../../shared/validators/transforms.js';
 import { NoHtml } from '../../../../shared/validators/text-safety.validator.js';
 
@@ -31,7 +31,7 @@ export class CreateClinicalExamDto {
   // Texto libre a propósito (decisión clínica, no limpieza) — sin @IsIn().
   @IsOptional()
   @EmptyToUndefined()
-  @Trim()
+  @NormalizeText()
   @IsString()
   @MinLength(3)
   @MaxLength(200)

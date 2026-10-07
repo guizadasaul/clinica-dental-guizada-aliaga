@@ -14,6 +14,7 @@ describe('AdminReportsController', () => {
     getOperationalReport: jest.fn(),
     getFinancialReport: jest.fn(),
     getTopTreatments: jest.fn(),
+    getTrends: jest.fn(),
   };
   const controller = new AdminReportsController(
     service as unknown as ReportsService,
@@ -24,6 +25,7 @@ describe('AdminReportsController', () => {
   describe.each([
     ['getOperational', 'getOperationalReport'],
     ['getFinancial', 'getFinancialReport'],
+    ['getTrends', 'getTrends'],
   ] as const)('%s', (handler, serviceMethod) => {
     it('sin doctor agrega sobre todos (no manda doctorId)', async () => {
       service[serviceMethod].mockResolvedValue('reporte');

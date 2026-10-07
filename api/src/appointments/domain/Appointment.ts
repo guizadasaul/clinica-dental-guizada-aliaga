@@ -6,6 +6,8 @@ export const AppointmentStatus = {
   EXPIRED: 'expired',
   /** CLI-149: cancelada por el doctor — libera el turno. */
   CANCELLED: 'cancelled',
+  /** CLI-208: el doctor marcó que el paciente no vino — solo citas confirmadas que ya pasaron. No cuenta como visita. */
+  NO_SHOW: 'no_show',
 } as const;
 export type AppointmentStatus =
   (typeof AppointmentStatus)[keyof typeof AppointmentStatus];

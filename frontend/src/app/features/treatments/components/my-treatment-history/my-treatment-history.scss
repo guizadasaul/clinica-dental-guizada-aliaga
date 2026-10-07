@@ -1,0 +1,139 @@
+// ─── Mi historial del paciente (CLI-216: filas como las del panel del doctor) ─
+
+.history {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+  max-width: 1000px;
+}
+
+.history__muted {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
+
+.history__error {
+  margin: 0;
+  padding: 0.625rem 0.875rem;
+  border-radius: var(--radius-lg);
+  background: var(--color-error-light);
+  font-size: var(--font-size-sm);
+  color: var(--color-error);
+}
+
+.history__sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.history__select {
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: #fff;
+  font-family: var(--font-body);
+  font-size: var(--font-size-sm);
+  color: var(--color-text);
+}
+
+.history__list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.treatment {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-6);
+  padding: var(--space-5) var(--space-6);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xl);
+  background: #fff;
+  box-shadow: var(--shadow-sm);
+
+  @media (max-width: 600px) {
+    flex-direction: column;
+    gap: var(--space-1);
+  }
+}
+
+.treatment__date {
+  flex-shrink: 0;
+  min-width: 12rem;
+  font-family: var(--font-headline);
+  font-size: var(--font-size-base);
+  color: var(--color-primary-dark);
+}
+
+.treatment__body {
+  flex: 1;
+  min-width: 0;
+}
+
+.treatment__name {
+  margin: 0;
+  font-size: var(--font-size-lg);
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.treatment__meta,
+.treatment__notes {
+  margin: var(--space-2) 0 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
+
+.treatment__notes {
+  font-style: italic;
+}
+
+.history-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-12) var(--space-8);
+  border: 1.5px dashed var(--color-border);
+  border-radius: var(--radius-xl);
+  background: #fff;
+  text-align: center;
+}
+
+.history-empty__icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 64px;
+  height: 64px;
+  margin-bottom: var(--space-2);
+  border-radius: 50%;
+  background: var(--color-primary-subtle);
+
+  .material-symbols-outlined {
+    font-size: 32px;
+    color: var(--color-primary-dark);
+  }
+}
+
+.history-empty__text {
+  margin: 0;
+  font-size: var(--font-size-base);
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.history-empty__sub {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}

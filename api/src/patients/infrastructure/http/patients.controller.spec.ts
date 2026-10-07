@@ -5,7 +5,6 @@ import type { CreatePatientDto } from './dto/create-patient.dto';
 import type { CreateMedicalHistoryDto } from './dto/create-medical-history.dto';
 import type { CreateHygieneHabitsDto } from './dto/create-hygiene-habits.dto';
 import type { CreateClinicalExamDto } from './dto/create-clinical-exam.dto';
-import type { CreateToothProcedureDto } from './dto/create-tooth-procedure.dto';
 
 const DOCTOR = { uid: 'doctor-auth-1' } as AuthenticatedUser;
 const PATIENT_ID = 'patient-1';
@@ -15,6 +14,9 @@ describe('PatientsController', () => {
     findAll: jest.fn(),
     findMyPatient: jest.fn(),
     findMyPatientStatus: jest.fn(),
+    findMyToothProcedures: jest.fn(),
+    findMyClinicalRecord: jest.fn(),
+    findFieldOptions: jest.fn(),
     createPatient: jest.fn(),
     updatePatient: jest.fn(),
     upsertMedicalHistory: jest.fn(),
@@ -25,7 +27,6 @@ describe('PatientsController', () => {
     findLatestClinicalExam: jest.fn(),
     findOdontogramEntries: jest.fn(),
     createOdontogramEntries: jest.fn(),
-    createToothProcedure: jest.fn(),
     findToothProcedures: jest.fn(),
     createDentalExam: jest.fn(),
     findDentalExamVersions: jest.fn(),
@@ -57,6 +58,35 @@ describe('PatientsController', () => {
 
       expect(mockService.findMyPatient).toHaveBeenCalledWith('doctor-auth-1');
       expect(mockService.findMyPatientStatus).toHaveBeenCalledWith(
+        'doctor-auth-1',
+      );
+    });
+
+    it('field-options devuelve los lugares, zonas y ciudades ya usados (CLI-178)', async () => {
+      const options = { birthPlaces: ['Cochabamba'], zonas: [], ciudades: [] };
+      mockService.findFieldOptions.mockResolvedValue(options);
+
+      await expect(controller.findFieldOptions()).resolves.toBe(options);
+    });
+
+    it('me/tooth-procedures resuelve la ficha por el uid de la sesión (CLI-102)', async () => {
+      mockService.findMyToothProcedures.mockResolvedValue(['proc']);
+
+      await expect(controller.findMyToothProcedures(DOCTOR)).resolves.toEqual([
+        'proc',
+      ]);
+      expect(mockService.findMyToothProcedures).toHaveBeenCalledWith(
+        'doctor-auth-1',
+      );
+    });
+
+    it('me/clinical-record resuelve la ficha por el uid de la sesión (CLI-213)', async () => {
+      mockService.findMyClinicalRecord.mockResolvedValue('record');
+
+      await expect(controller.findMyClinicalRecord(DOCTOR)).resolves.toBe(
+        'record',
+      );
+      expect(mockService.findMyClinicalRecord).toHaveBeenCalledWith(
         'doctor-auth-1',
       );
     });
@@ -114,8 +144,7 @@ describe('PatientsController', () => {
       lastVisitTreatment: 'Limpieza',
       familyHistory: 'Diabetes',
       documentType: 'ci',
-      dni: '1234567',
-      documentExtension: 'LP',
+      dni: '1234567-LP',
     } as CreatePatientDto;
 
     it('convierte las fechas y pasa el resto de los campos tal cual', async () => {
@@ -145,8 +174,7 @@ describe('PatientsController', () => {
           lastVisitTreatment: 'Limpieza',
           familyHistory: 'Diabetes',
           documentType: 'ci',
-          dni: '1234567',
-          documentExtension: 'LP',
+          dni: '1234567-LP',
         },
       );
     });
@@ -203,12 +231,9 @@ describe('PatientsController', () => {
   });
 
   describe('upsertMedicalHistory', () => {
-    it('convierte las fechas de condiciones, gestación y medicación', async () => {
+    it('convierte las fechas de gestación y medicación (las condiciones ya no llevan fecha, CLI-176)', async () => {
       await controller.upsertMedicalHistory(PATIENT_ID, {
-        conditions: [
-          { code: 'diabetes', diagnosedAt: '2020-01-01', notes: 'tipo 2' },
-          { code: 'asma' },
-        ],
+        conditions: [{ code: 'diabetes', notes: 'tipo 2' }, { code: 'asma' }],
         otherDiseases: 'Ninguna',
         gestationLmpDate: '2026-06-01',
         anesthesiaReactions: 'No',
@@ -227,12 +252,8 @@ describe('PatientsController', () => {
         PATIENT_ID,
         {
           conditions: [
-            {
-              code: 'diabetes',
-              diagnosedAt: new Date('2020-01-01'),
-              notes: 'tipo 2',
-            },
-            { code: 'asma', diagnosedAt: undefined, notes: undefined },
+            { code: 'diabetes', notes: 'tipo 2' },
+            { code: 'asma', notes: undefined },
           ],
           otherDiseases: 'Ninguna',
           gestationLmpDate: new Date('2026-06-01'),
@@ -325,47 +346,6 @@ describe('PatientsController', () => {
       PATIENT_ID,
       [entry],
     );
-  });
-
-  describe('createToothProcedure', () => {
-    it('pasa dientes, precio y la fecha convertida, con el uid del doctor', async () => {
-      await controller.createToothProcedure(PATIENT_ID, DOCTOR, {
-        teeth: [{ number: 16, surfaces: ['occlusal'] }],
-        treatmentId: 'treatment-1',
-        priceCharged: 200,
-        quantity: 1,
-        procedureDate: '2026-09-20',
-        notes: 'ok',
-      });
-
-      expect(mockService.createToothProcedure).toHaveBeenCalledWith(
-        PATIENT_ID,
-        'doctor-auth-1',
-        {
-          teeth: [{ number: 16, surfaces: ['occlusal'] }],
-          treatmentId: 'treatment-1',
-          priceCharged: 200,
-          quantity: 1,
-          procedureDate: new Date('2026-09-20'),
-          notes: 'ok',
-        },
-      );
-    });
-
-    it('sin fecha de procedimiento la deja sin definir', async () => {
-      await controller.createToothProcedure(PATIENT_ID, DOCTOR, {
-        teeth: [{ number: 16 }],
-        treatmentId: 'treatment-1',
-      } as CreateToothProcedureDto);
-
-      const [, , data] = mockService.createToothProcedure.mock.calls[0] as [
-        string,
-        string,
-        { procedureDate?: Date; teeth: unknown[] },
-      ];
-      expect(data.procedureDate).toBeUndefined();
-      expect(data.teeth).toEqual([{ number: 16, surfaces: undefined }]);
-    });
   });
 
   it('createDentalExam mapea los hallazgos, el tipo y el motivo', async () => {

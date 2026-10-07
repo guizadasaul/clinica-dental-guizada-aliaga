@@ -33,10 +33,22 @@ export interface AgendaSlot {
   readonly minutes: number;
 }
 
-/** Duraciones que acepta el backend (CLI-148): múltiplos de 30 min, hasta 4 h. */
-const DURATIONS = [30, 60, 90, 120, 150, 180, 210, 240];
-const MAX_DURATION = DURATIONS.at(-1)!;
-const SLOT_TAKEN = 'Ya tenés una cita en ese horario. Elegí otro horario u otra duración.';
+/**
+ * Duración libre (CLI-194): de 5 minutos a 8 horas, de 5 en 5 — lo que acepta
+ * el backend. Antes eran múltiplos de 30 hasta 4 h.
+ */
+export const STEP_MINUTES = 5;
+export const MIN_DURATION = 5;
+export const MAX_DURATION = 8 * 60;
+const HOURS_OPTIONS = Array.from({ length: MAX_DURATION / 60 + 1 }, (_, i) => i);
+const MINUTES_OPTIONS = Array.from({ length: 60 / STEP_MINUTES }, (_, i) => i * STEP_MINUTES);
+
+/** Otra cita del día, en minutos desde la medianoche, para avisar si la nueva la pisa. */
+export interface BusyInterval {
+  readonly start: number;
+  readonly end: number;
+}
+const SLOT_TAKEN = 'Ya tienes una cita en ese horario. Elige otro horario u otra duración.';
 
 const LONG_DATE_FORMATTER = new Intl.DateTimeFormat('es-BO', {
   timeZone: 'America/La_Paz',
@@ -45,14 +57,20 @@ const LONG_DATE_FORMATTER = new Intl.DateTimeFormat('es-BO', {
   month: 'long',
 });
 
-/** Duración del tratamiento redondeada hacia arriba a la grilla de 30 min, dentro de lo que se puede agendar. */
-function durationForTreatment(estimatedMinutes: number): number {
-  return Math.min(MAX_DURATION, Math.max(30, Math.ceil(estimatedMinutes / 30) * 30));
+/** Duración de un tratamiento o de una cita: de 5 en 5 hacia arriba, dentro de lo que se puede agendar (no a 30). */
+function normalizeDuration(minutes: number): number {
+  return Math.min(MAX_DURATION, Math.max(MIN_DURATION, Math.ceil(minutes / STEP_MINUTES) * STEP_MINUTES));
 }
 
-/** Una duración que ya existe en la lista queda igual; otra se lleva a la grilla. */
-function gridDuration(minutes: number): number {
-  return DURATIONS.includes(minutes) ? minutes : durationForTreatment(minutes);
+/** "HH:MM" → minutos desde la medianoche, o null si no es una hora válida. */
+function hhmmToMinutes(value: string): number | null {
+  const match = /^(\d{2}):(\d{2})$/.exec(value);
+  if (!match) {
+    return null;
+  }
+  const hours = Number(match[1]);
+  const minutes = Number(match[2]);
+  return hours < 24 && minutes < 60 ? hours * 60 + minutes : null;
 }
 
 /** `message` del cuerpo de un error HTTP (string o string[] de class-validator), si trae algo usable. */
@@ -91,8 +109,8 @@ export class BookAppointmentDialogComponent implements OnInit {
   readonly slot = input.required<AgendaSlot>();
   /** Horario de atención del doctor — para avisar si el turno queda fuera. */
   readonly schedule = input<readonly DoctorScheduleBlock[]>([]);
-  /** Minutos del día en que empieza la próxima cita del doctor, si hay — una duración más larga la pisaría. */
-  readonly nextBusyMinutes = input<number | null>(null);
+  /** Las demás citas del doctor ese día — la nueva avisa (y no deja guardar) si pisa alguna. */
+  readonly busyIntervals = input<readonly BusyInterval[]>([]);
   /**
    * CLI-151: con una cita, el modal la reprograma al horario clickeado en vez
    * de crear una nueva — paciente y tratamiento quedan fijos, duración y
@@ -110,7 +128,9 @@ export class BookAppointmentDialogComponent implements OnInit {
 
   private readonly panel = viewChild<ElementRef<HTMLElement>>('panel');
 
-  protected readonly durations = DURATIONS;
+  protected readonly minDuration = MIN_DURATION;
+  protected readonly hoursOptions = HOURS_OPTIONS;
+  protected readonly minutesOptions = MINUTES_OPTIONS;
 
   private readonly patients = toSignal(
     this.patientsService.getAll().pipe(catchError(() => of(null))),
@@ -161,31 +181,49 @@ export class BookAppointmentDialogComponent implements OnInit {
   protected readonly patientId = signal<string | null>(null);
   protected readonly treatmentId = signal<string | null>(null);
   protected readonly duration = signal(30);
+  /** Hora de inicio, en minutos desde la medianoche; arranca con la del horario clickeado y se puede cambiar de 5 en 5 (CLI-194). */
+  protected readonly startMinutes = signal(0);
+  protected readonly durationHours = computed(() => Math.floor(this.duration() / 60));
+  protected readonly durationRemainder = computed(() => this.duration() % 60);
+  protected readonly startHhmm = computed(() => minutesToHhmm(this.startMinutes()));
+  protected readonly durationValid = computed(
+    () => this.duration() >= MIN_DURATION && this.duration() <= MAX_DURATION,
+  );
   protected readonly notes = signal('');
   protected readonly submitting = signal(false);
   protected readonly error = signal<string | null>(null);
 
   protected readonly whenLabel = computed(() => {
-    const { date, minutes } = this.slot();
+    const { date } = this.slot();
+    const minutes = this.startMinutes();
     const day = LONG_DATE_FORMATTER.format(new Date(clinicSlotIso(date, minutes)));
     return `${day.charAt(0).toUpperCase()}${day.slice(1)} · ${minutesToHhmm(minutes)} a ${minutesToHhmm(minutes + this.duration())}`;
   });
 
   protected readonly outsideSchedule = computed(() => {
-    const { date, minutes } = this.slot();
-    return !isWithinSchedule(this.schedule(), date, minutes, this.duration());
+    const { date } = this.slot();
+    return !isWithinSchedule(this.schedule(), date, this.startMinutes(), this.duration());
   });
 
-  /** La duración elegida alcanza a la próxima cita del doctor ese día. */
-  protected readonly overlapsNext = computed(() => {
-    const next = this.nextBusyMinutes();
-    return next !== null && this.slot().minutes + this.duration() > next;
+  /** La cita (hora de inicio y duración elegidas) pisa otra del doctor ese día; la primera que choque. */
+  protected readonly conflict = computed<BusyInterval | null>(() => {
+    const start = this.startMinutes();
+    const end = start + this.duration();
+    const hits = this.busyIntervals()
+      .filter((b) => start < b.end && b.start < end)
+      .sort((a, b) => a.start - b.start);
+    return hits[0] ?? null;
   });
+
+  protected readonly overlapsNext = computed(() => this.conflict() !== null);
 
   protected readonly nextBusyLabel = computed(() => {
-    const next = this.nextBusyMinutes();
-    return next === null ? '' : minutesToHhmm(next);
+    const conflict = this.conflict();
+    return conflict === null ? '' : minutesToHhmm(conflict.start);
   });
+
+  /** La cita no puede cruzar la medianoche: el día de la agenda es el mismo. */
+  protected readonly crossesMidnight = computed(() => this.startMinutes() + this.duration() > 24 * 60);
 
   protected readonly isReschedule = computed(() => this.appointment() !== null);
   protected readonly appointmentPatient = computed(() => {
@@ -200,7 +238,12 @@ export class BookAppointmentDialogComponent implements OnInit {
   });
 
   protected readonly canSubmit = computed(
-    () => (this.isReschedule() || !!this.patientId()) && !this.overlapsNext() && !this.submitting(),
+    () =>
+      (this.isReschedule() || !!this.patientId()) &&
+      this.durationValid() &&
+      !this.crossesMidnight() &&
+      !this.overlapsNext() &&
+      !this.submitting(),
   );
 
   constructor() {
@@ -210,9 +253,10 @@ export class BookAppointmentDialogComponent implements OnInit {
   }
 
   ngOnInit(): void {
+    this.startMinutes.set(this.slot().minutes);
     const appointment = this.appointment();
     if (appointment) {
-      this.duration.set(gridDuration(appointment.durationMinutes));
+      this.duration.set(normalizeDuration(appointment.durationMinutes));
       this.notes.set(appointment.notes ?? '');
       return;
     }
@@ -220,7 +264,7 @@ export class BookAppointmentDialogComponent implements OnInit {
     if (origin) {
       this.patientId.set(origin.patientId);
       this.treatmentId.set(origin.treatmentId);
-      this.duration.set(gridDuration(origin.durationMinutes));
+      this.duration.set(normalizeDuration(origin.durationMinutes));
     }
   }
 
@@ -233,12 +277,27 @@ export class BookAppointmentDialogComponent implements OnInit {
     this.treatmentId.set(id);
     const treatment = this.treatments()?.find((t) => t.id === id);
     if (treatment) {
-      this.duration.set(durationForTreatment(treatment.estimatedMinutes));
+      this.duration.set(normalizeDuration(treatment.estimatedMinutes));
     }
   }
 
-  protected onDurationChange(event: Event): void {
-    this.duration.set(Number((event.target as HTMLSelectElement).value));
+  protected onDurationHoursChange(event: Event): void {
+    const hours = Number((event.target as HTMLSelectElement).value);
+    // Con 8 h no hay minutos: el máximo es 8 h en punto.
+    this.duration.set(hours >= MAX_DURATION / 60 ? MAX_DURATION : hours * 60 + this.durationRemainder());
+  }
+
+  protected onDurationMinutesChange(event: Event): void {
+    const minutes = Number((event.target as HTMLSelectElement).value);
+    this.duration.set(Math.min(MAX_DURATION, this.durationHours() * 60 + minutes));
+  }
+
+  protected onStartChange(event: Event): void {
+    const minutes = hhmmToMinutes((event.target as HTMLInputElement).value);
+    if (minutes !== null) {
+      this.startMinutes.set(minutes);
+      this.error.set(null);
+    }
   }
 
   protected onNotesInput(event: Event): void {
@@ -258,7 +317,7 @@ export class BookAppointmentDialogComponent implements OnInit {
       this.error.set(
         status === 409
           ? (backendMessage(err) ?? SLOT_TAKEN)
-          : (backendMessage(err) ?? 'No pudimos guardar la cita. Probá de nuevo.'),
+          : (backendMessage(err) ?? 'No pudimos guardar la cita. Prueba de nuevo.'),
       );
     } finally {
       this.submitting.set(false);
@@ -267,8 +326,8 @@ export class BookAppointmentDialogComponent implements OnInit {
 
   /** Crea la cita nueva, o mueve la existente al horario clickeado (CLI-151). */
   private save() {
-    const { date, minutes } = this.slot();
-    const appointmentDatetime = clinicSlotIso(date, minutes);
+    const { date } = this.slot();
+    const appointmentDatetime = clinicSlotIso(date, this.startMinutes());
     const appointment = this.appointment();
     if (appointment) {
       return this.appointmentsService.rescheduleByDoctor(appointment.id, {

@@ -26,10 +26,11 @@ describe('PrismaQuotesRepository', () => {
       create: jest.Mock;
       findUnique: jest.Mock;
       findMany: jest.Mock;
+      findUniqueOrThrow: jest.Mock;
       update: jest.Mock;
     };
     quote_items: {
-      createMany: jest.Mock;
+      createManyAndReturn: jest.Mock;
       findUnique: jest.Mock;
       delete: jest.Mock;
       aggregate: jest.Mock;
@@ -49,10 +50,11 @@ describe('PrismaQuotesRepository', () => {
         create: jest.fn(),
         findUnique: jest.fn(),
         findMany: jest.fn(),
+        findUniqueOrThrow: jest.fn().mockResolvedValue({ total_paid: 0 }),
         update: jest.fn(),
       },
       quote_items: {
-        createMany: jest.fn(),
+        createManyAndReturn: jest.fn().mockResolvedValue([]),
         findUnique: jest.fn(),
         delete: jest.fn(),
         aggregate: jest.fn(),
@@ -97,13 +99,14 @@ describe('PrismaQuotesRepository', () => {
           exchange_rate: null,
         },
       });
-      expect(prismaMock.quote_items.createMany).toHaveBeenCalledWith({
+      expect(prismaMock.quote_items.createManyAndReturn).toHaveBeenCalledWith({
         data: [16, 17, 18].map((toothNumber) => ({
           quote_id: 'quote-1',
           treatment_id: 'treatment-1',
           tooth_number: toothNumber,
           application_group_id: 'group-1',
         })),
+        select: { id: true, tooth_number: true },
       });
     });
 
@@ -207,6 +210,42 @@ describe('PrismaQuotesRepository', () => {
   });
 
   describe('total_amount recalculation', () => {
+    // CLI-226: sumar una línea a un presupuesto pagado lo deja con saldo.
+    it('recalcula también el estado: un presupuesto pagado con una línea nueva deja de estar pagado', async () => {
+      prismaMock.quotes.findUniqueOrThrow.mockResolvedValue({
+        total_paid: 500,
+      });
+      prismaMock.quote_items.aggregate.mockResolvedValue({
+        _sum: { subtotal: 800 },
+      });
+      prismaMock.application_groups.aggregate.mockResolvedValue({
+        _sum: { subtotal: null },
+      });
+      prismaMock.quotes.update.mockResolvedValue(
+        fakeQuoteRecord({ total_amount: 800, total_paid: 500 }),
+      );
+
+      await repo.addItems('quote-1', [
+        {
+          treatmentId: 'treatment-1',
+          toothNumber: null,
+          unitPrice: 300,
+          quantity: 1,
+          subtotal: 300,
+          currency: 'BOB',
+        },
+      ]);
+
+      expect(prismaMock.quotes.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            total_amount: 800,
+            status: 'partially_paid',
+          }) as Record<string, unknown>,
+        }),
+      );
+    });
+
     it('sums loose quote_items.subtotal and application_groups.subtotal together (they never overlap)', async () => {
       prismaMock.quote_items.aggregate.mockResolvedValue({
         _sum: { subtotal: 60 },
@@ -262,6 +301,8 @@ describe('PrismaQuotesRepository — altas, lecturas y pagos', () => {
     quote_qr_charges: {
       create: jest.fn(),
       findUnique: jest.fn(),
+      findFirst: jest.fn(),
+      findMany: jest.fn(),
       updateMany: jest.fn(),
     },
     transaction: jest.fn((fn: (t: unknown) => unknown) => fn(tx)),
@@ -420,6 +461,92 @@ describe('PrismaQuotesRepository — altas, lecturas y pagos', () => {
           baneco_transaction_id: 'tx-1',
           qr_image: 'img',
         },
+        include: { lines: true },
+      });
+    });
+
+    // CLI-218
+    it('createQrCharge guarda los tratamientos que eligió el paciente', async () => {
+      prisma.quote_qr_charges.create.mockResolvedValue({ id: 'c1' });
+
+      await repo.createQrCharge({
+        quoteId: 'quote-1',
+        amount: 300,
+        qrId: 'qr-1',
+        transactionId: 'tx-1',
+        qrImageBase64: 'img',
+        lines: [
+          { quoteItemId: 'item-1', amount: 100 },
+          { applicationGroupId: 'group-1', amount: 200 },
+        ],
+      });
+
+      expect(prisma.quote_qr_charges.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            lines: {
+              create: [
+                {
+                  quote_item_id: 'item-1',
+                  application_group_id: null,
+                  amount: 100,
+                },
+                {
+                  quote_item_id: null,
+                  application_group_id: 'group-1',
+                  amount: 200,
+                },
+              ],
+            },
+          }) as object,
+        }),
+      );
+    });
+
+    // CLI-220
+    it('findQrChargeByQrId busca por el qrId de BANECO', async () => {
+      prisma.quote_qr_charges.findUnique
+        .mockResolvedValueOnce({ id: 'c1' })
+        .mockResolvedValueOnce(null);
+
+      await expect(repo.findQrChargeByQrId('qr-1')).resolves.toBe('charge');
+      await expect(repo.findQrChargeByQrId('qr-x')).resolves.toBeNull();
+      expect(prisma.quote_qr_charges.findUnique).toHaveBeenCalledWith({
+        where: { baneco_qr_id: 'qr-1' },
+        include: { lines: true },
+      });
+    });
+
+    it('findPendingQrCharges trae los pendientes, el más antiguo primero', async () => {
+      prisma.quote_qr_charges.findMany.mockResolvedValue([{ id: 'c1' }]);
+
+      await expect(repo.findPendingQrCharges()).resolves.toEqual(['charge']);
+      expect(prisma.quote_qr_charges.findMany).toHaveBeenCalledWith({
+        where: { status: 'pending' },
+        include: { lines: true },
+        orderBy: { created_at: 'asc' },
+      });
+    });
+
+    it('findPendingPatientQrCharge busca el QR pendiente del paciente que tenga tratamientos', async () => {
+      prisma.quote_qr_charges.findFirst
+        .mockResolvedValueOnce({ id: 'c1' })
+        .mockResolvedValueOnce(null);
+
+      await expect(repo.findPendingPatientQrCharge('patient-1')).resolves.toBe(
+        'charge',
+      );
+      await expect(
+        repo.findPendingPatientQrCharge('patient-1'),
+      ).resolves.toBeNull();
+      expect(prisma.quote_qr_charges.findFirst).toHaveBeenCalledWith({
+        where: {
+          status: 'pending',
+          lines: { some: {} },
+          quotes: { patient_id: 'patient-1' },
+        },
+        include: { lines: true },
+        orderBy: { created_at: 'desc' },
       });
     });
 

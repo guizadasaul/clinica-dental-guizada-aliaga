@@ -62,6 +62,7 @@ function message(
 const AGENT_RESULT: AgentRunResult = {
   reply: 'Tu próxima cita es el martes',
   links: [{ label: 'Reservar', url: 'http://localhost:4200/reservar?x=1' }],
+  attachments: [],
   toolNames: ['get_my_next_appointment'],
   toolCalls: [{ name: 'get_my_next_appointment', status: 'ok', ms: 12 }],
   usage: { promptTokens: 900, completionTokens: 40 },
@@ -141,6 +142,7 @@ describe('ChatService', () => {
         links: [
           { label: 'Reservar', url: 'http://localhost:4200/reservar?x=1' },
         ],
+        attachments: [],
       });
     });
 

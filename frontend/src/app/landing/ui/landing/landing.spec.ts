@@ -18,6 +18,7 @@ const DOCTORS: Doctor[] = [
     photoUrl: null,
     displayOrder: 0,
     isBookable: true,
+    phone: null,
   },
 ];
 
@@ -39,7 +40,7 @@ interface Mocks {
   scrollLock: { lock: ReturnType<typeof vi.fn>; unlock: ReturnType<typeof vi.fn> };
 }
 
-/** Con reduced-motion el hero no arranca GSAP ni el canvas: los tests de comportamiento no los necesitan. */
+/** Con reduced-motion el hero no arranca GSAP: los tests de comportamiento no lo necesitan. */
 function stubMatchMedia(reduced: boolean): void {
   vi.stubGlobal(
     'matchMedia',
@@ -100,20 +101,9 @@ function all(fixture: ReturnType<typeof setup>['fixture'], selector: string): HT
   return Array.from((fixture.nativeElement as HTMLElement).querySelectorAll<HTMLElement>(selector));
 }
 
-class FakeIntersectionObserver {
-  static instances: FakeIntersectionObserver[] = [];
-  readonly observe = vi.fn();
-  readonly disconnect = vi.fn();
-  constructor(readonly callback: (entries: { isIntersecting: boolean }[]) => void) {
-    FakeIntersectionObserver.instances.push(this);
-  }
-}
-
 describe('LandingComponent', () => {
   beforeEach(() => {
     stubMatchMedia(true);
-    FakeIntersectionObserver.instances = [];
-    vi.stubGlobal('IntersectionObserver', FakeIntersectionObserver);
   });
 
   afterEach(() => {
@@ -129,6 +119,17 @@ describe('LandingComponent', () => {
     expect(mocks.booking.getDoctors).toHaveBeenCalledTimes(1);
     expect(mocks.testimonials.getApproved).toHaveBeenCalledTimes(1);
     expect((fixture.nativeElement as HTMLElement).textContent).toContain('Excelente atención');
+  });
+
+  it('el hero lleva las dos partes del logo como marca de agua decorativa, una a cada lado (CLI-163)', async () => {
+    const { fixture } = setup();
+    await render(fixture);
+
+    const marks = all(fixture, '.hero__watermark');
+    expect(marks.map((m) => m.classList.contains('hero__watermark--left'))).toEqual([true, false]);
+    expect(marks[1].classList).toContain('hero__watermark--right');
+    // Decorativas: viven en el fondo, ocultas para lectores de pantalla.
+    expect(marks.every((m) => m.closest('[aria-hidden="true"]'))).toBe(true);
   });
 
   it('si los comentarios no cargan, la sección queda sin testimonios (sin romper la página)', async () => {
@@ -240,6 +241,37 @@ describe('LandingComponent', () => {
       );
       expect(el(fixture, 'app-week-slot-picker')).not.toBeNull();
       expect(el(fixture, 'app-doctor-picker')).toBeNull();
+    });
+
+    it('el selector de horarios muestra el doctor elegido y "Cambiar doctor" vuelve a la lista (CLI-164)', async () => {
+      const { fixture } = await openModal();
+      (
+        fixture.componentInstance as unknown as { onBookingDoctorSelected(id: string): void }
+      ).onBookingDoctorSelected('doctor-1');
+      await render(fixture);
+
+      expect(el(fixture, '.week-picker__doctor-label')?.textContent).toContain('Dr. Ariel Guizada');
+      (el(fixture, '.week-picker__change-doctor') as HTMLButtonElement).click();
+      await render(fixture);
+
+      expect(el(fixture, 'app-doctor-picker')).not.toBeNull();
+      expect(el(fixture, 'app-week-slot-picker')).toBeNull();
+    });
+
+    it('"elegir otro doctor" desde un doctor sin turnos vuelve al selector de doctores (CLI-142)', async () => {
+      const { fixture } = await openModal();
+      const landing = fixture.componentInstance as unknown as {
+        onBookingDoctorSelected(id: string): void;
+        onBookingChangeDoctor(): void;
+      };
+      landing.onBookingDoctorSelected('doctor-1');
+      await render(fixture);
+
+      landing.onBookingChangeDoctor();
+      await render(fixture);
+
+      expect(el(fixture, 'app-doctor-picker')).not.toBeNull();
+      expect(el(fixture, 'app-week-slot-picker')).toBeNull();
     });
 
     it('si la disponibilidad falla, avisa con un error', async () => {
@@ -398,160 +430,9 @@ describe('LandingComponent', () => {
   });
 });
 
-describe('LandingComponent — esporas del hero', () => {
-  let ctx: Record<string, ReturnType<typeof vi.fn>>;
-  let frames: FrameRequestCallback[];
-
-  beforeEach(() => {
-    stubMatchMedia(false);
-    FakeIntersectionObserver.instances = [];
-    vi.stubGlobal('IntersectionObserver', FakeIntersectionObserver);
-    frames = [];
-    vi.stubGlobal('requestAnimationFrame', (cb: FrameRequestCallback) => {
-      frames.push(cb);
-      return frames.length;
-    });
-    vi.stubGlobal('cancelAnimationFrame', vi.fn());
-    ctx = {
-      setTransform: vi.fn(),
-      clearRect: vi.fn(),
-      beginPath: vi.fn(),
-      arc: vi.fn(),
-      fill: vi.fn(),
-    };
-    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(
-      ctx as unknown as CanvasRenderingContext2D,
-    );
-    // GSAP se prueba aparte: acá solo el canvas.
-    vi.spyOn(
-      LandingComponent.prototype as unknown as { initAnimations(): Promise<void> },
-      'initAnimations',
-    ).mockResolvedValue(undefined);
-    vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue({
-      width: 1200,
-      height: 700,
-      left: 0,
-      top: 0,
-    } as DOMRect);
-  });
-
-  afterEach(() => {
-    vi.unstubAllGlobals();
-    vi.restoreAllMocks();
-  });
-
-  /** Aleatoriedad fija: los tests no dependen de crypto ni de la suerte. */
-  function sequence(values: number[]): () => number {
-    let i = 0;
-    return () => values[i++ % values.length];
-  }
-
-  /** Hace visible el hero y devuelve el cuadro que pidió el bucle de esporas. */
-  function startLoop(): FrameRequestCallback {
-    const before = frames.length;
-    FakeIntersectionObserver.instances.at(-1)!.callback([{ isIntersecting: true }]);
-    expect(frames.length).toBe(before + 1);
-    return frames.at(-1)!;
-  }
-
-  async function renderWithSpores(random = sequence([0.1, 0.5, 0.9, 0.3])) {
-    const { fixture } = setup();
-    (fixture.componentInstance as unknown as { random: () => number }).random = random;
-    await render(fixture);
-    return fixture;
-  }
-
-  it('dibuja las partículas cuando el hero es visible y pausa cuando sale de pantalla', async () => {
-    const fixture = await renderWithSpores();
-    const io = FakeIntersectionObserver.instances.at(-1)!;
-
-    expect(ctx['setTransform']).toHaveBeenCalled();
-    const frame = startLoop();
-
-    frame(16);
-    // En desktop (ancho ≥ 640) arma 3060 esporas: una arc() por espora por cuadro.
-    expect(ctx['arc']).toHaveBeenCalledTimes(3060);
-
-    const pending = frames.length;
-    io.callback([{ isIntersecting: true }]);
-    expect(frames).toHaveLength(pending); // ya estaba corriendo: no arranca un segundo bucle
-
-    io.callback([{ isIntersecting: false }]);
-    expect(cancelAnimationFrame).toHaveBeenCalled();
-    fixture.destroy();
-  });
-
-  it('en pantallas angostas arma menos partículas', async () => {
-    vi.mocked(HTMLElement.prototype.getBoundingClientRect).mockReturnValue({
-      width: 400,
-      height: 700,
-      left: 0,
-      top: 0,
-    } as DOMRect);
-    await renderWithSpores();
-
-    startLoop()(16);
-
-    expect(ctx['arc']).toHaveBeenCalledTimes(1600);
-  });
-
-  it('el cursor empuja a las esporas cercanas y al salir del hero deja de influir', async () => {
-    const fixture = await renderWithSpores(sequence([0.5]));
-    const hero = (fixture.nativeElement as HTMLElement).querySelector('.hero') as HTMLElement;
-    const frame = startLoop();
-
-    const pointer = new Event('pointermove') as PointerEvent;
-    Object.assign(pointer, { clientX: 600, clientY: 350 });
-    hero.dispatchEvent(pointer);
-    frame(16);
-    const pushed = ctx['arc'].mock.calls[0] as number[];
-
-    ctx['arc'].mockClear();
-    hero.dispatchEvent(new Event('pointerleave'));
-    frames.at(-1)!(32);
-    const calm = ctx['arc'].mock.calls[0] as number[];
-
-    // Con el cursor encima, la espora se aleja de su casa más que sin cursor.
-    expect(pushed[0]).not.toBe(calm[0]);
-  });
-
-  it('al redimensionar reubica las casas sin rearmar el campo', async () => {
-    await renderWithSpores();
-    const frame = startLoop();
-    ctx['setTransform'].mockClear();
-
-    window.dispatchEvent(new Event('resize'));
-
-    expect(ctx['setTransform']).toHaveBeenCalledTimes(1);
-    frame(16);
-    expect(ctx['arc']).toHaveBeenCalledTimes(3060);
-  });
-
-  it('al destruirse corta el bucle, el observer y los listeners', async () => {
-    const fixture = await renderWithSpores();
-    const io = FakeIntersectionObserver.instances.at(-1)!;
-    const removeWindow = vi.spyOn(window, 'removeEventListener');
-
-    fixture.destroy();
-
-    expect(io.disconnect).toHaveBeenCalled();
-    expect(removeWindow).toHaveBeenCalledWith('resize', expect.any(Function));
-  });
-
-  it('sin contexto 2D (navegador sin canvas) no hace nada', async () => {
-    vi.mocked(HTMLCanvasElement.prototype.getContext).mockReturnValue(null);
-
-    await renderWithSpores();
-
-    expect(FakeIntersectionObserver.instances).toHaveLength(0);
-  });
-});
-
 describe('LandingComponent — animaciones de GSAP', () => {
   beforeEach(() => {
     stubMatchMedia(false);
-    vi.stubGlobal('IntersectionObserver', FakeIntersectionObserver);
-    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(null);
   });
 
   afterEach(() => {

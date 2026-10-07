@@ -20,7 +20,7 @@ import {
 import { PersonNamePart } from '../../../../shared/validators/person-name-part.validator.js';
 import { IsE164Phone } from '../../../../shared/validators/phone.validator.js';
 import { NoHtml } from '../../../../shared/validators/text-safety.validator.js';
-import { ScheduleBlockDto } from './schedule-block.dto.js';
+import { IsValidSchedule, ScheduleBlockDto } from './schedule-block.dto.js';
 
 export class CreateDoctorDto {
   // Nombre público (con "Dr./Dra."): lo que ve el paciente al reservar.
@@ -58,7 +58,7 @@ export class CreateDoctorDto {
     {
       message: (args: ValidationArguments) =>
         args.value === undefined
-          ? 'Ingresá al menos un contacto: email o teléfono'
+          ? 'Ingresa al menos un contacto: email o teléfono'
           : 'email must be an email',
     },
   )
@@ -101,6 +101,7 @@ export class CreateDoctorDto {
   displayOrder?: number;
 
   @IsArray()
+  @IsValidSchedule()
   @ValidateNested({ each: true })
   @Type(() => ScheduleBlockDto)
   scheduleBlocks: ScheduleBlockDto[];

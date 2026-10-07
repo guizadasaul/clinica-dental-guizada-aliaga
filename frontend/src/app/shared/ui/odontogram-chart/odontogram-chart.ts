@@ -40,6 +40,12 @@ export class OdontogramChartComponent {
    */
   readonly treatedTeeth = input<readonly number[]>([]);
   readonly legendItems = input<readonly OdontogramLegendItem[]>([]);
+  /**
+   * Nombres de los diagnósticos de cada diente (CLI-179). Con más de uno, el
+   * diente muestra "+N" y el tooltip y el aria-label los listan, porque el
+   * color solo puede mostrar uno.
+   */
+  readonly toothNames = input<ReadonlyMap<number, readonly string[]>>(new Map());
   /** En false el odontograma es solo de consulta: sin clics, foco ni hover (CLI-108). */
   readonly interactive = input(true);
   readonly toothClick = output<number>();
@@ -79,6 +85,17 @@ export class OdontogramChartComponent {
     if (color) { return color; }
     if (this.isSelected(toothNumber)) { return '#1a2b5e'; }
     return 'transparent';
+  }
+
+  /** Cuántos diagnósticos más tiene el diente además del que da el color (0 si tiene uno o ninguno). */
+  protected extraCount(toothNumber: number): number {
+    return Math.max((this.toothNames().get(toothNumber)?.length ?? 0) - 1, 0);
+  }
+
+  /** "Diente 16" o, con diagnósticos, "Diente 16: Caries, Periodontitis". */
+  protected cellLabel(toothNumber: number): string {
+    const names = this.toothNames().get(toothNumber) ?? [];
+    return names.length > 0 ? `Diente ${toothNumber}: ${names.join(', ')}` : `Diente ${toothNumber}`;
   }
 
   protected onCellClick(cell: OdontogramCell): void {

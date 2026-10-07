@@ -1,7 +1,8 @@
 /**
- * Conteo de turnos por estado, tal como lo devuelve el backend — hoy solo
- * puede traer 'held'/'confirmed'/'expired'/'cancelled' pobladas (ningún flujo
- * transiciona una cita a 'attended', no hay check-in). Ver PrismaReportsRepository.
+ * Conteo de citas por estado (CLI-224): 'confirmed' (todavía no llegó la
+ * hora), 'attended' (confirmada que ya pasó), 'cancelled' y 'no_show'. Las
+ * reservas en espera o vencidas no vienen. Ver reportedAppointmentStatus en
+ * el backend.
  */
 export type AppointmentStatusCounts = Record<string, number>;
 
@@ -13,15 +14,30 @@ export interface DoctorOperationalRow {
   totalAppointments: number;
   newPatients: number;
   theoreticalSlots: number;
+  /** Horarios tomados: confirmadas + atendidas. */
   confirmedAppointments: number;
   /** Fracción 0..1 — confirmedAppointments / theoreticalSlots. */
   occupancyRate: number;
+}
+
+/** Detalle de una cita cancelada (CLI-103): quién, cuándo y por qué. */
+export interface CancelledAppointmentRow {
+  appointmentId: string;
+  appointmentDatetime: string;
+  doctorId: string;
+  doctorName: string | null;
+  patientName: string | null;
+  cancelledAt: string | null;
+  cancelledByName: string | null;
+  cancelReason: string | null;
 }
 
 export interface OperationalReport {
   from: string;
   to: string;
   doctors: DoctorOperationalRow[];
+  /** Citas canceladas del rango, la más reciente primero (CLI-103). */
+  cancellations: CancelledAppointmentRow[];
 }
 
 export interface DoctorFinancialRow {
@@ -36,4 +52,32 @@ export interface FinancialReport {
   from: string;
   to: string;
   doctors: DoctorFinancialRow[];
+}
+
+/** GET /admin/reports/top-treatments (CLI-93): cada pieza tratada cuenta una vez. */
+export interface TopTreatmentRow {
+  treatmentId: string;
+  name: string;
+  count: number;
+}
+
+export interface TopTreatmentsReport {
+  from: string;
+  to: string;
+  treatments: TopTreatmentRow[];
+}
+
+/** Un día del rango en el huso de la clínica (CLI-199). */
+export interface TrendDay {
+  /** YYYY-MM-DD. */
+  date: string;
+  appointmentsByStatus: AppointmentStatusCounts;
+  collected: number;
+}
+
+/** GET /admin/reports/trends: un elemento por día del rango, también los vacíos. */
+export interface TrendsReport {
+  from: string;
+  to: string;
+  days: TrendDay[];
 }

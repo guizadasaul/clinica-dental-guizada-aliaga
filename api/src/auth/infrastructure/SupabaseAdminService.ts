@@ -4,7 +4,28 @@ import {
   ConflictException,
   ServiceUnavailableException,
 } from '@nestjs/common';
-import { createClient, type SupabaseClient } from '@supabase/supabase-js';
+import {
+  createClient,
+  type AuthError,
+  type SupabaseClient,
+} from '@supabase/supabase-js';
+import {
+  PhoneLoginError,
+  type PhoneLoginResult,
+} from '../domain/value-objects/PhoneLoginError.js';
+
+/**
+ * Supabase no admite teléfonos repetidos. Al crear un usuario lo dice con un
+ * 422 `phone_exists`, pero al actualizar uno existente (updateUserById)
+ * responde un 500 genérico "Error updating user", sin código — verificado
+ * contra el proyecto real (CLI-143). Las dos formas se tratan como "en uso".
+ */
+function isPhoneInUse(error: AuthError): boolean {
+  return (
+    error.code === 'phone_exists' ||
+    (error.status === 500 && error.message === 'Error updating user')
+  );
+}
 
 /**
  * Cliente admin de Supabase (service_role key) — se usa para confirmar un
@@ -31,26 +52,35 @@ export class SupabaseAdminService {
         : null;
   }
 
+  /**
+   * Nunca lanza: quien llama decide qué hacer con un teléfono que no quedó
+   * habilitado (rechazar el cambio o dejarlo marcado en la cuenta).
+   */
   async setConfirmedPhone(
     authUserId: string,
     phoneE164: string,
-  ): Promise<void> {
+  ): Promise<PhoneLoginResult> {
     if (!this.client) {
       this.logger.warn(
         'SUPABASE_SERVICE_ROLE_KEY no configurada — no se pudo confirmar el teléfono en Supabase Auth',
       );
-      return;
+      return { ok: true };
     }
     const { error } = await this.client.auth.admin.updateUserById(authUserId, {
       phone: phoneE164,
       phone_confirm: true,
     });
-    if (error) {
-      this.logger.error(
-        `No se pudo confirmar el teléfono en Supabase Auth (uid=${authUserId})`,
-        error,
-      );
+    if (!error) {
+      return { ok: true };
     }
+    const reason = isPhoneInUse(error)
+      ? PhoneLoginError.PHONE_IN_USE
+      : PhoneLoginError.UNKNOWN;
+    this.logger.error(
+      `No se pudo confirmar el teléfono en Supabase Auth (uid=${authUserId}, motivo=${reason})`,
+      error,
+    );
+    return { ok: false, reason };
   }
 
   async createPhoneUser(

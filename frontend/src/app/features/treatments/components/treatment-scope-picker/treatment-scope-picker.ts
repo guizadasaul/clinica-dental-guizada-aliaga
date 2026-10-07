@@ -13,10 +13,17 @@ import type { OdontogramEntry } from '../../../patients/models/patient.model';
 import {
   UPPER_TEETH,
   LOWER_TEETH,
+  UPPER_DECIDUOUS_TEETH,
+  LOWER_DECIDUOUS_TEETH,
   teethForApplicationType,
   applicationTypeImpliesTeeth,
 } from '../../../../shared/constants/dental-chart.constants';
 import type { ToothDef } from '../../../../shared/constants/dental-chart.constants';
+
+interface ToothRow {
+  readonly deciduous: boolean;
+  readonly teeth: ToothDef[];
+}
 
 interface CategoryChip {
   readonly id: string;
@@ -89,8 +96,17 @@ export class TreatmentScopePickerComponent {
   readonly frequentIds = input<string[]>([]);
   readonly selectionChange = output<TreatmentScopeSelection | null>();
 
-  protected readonly upperTeeth = UPPER_TEETH;
-  protected readonly lowerTeeth = LOWER_TEETH;
+  // Permanentes y de leche (CLI-180), en el mismo orden que el odontograma:
+  // los de leche quedan del lado del plano de oclusión. Los tratamientos de
+  // arcada siguen resaltando solo los permanentes, como los registra la API.
+  protected readonly upperRows: readonly ToothRow[] = [
+    { deciduous: false, teeth: UPPER_TEETH },
+    { deciduous: true, teeth: UPPER_DECIDUOUS_TEETH },
+  ];
+  protected readonly lowerRows: readonly ToothRow[] = [
+    { deciduous: true, teeth: LOWER_DECIDUOUS_TEETH },
+    { deciduous: false, teeth: LOWER_TEETH },
+  ];
   protected readonly diagnosisOptions = DIAGNOSIS_OPTIONS;
 
   protected readonly search = signal('');

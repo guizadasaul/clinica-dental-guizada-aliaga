@@ -8,6 +8,7 @@
   "scripts": {
     "build": "nest build",
     "seed:demo": "ts-node prisma/seed-demo.ts",
+    "seed:sample": "ts-node prisma/seed-sample.ts",
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
     "start": "nest start",
     "start:dev": "nest start --watch",
@@ -21,6 +22,7 @@
     "test:cov": "jest --coverage",
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
     "test:e2e": "jest --config ./test/jest-e2e.json",
+    "eval:chatbot": "jest --config ./evals/jest-evals.json --runInBand",
     "sonar": "sonar-scanner-npm"
   },
   "dependencies": {
@@ -77,6 +79,10 @@
       "ts"
     ],
     "rootDir": "src",
+    "roots": [
+      "<rootDir>",
+      "<rootDir>/../evals"
+    ],
     "testRegex": ".*\\.spec\\.ts$",
     "transform": {
       "^.+\\.(t|j)s$": "ts-jest"

@@ -13,6 +13,8 @@ export interface Patient {
   zona: string | null;
   ciudad: string | null;
   phone: string | null;
+  /** Correo de contacto (CLI-181) — vive en users.email. */
+  email?: string | null;
   emergencyContactFirstName: string | null;
   emergencyContactLastName: string | null;
   emergencyContactPhone: string | null;
@@ -25,9 +27,13 @@ export interface Patient {
   documentType: string | null;
   dni: string | null;
   /** Extensión/complemento de la CI boliviana (ej. "LP", "1A") — solo con documentType 'ci'. */
-  documentExtension: string | null;
   createdAt: string;
   updatedAt: string;
+  /**
+   * Por qué el teléfono no quedó habilitado como login (CLI-143):
+   * 'phone_in_use' = ya está en otra cuenta; 'unknown' = falló Supabase.
+   */
+  phoneLoginError?: 'phone_in_use' | 'unknown' | null;
   /** Doctor asignado (CLI-58) — informativo, no restringe acceso a la ficha. */
   assignedDoctorId: string | null;
 }
@@ -40,7 +46,6 @@ export interface PatientProfileStatus {
 export interface MedicalConditionEntry {
   code: string;
   name: string;
-  diagnosedAt: string | null;
   notes: string | null;
 }
 
@@ -122,3 +127,12 @@ export interface PatientInviteContact {
   phone: string | null;
   email: string | null;
 }
+
+/** Valores ya usados para sugerir en la ficha (CLI-178, GET /patients/field-options). */
+export interface PatientFieldOptions {
+  birthPlaces: string[];
+  zonas: string[];
+  ciudades: string[];
+}
+
+export const EMPTY_FIELD_OPTIONS: PatientFieldOptions = { birthPlaces: [], zonas: [], ciudades: [] };

@@ -63,7 +63,7 @@ export class TestimonialReviewComponent implements OnInit {
       await firstValueFrom(action$);
       this.pending.update((list) => list.filter((t) => t.id !== id));
     } catch {
-      this.error.set('No pudimos actualizar ese comentario. Intentá de nuevo.');
+      this.error.set('No pudimos actualizar ese comentario. Intenta de nuevo.');
     } finally {
       this.actingOn.update((set) => {
         const next = new Set(set);

@@ -1,0 +1,26 @@
+@if (pages() > 1) {
+  <nav class="pagination" aria-label="Paginación">
+    <p class="pagination__summary">{{ from() }}–{{ to() }} de {{ total() }}</p>
+    <div class="pagination__controls">
+      <button
+        type="button"
+        class="pagination__btn"
+        [disabled]="page() <= 1"
+        aria-label="Página anterior"
+        (click)="go(page() - 1)"
+      >
+        <span class="material-symbols-outlined" aria-hidden="true">chevron_left</span>
+      </button>
+      <span class="pagination__current">Página {{ page() }} de {{ pages() }}</span>
+      <button
+        type="button"
+        class="pagination__btn"
+        [disabled]="page() >= pages()"
+        aria-label="Página siguiente"
+        (click)="go(page() + 1)"
+      >
+        <span class="material-symbols-outlined" aria-hidden="true">chevron_right</span>
+      </button>
+    </div>
+  </nav>
+}

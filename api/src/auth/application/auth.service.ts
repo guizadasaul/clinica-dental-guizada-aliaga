@@ -8,6 +8,7 @@ import {
 } from '@nestjs/common';
 import type { AuthenticatedUser } from '../domain/AuthenticatedUser';
 import { User } from '../domain/User';
+import { ACCOUNT_DISABLED_MESSAGE } from '../domain/account-disabled';
 import { UserRepository } from '../domain/UserRepository';
 import { PatientInvitesService } from '../../patient-invites/application/patient-invites.service';
 import { SupabaseAdminService } from '../infrastructure/SupabaseAdminService';
@@ -44,6 +45,9 @@ export class AuthService {
       throw new NotFoundException(
         'No hay una cuenta asociada a este login todavía',
       );
+    }
+    if (!existing.isActive) {
+      throw new ForbiddenException(ACCOUNT_DISABLED_MESSAGE);
     }
     return this.userRepository.upsertByAuthUserId({
       authUserId: authUser.uid,
@@ -85,11 +89,16 @@ export class AuthService {
       // de que el paciente reclamara la invitación — si está, lo confirmamos
       // en Supabase Auth ahora para que quede utilizable como login desde el
       // primer momento, sin que el doctor tenga que volver a tocar la ficha.
+      // Si no queda habilitado (CLI-143), el login sigue igual, pero se marca
+      // en la cuenta para que el doctor o el admin lo vean en la ficha.
       if (linked?.phone) {
-        await this.supabaseAdminService.setConfirmedPhone(
+        const result = await this.supabaseAdminService.setConfirmedPhone(
           authUser.uid,
           toE164Bolivia(linked.phone),
         );
+        await this.userRepository.updateContactInfo(linked.id, {
+          phoneLoginError: result.ok ? null : result.reason,
+        });
       }
       return linked;
     } catch (error) {
@@ -123,7 +132,7 @@ export class AuthService {
     const phoneE164 = toE164Bolivia(phone);
     if (invite.phone && toE164Bolivia(invite.phone) !== phoneE164) {
       throw new UnprocessableEntityException(
-        `Registrate con el número que diste en la clínica (terminado en ${phoneLastDigits(invite.phone)}).`,
+        `Regístrate con el número que diste en la clínica (terminado en ${phoneLastDigits(invite.phone)}).`,
       );
     }
     await this.supabaseAdminService.createPhoneUser(phoneE164, password);
@@ -135,6 +144,9 @@ export class AuthService {
       throw new NotFoundException(
         'User not found. Call POST /auth/sync first.',
       );
+    }
+    if (!user.isActive) {
+      throw new ForbiddenException(ACCOUNT_DISABLED_MESSAGE);
     }
     return user;
   }

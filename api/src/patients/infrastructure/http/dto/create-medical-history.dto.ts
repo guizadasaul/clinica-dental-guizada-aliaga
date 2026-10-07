@@ -14,6 +14,8 @@ import {
 } from 'class-validator';
 import {
   EmptyToUndefined,
+  NormalizeName,
+  NormalizeText,
   Trim,
 } from '../../../../shared/validators/transforms.js';
 import { NoHtml } from '../../../../shared/validators/text-safety.validator.js';
@@ -37,13 +39,8 @@ export class MedicalConditionEntryDto {
   code: string;
 
   @IsOptional()
-  @IsDateString()
-  @IsNotFutureDate()
-  diagnosedAt?: string;
-
-  @IsOptional()
   @EmptyToUndefined()
-  @Trim()
+  @NormalizeText()
   @IsString()
   @MinLength(3)
   @MaxLength(500)
@@ -53,7 +50,7 @@ export class MedicalConditionEntryDto {
 
 /** Un fármaco que el paciente toma actualmente (CLI-50) — reemplaza el texto libre currentMedications. */
 export class PatientMedicationDto {
-  @Trim()
+  @NormalizeName()
   @IsString()
   @MinLength(2)
   @MaxLength(150)
@@ -62,7 +59,7 @@ export class PatientMedicationDto {
 
   @IsOptional()
   @EmptyToUndefined()
-  @Trim()
+  @NormalizeText()
   @IsString()
   @MaxLength(50)
   @NoHtml()
@@ -70,7 +67,7 @@ export class PatientMedicationDto {
 
   @IsOptional()
   @EmptyToUndefined()
-  @Trim()
+  @NormalizeText()
   @IsString()
   @MaxLength(100)
   @NoHtml()
@@ -95,7 +92,7 @@ export class CreateMedicalHistoryDto {
 
   @IsOptional()
   @EmptyToUndefined()
-  @Trim()
+  @NormalizeText()
   @IsString()
   @MinLength(3)
   @MaxLength(1000)

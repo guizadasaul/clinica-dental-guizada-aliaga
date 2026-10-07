@@ -68,7 +68,21 @@ describe('StepMedicalHistoryComponent', () => {
     await settle(fixture);
 
     expect(emitted).toHaveLength(1);
-    expect(emitted[0].conditions).toEqual([{ code: 'diabetes', diagnosedAt: undefined, notes: undefined }]);
+    expect(emitted[0].conditions).toEqual([{ code: 'diabetes', notes: undefined }]);
+  });
+
+  it('una condición marcada solo pide notas, sin fecha de diagnóstico (CLI-176)', async () => {
+    const fixture = setup();
+    await settle(fixture);
+
+    const [firstCheckbox] = elAll<HTMLInputElement>(fixture, '.mh-step__condition input[type="checkbox"]');
+    firstCheckbox.checked = true;
+    firstCheckbox.dispatchEvent(new Event('change'));
+    await settle(fixture);
+
+    const detail = elAll<HTMLElement>(fixture, '.mh-step__condition-detail')[0];
+    expect(detail.querySelector('input[type="date"]')).toBeNull();
+    expect(detail.querySelector('input[aria-label="Notas de la condición"]')).not.toBeNull();
   });
 
   it('unchecking a condition removes it and its detail fields from the submitted payload', async () => {
@@ -109,6 +123,34 @@ describe('StepMedicalHistoryComponent', () => {
 
     expect(emitted[0].medications).toEqual([
       { drugName: 'Metformina', dose: undefined, frequency: undefined, startedAt: undefined },
+    ]);
+  });
+
+  it('el fármaco se guarda con mayúscula inicial y un solo espacio; la dosis no se capitaliza (CLI-183)', async () => {
+    const fixture = setup();
+    await settle(fixture);
+    const emitted: CreateMedicalHistoryRequest[] = [];
+    fixture.componentInstance.submitStep.subscribe((v) => emitted.push(v));
+
+    el<HTMLButtonElement>(fixture, '.mh-step__add-medication').click();
+    await settle(fixture);
+    const [drugName] = elAll<HTMLInputElement>(fixture, '.mh-step__medication-row input[placeholder="Fármaco"]');
+    type(drugName, '  metformina   xr ');
+    drugName.dispatchEvent(new Event('blur'));
+    await settle(fixture);
+    const [dose] = elAll<HTMLInputElement>(fixture, '.mh-step__medication-row input[placeholder="Dosis"]');
+    type(dose, ' 850   mg ');
+    await settle(fixture);
+
+    expect(
+      elAll<HTMLInputElement>(fixture, '.mh-step__medication-row input[placeholder="Fármaco"]')[0].value,
+    ).toBe('Metformina Xr');
+
+    submitForm(fixture);
+    await settle(fixture);
+
+    expect(emitted[0].medications).toEqual([
+      { drugName: 'Metformina Xr', dose: '850 mg', frequency: undefined, startedAt: undefined },
     ]);
   });
 

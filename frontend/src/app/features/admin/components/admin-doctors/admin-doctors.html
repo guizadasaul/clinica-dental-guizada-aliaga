@@ -12,14 +12,6 @@
       [subtitle]="doctors().length + (doctors().length === 1 ? ' doctor' : ' doctores')"
     >
       <div actions class="admin-doctors__header-actions">
-        <button
-          type="button"
-          class="admin-doctors__btn admin-doctors__btn--outline"
-          (click)="openDetail()"
-        >
-          <span class="material-symbols-outlined">calendar_month</span>
-          Ver agenda y pacientes
-        </button>
         <button type="button" class="admin-doctors__btn admin-doctors__btn--primary" (click)="openCreate()">
           <span class="material-symbols-outlined">person_add</span>
           Nuevo doctor
@@ -98,6 +90,19 @@
                     <button type="button" class="admin-doctors__btn admin-doctors__btn--ghost" (click)="cancelDeactivate()">
                       Cancelar
                     </button>
+                  } @else if (confirmingReactivateFor() === doctor.id) {
+                    <span class="admin-doctors__confirm">¿Volver a habilitar?</span>
+                    <button
+                      type="button"
+                      class="admin-doctors__btn admin-doctors__btn--primary"
+                      [disabled]="reactivating()"
+                      (click)="confirmReactivate(doctor.id)"
+                    >
+                      Sí, habilitar
+                    </button>
+                    <button type="button" class="admin-doctors__btn admin-doctors__btn--ghost" (click)="cancelReactivate()">
+                      Cancelar
+                    </button>
                   } @else {
                     <button
                       type="button"
@@ -117,11 +122,11 @@
                         Enviar invitación
                       </button>
                     }
-                    <button type="button" class="admin-doctors__btn" (click)="openEdit(doctor.id)">
-                      <span class="material-symbols-outlined">edit</span>
-                      Editar
-                    </button>
                     @if (doctor.isActive) {
+                      <button type="button" class="admin-doctors__btn" (click)="openEdit(doctor.id)">
+                        <span class="material-symbols-outlined">edit</span>
+                        Editar
+                      </button>
                       <button
                         type="button"
                         class="admin-doctors__btn admin-doctors__btn--ghost"
@@ -129,6 +134,15 @@
                       >
                         <span class="material-symbols-outlined">person_off</span>
                         Dar de baja
+                      </button>
+                    } @else {
+                      <button
+                        type="button"
+                        class="admin-doctors__btn admin-doctors__btn--ghost"
+                        (click)="requestReactivate(doctor.id)"
+                      >
+                        <span class="material-symbols-outlined">person_check</span>
+                        Volver a habilitar
                       </button>
                     }
                   }
@@ -290,7 +304,7 @@
           @if (displayNameField.showError()) {
             <p class="admin-doctors__field-error">{{ displayNameField.error() }}</p>
           }
-          <p class="admin-doctors__hint">Es como lo ven los pacientes al reservar. Dejá Dr. o Dra. según corresponda.</p>
+          <p class="admin-doctors__hint">Es como lo ven los pacientes al reservar. Deja Dr. o Dra. según corresponda.</p>
         </div>
 
         <div class="admin-doctors__field">
@@ -311,10 +325,10 @@
         <div class="admin-doctors__field">
           <span class="admin-doctors__label">Teléfono</span>
           <app-phone-input [value]="phoneE164()" (changed)="onPhoneChange($event)" />
-          <p class="admin-doctors__hint">Cargá al menos uno de los dos, email o teléfono: es por donde se le manda la invitación.</p>
+          <p class="admin-doctors__hint">Ingresa al menos uno de los dos, email o teléfono: es por donde se le envía la invitación.</p>
           @if (contactAttempted() && contactMissing()) {
             <p class="admin-doctors__field-error admin-doctors__field-error--contact">
-              Cargá al menos un contacto: email o teléfono.
+              Ingresa al menos un contacto: email o teléfono.
             </p>
           }
         </div>

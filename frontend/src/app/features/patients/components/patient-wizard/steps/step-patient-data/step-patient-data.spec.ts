@@ -47,10 +47,10 @@ const SEX = '#sex';
 const OCCUPATION = '#occupation';
 const DOCUMENT_TYPE = '#documentType';
 const DNI = '#dni';
+const EMAIL = '#email';
 const ADDRESS = '#address';
 const ZONA = '#zona';
 const CIUDAD = '#ciudad';
-const DOCUMENT_EXTENSION = '#documentExtension';
 const EMERGENCY_CONTACT_FIRST_NAME = '#emergencyContactFirstName';
 const EMERGENCY_CONTACT_LAST_NAME = '#emergencyContactLastName';
 const EMERGENCY_CONTACT_RELATIONSHIP = '#emergencyContactRelationship';
@@ -80,6 +80,7 @@ function fillRequiredFields(fixture: ReturnType<typeof setup>): void {
   type(el(fixture, OCCUPATION), 'Ingeniero');
   select(el<HTMLSelectElement>(fixture, DOCUMENT_TYPE), 'ci');
   type(el(fixture, DNI), '12345678');
+  type(el(fixture, EMAIL), 'juan@correo.com');
   type(el(fixture, ADDRESS), 'Av. Siempre Viva 123');
   type(el(fixture, ZONA), 'Zona Norte');
   type(el(fixture, CIUDAD), 'Cochabamba');
@@ -116,8 +117,71 @@ describe('StepPatientDataComponent', () => {
     expect(el(fixture, `${EMERGENCY_CONTACT_LAST_NAME}.step-form__input--invalid`)).toBeTruthy();
     expect(el(fixture, `${EMERGENCY_CONTACT_RELATIONSHIP}.step-form__input--invalid`)).toBeTruthy();
     expect(el(fixture, '#firstName-err')?.textContent).toContain('El nombre es obligatorio.');
-    expect(el(fixture, '#dni-err')?.textContent).toContain('El DNI es obligatorio.');
+    expect(el(fixture, '#dni-err')?.textContent).toContain('El número de documento es obligatorio.');
     expect(el(fixture, '#documentType-err')?.textContent).toContain('El tipo de documento es obligatorio.');
+  });
+
+  // CLI-181: teléfono o correo, al menos uno.
+  describe('teléfono o correo (CLI-181)', () => {
+    async function submitWith(
+      fixture: ReturnType<typeof setup>,
+      { email, phone }: { email?: string; phone?: string },
+    ) {
+      const emitted: Omit<CreatePatientRequest, 'userId'>[] = [];
+      fixture.componentInstance.submitStep.subscribe((value) => emitted.push(value));
+      fillRequiredFields(fixture);
+      type(el(fixture, EMAIL), email ?? '');
+      if (phone) {
+        const [patientPhone] = elAll<HTMLInputElement>(fixture, PHONE_NATIONAL_INPUTS);
+        type(patientPhone, phone);
+      }
+      await settle(fixture);
+      submitForm(fixture);
+      await settle(fixture);
+      return emitted;
+    }
+
+    it('sin teléfono ni correo no emite y lo dice debajo del correo', async () => {
+      const fixture = setup();
+      await settle(fixture);
+
+      const emitted = await submitWith(fixture, {});
+
+      expect(emitted).toHaveLength(0);
+      expect(el(fixture, '#email-err')?.textContent).toContain('teléfono o un correo');
+    });
+
+    it('con solo el correo emite, normalizado, y sin teléfono', async () => {
+      const fixture = setup();
+      await settle(fixture);
+
+      const emitted = await submitWith(fixture, { email: '  Ana@Correo.COM ' });
+
+      expect(emitted).toHaveLength(1);
+      expect(emitted[0].email).toBe('ana@correo.com');
+      expect(emitted[0].phone).toBeUndefined();
+    });
+
+    it('con solo el teléfono emite sin correo', async () => {
+      const fixture = setup();
+      await settle(fixture);
+
+      const emitted = await submitWith(fixture, { phone: '71234567' });
+
+      expect(emitted).toHaveLength(1);
+      expect(emitted[0].phone).toBe('+59171234567');
+      expect(emitted[0].email).toBeUndefined();
+    });
+
+    it('un correo con formato inválido no emite, aunque haya teléfono', async () => {
+      const fixture = setup();
+      await settle(fixture);
+
+      const emitted = await submitWith(fixture, { email: 'ana@', phone: '71234567' });
+
+      expect(emitted).toHaveLength(0);
+      expect(el(fixture, '#email-err')?.textContent).toContain('no es válido');
+    });
   });
 
   it('rechaza una fecha de nacimiento futura sin llegar a emitir', async () => {
@@ -174,8 +238,8 @@ describe('StepPatientDataComponent', () => {
   });
 
   it(
-    'aserción central: normaliza nombre, DNI y teléfono al emitir ' +
-      '("  aDrIaN   mercado " + "12.345.678" + "77842665" → Adrian Mercado / 12345678 / +59177842665)',
+    'aserción central: normaliza nombre, documento y teléfono al emitir ' +
+      '("  aDrIaN   mercado " + " 1234567-lp " + "77842665" → Adrian Mercado / 1234567-LP / +59177842665)',
     async () => {
       const fixture = setup();
       await settle(fixture);
@@ -186,7 +250,7 @@ describe('StepPatientDataComponent', () => {
       fillRequiredFields(fixture);
       type(el(fixture, FIRST_NAME), '  aDrIaN   mercado ');
       type(el(fixture, LAST_NAME_PATERNAL), 'Claros');
-      type(el(fixture, DNI), '12.345.678');
+      type(el(fixture, DNI), ' 1234567-lp ');
       const [patientPhoneNational] = elAll<HTMLInputElement>(fixture, PHONE_NATIONAL_INPUTS);
       type(patientPhoneNational, '77842665');
       submitForm(fixture);
@@ -195,11 +259,74 @@ describe('StepPatientDataComponent', () => {
       expect(emitted).toHaveLength(1);
       expect(emitted[0]).toMatchObject({
         firstName: 'Adrian Mercado',
-        dni: '12345678',
+        dni: '1234567-LP',
         phone: '+59177842665',
       });
     },
   );
+
+  // CLI-183: los textos cortos salen con mayúscula inicial y un solo espacio.
+  describe('formato de los textos cortos (CLI-183)', () => {
+    it('al enviar, nombres, lugar, zona, ciudad, ocupación, dirección y parentesco van con mayúscula inicial', async () => {
+      const fixture = setup();
+      await settle(fixture);
+      const emitted: Omit<CreatePatientRequest, 'userId'>[] = [];
+      fixture.componentInstance.submitStep.subscribe((value) => emitted.push(value));
+
+      fillRequiredFields(fixture);
+      type(el(fixture, FIRST_NAME), '  juan   carlos ');
+      type(el(fixture, BIRTH_PLACE), 'santa   cruz ');
+      type(el(fixture, OCCUPATION), ' ingeniero   en sistemas');
+      type(el(fixture, ADDRESS), 'av.  6 de agosto   y calle sucre');
+      type(el(fixture, ZONA), '  zona   norte ');
+      type(el(fixture, CIUDAD), 'cochabamba ');
+      type(el(fixture, EMERGENCY_CONTACT_RELATIONSHIP), ' madre ');
+      submitForm(fixture);
+      await settle(fixture);
+
+      expect(emitted).toHaveLength(1);
+      expect(emitted[0]).toMatchObject({
+        firstName: 'Juan Carlos',
+        birthPlace: 'Santa Cruz',
+        occupation: 'Ingeniero en Sistemas',
+        address: 'Av. 6 de Agosto y Calle Sucre',
+        zona: 'Zona Norte',
+        ciudad: 'Cochabamba',
+        emergencyContactRelationship: 'Madre',
+      });
+    });
+
+    it('al salir del campo lo deja como se va a guardar', async () => {
+      const fixture = setup();
+      await settle(fixture);
+
+      for (const [selector, typed, shown] of [
+        [FIRST_NAME, '  juan   carlos ', 'Juan Carlos'],
+        [ZONA, 'zona   norte', 'Zona Norte'],
+        [OCCUPATION, 'ingeniero', 'Ingeniero'],
+      ]) {
+        const input = el<HTMLInputElement>(fixture, selector);
+        type(input, typed);
+        input.dispatchEvent(new Event('blur'));
+        await settle(fixture);
+        expect(el<HTMLInputElement>(fixture, selector).value).toBe(shown);
+      }
+    });
+
+    it('los textos largos conservan su redacción, solo sin espacios de más', async () => {
+      const fixture = setup();
+      await settle(fixture);
+      const emitted: Omit<CreatePatientRequest, 'userId'>[] = [];
+      fixture.componentInstance.submitStep.subscribe((value) => emitted.push(value));
+
+      fillRequiredFields(fixture);
+      type(el(fixture, '#consultationReason'), '  dolor   en la muela  DERECHA ');
+      submitForm(fixture);
+      await settle(fixture);
+
+      expect(emitted[0].consultationReason).toBe('dolor en la muela DERECHA');
+    });
+  });
 
   it('acepta el envío con los obligatorios completos y los opcionales vacíos', async () => {
     const fixture = setup();
@@ -225,9 +352,9 @@ describe('StepPatientDataComponent', () => {
       zona: 'Zona Norte',
       ciudad: 'Cochabamba',
       phone: undefined,
+      email: 'juan@correo.com',
       documentType: 'ci',
       dni: '12345678',
-      documentExtension: null,
       emergencyContactFirstName: 'Maria',
       emergencyContactLastName: 'Perez',
       emergencyContactPhone: '+59177777777',
@@ -239,68 +366,106 @@ describe('StepPatientDataComponent', () => {
     });
   });
 
-  describe('extensión del CI', () => {
-    it('solo aparece cuando el tipo de documento es CI', async () => {
+  describe('lugar de nacimiento, zona y ciudad con sugerencias (CLI-178)', () => {
+    it('sugiere los valores ya usados y elegir uno completa el campo', async () => {
       const fixture = setup();
-      await settle(fixture);
-      expect(el(fixture, DOCUMENT_EXTENSION)).toBeNull();
-
-      select(el<HTMLSelectElement>(fixture, DOCUMENT_TYPE), 'ci');
-      await settle(fixture);
-      expect(el(fixture, DOCUMENT_EXTENSION)).toBeTruthy();
-
-      select(el<HTMLSelectElement>(fixture, DOCUMENT_TYPE), 'pasaporte');
-      await settle(fixture);
-      expect(el(fixture, DOCUMENT_EXTENSION)).toBeNull();
-    });
-
-    it('emite la extensión normalizada', async () => {
-      const fixture = setup();
+      fixture.componentRef.setInput('fieldOptions', {
+        birthPlaces: ['Cochabamba', 'La Paz'],
+        zonas: ['Zona Norte', 'Zona Sur'],
+        ciudades: ['Quillacollo'],
+      });
       await settle(fixture);
       const emitted: Omit<CreatePatientRequest, 'userId'>[] = [];
-      fixture.componentInstance.submitStep.subscribe((value) => emitted.push(value));
+      fixture.componentInstance.submitStep.subscribe((v) => emitted.push(v));
 
       fillRequiredFields(fixture);
+      type(el(fixture, ZONA), 'sur');
       await settle(fixture);
-      type(el(fixture, DOCUMENT_EXTENSION), ' 1-a ');
+      const options = elAll<HTMLElement>(fixture, '.suggest-input__option');
+      expect(options.map((o) => o.textContent?.trim())).toEqual(['Zona Sur']);
+
+      options[0].dispatchEvent(new MouseEvent('mousedown', { cancelable: true }));
+      await settle(fixture);
       submitForm(fixture);
       await settle(fixture);
 
-      expect(emitted).toHaveLength(1);
-      expect(emitted[0].documentExtension).toBe('1A');
+      expect(emitted[0].zona).toBe('Zona Sur');
     });
 
-    it('bloquea el envío con caracteres inválidos', async () => {
+    it('acepta un valor nuevo que no está entre las sugerencias', async () => {
+      const fixture = setup();
+      fixture.componentRef.setInput('fieldOptions', { birthPlaces: [], zonas: [], ciudades: ['Quillacollo'] });
+      await settle(fixture);
+      const emitted: Omit<CreatePatientRequest, 'userId'>[] = [];
+      fixture.componentInstance.submitStep.subscribe((v) => emitted.push(v));
+
+      fillRequiredFields(fixture);
+      type(el(fixture, CIUDAD), 'Sacaba');
+      submitForm(fixture);
+      await settle(fixture);
+
+      expect(emitted[0].ciudad).toBe('Sacaba');
+    });
+
+    it('zona y ciudad aceptan 2 caracteres, igual que la API', async () => {
       const fixture = setup();
       await settle(fixture);
       const emitted: unknown[] = [];
-      fixture.componentInstance.submitStep.subscribe((value) => emitted.push(value));
+      fixture.componentInstance.submitStep.subscribe((v) => emitted.push(v));
 
       fillRequiredFields(fixture);
-      await settle(fixture);
-      type(el(fixture, DOCUMENT_EXTENSION), 'L/P');
-      submitForm(fixture);
-      await settle(fixture);
-
-      expect(emitted).toHaveLength(0);
-      expect(el(fixture, '#documentExtension-err')?.textContent).toContain('solo puede tener letras y números');
-    });
-
-    it('no envía la extensión si el documento no es CI', async () => {
-      const fixture = setup();
-      await settle(fixture);
-      const emitted: Omit<CreatePatientRequest, 'userId'>[] = [];
-      fixture.componentInstance.submitStep.subscribe((value) => emitted.push(value));
-
-      fillRequiredFields(fixture);
-      await settle(fixture);
-      type(el(fixture, DOCUMENT_EXTENSION), 'LP');
-      select(el<HTMLSelectElement>(fixture, DOCUMENT_TYPE), 'pasaporte');
+      type(el(fixture, ZONA), 'Z1');
       submitForm(fixture);
       await settle(fixture);
 
       expect(emitted).toHaveLength(1);
-      expect(emitted[0].documentExtension).toBeNull();
+    });
+  });
+
+  describe('número de documento (CLI-177)', () => {
+    it('no hay campo aparte para la extensión de la CI', async () => {
+      const fixture = setup();
+      await settle(fixture);
+      select(el<HTMLSelectElement>(fixture, DOCUMENT_TYPE), 'ci');
+      await settle(fixture);
+
+      expect(el(fixture, '#documentExtension')).toBeNull();
+      expect(el<HTMLInputElement>(fixture, DNI).getAttribute('maxlength')).toBe('12');
+    });
+
+    it.each([['12.345.678'], ['12 345 678']])(
+      'rechaza %p con un mensaje que nombra la CI, no "DNI"',
+      async (value) => {
+        const fixture = setup();
+        await settle(fixture);
+        const emitted: unknown[] = [];
+        fixture.componentInstance.submitStep.subscribe((v) => emitted.push(v));
+
+        fillRequiredFields(fixture);
+        select(el<HTMLSelectElement>(fixture, DOCUMENT_TYPE), 'ci');
+        type(el(fixture, DNI), value);
+        submitForm(fixture);
+        await settle(fixture);
+
+        expect(emitted).toHaveLength(0);
+        const message = el(fixture, '#dni-err')?.textContent ?? '';
+        expect(message).toContain('El número de CI');
+        expect(message).toContain('1234567-LP');
+        expect(message).not.toContain('DNI');
+      },
+    );
+
+    it('con pasaporte el mensaje habla del pasaporte', async () => {
+      const fixture = setup();
+      await settle(fixture);
+
+      fillRequiredFields(fixture);
+      select(el<HTMLSelectElement>(fixture, DOCUMENT_TYPE), 'pasaporte');
+      type(el(fixture, DNI), 'AB.123');
+      submitForm(fixture);
+      await settle(fixture);
+
+      expect(el(fixture, '#dni-err')?.textContent).toContain('El número de pasaporte');
     });
   });
 
@@ -330,7 +495,6 @@ describe('StepPatientDataComponent', () => {
       familyHistory: null,
       documentType: null,
       dni: '87654321',
-      documentExtension: null,
       createdAt: '2020-01-01T00:00:00.000Z',
       updatedAt: '2020-01-01T00:00:00.000Z',
       assignedDoctorId: null,
@@ -362,6 +526,7 @@ describe('StepPatientDataComponent', () => {
       zona: 'Zona Sur',
       ciudad: 'La Paz',
       phone: null,
+      email: 'maria@correo.com',
       emergencyContactFirstName: 'Pedro',
       emergencyContactLastName: 'Lopez',
       emergencyContactPhone: '+59177001122',
@@ -372,7 +537,6 @@ describe('StepPatientDataComponent', () => {
       familyHistory: null,
       documentType: 'ci',
       dni: '87654321',
-      documentExtension: null,
       createdAt: '2020-01-01T00:00:00.000Z',
       updatedAt: '2020-01-01T00:00:00.000Z',
       assignedDoctorId: null,

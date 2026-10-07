@@ -1,4 +1,4 @@
-import { groupQuoteLines, paymentMethodLabel } from './quote-lines';
+import { groupQuoteLines, linePerformedAt, paymentMethodLabel } from './quote-lines';
 import type { QuoteItem } from '../models/quote.model';
 
 function item(overrides: Partial<QuoteItem> = {}): QuoteItem {
@@ -14,6 +14,8 @@ function item(overrides: Partial<QuoteItem> = {}): QuoteItem {
     subtotal: 150,
     currency: 'BOB',
     exchangeRate: null,
+    procedureId: null,
+    performedAt: null,
     ...overrides,
   };
 }
@@ -27,9 +29,21 @@ describe('groupQuoteLines', () => {
     ]);
 
     expect(lines).toEqual([
-      { key: 'g1', treatmentName: 'Resina', toothNumbers: [16, 17], total: 300 },
-      { key: 'c', treatmentName: 'Limpieza', toothNumbers: [], total: 250 },
+      { key: 'g1', treatmentName: 'Resina', toothNumbers: [16, 17], total: 300, performedAt: null },
+      { key: 'c', treatmentName: 'Limpieza', toothNumbers: [], total: 250, performedAt: null },
     ]);
+  });
+});
+
+describe('linePerformedAt (CLI-228)', () => {
+  const done = (date: string) => item({ procedureId: `p-${date}`, performedAt: date });
+
+  it('la fecha más reciente si todas las filas se realizaron', () => {
+    expect(linePerformedAt([done('2026-05-01'), done('2026-05-03'), done('2026-04-20')])).toBe('2026-05-03');
+  });
+
+  it('null si falta alguna', () => {
+    expect(linePerformedAt([done('2026-05-01'), item()])).toBeNull();
   });
 });
 

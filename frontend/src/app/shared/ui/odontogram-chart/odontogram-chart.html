@@ -20,8 +20,10 @@
           (keyup.enter)="onCellClick(tooth)"
           [attr.role]="interactive() ? 'button' : null"
           [attr.tabindex]="interactive() ? 0 : null"
-          [attr.aria-label]="'Diente ' + tooth.number"
+          [attr.data-tooth]="tooth.number"
+          [attr.aria-label]="cellLabel(tooth.number)"
         >
+          <title>{{ cellLabel(tooth.number) }}</title>
           <!-- Invisible, generous click target -->
           <rect
             class="odontogram-chart__cell-hit"
@@ -49,6 +51,16 @@
             [attr.x]="tooth.labelX" [attr.y]="tooth.labelY" [attr.font-size]="tooth.labelSize"
             text-anchor="middle"
           >{{ tooth.number }}</text>
+          @if (extraCount(tooth.number) > 0) {
+            <!-- CLI-179: el diente tiene más diagnósticos que el que da el color. -->
+            <text
+              class="odontogram-chart__cell-badge"
+              [attr.x]="tooth.labelX + tooth.labelSize * 1.1"
+              [attr.y]="tooth.labelY - tooth.labelSize * 0.55"
+              [attr.font-size]="tooth.labelSize * 0.8"
+              text-anchor="start"
+            >+{{ extraCount(tooth.number) }}</text>
+          }
         </g>
       }
     </svg>

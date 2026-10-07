@@ -6,9 +6,11 @@ import type {
   AppointmentAgendaItem,
   DoctorScheduleBlock,
   PatientAppointment,
+  TimeBlock,
 } from '../models/appointment.model';
 import type {
   CreateDoctorAppointmentRequest,
+  CreateTimeBlockRequest,
   RescheduleDoctorAppointmentRequest,
 } from '../models/appointment.request';
 
@@ -47,6 +49,21 @@ export class AppointmentsService {
     return this.http.get<AppointmentAgendaItem[]>(this.base, { params });
   }
 
+  /** CLI-195: los horarios que el doctor apartó, entre dos días de la clínica (YYYY-MM-DD). */
+  getTimeBlocks(from: string, to: string): Observable<TimeBlock[]> {
+    return this.http.get<TimeBlock[]>(`${this.base}/blocks`, { params: { from, to } });
+  }
+
+  /** CLI-195: aparta un horario de la agenda propia. */
+  createTimeBlock(request: CreateTimeBlockRequest): Observable<TimeBlock> {
+    return this.http.post<TimeBlock>(`${this.base}/blocks`, request);
+  }
+
+  /** CLI-195: quita un horario apartado propio. */
+  deleteTimeBlock(id: string): Observable<void> {
+    return this.http.delete<void>(`${this.base}/blocks/${id}`);
+  }
+
   /** CLI-148: el doctor agenda una cita para un paciente con ficha. */
   createByDoctor(request: CreateDoctorAppointmentRequest): Observable<AppointmentAgendaItem> {
     return this.http.post<AppointmentAgendaItem>(`${this.base}/doctor`, request);
@@ -66,6 +83,22 @@ export class AppointmentsService {
       `${this.base}/doctor/${id}/cancel`,
       reason ? { reason } : {},
     );
+  }
+
+  /** CLI-208: "No asistió" en una cita propia que ya pasó, y su reversa. */
+  markNoShow(id: string): Observable<AppointmentAgendaItem> {
+    return this.http.post<AppointmentAgendaItem>(`${this.base}/doctor/${id}/no-show`, {});
+  }
+
+  undoNoShow(id: string): Observable<AppointmentAgendaItem> {
+    return this.http.delete<AppointmentAgendaItem>(`${this.base}/doctor/${id}/no-show`);
+  }
+
+  /** CLI-209: registro de visitas del paciente logueado — todas las pasadas, la más reciente primero, incluidas las "No asistió". */
+  getMyPast(): Observable<PatientAppointment[]> {
+    return this.http.get<PatientAppointment[]>(`${environment.backendUrl}/patients/me/appointments`, {
+      params: { scope: 'past' },
+    });
   }
 
   /** CLI-153: próximas citas confirmadas del paciente logueado, la más cercana primero. */

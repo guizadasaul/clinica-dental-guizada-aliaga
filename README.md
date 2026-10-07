@@ -503,7 +503,7 @@ Los formularios públicos de escritura tienen límite de peticiones por IP y hor
 | diagnoses, medical-conditions  | `GET /diagnoses`, `GET /medical-conditions`                                                                                                 | odontólogo                       |
 | quotes                         | `POST / GET /patients/:patientId/quotes`, `GET /quotes/:id`, `POST /quotes/:id/items`, `DELETE /quotes/:id/items/:itemId`, `POST /quotes/:id/payments` | odontólogo               |
 | appointments                   | `GET /appointments` (`status`, `from`, `to`; `doctorId` solo se respeta para admin)                                                         | odontólogo, admin                |
-| testimonials                   | `GET /testimonials/pending`, `PATCH /testimonials/:id/status`                                                                               | odontólogo                       |
+| testimonials                   | `GET /admin/testimonials/pending`, `PATCH /admin/testimonials/:id/status`                                                                   | administrador                    |
 | admin                          | `GET / POST /admin/doctors`, `GET / PATCH /admin/doctors/:id`, `PATCH /admin/doctors/:id/deactivate`                                        | admin                            |
 | reports                        | `GET /admin/reports/operational`, `GET /admin/reports/financial` (`from`, `to`, `doctorId?`)                                                | admin                            |
 
@@ -606,8 +606,7 @@ workflows de cualquier contribuidor externo. Los deploys corren en runners de Gi
 - **Portal del paciente mínimo**: "Solicitar cita", "Mis documentos" y "Mi perfil" son maquetas y los
   contadores son fijos. El historial de tratamientos del paciente llama a un endpoint que solo permite el
   rol odontólogo, así que con la cuenta de paciente muestra un estado de error.
-- En el panel del doctor, los ítems **Reportes, Finanzas y Configuración** del menú todavía no tienen
-  contenido; los reportes existen solo para el administrador.
+- Los reportes existen solo para el administrador; el menú del doctor no los tiene.
 - Los **paneles internos están solo en español**; la i18n cubre landing, login y componentes compartidos.
 - Dar de baja a un usuario (`is_active`) **no revoca** su acceso: los guards de autenticación no consultan
   ese campo.

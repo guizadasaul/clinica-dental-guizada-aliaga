@@ -1,4 +1,5 @@
 import { TestBed } from '@angular/core/testing';
+import { HttpErrorResponse } from '@angular/common/http';
 import { of, throwError } from 'rxjs';
 import { PatientInvitePanelComponent } from './patient-invite-panel';
 import { PatientsService } from '../../services/patients.service';
@@ -85,7 +86,7 @@ describe('PatientInvitePanelComponent', () => {
     type(input(root, 'invitePanelEmail'), 'otro@example.com');
     fixture.detectChanges();
 
-    expect(root.textContent).toContain('Guardá los cambios antes de enviar');
+    expect(root.textContent).toContain('Guarda los cambios antes de enviar');
     expect(button(root, 'Enviar por email').disabled).toBe(true);
   });
 
@@ -105,7 +106,7 @@ describe('PatientInvitePanelComponent', () => {
         phone: '+59170000000',
         email: 'nueva@example.com',
       });
-      expect(root.textContent).not.toContain('Guardá los cambios');
+      expect(root.textContent).not.toContain('Guarda los cambios');
     });
 
     it('un teléfono o email vacío se guarda como "sin dato"', async () => {
@@ -144,6 +145,25 @@ describe('PatientInvitePanelComponent', () => {
 
       expect(root.textContent).toContain('No pudimos guardar los cambios');
       expect(button(root, 'Guardar').disabled).toBe(false);
+    });
+
+    it('un 409 muestra el motivo que manda el backend (CLI-143)', async () => {
+      const { fixture, root, patients } = setup();
+      patients.updatePatient.mockReturnValue(
+        throwError(
+          () =>
+            new HttpErrorResponse({
+              status: 409,
+              error: { message: 'Ese teléfono ya está registrado en otra cuenta' },
+            }),
+        ),
+      );
+
+      button(root, 'Guardar').click();
+      await settle(fixture);
+
+      expect(root.textContent).toContain('Ese teléfono ya está registrado en otra cuenta');
+      expect(root.textContent).not.toContain('No pudimos guardar los cambios');
     });
   });
 
@@ -187,7 +207,7 @@ describe('PatientInvitePanelComponent', () => {
 
     it.each([
       ['Enviar por email', 'No pudimos enviar el email'],
-      ['Enviar por WhatsApp', 'No pudimos armar el mensaje de WhatsApp'],
+      ['Enviar por WhatsApp', 'No pudimos preparar el mensaje de WhatsApp'],
     ])('si "%s" falla, muestra el error y no cierra', async (label, message) => {
       const { fixture, root, invites, emitted } = setup();
       invites.createInvite.mockReturnValue(throwError(() => new Error('500')));

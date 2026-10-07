@@ -24,15 +24,15 @@ interface InviteCopy {
 // copy de paciente, igual que antes de esta issue.
 const INVITE_COPY: Record<InviteKind, InviteCopy> = {
   patient: {
-    title: 'Completá tu registro',
-    subtitle: 'Creá tu cuenta para ver tus citas y tu historial.',
-    expired: 'Este link venció o ya fue usado. Pedile al doctor que te lo reenvíe.',
+    title: 'Completa tu registro',
+    subtitle: 'Crea tu cuenta para ver tus citas y tu historial.',
+    expired: 'Este link venció o ya fue usado. Pídele al doctor que te lo reenvíe.',
   },
   doctor: {
-    title: 'Sumate al equipo',
-    subtitle: 'Creá tu acceso para entrar a tu panel, tu agenda y las fichas de tus pacientes.',
+    title: 'Únete al equipo',
+    subtitle: 'Crea tu acceso para entrar a tu panel, tu agenda y las fichas de tus pacientes.',
     expired:
-      'Este link venció o ya fue usado. Pedile a la administración de la clínica que te lo reenvíe.',
+      'Este link venció o ya fue usado. Pídele a la administración de la clínica que te lo reenvíe.',
   },
 };
 
@@ -102,7 +102,7 @@ export class InvitationLandingComponent implements OnInit {
         this.errorMessage.set(this.copy().expired);
       }
     } catch {
-      this.errorMessage.set('No pudimos verificar el link. Intentá de nuevo más tarde.');
+      this.errorMessage.set('No pudimos verificar el link. Intenta de nuevo más tarde.');
     } finally {
       this.loading.set(false);
     }
@@ -119,7 +119,7 @@ export class InvitationLandingComponent implements OnInit {
       // En éxito el browser navega a Google; el callback maneja el resto.
     } catch {
       localStorage.removeItem('pendingInviteToken');
-      this.errorMessage.set('No se pudo conectar con Google. Intentá nuevamente.');
+      this.errorMessage.set('No se pudo conectar con Google. Intenta nuevamente.');
       this.connecting.set(false);
     }
   }
@@ -161,7 +161,7 @@ export class InvitationLandingComponent implements OnInit {
     if (this.mode() === 'email') {
       const email = normalizeEmail(this.email());
       if (!isValidEmail(email)) {
-        this.errorMessage.set('Ingresá un correo válido.');
+        this.errorMessage.set('Ingresa un correo válido.');
         return;
       }
       this.email.set(email);
@@ -170,7 +170,7 @@ export class InvitationLandingComponent implements OnInit {
     }
 
     if (!this.phoneValid() || !this.phoneE164()) {
-      this.errorMessage.set('Ingresá un número de teléfono válido.');
+      this.errorMessage.set('Ingresa un número de teléfono válido.');
       return;
     }
     await this.submitPhone(this.token, this.phoneE164(), password);
@@ -215,7 +215,7 @@ export class InvitationLandingComponent implements OnInit {
         this.errorMessage.set(
           typeof err.error?.message === 'string'
             ? err.error.message
-            : 'Registrate con el número que diste en la clínica.',
+            : 'Regístrate con el número que diste en la clínica.',
         );
       } else {
         this.errorMessage.set(err instanceof Error ? err.message : 'No se pudo crear la cuenta.');

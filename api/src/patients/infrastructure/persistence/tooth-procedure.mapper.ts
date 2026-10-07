@@ -15,6 +15,7 @@ type ToothProcedureRecord = tooth_procedures & {
   })[];
   application_groups: application_groups | null;
   treatments: treatments & { treatment_categories: treatment_categories };
+  users?: { display_name: string | null } | null;
 };
 
 export class ToothProcedureMapper {
@@ -29,6 +30,7 @@ export class ToothProcedureMapper {
       toothNumber: record.tooth_number,
       applicationGroupId: record.application_group_id,
       treatmentId: record.treatment_id,
+      treatmentName: record.treatments.name,
       applicationType: record.treatments.application_type,
       categoryCode: record.treatments.treatment_categories.code,
       categoryName: record.treatments.treatment_categories.name,
@@ -44,6 +46,8 @@ export class ToothProcedureMapper {
         .map((tps) => tps.tooth_surfaces.code as ToothSurfaceCode),
       notes: record.notes ?? null,
       performedBy: record.performed_by,
+      performedByName: record.users?.display_name ?? null,
+      quoteItemId: record.quote_item_id ?? null,
       createdAt: record.created_at,
     };
   }

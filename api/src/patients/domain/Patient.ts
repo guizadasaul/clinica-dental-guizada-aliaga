@@ -1,3 +1,5 @@
+import type { PhoneLoginError } from '../../auth/domain/value-objects/PhoneLoginError';
+
 export class Patient {
   constructor(
     readonly id: string,
@@ -24,12 +26,18 @@ export class Patient {
     readonly familyHistory: string | null,
     /** CI/pasaporte/nit (CLI-54) — junto con dni forman la clave única real, ver DOCUMENT_TYPES. null solo si dni también es null. */
     readonly documentType: string | null,
+    /** Número del documento; la extensión de la CI va dentro con guion (CLI-177). */
     readonly dni: string | null,
-    /** Extensión/complemento de la CI boliviana (ej. "LP", "1A") — solo con documentType 'ci'. */
-    readonly documentExtension: string | null,
     readonly createdAt: Date,
     readonly updatedAt: Date,
     /** Doctor asignado (CLI-58) — informativo, no restringe acceso a la ficha. */
     readonly assignedDoctorId: string | null,
+    /**
+     * Por qué el teléfono no quedó habilitado como login (CLI-143) — vive en
+     * users.phone_login_error, igual que el teléfono vive en users.phone.
+     */
+    readonly phoneLoginError: PhoneLoginError | null = null,
+    /** Correo de contacto (CLI-181) — vive en users.email, igual que el teléfono. */
+    readonly email: string | null = null,
   ) {}
 }

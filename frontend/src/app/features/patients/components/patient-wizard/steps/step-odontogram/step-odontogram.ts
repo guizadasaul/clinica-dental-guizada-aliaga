@@ -1,3 +1,4 @@
+import { toothPaint as computeToothPaint } from '../../../../../../shared/utils/odontogram-paint.util';
 import {
   Component,
   ChangeDetectionStrategy,
@@ -179,15 +180,21 @@ export class StepOdontogramComponent {
   protected readonly toothFindings = computed(() => this.findings().filter((f) => f.scope !== 'general'));
   protected readonly generalFindings = computed(() => this.findings().filter((f) => f.scope === 'general'));
 
-  protected readonly toothColorMap = computed(() => {
-    const map = new Map<number, string>();
-    for (const f of this.toothFindings()) {
-      for (const n of f.toothNumbers) {
-        if (!map.has(n)) { map.set(n, f.color); }
-      }
-    }
-    return map;
-  });
+  /** Misma regla de pintado que el registro de tratamientos y la historia (CLI-179). */
+  private readonly toothPaint = computed(() =>
+    computeToothPaint(
+      this.toothFindings().flatMap((f) =>
+        f.toothNumbers.map((toothNumber) => ({
+          toothNumber,
+          color: f.color,
+          name: f.diagnosisName,
+          grouped: f.scope !== 'single_tooth',
+        })),
+      ),
+    ),
+  );
+  protected readonly toothColorMap = computed(() => this.toothPaint().colors);
+  protected readonly toothNames = computed(() => this.toothPaint().names);
 
   protected readonly hasPriorVersions = computed(() => this.versions().length > 0);
 
@@ -349,23 +356,23 @@ export class StepOdontogramComponent {
 
     const diagnosis = this.panelDiagnosis();
     if (!diagnosis) {
-      this.formError.set('Elegí un diagnóstico.');
+      this.formError.set('Elige un diagnóstico.');
       return;
     }
     const teeth = this.panelToothNumbers();
     if (diagnosis.scope === 'single_tooth' && teeth.length !== 1) {
-      this.formError.set('Este diagnóstico requiere exactamente una pieza — hacé clic en un diente del odontograma.');
+      this.formError.set('Este diagnóstico requiere exactamente una pieza: haz clic en un diente del odontograma.');
       return;
     }
     if (diagnosis.scope === 'multiple_teeth' && teeth.length < 1) {
-      this.formError.set('Este diagnóstico requiere al menos una pieza — hacé clic en los dientes del odontograma.');
+      this.formError.set('Este diagnóstico requiere al menos una pieza: haz clic en los dientes del odontograma.');
       return;
     }
     if (diagnosis.modifier !== 'none' && !this.panelModifierValue()) {
       this.formError.set(
         diagnosis.modifier === 'black_class'
-          ? 'Elegí una clase de Black (I–V).'
-          : 'Elegí un grado de movilidad (I–IV).',
+          ? 'Elige una clase de Black (I–V).'
+          : 'Elige un grado de movilidad (I–IV).',
       );
       return;
     }
@@ -441,7 +448,7 @@ export class StepOdontogramComponent {
       this.onPanelCancel();
     }
     if (this.panelOpen()) {
-      this.formError.set('Guardá o cancelá el hallazgo que estás editando antes de continuar.');
+      this.formError.set('Guarda o cancela el hallazgo que estás editando antes de continuar.');
       return;
     }
     touchAll(this.changeReason);

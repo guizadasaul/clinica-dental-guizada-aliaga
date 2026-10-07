@@ -24,5 +24,8 @@ export class AppointmentWithPatient {
     readonly notes: string | null,
     /** CLI-149: solo si status = 'cancelled'. */
     readonly cancelledAt: Date | null,
+    /** CLI-103: motivo y nombre de quien canceló — solo si status = 'cancelled'. */
+    readonly cancelReason: string | null = null,
+    readonly cancelledByName: string | null = null,
   ) {}
 }

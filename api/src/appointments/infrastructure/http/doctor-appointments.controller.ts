@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   HttpCode,
   Param,
@@ -23,6 +24,9 @@ import { ListAppointmentsQueryDto } from './dto/list-appointments-query.dto.js';
 import { CreateDoctorAppointmentDto } from './dto/create-doctor-appointment.dto.js';
 import { RescheduleDoctorAppointmentDto } from './dto/reschedule-doctor-appointment.dto.js';
 import { CancelDoctorAppointmentDto } from './dto/cancel-doctor-appointment.dto.js';
+import { CreateTimeBlockDto } from './dto/create-time-block.dto.js';
+import { ListTimeBlocksQueryDto } from './dto/list-time-blocks-query.dto.js';
+import type { DoctorTimeBlock } from '../../domain/DoctorTimeBlock.js';
 import { CLINIC_UTC_OFFSET } from '../../domain/ClinicSchedule.js';
 
 // Las fechas del query son días de la clínica (Bolivia), no de UTC: con
@@ -98,6 +102,60 @@ export class DoctorAppointmentsController {
     @Body() dto: CancelDoctorAppointmentDto,
   ): Promise<AppointmentWithPatient> {
     return this.appointmentsService.cancelByDoctor(appUser.id, id, dto.reason);
+  }
+
+  // CLI-208: "No asistió" — solo citas propias que ya pasaron.
+  @Post('doctor/:id/no-show')
+  @HttpCode(200)
+  @Roles(UserRole.ODONTOLOGIST)
+  markNoShow(
+    @CurrentAppUser() appUser: User,
+    @Param('id', ParseUUIDPipe) id: string,
+  ): Promise<AppointmentWithPatient> {
+    return this.appointmentsService.markNoShow(appUser.id, id);
+  }
+
+  @Delete('doctor/:id/no-show')
+  @Roles(UserRole.ODONTOLOGIST)
+  undoNoShow(
+    @CurrentAppUser() appUser: User,
+    @Param('id', ParseUUIDPipe) id: string,
+  ): Promise<AppointmentWithPatient> {
+    return this.appointmentsService.undoNoShow(appUser.id, id);
+  }
+
+  // CLI-195: horarios que el doctor aparta de su agenda. Siempre los propios:
+  // el doctor sale del token y uno ajeno da 404 al quitarlo.
+  @Post('blocks')
+  @Roles(UserRole.ODONTOLOGIST)
+  createTimeBlock(
+    @CurrentAppUser() appUser: User,
+    @Body() dto: CreateTimeBlockDto,
+  ): Promise<DoctorTimeBlock> {
+    return this.appointmentsService.createTimeBlock(appUser.id, dto);
+  }
+
+  @Get('blocks')
+  @Roles(UserRole.ODONTOLOGIST)
+  listTimeBlocks(
+    @CurrentAppUser() appUser: User,
+    @Query() query: ListTimeBlocksQueryDto,
+  ): Promise<DoctorTimeBlock[]> {
+    return this.appointmentsService.listTimeBlocks(
+      appUser.id,
+      clinicMidnight(query.from),
+      clinicMidnight(query.to),
+    );
+  }
+
+  @Delete('blocks/:id')
+  @HttpCode(204)
+  @Roles(UserRole.ODONTOLOGIST)
+  async deleteTimeBlock(
+    @CurrentAppUser() appUser: User,
+    @Param('id', ParseUUIDPipe) id: string,
+  ): Promise<void> {
+    await this.appointmentsService.deleteTimeBlock(appUser.id, id);
   }
 
   /** CLI-148: horario de atención propio, para marcar en la agenda lo que queda fuera. */

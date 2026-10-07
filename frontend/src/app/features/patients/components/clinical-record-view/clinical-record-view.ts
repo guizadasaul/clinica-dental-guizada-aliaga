@@ -111,8 +111,7 @@ export class ClinicalRecordViewComponent {
     const typeLabel = p.documentType
       ? (ClinicalRecordViewComponent.DOCUMENT_TYPE_LABELS[p.documentType] ?? p.documentType)
       : null;
-    const number = p.documentExtension ? `${p.dni} ${p.documentExtension}` : p.dni;
-    return typeLabel ? `${typeLabel} ${number}` : number;
+    return typeLabel ? `${typeLabel} ${p.dni}` : p.dni;
   }
 
   protected emergencyContactLabel(p: Patient): string {

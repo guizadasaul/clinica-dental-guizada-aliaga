@@ -9,3 +9,6 @@ coverage
 
 # macOS
 .DS_Store
+
+# Reportes de los evals del chatbot (CLI-232): se generan en cada corrida
+/evals/reports/

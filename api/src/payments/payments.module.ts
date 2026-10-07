@@ -9,6 +9,7 @@ import { BanecoModule } from './baneco.module';
 import { PrismaBookingConfirmationRepository } from './infrastructure/persistence/prisma-booking-confirmation.repository';
 import { AppointmentsModule } from '../appointments/appointments.module';
 import { TreatmentsModule } from '../treatments/treatments.module';
+import { FinancesModule } from '../finances/finances.module';
 
 @Module({
   imports: [
@@ -16,6 +17,8 @@ import { TreatmentsModule } from '../treatments/treatments.module';
     AppointmentsModule,
     TreatmentsModule,
     BanecoModule,
+    // CLI-220: el webhook también concilia los QR de presupuestos.
+    FinancesModule,
   ],
   controllers: [PublicCheckoutController, BanecoWebhookController],
   providers: [

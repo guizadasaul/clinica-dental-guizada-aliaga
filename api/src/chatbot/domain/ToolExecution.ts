@@ -1,5 +1,6 @@
 import type { ChatActor } from './ChatActor';
 import type { ChatAuditContext } from './ChatAudit';
+import type { ChatAttachment } from './ChatAttachment';
 import type { ChatLink } from './ChatLink';
 import type { LlmToolCall, LlmToolDefinition } from './LlmProvider';
 
@@ -12,6 +13,8 @@ export interface ToolExecutionResult {
   content: string;
   /** Links para el usuario que produjo la tool; nunca pasan por el LLM. */
   links: ChatLink[];
+  /** Adjuntos para el usuario (el QR de pago); nunca pasan por el LLM. */
+  attachments: ChatAttachment[];
 }
 
 /**

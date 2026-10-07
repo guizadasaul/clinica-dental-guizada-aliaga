@@ -5,8 +5,8 @@ import {
   OnDestroy,
   HostListener,
   ElementRef,
-  ViewChild,
   signal,
+  computed,
   effect,
   inject,
   PLATFORM_ID,
@@ -37,7 +37,6 @@ import {
   StaggerTestimonialsComponent,
 } from '../../../shared/ui/stagger-testimonials/stagger-testimonials';
 import { TestimonialCtaComponent } from '../../../shared/ui/testimonial-cta/testimonial-cta';
-import { randomUnit } from '../../../shared/utils/random.util';
 import { ChatWidgetComponent } from '../../../features/chatbot/components/chat-widget/chat-widget';
 
 interface Instrument {
@@ -75,9 +74,6 @@ export class LandingComponent implements OnInit, AfterViewInit, OnDestroy {
   private readonly testimonialsService = inject(TestimonialsService);
   private readonly scrollLock = inject(ScrollLockService);
 
-  /** Fuente de aleatoriedad de las esporas (efecto visual); los tests la reemplazan por una fija. */
-  protected random: () => number = randomUnit;
-  @ViewChild('spores') private readonly sporeCanvas?: ElementRef<HTMLCanvasElement>;
 
   protected readonly navScrolled = signal(false);
   // Alguien sin ficha de paciente asociada llega acá redirigido desde el
@@ -90,6 +86,9 @@ export class LandingComponent implements OnInit, AfterViewInit, OnDestroy {
   protected readonly bookingDoctorsLoading = signal(true);
   protected readonly bookingSelectedDoctorId = signal<string | null>(null);
   protected readonly bookingSlotsByDate = signal<Record<string, string[]>>({});
+  protected readonly bookingSelectedDoctorName = computed(
+    () => this.bookingDoctors().find((d) => d.id === this.bookingSelectedDoctorId())?.displayName ?? null,
+  );
   protected readonly bookingLoading = signal(false);
   protected readonly bookingError = signal<string | null>(null);
   // El selector de horarios ya no vive fijo en la landing: se abre en un
@@ -97,7 +96,6 @@ export class LandingComponent implements OnInit, AfterViewInit, OnDestroy {
   protected readonly bookingModalOpen = signal(false);
   protected readonly mobileMenuOpen = signal(false);
   private gsapContext: { revert(): void } | null = null;
-  private sporeCleanup: (() => void) | null = null;
 
   // El abanico se ordena visualmente de izquierda a derecha; el espejo bucal
   // (pieza más icónica) queda al centro y al frente.
@@ -249,11 +247,11 @@ export class LandingComponent implements OnInit, AfterViewInit, OnDestroy {
   // Los dos odontólogos de la clínica, mostrados de a uno en una tarjeta
   // grande que se navega con flechas/puntos (ver activeDoctorIndex).
   protected readonly doctors = ['ariel', 'marylu'] as const;
-  // Fotos recortadas (fondo transparente); null mientras no haya foto real
-  // todavía — cae al ícono de placeholder.
+  // Foto de cada odontólogo; null cae al ícono de placeholder (por si se suma
+  // alguien antes de tener su foto).
   protected readonly doctorPhotos: Record<(typeof this.doctors)[number], string | null> = {
     ariel: 'assets/images/doctors/DrArielGuizada.png',
-    marylu: null,
+    marylu: 'assets/images/doctors/DraMaryluAliaga.png',
   };
   protected readonly activeDoctorIndex = signal(0);
 
@@ -358,6 +356,12 @@ export class LandingComponent implements OnInit, AfterViewInit, OnDestroy {
     void this.loadBookingAvailability(doctorId);
   }
 
+  /** Volver al selector de doctores desde un doctor sin turnos (CLI-142). */
+  protected onBookingChangeDoctor(): void {
+    this.bookingSelectedDoctorId.set(null);
+    this.bookingSlotsByDate.set({});
+  }
+
   protected onBookingSlotSelected(slot: string): void {
     const doctorId = this.bookingSelectedDoctorId();
     if (!doctorId) {
@@ -373,7 +377,7 @@ export class LandingComponent implements OnInit, AfterViewInit, OnDestroy {
       const result = await firstValueFrom(this.bookingService.getDoctors());
       this.bookingDoctors.set(result);
     } catch {
-      this.bookingError.set('No pudimos cargar los doctores disponibles. Intentá de nuevo más tarde.');
+      this.bookingError.set('No pudimos cargar los doctores disponibles. Intenta de nuevo más tarde.');
     } finally {
       this.bookingDoctorsLoading.set(false);
     }
@@ -387,7 +391,7 @@ export class LandingComponent implements OnInit, AfterViewInit, OnDestroy {
       const result = await firstValueFrom(this.bookingService.getAvailabilityRange(today, doctorId));
       this.bookingSlotsByDate.set(result.slotsByDate);
     } catch {
-      this.bookingError.set('No pudimos cargar los horarios disponibles. Intentá de nuevo más tarde.');
+      this.bookingError.set('No pudimos cargar los horarios disponibles. Intenta de nuevo más tarde.');
     } finally {
       this.bookingLoading.set(false);
     }
@@ -417,7 +421,7 @@ export class LandingComponent implements OnInit, AfterViewInit, OnDestroy {
     void this.startVisualEffects();
   }
 
-  /** Esporas y animaciones de GSAP, solo en el navegador y sin reduced-motion. */
+  /** Animaciones de GSAP, solo en el navegador y sin reduced-motion. */
   private async startVisualEffects(): Promise<void> {
     if (!isPlatformBrowser(this.platformId)) {
       return;
@@ -427,7 +431,6 @@ export class LandingComponent implements OnInit, AfterViewInit, OnDestroy {
     if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
       return;
     }
-    this.initSpores();
     await this.initAnimations();
   }
 
@@ -524,217 +527,8 @@ export class LandingComponent implements OnInit, AfterViewInit, OnDestroy {
     }, root);
   }
 
-  // ------------------------------------------------------------
-  // Campo de esporas naranjas del hero.
-  //
-  // Cada espora tiene una posición "casa" (home) con densidad
-  // gaussiana centrada donde converge el abanico. En reposo flota con
-  // una deriva sinusoidal mínima; un resorte suave la devuelve siempre
-  // a su casa. Cuando el cursor se acerca, un empuje radial la hace
-  // "escapar" y luego el resorte la reasienta. El dibujo es en canvas 2D para
-  // que decenas de partículas no cuesten layout ni repaint del DOM.
-  // ------------------------------------------------------------
-  private initSpores(): void {
-    const canvas = this.sporeCanvas?.nativeElement;
-    const root = this.host.nativeElement as HTMLElement;
-    const hero = root.querySelector<HTMLElement>('.hero');
-    if (!canvas || !hero) {
-      return;
-    }
-    const ctx = canvas.getContext('2d');
-    if (!ctx) {
-      return;
-    }
-
-    const dpr = Math.min(window.devicePixelRatio || 1, 2);
-
-    interface Spore {
-      fx: number; // casa como fracción del ancho/alto (sobrevive al resize)
-      fy: number;
-      hx: number; // casa en píxeles CSS
-      hy: number;
-      x: number; // posición actual
-      y: number;
-      vx: number;
-      vy: number;
-      r: number; // radio
-      a: number; // opacidad base (ya muy sutil)
-      tone: string; // tinte naranja o negro
-      phase: number; // desfase de la deriva
-      drift: number; // velocidad de la deriva
-    }
-
-    // Naranjas y negros de marca en distintas intensidades → profundidad
-    // orgánica, mezclados en el mismo campo de partículas.
-    const TONES = [
-      '232, 152, 88',
-      '214, 124, 60',
-      '245, 183, 120',
-      '232, 152, 88',
-      '0, 0, 0',
-      '30, 30, 30',
-    ];
-    const spores: Spore[] = [];
-
-    // Ruido ~normal (media 0, rango ~[-1, 1]) por suma de uniformes.
-    const gauss = (): number =>
-      (this.random() + this.random() + this.random() + this.random() - 2) / 2;
-    const clamp01 = (n: number): number => Math.min(0.98, Math.max(0.02, n));
-
-    let width = 0;
-    let height = 0;
-
-    // Núcleo del campo: el punto más denso, en el centro-abajo del hero.
-    const CORE_X = 0.5;
-    const CORE_Y = 0.72;
-
-    const build = (): void => {
-      spores.length = 0;
-      // Menos partículas en mobile; el efecto debe ser un susurro.
-      const count = width < 640 ? 1600 : 3060;
-      for (let i = 0; i < count; i++) {
-        // ~30% forman el núcleo denso alrededor del centro-abajo; el 70%
-        // restante se esparce por el hero entero para que las zonas alejadas
-        // queden bien pobladas, manteniendo la masa mayor abajo al centro.
-        let fx: number;
-        let fy: number;
-        if (this.random() < 0.2) {
-          fx = clamp01(CORE_X + gauss() * 0.26);
-          fy = clamp01(CORE_Y + gauss() * 0.2);
-        } else {
-          fx = clamp01(this.random());
-          fy = clamp01(this.random());
-        }
-        // Cuanto más cerca del núcleo, un pelín más grande y visible.
-        const distToCore = Math.hypot(fx - CORE_X, fy - CORE_Y);
-        const centerBoost = Math.max(0, 1 - distToCore * 2.4);
-        spores.push({
-          fx,
-          fy,
-          hx: fx * width,
-          hy: fy * height,
-          x: fx * width,
-          y: fy * height,
-          vx: 0,
-          vy: 0,
-          r: 0.8 + this.random() * 1.6 + centerBoost * 1.1,
-          a: 0.1 + this.random() * 0.22 + centerBoost * 0.16,
-          tone: TONES[Math.floor(this.random() * TONES.length)],
-          phase: this.random() * Math.PI * 2,
-          drift: 0.6 + this.random() * 0.8,
-        });
-      }
-    };
-
-    const resize = (): void => {
-      const rect = hero.getBoundingClientRect();
-      width = rect.width;
-      height = rect.height;
-      canvas.width = Math.round(width * dpr);
-      canvas.height = Math.round(height * dpr);
-      // Trabajamos en píxeles CSS; el dpr se aplica una sola vez.
-      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      if (spores.length === 0) {
-        build();
-      } else {
-        for (const s of spores) {
-          s.hx = s.fx * width;
-          s.hy = s.fy * height;
-        }
-      }
-    };
-
-    // Cursor fuera de escena hasta que entre al hero.
-    let mx = -9999;
-    let my = -9999;
-    const REPEL = 118; // radio de influencia del cursor (px CSS)
-
-    const onPointerMove = (e: PointerEvent): void => {
-      const rect = hero.getBoundingClientRect();
-      mx = e.clientX - rect.left;
-      my = e.clientY - rect.top;
-    };
-    const onPointerLeave = (): void => {
-      mx = -9999;
-      my = -9999;
-    };
-
-    let raf = 0;
-    let running = false;
-
-    const frame = (t: number): void => {
-      ctx.clearRect(0, 0, width, height);
-      for (const s of spores) {
-        // Deriva ociosa: la "casa" respira apenas.
-        const homeX = s.hx + Math.cos(t * 0.0004 * s.drift + s.phase) * 7;
-        const homeY = s.hy + Math.sin(t * 0.0005 * s.drift + s.phase) * 9;
-
-        // Resorte hacia casa.
-        s.vx += (homeX - s.x) * 0.012;
-        s.vy += (homeY - s.y) * 0.012;
-
-        // Repulsión del cursor: escapan al pasar cerca.
-        const dx = s.x - mx;
-        const dy = s.y - my;
-        const dist2 = dx * dx + dy * dy;
-        if (dist2 < REPEL * REPEL) {
-          const dist = Math.sqrt(dist2) || 1;
-          const force = (1 - dist / REPEL) * 2.6;
-          s.vx += (dx / dist) * force;
-          s.vy += (dy / dist) * force;
-        }
-
-        // Amortiguación → movimiento fluido, sin oscilar eternamente.
-        s.vx *= 0.9;
-        s.vy *= 0.9;
-        s.x += s.vx;
-        s.y += s.vy;
-
-        ctx.beginPath();
-        ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
-        ctx.fillStyle = `rgba(${s.tone}, ${s.a})`;
-        ctx.fill();
-      }
-      raf = requestAnimationFrame(frame);
-    };
-
-    const start = (): void => {
-      if (running) {
-        return;
-      }
-      running = true;
-      raf = requestAnimationFrame(frame);
-    };
-    const stop = (): void => {
-      running = false;
-      cancelAnimationFrame(raf);
-    };
-
-    // Pausar el bucle cuando el hero sale del viewport (ahorro de CPU).
-    const io = new IntersectionObserver(
-      ([entry]) => (entry.isIntersecting ? start() : stop()),
-      { threshold: 0 },
-    );
-
-    resize();
-    window.addEventListener('resize', resize);
-    hero.addEventListener('pointermove', onPointerMove);
-    hero.addEventListener('pointerleave', onPointerLeave);
-    io.observe(hero);
-
-    this.sporeCleanup = (): void => {
-      stop();
-      io.disconnect();
-      window.removeEventListener('resize', resize);
-      hero.removeEventListener('pointermove', onPointerMove);
-      hero.removeEventListener('pointerleave', onPointerLeave);
-    };
-  }
-
   ngOnDestroy(): void {
     this.gsapContext?.revert();
     this.gsapContext = null;
-    this.sporeCleanup?.();
-    this.sporeCleanup = null;
   }
 }

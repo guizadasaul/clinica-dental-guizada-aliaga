@@ -18,14 +18,20 @@ import type {
   OdontogramEntryData,
   CreateToothProcedureData,
   DentalExamFindingData,
+  ToothProceduresToCreate,
 } from '../domain/PatientRepository';
 import { UserRepository } from '../../auth/domain/UserRepository';
 import type { UserRepository as IUserRepository } from '../../auth/domain/UserRepository';
 import { UserRole } from '../../auth/domain/value-objects/UserRole';
+import { ACCOUNT_DISABLED_MESSAGE } from '../../auth/domain/account-disabled';
+import { PhoneLoginError } from '../../auth/domain/value-objects/PhoneLoginError';
 import { SupabaseAdminService } from '../../auth/infrastructure/SupabaseAdminService';
-import { toE164Bolivia } from '../../shared/phone.util';
+import { toE164, toE164Bolivia } from '../../shared/phone.util';
+import { canonicalPlace } from '../domain/place-names';
+import type { PatientFieldOptions } from '../domain/place-names';
 import { TreatmentRepository } from '../../treatments/domain/TreatmentRepository';
 import type { ITreatmentRepository } from '../../treatments/domain/TreatmentRepository';
+import type { Treatment } from '../../treatments/domain/Treatment';
 import {
   assertTeethMatchApplicationType,
   typeGeneratesOdontogramEntries,
@@ -54,6 +60,7 @@ import type { ClinicalExam } from '../domain/ClinicalExam';
 import type { PatientWithUser } from '../domain/PatientWithUser';
 import type { OdontogramEntry } from '../domain/OdontogramEntry';
 import type { ToothProcedure } from '../domain/ToothProcedure';
+import type { PatientClinicalRecord } from '../domain/PatientClinicalRecord';
 import type {
   DentalExam,
   DentalExamKind,
@@ -61,13 +68,13 @@ import type {
 } from '../domain/DentalExam';
 
 /** Un diente dentro de una aplicación, con sus propias superficies (CLI-41). */
-interface ToothApplicationInput {
+export interface ToothApplicationInput {
   number: number;
   /** Códigos de tooth_surfaces (CLI-49) — p.ej. ['vestibular', 'occlusal']. */
   surfaces?: string[];
 }
 
-interface CreateToothProcedureInput {
+export interface CreateToothProcedureInput {
   teeth: ToothApplicationInput[];
   treatmentId: string;
   priceCharged: number;
@@ -75,6 +82,12 @@ interface CreateToothProcedureInput {
   quantity?: number;
   procedureDate?: Date;
   notes?: string;
+}
+
+/** Un tratamiento validado y listo para registrar (CLI-226). */
+export interface PreparedToothProcedure {
+  treatment: Treatment;
+  procedures: ToothProceduresToCreate;
 }
 
 interface CreateDentalExamFindingInput {
@@ -96,7 +109,6 @@ interface CreateDentalExamInput {
 /** Una condición dentro del historial, con SU código de catálogo (CLI-50). */
 interface MedicalConditionEntryInput {
   code: string;
-  diagnosedAt?: Date;
   notes?: string;
 }
 
@@ -116,6 +128,21 @@ interface UpsertMedicalHistoryInput {
   anesthesiaReactions?: boolean | null;
   medications?: PatientMedicationInput[];
 }
+
+/** "Nombre Apellido Paterno Materno" de una ficha o de los datos de alta. */
+function patientFullName(p: {
+  firstName: string;
+  lastNamePaternal: string;
+  lastNameMaternal?: string | null;
+}): string {
+  return [p.firstName, p.lastNamePaternal, p.lastNameMaternal]
+    .filter(Boolean)
+    .join(' ');
+}
+
+/** Mensaje al intentar tratar o presupuestar a un paciente sin diagnóstico (CLI-189). */
+export const NO_DIAGNOSIS_MESSAGE =
+  'Primero termina el diagnóstico del paciente.';
 
 @Injectable()
 export class PatientsService {
@@ -144,10 +171,84 @@ export class PatientsService {
    * target no puede ser simplemente "usar el propio id del caller". Un
    * odontólogo puede targetear cualquier userId; un paciente solo el suyo.
    */
+  /**
+   * Baja lógica de un paciente (CLI-184). No borra ninguna fila: ver
+   * PatientRepository.softDeletePatient. Se rechaza si todavía tiene citas
+   * futuras o saldo pendiente, diciendo cuáles.
+   */
+  async deletePatient(callerAuthUserId: string, userId: string): Promise<void> {
+    const caller = await this.userRepo.findByAuthUserId(callerAuthUserId);
+    if (!caller) {
+      throw new NotFoundException(
+        'Usuario autenticado no encontrado en la base de datos',
+      );
+    }
+    const target = await this.userRepo.findById(userId);
+    if (target?.role !== UserRole.PATIENT || !target.isActive) {
+      throw new NotFoundException('Paciente no encontrado');
+    }
+
+    const { futureAppointments, balance } =
+      await this.patientRepo.findDeletionBlockers(userId);
+    // El nombre de la ficha, el mismo que ve el doctor en la lista; el de la
+    // cuenta (users.display_name) puede ser otro.
+    const ficha = await this.patientRepo.findByUserId(userId);
+    const name = ficha
+      ? patientFullName(ficha)
+      : (target.displayName ?? 'este paciente');
+    const reasons: string[] = [];
+    if (futureAppointments > 0) {
+      reasons.push(
+        futureAppointments === 1
+          ? '1 cita pendiente'
+          : `${futureAppointments} citas pendientes`,
+      );
+    }
+    if (balance > 0) {
+      reasons.push(`un saldo pendiente de Bs ${balance.toFixed(2)}`);
+    }
+    if (reasons.length > 0) {
+      throw new ConflictException(
+        `No se puede eliminar a ${name}: tiene ${reasons.join(' y ')}. Resuélvelo antes de eliminarlo.`,
+      );
+    }
+
+    await this.patientRepo.softDeletePatient(userId, caller.id);
+  }
+
+  /** Sugerencias para lugar de nacimiento, zona y ciudad (CLI-178). */
+  findFieldOptions(): Promise<PatientFieldOptions> {
+    return this.patientRepo.findFieldOptions();
+  }
+
+  /**
+   * Lugar de nacimiento, zona y ciudad se guardan unificados (CLI-178): si el
+   * valor coincide sin importar mayúsculas ni tildes con uno ya usado, se usa
+   * ese; si no, queda con mayúscula inicial por palabra.
+   */
+  private async withCanonicalPlaces<
+    T extends { birthPlace?: string; zona?: string; ciudad?: string },
+  >(data: T): Promise<T> {
+    if (!data.birthPlace && !data.zona && !data.ciudad) {
+      return data;
+    }
+    const known = await this.patientRepo.findFieldOptions();
+    return {
+      ...data,
+      ...(data.birthPlace && {
+        birthPlace: canonicalPlace(data.birthPlace, known.birthPlaces),
+      }),
+      ...(data.zona && { zona: canonicalPlace(data.zona, known.zonas) }),
+      ...(data.ciudad && {
+        ciudad: canonicalPlace(data.ciudad, known.ciudades),
+      }),
+    };
+  }
+
   async createPatient(
     callerAuthUserId: string,
     requestedUserId: string | undefined,
-    data: CreatePatientData,
+    rawData: CreatePatientData,
   ): Promise<Patient> {
     const caller = await this.userRepo.findByAuthUserId(callerAuthUserId);
     if (!caller) {
@@ -155,23 +256,41 @@ export class PatientsService {
         'Usuario autenticado no encontrado en la base de datos',
       );
     }
+    const data = await this.withCanonicalPlaces(rawData);
+
+    // Un odontólogo sin userId registra a un paciente nuevo, que llegó a la
+    // clínica sin reserva previa (CLI-171). Antes caía en caller.id, o sea,
+    // intentaba hacerle una ficha al propio doctor.
+    if (caller.role === UserRole.ODONTOLOGIST && !requestedUserId) {
+      return this.registerNewPatient(caller.id, data);
+    }
 
     let targetUserId: string;
     if (caller.role === UserRole.ODONTOLOGIST) {
-      targetUserId = requestedUserId ?? caller.id;
+      targetUserId = requestedUserId!;
     } else {
       if (requestedUserId && requestedUserId !== caller.id) {
-        throw new ForbiddenException('No podés crear la ficha de otro usuario');
+        throw new ForbiddenException(
+          'No puedes crear la ficha de otro usuario',
+        );
       }
       targetUserId = caller.id;
     }
 
-    // El teléfono vive en users.phone (CLI-51) — se sincroniza ANTES de crear
-    // la ficha para que la respuesta ya refleje el valor nuevo (Patient.phone
-    // se lee via join a users, igual que en updatePatient).
-    if (data.phone !== undefined) {
+    // Teléfono o correo (CLI-181): vale lo que llega ahora o lo que la
+    // persona ya tenga guardado (una cuenta de Google ya trae su correo).
+    this.assertHasContact(data, await this.userRepo.findById(targetUserId));
+    if (data.email !== undefined) {
+      await this.assertEmailFree(data.email, targetUserId);
+    }
+
+    // El teléfono vive en users.phone (CLI-51) y el correo en users.email —
+    // se sincronizan ANTES de crear la ficha para que la respuesta ya refleje
+    // el valor nuevo (se leen via join a users, igual que en updatePatient).
+    if (data.phone !== undefined || data.email !== undefined) {
       await this.userRepo.updateContactInfo(targetUserId, {
-        phone: data.phone,
+        ...(data.phone !== undefined && { phone: data.phone }),
+        ...(data.email !== undefined && { email: data.email }),
       });
     }
 
@@ -187,21 +306,117 @@ export class PatientsService {
         assignedDoctorId,
       });
     } catch (error: unknown) {
-      const msg = error instanceof Error ? error.message : '';
-      if (msg.includes('Unique constraint') || msg.includes('unique')) {
+      throw this.toCreateConflict(error) ?? error;
+    }
+  }
+
+  /**
+   * Alta de un paciente nuevo, sin cuenta (CLI-171). Antes de crear, se busca
+   * si ya está en el sistema por documento o por teléfono, y el mensaje dice
+   * quién es para que el doctor use esa ficha en vez de duplicarla.
+   */
+  private async registerNewPatient(
+    doctorId: string,
+    data: CreatePatientData,
+  ): Promise<Patient> {
+    this.assertHasContact(data, null);
+    if (data.documentType && data.dni) {
+      const existing = await this.patientRepo.findByDocument(
+        data.documentType,
+        data.dni,
+      );
+      if (existing) {
         throw new ConflictException(
-          'El paciente ya tiene una ficha registrada',
+          `Ya existe ${patientFullName(existing)} con ese documento. Búscalo en la lista de pacientes.`,
         );
       }
-      throw error;
     }
+    const e164 = data.phone ? toE164(data.phone) : null;
+    if (e164) {
+      const [owner] = await this.userRepo.findActiveByPhone(e164);
+      if (owner) {
+        throw new ConflictException(
+          `Ya existe ${owner.displayName ?? 'una persona'} con ese teléfono. Búscala en la lista de pacientes.`,
+        );
+      }
+    }
+    if (data.email !== undefined) {
+      await this.assertEmailFree(data.email);
+    }
+    try {
+      return await this.patientRepo.createWithPlaceholderUser(
+        {
+          displayName: patientFullName(data),
+          phone: data.phone ?? null,
+          email: data.email ?? null,
+        },
+        { ...data, assignedDoctorId: doctorId },
+      );
+    } catch (error: unknown) {
+      throw this.toCreateConflict(error) ?? error;
+    }
+  }
+
+  /** Hace falta al menos un medio de contacto: teléfono o correo (CLI-181). */
+  private assertHasContact(
+    data: { phone?: string; email?: string },
+    current: { phone: string | null; email: string | null } | null,
+  ): void {
+    if (data.phone || data.email || current?.phone || current?.email) {
+      return;
+    }
+    throw new BadRequestException(
+      'Indica un teléfono o un correo electrónico de contacto.',
+    );
+  }
+
+  /** El correo es único: si ya es de otra persona se dice quién es, como con el teléfono. */
+  private async assertEmailFree(
+    email: string,
+    exceptUserId?: string,
+  ): Promise<void> {
+    const owner = await this.userRepo.findByEmail(email);
+    if (owner && owner.id !== exceptUserId) {
+      throw new ConflictException(
+        `Ya existe ${owner.displayName ?? 'una persona'} con ese correo. Búscala en la lista de pacientes.`,
+      );
+    }
+  }
+
+  /** Un choque de unicidad al crear la ficha: documento repetido o ficha ya existente para ese usuario. */
+  private toCreateConflict(error: unknown): ConflictException | null {
+    const msg = error instanceof Error ? error.message : '';
+    if (!msg.includes('Unique constraint') && !msg.includes('unique')) {
+      return null;
+    }
+    return new ConflictException(
+      msg.includes('document_type') || msg.includes('dni')
+        ? 'Ya existe un paciente con ese documento'
+        : 'El paciente ya tiene una ficha registrada',
+    );
   }
 
   async updatePatient(
     patientId: string,
-    data: UpdatePatientData & { email?: string },
+    rawData: UpdatePatientData & { email?: string },
   ): Promise<Patient> {
+    const data = await this.withCanonicalPlaces(rawData);
     const { email, ...patientFields } = data;
+    const phone = patientFields.phone;
+    if (email !== undefined) {
+      const current = await this.patientRepo.findPatientById(patientId);
+      if (!current) {
+        throw new NotFoundException(
+          `Paciente con id ${patientId} no encontrado`,
+        );
+      }
+      await this.assertEmailFree(email, current.userId);
+    }
+    // Antes de guardar nada: si el teléfono está en otra cuenta de Supabase
+    // Auth, el cambio se rechaza entero (CLI-143) en vez de quedar a medias.
+    const phoneLoginError = phone
+      ? await this.enablePhoneLogin(patientId, phone)
+      : undefined;
     const patient = await this.patientRepo.updatePatient(
       patientId,
       patientFields,
@@ -209,25 +424,59 @@ export class PatientsService {
     if (!patient) {
       throw new NotFoundException(`Paciente con id ${patientId} no encontrado`);
     }
-    const phone = patientFields.phone;
-    if (email !== undefined || phone !== undefined) {
-      const user = await this.userRepo.updateContactInfo(patient.userId, {
-        ...(email !== undefined && { email }),
-        ...(phone !== undefined && { phone }),
-      });
-      // El teléfono queda utilizable como login (phone + contraseña) recién
-      // cuando la cuenta de Supabase ya existe (authUserId no nulo). Si
-      // todavía es una ficha placeholder, alcanza con guardarlo en `users` —
-      // se confirma en Supabase cuando el paciente reclame la invitación
-      // (ver AuthService.tryLinkInvitedUser).
-      if (user?.authUserId && phone) {
-        await this.supabaseAdminService.setConfirmedPhone(
-          user.authUserId,
-          toE164Bolivia(phone),
-        );
-      }
+    if (
+      email === undefined &&
+      phone === undefined &&
+      phoneLoginError === undefined
+    ) {
+      return patient;
     }
-    return patient;
+    await this.userRepo.updateContactInfo(patient.userId, {
+      ...(email !== undefined && { email }),
+      ...(phone !== undefined && { phone }),
+      ...(phoneLoginError !== undefined && { phoneLoginError }),
+    });
+    // El teléfono y su marca viven en `users`: se relee para que la
+    // respuesta ya los refleje.
+    return (await this.patientRepo.findPatientById(patientId)) ?? patient;
+  }
+
+  /**
+   * Habilita el teléfono como login (phone + contraseña) en Supabase Auth.
+   * Solo aplica si la cuenta ya existe (authUserId no nulo): en una ficha
+   * placeholder alcanza con guardarlo en `users`, y se confirma cuando el
+   * paciente reclame la invitación (ver AuthService.tryLinkInvitedUser).
+   *
+   * Devuelve la marca a guardar en users.phone_login_error: null si quedó
+   * habilitado, 'unknown' si Supabase falló por otro motivo (el resto de la
+   * ficha se guarda igual y el doctor ve el aviso), o undefined si todavía no
+   * hay cuenta. Un teléfono que ya usa otra cuenta es un 409.
+   */
+  private async enablePhoneLogin(
+    patientId: string,
+    phone: string,
+  ): Promise<PhoneLoginError | null | undefined> {
+    const current = await this.patientRepo.findPatientById(patientId);
+    if (!current) {
+      throw new NotFoundException(`Paciente con id ${patientId} no encontrado`);
+    }
+    const user = await this.userRepo.findById(current.userId);
+    if (!user?.authUserId) {
+      return undefined;
+    }
+    const result = await this.supabaseAdminService.setConfirmedPhone(
+      user.authUserId,
+      toE164Bolivia(phone),
+    );
+    if (result.ok) {
+      return null;
+    }
+    if (result.reason === PhoneLoginError.PHONE_IN_USE) {
+      throw new ConflictException(
+        'Ese teléfono ya está registrado en otra cuenta, así que no se puede usar para iniciar sesión. Usa otro número.',
+      );
+    }
+    return result.reason;
   }
 
   async upsertMedicalHistory(
@@ -250,7 +499,6 @@ export class PatientsService {
       }
       return {
         medicalConditionId: condition.id,
-        diagnosedAt: entry.diagnosedAt,
         notes: entry.notes,
       };
     });
@@ -310,12 +558,19 @@ export class PatientsService {
     return this.patientRepo.findOdontogramEntries(patientId);
   }
 
-  async createToothProcedure(
+  /**
+   * Valida un tratamiento a registrar y arma sus filas (CLI-226: el registro
+   * lo hace TreatmentPlanService, que en la misma transacción cumple o suma
+   * la línea del presupuesto). 404 si falta el paciente, su diagnóstico, el
+   * usuario o el tratamiento; 400 si las piezas no van con el tipo.
+   */
+  async prepareToothProcedure(
     patientId: string,
     authUserId: string,
     data: CreateToothProcedureInput,
-  ): Promise<ToothProcedure[]> {
+  ): Promise<PreparedToothProcedure> {
     await this.requirePatient(patientId);
+    await this.requireDiagnosis(patientId);
     const user = await this.userRepo.findByAuthUserId(authUserId);
     if (!user) {
       throw new NotFoundException(
@@ -331,52 +586,71 @@ export class PatientsService {
 
     this.assertValidTeethSelection(treatment.applicationType, data.teeth);
 
-    let created: ToothProcedure[];
     if (treatment.applicationType === 'multiple_teeth') {
       const sortedTeeth = [...data.teeth].sort((a, b) => a.number - b.number);
-      created = await this.patientRepo.createToothProcedureGroup(patientId, {
-        treatmentId: treatment.id,
-        teeth: sortedTeeth.map((tooth) => ({
-          toothNumber: tooth.number,
-          surfaceCodes: tooth.surfaces,
-        })),
-        priceCharged: data.priceCharged,
-        procedureDate: data.procedureDate,
-        notes: data.notes,
-        performedBy: user.id,
-      });
-    } else {
-      const rows = this.buildToothProcedureRows(
-        treatment.applicationType,
-        data,
-        user.id,
-      );
-      created = await this.patientRepo.createToothProcedures(patientId, rows);
+      return {
+        treatment,
+        procedures: {
+          kind: 'group',
+          group: {
+            treatmentId: treatment.id,
+            teeth: sortedTeeth.map((tooth) => ({
+              toothNumber: tooth.number,
+              surfaceCodes: tooth.surfaces,
+            })),
+            priceCharged: data.priceCharged,
+            procedureDate: data.procedureDate,
+            notes: data.notes,
+            performedBy: user.id,
+          },
+        },
+      };
     }
+    return {
+      treatment,
+      procedures: {
+        kind: 'rows',
+        rows: this.buildToothProcedureRows(
+          treatment.applicationType,
+          data,
+          user.id,
+        ),
+      },
+    };
+  }
 
-    if (typeGeneratesOdontogramEntries(treatment.applicationType)) {
-      const existingEntries =
-        await this.patientRepo.findOdontogramEntries(patientId);
-      const conditionByTooth = new Map<number, string>();
-      for (const entry of existingEntries) {
-        if (!conditionByTooth.has(entry.toothNumber)) {
-          conditionByTooth.set(entry.toothNumber, entry.toothCondition);
-        }
+  /**
+   * Después de registrar un tratamiento de arcada/boca completa: deja
+   * constancia en el odontograma de cada pieza que abarca, conservando la
+   * condición que tenía.
+   */
+  async recordTreatmentInOdontogram(
+    patientId: string,
+    treatment: Treatment,
+    notes?: string,
+  ): Promise<void> {
+    if (!typeGeneratesOdontogramEntries(treatment.applicationType)) {
+      return;
+    }
+    const existingEntries =
+      await this.patientRepo.findOdontogramEntries(patientId);
+    const conditionByTooth = new Map<number, string>();
+    for (const entry of existingEntries) {
+      if (!conditionByTooth.has(entry.toothNumber)) {
+        conditionByTooth.set(entry.toothNumber, entry.toothCondition);
       }
-      // CLI-52: diagnosisDescription ya no se llena acá — duplicaba
-      // treatments.name, accesible vía treatmentId sin necesidad de copiarlo.
-      const entries: OdontogramEntryData[] = teethForApplicationType(
-        treatment.applicationType,
-      ).map((toothNumber) => ({
-        toothNumber,
-        toothCondition: conditionByTooth.get(toothNumber) ?? 'sano',
-        treatmentId: treatment.id,
-        notes: data.notes,
-      }));
-      await this.patientRepo.appendOdontogramEntries(patientId, entries);
     }
-
-    return created;
+    // CLI-52: diagnosisDescription ya no se llena acá — duplicaba
+    // treatments.name, accesible vía treatmentId sin necesidad de copiarlo.
+    const entries: OdontogramEntryData[] = teethForApplicationType(
+      treatment.applicationType,
+    ).map((toothNumber) => ({
+      toothNumber,
+      toothCondition: conditionByTooth.get(toothNumber) ?? 'sano',
+      treatmentId: treatment.id,
+      notes,
+    }));
+    await this.patientRepo.appendOdontogramEntries(patientId, entries);
   }
 
   /** Dientes y superficies coherentes con el tipo de aplicación, o 400. */
@@ -591,11 +865,51 @@ export class PatientsService {
         'Usuario autenticado no encontrado en la base de datos',
       );
     }
+    if (!user.isActive) {
+      throw new ForbiddenException(ACCOUNT_DISABLED_MESSAGE);
+    }
     const patient = await this.patientRepo.findByUserId(user.id);
     if (!patient) {
-      throw new NotFoundException('No tenés un perfil de paciente registrado');
+      throw new NotFoundException('No tienes un perfil de paciente registrado');
     }
     return patient;
+  }
+
+  async findMyToothProcedures(authUserId: string): Promise<ToothProcedure[]> {
+    const patient = await this.findMyPatient(authUserId);
+    return this.patientRepo.findToothProcedures(patient.id);
+  }
+
+  /**
+   * CLI-213: la historia clínica inicial del propio paciente, de solo
+   * lectura. La ficha sale siempre de la sesión, nunca de un parámetro.
+   */
+  async findMyClinicalRecord(
+    authUserId: string,
+  ): Promise<PatientClinicalRecord> {
+    const patient = await this.findMyPatient(authUserId);
+    const [medicalHistory, hygieneHabits, clinicalExam, versions] =
+      await Promise.all([
+        this.patientRepo.findMedicalHistory(patient.id),
+        this.patientRepo.findHygieneHabits(patient.id),
+        this.patientRepo.findFirstClinicalExam(patient.id),
+        this.patientRepo.findDentalExamVersions(patient.id),
+      ]);
+    // El primer diagnóstico desde cero; si (datos viejos) no hay ninguno
+    // marcado así, la primera versión que exista.
+    const byVersion = versions.toSorted((a, b) => a.version - b.version);
+    const first =
+      byVersion.find((v) => v.kind === 'diagnosis') ?? byVersion.at(0);
+    const initialDiagnosis = first
+      ? await this.patientRepo.findDentalExam(patient.id, first.id)
+      : null;
+    return {
+      patient,
+      medicalHistory,
+      hygieneHabits,
+      clinicalExam,
+      initialDiagnosis,
+    };
   }
 
   async findMyPatientStatus(
@@ -605,8 +919,22 @@ export class PatientsService {
     if (!user) {
       return { exists: false, patient: null };
     }
+    if (!user.isActive) {
+      throw new ForbiddenException(ACCOUNT_DISABLED_MESSAGE);
+    }
     const patient = await this.patientRepo.findByUserId(user.id);
     return { exists: patient !== null, patient };
+  }
+
+  /**
+   * Un tratamiento solo se registra después de terminar el diagnóstico
+   * (CLI-189): sin un examen dental vigente se rechaza.
+   */
+  private async requireDiagnosis(patientId: string): Promise<void> {
+    const exam = await this.patientRepo.findCurrentDentalExam(patientId);
+    if (!exam) {
+      throw new ConflictException(NO_DIAGNOSIS_MESSAGE);
+    }
   }
 
   private async requirePatient(patientId: string): Promise<void> {

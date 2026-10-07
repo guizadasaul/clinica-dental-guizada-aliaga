@@ -1,0 +1,171 @@
+<div class="page">
+  <div class="profile">
+    <app-page-header title="Mi perfil" [subtitle]="subtitle()" />
+
+    @switch (state().status) {
+      @case ('loading') {
+        <p class="profile__muted">Cargando tu historia clínica...</p>
+      }
+      @case ('error') {
+        <p class="profile__error" role="alert">No pudimos cargar tu historia clínica. Prueba de nuevo en un momento.</p>
+      }
+      @case ('missing') {
+        <div class="profile-empty">
+          <div class="profile-empty__icon" aria-hidden="true">
+            <span class="material-symbols-outlined">assignment_ind</span>
+          </div>
+          <p class="profile-empty__text">Todavía no tienes una ficha</p>
+          <p class="profile-empty__sub">En tu primera visita el doctor registrará tu historia clínica y la verás aquí.</p>
+        </div>
+      }
+      @default {
+        @if (record(); as r) {
+          <div class="profile__grid">
+            <section class="card" aria-labelledby="personal-title">
+              <h2 id="personal-title" class="section-title">Datos personales</h2>
+              @if (personalFacts().length > 0) {
+                <dl class="facts">
+                  @for (f of personalFacts(); track f.label) {
+                    <div class="facts__row">
+                      <dt>{{ f.label }}</dt>
+                      <dd>{{ f.value }}</dd>
+                    </div>
+                  }
+                </dl>
+              } @else {
+                <p class="profile__muted">Sin datos registrados.</p>
+              }
+            </section>
+
+            <section class="card" aria-labelledby="medical-title">
+              <h2 id="medical-title" class="section-title">Antecedentes médicos</h2>
+              @if (r.medicalHistory; as mh) {
+                <dl class="facts">
+                  <div class="facts__row">
+                    <dt>Condiciones</dt>
+                    <dd>
+                      @for (c of mh.conditions; track c.code; let last = $last) {
+                        {{ c.name }}{{ last ? '' : ', ' }}
+                      } @empty {
+                        Ninguna
+                      }
+                    </dd>
+                  </div>
+                  @if (mh.otherDiseases) {
+                    <div class="facts__row">
+                      <dt>Otras enfermedades</dt>
+                      <dd>{{ mh.otherDiseases }}</dd>
+                    </div>
+                  }
+                  <div class="facts__row">
+                    <dt>Medicamentos</dt>
+                    <dd>
+                      @for (m of mh.medications; track m.id) {
+                        <span class="facts__line">{{ medicationLabel(m) }}</span>
+                      } @empty {
+                        Ninguno
+                      }
+                    </dd>
+                  </div>
+                  <div class="facts__row">
+                    <dt>Reacción a la anestesia</dt>
+                    <dd>{{ anesthesiaLabel(mh.anesthesiaReactions) }}</dd>
+                  </div>
+                  @if (mh.gestationTrimester) {
+                    <div class="facts__row">
+                      <dt>Embarazo</dt>
+                      <dd>{{ mh.gestationTrimester }}.º trimestre</dd>
+                    </div>
+                  }
+                </dl>
+              } @else {
+                <p class="profile__muted">Sin antecedentes registrados.</p>
+              }
+            </section>
+
+            <section class="card" aria-labelledby="hygiene-title">
+              <h2 id="hygiene-title" class="section-title">Hábitos de higiene</h2>
+              @if (r.hygieneHabits; as h) {
+                <dl class="facts">
+                  @if (brushingLabel(h.brushingFrequency); as freq) {
+                    <div class="facts__row">
+                      <dt>Cepillado</dt>
+                      <dd>{{ freq }}</dd>
+                    </div>
+                  }
+                  @for (habit of hygieneHabits; track habit.key) {
+                    <div class="facts__row">
+                      <dt>{{ habit.label }}</dt>
+                      <dd>{{ habitValue(h, habit.key) ? 'Sí' : 'No' }}</dd>
+                    </div>
+                  }
+                </dl>
+              } @else {
+                <p class="profile__muted">Sin hábitos registrados.</p>
+              }
+            </section>
+
+            <section class="card" aria-labelledby="exam-title">
+              <h2 id="exam-title" class="section-title">Examen clínico</h2>
+              @if (r.clinicalExam; as exam) {
+                <dl class="facts">
+                  @for (f of clinicalFindings; track f.key) {
+                    <div class="facts__row">
+                      <dt>{{ f.label }}</dt>
+                      <dd>{{ findingValue(exam, f.key) ? 'Sí' : 'No' }}</dd>
+                    </div>
+                  }
+                  <div class="facts__row">
+                    <dt>Oclusión</dt>
+                    <dd>{{ exam.occlusion || '—' }}</dd>
+                  </div>
+                </dl>
+              } @else {
+                <p class="profile__muted">Sin examen clínico registrado.</p>
+              }
+            </section>
+          </div>
+
+          <section class="card" aria-labelledby="diagnosis-title">
+            <h2 id="diagnosis-title" class="section-title">Diagnóstico inicial</h2>
+            @if (r.initialDiagnosis; as dx) {
+              <div class="diagnosis__chart">
+                <app-odontogram-chart
+                  [toothColor]="toothColor()"
+                  [toothNames]="toothNames()"
+                  [legendItems]="legend()"
+                  [interactive]="false"
+                />
+              </div>
+              @if (sortedFindings().length > 0) {
+                <ul class="findings">
+                  @for (f of sortedFindings(); track f.id) {
+                    <li class="findings__item">
+                      <span class="findings__place">{{ findingPlace(f) }}</span>
+                      <span>
+                        {{ findingTitle(f) }}
+                        @if (f.description) {
+                          <span class="findings__desc">— {{ f.description }}</span>
+                        }
+                        @if (f.xrayRequested) {
+                          <span class="findings__desc">· Se solicitó radiografía</span>
+                        }
+                      </span>
+                    </li>
+                  }
+                </ul>
+              } @else {
+                <p class="profile__muted">No se registraron hallazgos en este diagnóstico.</p>
+              }
+              @if (dx.notes) {
+                <p class="diagnosis__notes">{{ dx.notes }}</p>
+              }
+            } @else {
+              <p class="profile__muted">Todavía no hay un diagnóstico registrado.</p>
+            }
+          </section>
+        }
+      }
+    }
+  </div>
+</div>

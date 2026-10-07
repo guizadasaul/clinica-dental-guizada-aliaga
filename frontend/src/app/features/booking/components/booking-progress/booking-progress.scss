@@ -1,0 +1,66 @@
+// Indicador de pasos de la reserva (CLI-166) — solo var(--token).
+
+.booking-progress {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.booking-progress__item {
+  position: relative;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--color-text-muted);
+
+  // Línea que une cada paso con el siguiente.
+  &:not(:last-child)::after {
+    content: '';
+    position: absolute;
+    top: 1.125rem;
+    left: calc(50% + 1.5rem);
+    right: calc(-50% + 1.5rem);
+    height: 2px;
+    background: var(--color-border);
+  }
+
+  &--done:not(:last-child)::after { background: var(--color-primary); }
+}
+
+.booking-progress__dot {
+  display: grid;
+  place-items: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: var(--radius-full);
+  border: 2px solid var(--color-border);
+  background: var(--color-surface);
+  transition: background var(--transition-fast), border-color var(--transition-fast), color var(--transition-fast);
+
+  .material-symbols-outlined { font-size: 1.125rem; }
+
+  .booking-progress__item--current & {
+    border-color: var(--color-primary);
+    background: var(--color-primary-subtle);
+    color: var(--color-primary);
+  }
+
+  .booking-progress__item--done & {
+    border-color: var(--color-primary);
+    background: var(--color-primary);
+    color: white;
+  }
+}
+
+.booking-progress__label {
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  text-align: center;
+
+  .booking-progress__item--current & { color: var(--color-navy); }
+}

@@ -1,5 +1,6 @@
 import type { doctor_profiles, users } from '@prisma/client';
 import type { Doctor } from '../../domain/Doctor';
+import { toE164 } from '../../../shared/phone.util';
 
 export class DoctorMapper {
   static toDomain(record: doctor_profiles & { users: users }): Doctor {
@@ -12,6 +13,7 @@ export class DoctorMapper {
       displayOrder: record.display_order,
       isBookable: record.is_bookable,
       color: record.color,
+      phone: record.users.phone ? toE164(record.users.phone) : null,
     };
   }
 }

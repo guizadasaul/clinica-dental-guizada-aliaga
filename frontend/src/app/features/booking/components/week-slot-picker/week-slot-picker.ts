@@ -47,8 +47,12 @@ export class WeekSlotPickerComponent {
   readonly slotsByDate = input<Record<string, string[]>>({});
   readonly loading = input(false);
   readonly error = input<string | null>(null);
+  /** Con quién se está reservando (CLI-164); null si todavía no se conoce. */
+  readonly doctorName = input<string | null>(null);
 
   readonly slotSelected = output<string>();
+  /** Volver al selector de doctores: desde el estado sin turnos (CLI-142) o en cualquier momento (CLI-164). */
+  readonly changeDoctor = output<void>();
 
   protected readonly activeWeekIndex = signal<0 | 1>(0);
   protected readonly activeDate = signal<string | null>(null);
@@ -61,6 +65,17 @@ export class WeekSlotPickerComponent {
   });
 
   protected readonly hasNextWeek = computed(() => this.weeks()[1].length > 0);
+
+  /**
+   * Ningún día del rango tiene horarios: típicamente un doctor reservable al
+   * que todavía no le cargaron horario (CLI-142). En vez de dos semanas de
+   * días vacíos, se explica por qué y se ofrece elegir otro doctor.
+   */
+  protected readonly noSlotsInRange = computed(() => {
+    const slotsByDate = this.slotsByDate();
+    const dates = this.sortedDates();
+    return dates.length > 0 && dates.every((date) => (slotsByDate[date]?.length ?? 0) === 0);
+  });
 
   protected readonly activeDayTabs = computed<DayTab[]>(() => {
     const dates = this.weeks()[this.activeWeekIndex()] ?? [];

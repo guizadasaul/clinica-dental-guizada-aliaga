@@ -76,18 +76,44 @@
         </div>
       }
 
-      <div class="book-modal__field">
-        <label class="book-modal__label" for="book-modal-duration">Duración</label>
-        <select
-          id="book-modal-duration"
-          class="book-modal__input"
-          [value]="duration()"
-          (change)="onDurationChange($event)"
-        >
-          @for (d of durations; track d) {
-            <option [value]="d" [selected]="d === duration()">{{ d }} min</option>
-          }
-        </select>
+      <div class="book-modal__row">
+        <div class="book-modal__field">
+          <label class="book-modal__label" for="book-modal-start">Hora de inicio</label>
+          <input
+            id="book-modal-start"
+            class="book-modal__input"
+            type="time"
+            step="300"
+            [value]="startHhmm()"
+            (change)="onStartChange($event)"
+          />
+        </div>
+
+        <fieldset class="book-modal__field book-modal__fieldset">
+          <legend class="book-modal__label">Duración</legend>
+          <div class="book-modal__duration">
+            <label class="visually-hidden" for="book-modal-duration-hours">Horas de duración</label>
+            <select
+              id="book-modal-duration-hours"
+              class="book-modal__input"
+              (change)="onDurationHoursChange($event)"
+            >
+              @for (h of hoursOptions; track h) {
+                <option [value]="h" [selected]="h === durationHours()">{{ h }} h</option>
+              }
+            </select>
+            <label class="visually-hidden" for="book-modal-duration-minutes">Minutos de duración</label>
+            <select
+              id="book-modal-duration-minutes"
+              class="book-modal__input"
+              (change)="onDurationMinutesChange($event)"
+            >
+              @for (m of minutesOptions; track m) {
+                <option [value]="m" [selected]="m === durationRemainder()">{{ m }} min</option>
+              }
+            </select>
+          </div>
+        </fieldset>
       </div>
 
       <div class="book-modal__field">
@@ -105,14 +131,22 @@
         ></textarea>
       </div>
 
-      @if (overlapsNext()) {
+      @if (!durationValid()) {
         <p class="book-modal__alert book-modal__alert--error" role="alert">
-          Con {{ duration() }} min se pisa con tu cita de las {{ nextBusyLabel() }}. Elegí una
-          duración más corta.
+          La duración tiene que ser de al menos {{ minDuration }} minutos.
+        </p>
+      } @else if (crossesMidnight()) {
+        <p class="book-modal__alert book-modal__alert--error" role="alert">
+          La cita no puede pasar de las 24:00. Cambia la hora de inicio o la duración.
+        </p>
+      } @else if (overlapsNext()) {
+        <p class="book-modal__alert book-modal__alert--error" role="alert">
+          Esa hora y duración se superponen con tu cita de las {{ nextBusyLabel() }}. Cambia la hora
+          de inicio o elige una duración más corta.
         </p>
       } @else if (outsideSchedule()) {
         <output class="book-modal__alert book-modal__alert--warning">
-          Este horario está fuera de tu horario de atención. Podés agendarla igual.
+          Este horario está fuera de tu horario de atención. Puedes agendarla igual.
         </output>
       }
 

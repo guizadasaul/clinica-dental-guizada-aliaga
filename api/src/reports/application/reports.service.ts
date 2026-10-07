@@ -4,6 +4,7 @@ import type { IReportsRepository } from '../domain/ReportsRepository';
 import type { OperationalReport } from '../domain/OperationalReport';
 import type { FinancialReport } from '../domain/FinancialReport';
 import type { TopTreatmentsReport } from '../domain/TopTreatmentsReport';
+import type { TrendsReport } from '../domain/TrendsReport';
 import { CLINIC_UTC_OFFSET } from '../../appointments/domain/ClinicSchedule';
 
 export interface ReportQuery {
@@ -24,6 +25,10 @@ function nextDateString(date: string): string {
   next.setUTCDate(next.getUTCDate() + 1);
   return next.toISOString().slice(0, 10);
 }
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+/** Un año y un poco: la serie es día por día, no tiene sentido pedir más. */
+const MAX_TREND_DAYS = 400;
 
 @Injectable()
 export class ReportsService {
@@ -47,6 +52,16 @@ export class ReportsService {
   ): Promise<TopTreatmentsReport> {
     const params = this.parseRange(query);
     return this.reportsRepo.getTopTreatments({ ...params, limit: query.limit });
+  }
+
+  async getTrends(query: ReportQuery): Promise<TrendsReport> {
+    const params = this.parseRange(query);
+    if (params.to.getTime() - params.from.getTime() > MAX_TREND_DAYS * DAY_MS) {
+      throw new BadRequestException(
+        `El rango de la serie diaria no puede superar los ${MAX_TREND_DAYS} días`,
+      );
+    }
+    return this.reportsRepo.getTrends(params);
   }
 
   /**

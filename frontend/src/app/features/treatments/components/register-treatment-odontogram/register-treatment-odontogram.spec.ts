@@ -8,6 +8,7 @@ import {
 import type { Treatment, ToothProcedure } from '../../models/treatment.model';
 import type { DentalExam } from '../../../patients/models/dental-exam.model';
 import type { DiagnosisCategory } from '../../../diagnoses/models/diagnosis.model';
+import type { PlanLine } from '../../../quotes/utils/treatment-plan';
 
 function setup() {
   TestBed.configureTestingModule({
@@ -39,10 +40,10 @@ async function settle(fixture: ReturnType<typeof setup>['fixture']): Promise<voi
   fixture.detectChanges();
 }
 
-/** Simula un clic en el diente #toothNumber del odontograma (aria-label="Diente N"). */
+/** Simula un clic en el diente #toothNumber del odontograma (atributo data-tooth). */
 function clickTooth(fixture: ReturnType<typeof setup>['fixture'], toothNumber: number): void {
   const cell = (fixture.nativeElement as HTMLElement).querySelector(
-    `.odontogram-chart__cell[aria-label="Diente ${toothNumber}"]`,
+    `.odontogram-chart__cell[data-tooth="${toothNumber}"]`,
   );
   (cell as HTMLElement).dispatchEvent(new Event('click'));
 }
@@ -85,6 +86,7 @@ function fakeProcedure(overrides: Partial<ToothProcedure> = {}): ToothProcedure 
     toothNumber: 16,
     applicationGroupId: null,
     treatmentId: 'treatment-endo',
+    treatmentName: 'Tratamiento',
     applicationType: 'single_tooth',
     categoryCode: 'endodoncia',
     categoryName: 'Endodoncia',
@@ -95,6 +97,8 @@ function fakeProcedure(overrides: Partial<ToothProcedure> = {}): ToothProcedure 
     surfaces: [],
     notes: null,
     performedBy: 'doctor-1',
+    performedByName: 'Dr. Saul',
+    quoteItemId: null,
     createdAt: '2026-09-20T12:00:00.000Z',
     ...overrides,
   };
@@ -131,13 +135,13 @@ const EXAM_WITH_CARIES_16: DentalExam = {
 };
 
 function toothFill(fixture: ReturnType<typeof setup>['fixture'], toothNumber: number): string | null {
-  return el<HTMLElement>(fixture, `.odontogram-chart__cell[aria-label="Diente ${toothNumber}"]`)
+  return el<HTMLElement>(fixture, `.odontogram-chart__cell[data-tooth="${toothNumber}"]`)
     .querySelector('.odontogram-chart__cell-shape')
     ?.getAttribute('fill') ?? null;
 }
 
 function toothPaint(fixture: ReturnType<typeof setup>['fixture'], toothNumber: number): Element {
-  return el<HTMLElement>(fixture, `.odontogram-chart__cell[aria-label="Diente ${toothNumber}"]`)
+  return el<HTMLElement>(fixture, `.odontogram-chart__cell[data-tooth="${toothNumber}"]`)
     .querySelector('.odontogram-chart__cell-paint') as Element;
 }
 
@@ -220,13 +224,88 @@ describe('RegisterTreatmentOdontogramComponent', () => {
     pickTreatment(fixture, 't-upper');
     await settle(fixture);
 
-    const cell = el<HTMLElement>(fixture, '.odontogram-chart__cell[aria-label="Diente 16"]');
+    const cell = el<HTMLElement>(fixture, '.odontogram-chart__cell[data-tooth="16"]');
     expect(cell.classList.contains('odontogram-chart__cell--selected')).toBe(true);
 
     cell.dispatchEvent(new Event('click'));
     await settle(fixture);
     // el panel sigue sin pedir dientes — la arcada se deriva sola, el clic no hizo nada.
     expect(el(fixture, '.rto__panel-hint')?.textContent).toContain('arcada superior');
+  });
+
+  describe('el panel no arrastra datos (CLI-180)', () => {
+    type PanelInternals = { onPanelTreatmentChange(id: string): void };
+    const changeTreatment = (fixture: ReturnType<typeof setup>['fixture'], id: string) =>
+      (fixture.componentInstance as unknown as PanelInternals).onPanelTreatmentChange(id);
+    const badge = (fixture: ReturnType<typeof setup>['fixture']) =>
+      el(fixture, '.rto__panel-tooth-badge')?.textContent ?? '';
+
+    it('con el panel abierto y sin tratamiento, el clic en otro diente cambia el diente', async () => {
+      const { fixture } = setup();
+      fixture.componentRef.setInput('treatments', [fakeTreatment()]);
+      await settle(fixture);
+
+      clickTooth(fixture, 16);
+      await settle(fixture);
+      clickTooth(fixture, 36);
+      await settle(fixture);
+
+      expect(badge(fixture)).toContain('Diente #36');
+    });
+
+    it('al elegir un tratamiento de arcada deja de mostrar el diente clicado', async () => {
+      const { fixture } = setup();
+      fixture.componentRef.setInput('treatments', [
+        fakeTreatment({ id: 't-lower', applicationType: 'lower_arch' }),
+      ]);
+      await settle(fixture);
+
+      clickTooth(fixture, 36);
+      await settle(fixture);
+      changeTreatment(fixture, 't-lower');
+      await settle(fixture);
+
+      expect(badge(fixture)).not.toContain('Diente #36');
+    });
+
+    it('de varios dientes a uno solo queda el último clicado, no el menor', async () => {
+      const { fixture } = setup();
+      fixture.componentRef.setInput('treatments', [
+        fakeTreatment({ id: 't-multi', applicationType: 'multiple_teeth' }),
+        fakeTreatment({ id: 't-single', applicationType: 'single_tooth' }),
+      ]);
+      await settle(fixture);
+
+      clickTooth(fixture, 26);
+      await settle(fixture);
+      changeTreatment(fixture, 't-multi');
+      await settle(fixture);
+      clickTooth(fixture, 14);
+      await settle(fixture);
+      changeTreatment(fixture, 't-single');
+      await settle(fixture);
+
+      expect(badge(fixture)).toContain('Diente #14');
+    });
+
+    it('la fecha por defecto es la de hoy en la clínica, no la de UTC', async () => {
+      vi.useFakeTimers({ toFake: ['Date'] });
+      vi.setSystemTime(new Date('2026-10-04T01:30:00Z')); // 21:30 en Bolivia
+      try {
+        const { fixture } = setup();
+        fixture.componentRef.setInput('treatments', [fakeTreatment()]);
+        await settle(fixture);
+
+        clickTooth(fixture, 16);
+        await settle(fixture);
+        changeTreatment(fixture, 'treatment-1');
+        await settle(fixture);
+
+        expect(el<HTMLInputElement>(fixture, '.rto__panel input[type="date"]').value).toBe('2026-10-03');
+      } finally {
+        vi.useRealTimers();
+      }
+    });
   });
 
   it('general: "Agregar tratamiento" abre el panel sin diente y no muestra superficies', async () => {
@@ -371,7 +450,7 @@ describe('RegisterTreatmentOdontogramComponent', () => {
     } satisfies DentalExam);
     await settle(fixture);
 
-    const cell = el<HTMLElement>(fixture, '.odontogram-chart__cell[aria-label="Diente 16"]');
+    const cell = el<HTMLElement>(fixture, '.odontogram-chart__cell[data-tooth="16"]');
     const path = cell.querySelector('.odontogram-chart__cell-shape') as SVGPathElement;
     expect(path.getAttribute('fill')).toBe('#dc2626');
   });
@@ -432,18 +511,63 @@ describe('RegisterTreatmentOdontogramComponent', () => {
       expect(toothFill(fixture, 16)).toBe('#0369a1');
     });
 
-    it('un tratamiento de arcada superior pinta toda la arcada', async () => {
+    // CLI-179: arcada y boca completa no pintan dientes (se ven en el historial).
+    it.each([['upper_arch'], ['lower_arch'], ['full_mouth']] as const)(
+      'un tratamiento %s no pinta dientes ni tapa el diagnóstico',
+      async (applicationType) => {
+        const { fixture } = setup();
+        fixture.componentRef.setInput('treatments', [fakeTreatment()]);
+        fixture.componentRef.setInput('currentExam', EXAM_WITH_CARIES_16);
+        fixture.componentRef.setInput('procedures', [
+          fakeProcedure({ toothNumber: null, applicationType, categoryColor: '#3f6212' }),
+        ]);
+        await settle(fixture);
+
+        // La caries del 16 se sigue viendo.
+        expect(toothFill(fixture, 16)).toBe('#dc2626');
+        for (const n of [18, 11, 21, 28, 36, 48]) {
+          expect(toothFill(fixture, n)).not.toBe('#3f6212');
+        }
+      },
+    );
+
+    it('un tratamiento de varios dientes pinta cada uno de sus dientes', async () => {
       const { fixture } = setup();
       fixture.componentRef.setInput('treatments', [fakeTreatment()]);
       fixture.componentRef.setInput('procedures', [
-        fakeProcedure({ toothNumber: null, applicationType: 'upper_arch', categoryColor: '#0f766e' }),
+        fakeProcedure({ id: 'g-16', toothNumber: 16, applicationType: 'multiple_teeth', applicationGroupId: 'grp-1', categoryColor: '#3f6212' }),
+        fakeProcedure({ id: 'g-17', toothNumber: 17, applicationType: 'multiple_teeth', applicationGroupId: 'grp-1', categoryColor: '#3f6212' }),
       ]);
       await settle(fixture);
 
-      for (const n of [18, 11, 21, 28]) {
-        expect(toothFill(fixture, n)).toBe('#0f766e');
-      }
-      expect(toothFill(fixture, 36)).toBe('transparent');
+      expect(toothFill(fixture, 16)).toBe('#3f6212');
+      expect(toothFill(fixture, 17)).toBe('#3f6212');
+    });
+
+    it('un diente con dos diagnósticos muestra "+1" y los lista en su etiqueta', async () => {
+      const { fixture } = setup();
+      fixture.componentRef.setInput('treatments', [fakeTreatment()]);
+      fixture.componentRef.setInput('currentExam', {
+        ...EXAM_WITH_CARIES_16,
+        findings: [
+          // El de varios dientes llega primero, pero gana el de un solo diente.
+          {
+            ...EXAM_WITH_CARIES_16.findings[0],
+            id: 'finding-perio',
+            diagnosisName: 'Periodontitis',
+            diagnosisColor: '#0d9488',
+            diagnosisScope: 'multiple_teeth',
+            applicationGroupId: 'grp-perio',
+          },
+          EXAM_WITH_CARIES_16.findings[0],
+        ],
+      });
+      await settle(fixture);
+
+      expect(toothFill(fixture, 16)).toBe('#dc2626');
+      const cell = (fixture.nativeElement as HTMLElement).querySelector('.odontogram-chart__cell[data-tooth="16"]')!;
+      expect(cell.querySelector('.odontogram-chart__cell-badge')?.textContent?.trim()).toBe('+1');
+      expect(cell.getAttribute('aria-label')).toBe('Diente 16: Caries de segundo grado, Periodontitis');
     });
 
     it('un tratamiento general no pinta ningún diente ni aparece en la leyenda', async () => {
@@ -617,6 +741,111 @@ describe('RegisterTreatmentOdontogramComponent', () => {
       const chips = [...fixture.nativeElement.querySelectorAll('.catalog-picker__chip')].map((c) => (c as HTMLElement).textContent?.trim());
       expect(chips).not.toContain('Sugeridos');
       expect(el(fixture, '.catalog-picker__chip--active')?.textContent?.trim()).toBe('Frecuentes');
+    });
+  });
+
+  describe('presupuesto del paciente (CLI-228)', () => {
+    const PLAN_16: PlanLine = {
+      key: 'item-16',
+      quoteId: 'q-1',
+      treatmentId: 'treatment-1',
+      treatmentName: 'Corona metálica',
+      toothNumbers: [16],
+      isGroup: false,
+      quantity: 1,
+      total: 300,
+      exchangeRate: null,
+    };
+
+    async function withPlan(planLines: PlanLine[]) {
+      const ctx = setup();
+      ctx.fixture.componentRef.setInput('treatments', [fakeTreatment()]);
+      ctx.fixture.componentRef.setInput('planLines', planLines);
+      await settle(ctx.fixture);
+      const emitted: ProcedureRegisteredEvent[] = [];
+      ctx.fixture.componentInstance.procedureRegistered.subscribe((e) => emitted.push(e));
+      return { ...ctx, emitted };
+    }
+
+    function priceInput(fixture: ReturnType<typeof setup>['fixture']): HTMLInputElement {
+      return el(fixture, '#priceCharged');
+    }
+
+    it('lo que no está en el plan avisa que se suma, y el mensaje lo dice', async () => {
+      const { fixture, httpMock, emitted } = await withPlan([]);
+
+      clickTooth(fixture, 16);
+      await settle(fixture);
+      pickTreatment(fixture, 'treatment-1');
+      await settle(fixture);
+
+      expect(el(fixture, '.rto__plan-note--new')?.textContent).toContain(
+        'No está en el presupuesto: se sumarán Bs. 350.00',
+      );
+
+      saveButton(fixture).click();
+      await settle(fixture);
+      httpMock.expectOne('http://localhost:2999/patients/patient-1/tooth-procedures').flush([fakeProcedure()]);
+      await settle(fixture);
+
+      expect(emitted[0].message).toContain('Se sumó Bs. 350.00 al presupuesto del paciente.');
+    });
+
+    it('elegir el tratamiento en una pieza del plan propone el precio del presupuesto', async () => {
+      const { fixture } = await withPlan([PLAN_16]);
+
+      clickTooth(fixture, 16);
+      await settle(fixture);
+      pickTreatment(fixture, 'treatment-1');
+      await settle(fixture);
+
+      expect(priceInput(fixture).value).toBe('300');
+      expect(el(fixture, '.rto__plan-note')?.textContent).toContain('Está en el presupuesto: se marcará como realizado.');
+    });
+
+    it('openForPlanLine abre el panel cargado; si cambia el precio, lo avisa y lo manda', async () => {
+      const { fixture, httpMock, emitted } = await withPlan([PLAN_16]);
+
+      fixture.componentInstance.openForPlanLine(PLAN_16);
+      await settle(fixture);
+
+      expect(el(fixture, '.rto__panel')).toBeTruthy();
+      expect(priceInput(fixture).value).toBe('300');
+
+      priceInput(fixture).value = '320';
+      priceInput(fixture).dispatchEvent(new Event('input'));
+      await settle(fixture);
+      expect(el(fixture, '.rto__plan-note')?.textContent).toContain(
+        'El presupuesto decía Bs. 300.00; quedará en Bs. 320.00.',
+      );
+
+      saveButton(fixture).click();
+      await settle(fixture);
+      const req = httpMock.expectOne('http://localhost:2999/patients/patient-1/tooth-procedures');
+      expect(req.request.body).toMatchObject({ treatmentId: 'treatment-1', priceCharged: 320, teeth: [{ number: 16 }] });
+      req.flush([fakeProcedure()]);
+      await settle(fixture);
+
+      expect(emitted[0].message).toContain('Se marcó como realizado en el presupuesto.');
+    });
+
+    it('un 409 del backend muestra su mensaje (por ejemplo, el paciente ya pagó más)', async () => {
+      const { fixture, httpMock } = await withPlan([PLAN_16]);
+
+      fixture.componentInstance.openForPlanLine(PLAN_16);
+      await settle(fixture);
+      saveButton(fixture).click();
+      await settle(fixture);
+      httpMock
+        .expectOne('http://localhost:2999/patients/patient-1/tooth-procedures')
+        .flush(
+          { message: 'No se puede registrar con Bs 300.00: el paciente ya pagó Bs 350.00 de este tratamiento.' },
+          { status: 409, statusText: 'Conflict' },
+        );
+      await settle(fixture);
+
+      expect(el(fixture, '.rto__error')?.textContent).toContain('el paciente ya pagó Bs 350.00');
+      expect(el(fixture, '.rto__panel')).toBeTruthy();
     });
   });
 });

@@ -1,0 +1,56 @@
+<div class="delete-modal" (click)="onBackdropClick($event)" (keydown.escape)="close()">
+  <dialog
+    open
+    class="delete-modal__panel"
+    aria-modal="true"
+    aria-labelledby="delete-modal-title"
+    aria-describedby="delete-modal-text"
+  >
+    <h2 id="delete-modal-title" class="delete-modal__title">
+      <span class="material-symbols-outlined" aria-hidden="true">warning</span>
+      Eliminar paciente
+    </h2>
+    <p id="delete-modal-text" class="delete-modal__text">
+      Vas a eliminar a <strong>{{ patientName() }}</strong>. Dejará de aparecer en la lista de
+      pacientes y no podrá iniciar sesión en el sistema.
+    </p>
+
+    <form (submit)="onSubmit($event)">
+      <label class="delete-modal__label" for="delete-modal-confirm">
+        Para confirmar, escribe <strong>{{ confirmationWord }}</strong>
+      </label>
+      <input
+        #confirmInput
+        id="delete-modal-confirm"
+        class="delete-modal__input"
+        type="text"
+        autocomplete="off"
+        autocapitalize="off"
+        spellcheck="false"
+        [value]="typed()"
+        [disabled]="busy()"
+        (input)="onInput($event)"
+      />
+      @if (error()) {
+        <p class="delete-modal__error" role="alert">{{ error() }}</p>
+      }
+      <div class="delete-modal__actions">
+        <button
+          type="button"
+          class="delete-modal__btn delete-modal__btn--ghost"
+          [disabled]="busy()"
+          (click)="close()"
+        >
+          Cancelar
+        </button>
+        <button
+          type="submit"
+          class="delete-modal__btn delete-modal__btn--danger"
+          [disabled]="!canConfirm()"
+        >
+          {{ busy() ? 'Eliminando...' : 'Eliminar paciente' }}
+        </button>
+      </div>
+    </form>
+  </dialog>
+</div>

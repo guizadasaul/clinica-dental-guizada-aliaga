@@ -1,0 +1,104 @@
+<div class="block-modal" (click)="onBackdropClick($event)" (keydown.escape)="close()">
+  <dialog
+    open
+    #panel
+    tabindex="-1"
+    class="block-modal__panel"
+    aria-modal="true"
+    aria-labelledby="block-modal-title"
+  >
+    <button type="button" class="block-modal__close" (click)="close()" aria-label="Cerrar">
+      <span class="material-symbols-outlined" aria-hidden="true">close</span>
+    </button>
+
+    @if (block(); as existing) {
+      <h2 id="block-modal-title" class="block-modal__title">Horario reservado</h2>
+      <p class="block-modal__when">
+        <span class="material-symbols-outlined" aria-hidden="true">event_busy</span>
+        {{ existingWhen() }}
+      </p>
+      <p class="block-modal__reason">{{ existing.reason || 'Sin motivo' }}</p>
+      <p class="block-modal__hint">
+        Mientras esté reservado, no se ofrece a los pacientes ni se pueden agendar citas en ese horario.
+      </p>
+
+      @if (error()) {
+        <p class="block-modal__alert" role="alert">{{ error() }}</p>
+      }
+
+      @if (confirmingRemove()) {
+        <p class="block-modal__confirm">¿Quitar esta reserva? El horario vuelve a quedar libre.</p>
+        <div class="block-modal__actions">
+          <button type="button" class="block-modal__btn block-modal__btn--ghost" [disabled]="busy()" (click)="keep()">
+            Volver
+          </button>
+          <button type="button" class="block-modal__btn block-modal__btn--danger" [disabled]="busy()" (click)="confirmRemove()">
+            {{ busy() ? 'Quitando...' : 'Sí, quitar reserva' }}
+          </button>
+        </div>
+      } @else {
+        <div class="block-modal__actions">
+          <button type="button" class="block-modal__btn block-modal__btn--ghost" (click)="close()">Cerrar</button>
+          <button type="button" class="block-modal__btn block-modal__btn--danger-ghost" (click)="askRemove()">
+            Quitar reserva
+          </button>
+        </div>
+      }
+    } @else {
+      <h2 id="block-modal-title" class="block-modal__title">Reservar horario</h2>
+      <p class="block-modal__hint">
+        Aparta un horario de tu agenda (una emergencia, un curso…): no se ofrece a los pacientes y no se
+        pueden agendar citas encima.
+      </p>
+
+      <form class="block-modal__form" (submit)="$event.preventDefault(); onSubmit()">
+        <div class="block-modal__field">
+          <label class="block-modal__label" for="block-modal-day">Día</label>
+          <input id="block-modal-day" class="block-modal__input" type="date" [value]="day()" (change)="onDay($event)" />
+        </div>
+
+        <div class="block-modal__row">
+          <div class="block-modal__field">
+            <label class="block-modal__label" for="block-modal-from">Desde</label>
+            <input id="block-modal-from" class="block-modal__input" type="time" step="300" [value]="from()" (change)="onFrom($event)" />
+          </div>
+          <div class="block-modal__field">
+            <label class="block-modal__label" for="block-modal-to">Hasta</label>
+            <input id="block-modal-to" class="block-modal__input" type="time" step="300" [value]="to()" (change)="onTo($event)" />
+          </div>
+        </div>
+
+        <button type="button" class="block-modal__link" (click)="wholeDay()">Todo el día</button>
+
+        <div class="block-modal__field">
+          <label class="block-modal__label" for="block-modal-reason">
+            Motivo <span class="block-modal__optional">(opcional)</span>
+          </label>
+          <input
+            id="block-modal-reason"
+            class="block-modal__input"
+            type="text"
+            maxlength="200"
+            placeholder="Ej. curso de ortodoncia"
+            [value]="reason()"
+            (input)="onReason($event)"
+          />
+        </div>
+
+        @if (rangeError(); as problem) {
+          <p class="block-modal__alert" role="alert">{{ problem }}</p>
+        }
+        @if (error()) {
+          <p class="block-modal__alert" role="alert">{{ error() }}</p>
+        }
+
+        <div class="block-modal__actions">
+          <button type="button" class="block-modal__btn block-modal__btn--ghost" (click)="close()">Cancelar</button>
+          <button type="submit" class="block-modal__btn block-modal__btn--primary" [disabled]="busy() || !!rangeError()">
+            {{ busy() ? 'Reservando...' : 'Reservar horario' }}
+          </button>
+        </div>
+      </form>
+    }
+  </dialog>
+</div>

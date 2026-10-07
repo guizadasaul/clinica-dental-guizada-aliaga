@@ -11,6 +11,7 @@ import {
   clinicDayStart,
   clinicTime,
   daysBetween,
+  weekdayOf,
 } from './clinic-time.js';
 import {
   ClinicAgendaArgsDto,
@@ -53,15 +54,13 @@ const REPORT_PARAMETERS: JsonSchema = {
   additionalProperties: false,
 };
 
-// Etiquetas en castellano: con las claves crudas el modelo presentaba las
-// "expired" como cancelaciones (CLI-145).
+// Etiquetas en castellano: con las claves crudas el modelo confundía los
+// estados (CLI-145). Son los 4 estados de Reportes (CLI-224).
 const STATUS_LABEL: Record<string, string> = {
-  // Desde CLI-148 una confirmada también puede ser una cita que agendó el
-  // doctor, sin pago previo.
-  confirmed: 'confirmadas',
-  held: 'reservas en curso (sin pagar todavía)',
-  expired: 'vencidas sin pagar (no son cancelaciones)',
+  confirmed: 'confirmadas (todavía no llegó la hora)',
+  attended: 'atendidas (confirmadas cuya hora ya pasó)',
   cancelled: 'canceladas por el doctor (no suman al total)',
+  no_show: 'no asistió (el paciente no vino)',
 };
 
 function labelStatuses(byStatus: Record<string, number>) {
@@ -130,7 +129,7 @@ export class GetClinicOperationalReportTool implements ChatTool<ClinicReportArgs
       notes: [
         'Las vencidas son reservas que no se pagaron a tiempo, no cancelaciones.',
         // CLI-149/154: las cancelaciones las registra el doctor desde su agenda.
-        'Las canceladas por el doctor se informan aparte y no suman al total de turnos. El sistema no registra asistencia.',
+        'Las canceladas por el doctor se informan aparte y no suman al total de citas. El sistema no registra asistencia.',
       ],
     };
   }
@@ -175,7 +174,7 @@ export class GetClinicFinancialReportTool implements ChatTool<ClinicReportArgsDt
 export class GetClinicAgendaTool implements ChatTool<ClinicAgendaArgsDto> {
   readonly name = 'get_clinic_agenda';
   readonly description =
-    'Citas confirmadas de un día (por defecto hoy) de la clínica o de un doctor: hora, doctor y paciente.';
+    'Citas confirmadas de un día (por defecto hoy) de la clínica o de un doctor, con hora, doctor y paciente: para "¿qué citas hay el jueves?" o "¿con quién?". Un día por llamada.';
   readonly parameters: JsonSchema = {
     type: 'object',
     properties: {
@@ -203,6 +202,7 @@ export class GetClinicAgendaTool implements ChatTool<ClinicAgendaArgsDto> {
     });
     return {
       date,
+      weekday: weekdayOf(date),
       total: appointments.length,
       appointments: appointments.slice(0, MAX_AGENDA_ITEMS).map((a) => ({
         time: clinicTime(a.appointmentDatetime),

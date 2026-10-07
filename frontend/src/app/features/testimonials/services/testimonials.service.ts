@@ -9,7 +9,7 @@ import type { CreateTestimonialRequest } from '../models/testimonial.request';
 export class TestimonialsService {
   private readonly http = inject(HttpClient);
   private readonly publicBase = `${environment.backendUrl}/public/testimonials`;
-  private readonly doctorBase = `${environment.backendUrl}/testimonials`;
+  private readonly adminBase = `${environment.backendUrl}/admin/testimonials`;
 
   submit(data: CreateTestimonialRequest): Observable<TestimonialResponse> {
     return this.http.post<TestimonialResponse>(this.publicBase, data);
@@ -19,19 +19,19 @@ export class TestimonialsService {
     return this.http.get<TestimonialResponse[]>(this.publicBase);
   }
 
-  /** Requiere sesión de odontólogo (SupabaseAuthGuard + RolesGuard en el backend). */
+  /** Requiere sesión de administrador (SupabaseAuthGuard + RolesGuard en el backend). */
   getPending(): Observable<TestimonialResponse[]> {
-    return this.http.get<TestimonialResponse[]>(`${this.doctorBase}/pending`);
+    return this.http.get<TestimonialResponse[]>(`${this.adminBase}/pending`);
   }
 
   approve(id: string): Observable<TestimonialResponse> {
-    return this.http.patch<TestimonialResponse>(`${this.doctorBase}/${id}/status`, {
+    return this.http.patch<TestimonialResponse>(`${this.adminBase}/${id}/status`, {
       status: 'approved',
     });
   }
 
   reject(id: string): Observable<TestimonialResponse> {
-    return this.http.patch<TestimonialResponse>(`${this.doctorBase}/${id}/status`, {
+    return this.http.patch<TestimonialResponse>(`${this.adminBase}/${id}/status`, {
       status: 'rejected',
     });
   }

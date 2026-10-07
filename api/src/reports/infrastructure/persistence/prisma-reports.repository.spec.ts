@@ -9,10 +9,22 @@ const RANGE_ONE_DAY: ReportParams = {
   to: new Date('2026-09-08T04:00:00.000Z'), // límite exclusivo
 };
 
+// "Ahora" en los tests: 10:30 del 2026-09-07 en La Paz. Las confirmadas
+// antes de esa hora se reportan como atendidas (CLI-224).
+const NOW = new Date('2026-09-07T14:30:00.000Z');
+
+function appointment(doctorId: string, status: string, at: string) {
+  return {
+    doctor_id: doctorId,
+    status,
+    appointment_datetime: new Date(at),
+  };
+}
+
 describe('PrismaReportsRepository', () => {
   let prismaMock: {
     users: { findMany: jest.Mock };
-    appointments: { groupBy: jest.Mock };
+    appointments: { findMany: jest.Mock };
     patients: { groupBy: jest.Mock };
     doctor_schedule_blocks: { findMany: jest.Mock };
     payments: { findMany: jest.Mock };
@@ -25,7 +37,7 @@ describe('PrismaReportsRepository', () => {
   beforeEach(() => {
     prismaMock = {
       users: { findMany: jest.fn() },
-      appointments: { groupBy: jest.fn() },
+      appointments: { findMany: jest.fn().mockResolvedValue([]) },
       patients: { groupBy: jest.fn() },
       doctor_schedule_blocks: { findMany: jest.fn() },
       payments: { findMany: jest.fn() },
@@ -34,7 +46,21 @@ describe('PrismaReportsRepository', () => {
       treatments: { findMany: jest.fn() },
     };
     repo = new PrismaReportsRepository(prismaMock as unknown as PrismaService);
+    jest.useFakeTimers({ now: NOW, doNotFake: ['nextTick', 'queueMicrotask'] });
   });
+
+  afterEach(() => jest.useRealTimers());
+
+  /** getOperationalReport pide las citas dos veces: todas (para contar) y las canceladas (detalle). */
+  function mockAppointments(
+    all: ReturnType<typeof appointment>[],
+    cancelled: unknown[] = [],
+  ) {
+    prismaMock.appointments.findMany.mockImplementation(
+      (args: { where: { status?: string } }) =>
+        Promise.resolve(args.where.status === 'cancelled' ? cancelled : all),
+    );
+  }
 
   describe('getOperationalReport', () => {
     it('returns an empty report without querying activity when no doctor matches (e.g. bad doctorId filter)', async () => {
@@ -49,18 +75,95 @@ describe('PrismaReportsRepository', () => {
         from: '2026-09-07',
         to: '2026-09-07',
         doctors: [],
+        cancellations: [],
       });
-      expect(prismaMock.appointments.groupBy).not.toHaveBeenCalled();
+      expect(prismaMock.appointments.findMany).not.toHaveBeenCalled();
       expect(prismaMock.patients.groupBy).not.toHaveBeenCalled();
+    });
+
+    it('lista las canceladas del rango con paciente (o invitado), quién canceló y el motivo (CLI-103)', async () => {
+      prismaMock.users.findMany.mockResolvedValue([
+        { id: 'doctor-1', display_name: 'Juan Perez' },
+      ]);
+      prismaMock.patients.groupBy.mockResolvedValue([]);
+      prismaMock.doctor_schedule_blocks.findMany.mockResolvedValue([]);
+      const at = new Date('2026-09-07T14:00:00.000Z');
+      const cancelledAt = new Date('2026-09-06T20:00:00.000Z');
+      mockAppointments(
+        [],
+        [
+          {
+            id: 'appt-1',
+            appointment_datetime: at,
+            doctor_id: 'doctor-1',
+            cancelled_at: cancelledAt,
+            cancel_reason: 'viaje',
+            guest_first_name: null,
+            guest_last_name_paternal: null,
+            patients: { first_name: 'Ana', last_name_paternal: 'Arce' },
+            users: { display_name: 'Juan Perez' },
+            cancelled_by_user: { display_name: 'Juan Perez' },
+          },
+          {
+            id: 'appt-2',
+            appointment_datetime: at,
+            doctor_id: 'doctor-1',
+            cancelled_at: null,
+            cancel_reason: null,
+            guest_first_name: 'Beto',
+            guest_last_name_paternal: null,
+            patients: null,
+            users: { display_name: 'Juan Perez' },
+            cancelled_by_user: null,
+          },
+        ],
+      );
+
+      const result = await repo.getOperationalReport(RANGE_ONE_DAY);
+
+      expect(prismaMock.appointments.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            status: 'cancelled',
+            appointment_datetime: {
+              gte: RANGE_ONE_DAY.from,
+              lt: RANGE_ONE_DAY.to,
+            },
+            doctor_id: { in: ['doctor-1'] },
+          },
+        }),
+      );
+      expect(result.cancellations).toEqual([
+        {
+          appointmentId: 'appt-1',
+          appointmentDatetime: at,
+          doctorId: 'doctor-1',
+          doctorName: 'Juan Perez',
+          patientName: 'Ana Arce',
+          cancelledAt,
+          cancelledByName: 'Juan Perez',
+          cancelReason: 'viaje',
+        },
+        {
+          appointmentId: 'appt-2',
+          appointmentDatetime: at,
+          doctorId: 'doctor-1',
+          doctorName: 'Juan Perez',
+          patientName: 'Beto',
+          cancelledAt: null,
+          cancelledByName: null,
+          cancelReason: null,
+        },
+      ]);
     });
 
     it('combines appointment status counts, new patients and theoretical slots per doctor', async () => {
       prismaMock.users.findMany.mockResolvedValue([
         { id: 'doctor-1', display_name: 'Juan Perez' },
       ]);
-      prismaMock.appointments.groupBy.mockResolvedValue([
-        { doctor_id: 'doctor-1', status: 'confirmed', _count: { _all: 1 } },
-        { doctor_id: 'doctor-1', status: 'held', _count: { _all: 1 } },
+      mockAppointments([
+        appointment('doctor-1', 'confirmed', '2026-09-07T13:30:00.000Z'),
+        appointment('doctor-1', 'held', '2026-09-07T13:00:00.000Z'),
       ]);
       prismaMock.patients.groupBy.mockResolvedValue([
         { assigned_doctor_id: 'doctor-1', _count: { _all: 3 } },
@@ -77,8 +180,7 @@ describe('PrismaReportsRepository', () => {
 
       const result = await repo.getOperationalReport(RANGE_ONE_DAY);
 
-      expect(prismaMock.appointments.groupBy).toHaveBeenCalledWith({
-        by: ['doctor_id', 'status'],
+      expect(prismaMock.appointments.findMany).toHaveBeenCalledWith({
         where: {
           appointment_datetime: {
             gte: RANGE_ONE_DAY.from,
@@ -86,7 +188,7 @@ describe('PrismaReportsRepository', () => {
           },
           doctor_id: { in: ['doctor-1'] },
         },
-        _count: { _all: true },
+        select: { doctor_id: true, status: true, appointment_datetime: true },
       });
       expect(result).toEqual({
         from: '2026-09-07',
@@ -95,26 +197,33 @@ describe('PrismaReportsRepository', () => {
           {
             doctorId: 'doctor-1',
             doctorName: 'Juan Perez',
-            appointmentsByStatus: { confirmed: 1, held: 1 },
-            totalAppointments: 2,
+            appointmentsByStatus: { attended: 1 },
+            totalAppointments: 1,
             newPatients: 3,
             theoreticalSlots: 2,
             confirmedAppointments: 1,
             occupancyRate: 0.5,
           },
         ],
+        cancellations: [],
       });
     });
 
-    // CLI-154: una cita cancelada no ocupó la agenda.
-    it('informa las canceladas por separado, sin sumarlas al total', async () => {
+    // CLI-224: 4 estados — una confirmada que ya pasó es atendida, y las
+    // reservas en espera o vencidas no son citas de la clínica.
+    it('reporta confirmadas, atendidas, canceladas y no asistió; sin held ni expired', async () => {
       prismaMock.users.findMany.mockResolvedValue([
         { id: 'doctor-1', display_name: 'Juan Perez' },
       ]);
-      prismaMock.appointments.groupBy.mockResolvedValue([
-        { doctor_id: 'doctor-1', status: 'confirmed', _count: { _all: 3 } },
-        { doctor_id: 'doctor-1', status: 'expired', _count: { _all: 1 } },
-        { doctor_id: 'doctor-1', status: 'cancelled', _count: { _all: 2 } },
+      mockAppointments([
+        appointment('doctor-1', 'confirmed', '2026-09-07T13:00:00.000Z'),
+        appointment('doctor-1', 'attended', '2026-09-07T12:00:00.000Z'),
+        appointment('doctor-1', 'confirmed', '2026-09-07T15:00:00.000Z'),
+        appointment('doctor-1', 'confirmed', '2026-09-07T16:00:00.000Z'),
+        appointment('doctor-1', 'no_show', '2026-09-07T12:30:00.000Z'),
+        appointment('doctor-1', 'cancelled', '2026-09-07T17:00:00.000Z'),
+        appointment('doctor-1', 'held', '2026-09-07T18:00:00.000Z'),
+        appointment('doctor-1', 'expired', '2026-09-07T13:30:00.000Z'),
       ]);
       prismaMock.patients.groupBy.mockResolvedValue([]);
       prismaMock.doctor_schedule_blocks.findMany.mockResolvedValue([]);
@@ -122,19 +231,20 @@ describe('PrismaReportsRepository', () => {
       const [row] = (await repo.getOperationalReport(RANGE_ONE_DAY)).doctors;
 
       expect(row.appointmentsByStatus).toEqual({
-        confirmed: 3,
-        expired: 1,
-        cancelled: 2,
+        confirmed: 2,
+        attended: 2,
+        no_show: 1,
+        cancelled: 1,
       });
-      expect(row.totalAppointments).toBe(4);
-      expect(row.confirmedAppointments).toBe(3);
+      // CLI-154: la cancelada no ocupó la agenda, no suma al total.
+      expect(row.totalAppointments).toBe(5);
+      expect(row.confirmedAppointments).toBe(4);
     });
 
     it('reports zeroed rows (occupancyRate 0) for a doctor with no schedule blocks, avoiding division by zero', async () => {
       prismaMock.users.findMany.mockResolvedValue([
         { id: 'doctor-2', display_name: 'Sin Horario' },
       ]);
-      prismaMock.appointments.groupBy.mockResolvedValue([]);
       prismaMock.patients.groupBy.mockResolvedValue([]);
       prismaMock.doctor_schedule_blocks.findMany.mockResolvedValue([]);
 
@@ -361,6 +471,102 @@ describe('PrismaReportsRepository', () => {
         treatments: [],
       });
       expect(prismaMock.treatments.findMany).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('getTrends (CLI-199)', () => {
+    // 2026-09-07 al 2026-09-09 en La Paz (UTC-4).
+    const THREE_DAYS: ReportParams = {
+      from: new Date('2026-09-07T04:00:00.000Z'),
+      to: new Date('2026-09-10T04:00:00.000Z'),
+    };
+
+    function payment(at: string, amount: string, doctorId: string | null) {
+      return {
+        payment_date: new Date(at),
+        amount,
+        quotes: { patients: { assigned_doctor_id: doctorId } },
+      };
+    }
+
+    it('devuelve un día por cada fecha del rango, con citas por estado y cobrado en el huso de la clínica', async () => {
+      prismaMock.appointments.findMany.mockResolvedValue([
+        // Antes de NOW: atendida; después: confirmada (CLI-224).
+        {
+          appointment_datetime: new Date('2026-09-07T13:00:00.000Z'),
+          status: 'confirmed',
+        },
+        {
+          appointment_datetime: new Date('2026-09-07T15:00:00.000Z'),
+          status: 'confirmed',
+        },
+        {
+          appointment_datetime: new Date('2026-09-07T16:30:00.000Z'),
+          status: 'expired',
+        },
+        {
+          appointment_datetime: new Date('2026-09-07T16:00:00.000Z'),
+          status: 'cancelled',
+        },
+        // 23:30 del 8 en La Paz = 03:30Z del 9: cuenta para el 8.
+        {
+          appointment_datetime: new Date('2026-09-09T03:30:00.000Z'),
+          status: 'no_show',
+        },
+      ]);
+      prismaMock.payments.findMany.mockResolvedValue([
+        payment('2026-09-07T14:00:00.000Z', '100.10', 'doctor-1'),
+        payment('2026-09-07T18:00:00.000Z', '0.20', null),
+        payment('2026-09-09T20:00:00.000Z', '50', 'doctor-2'),
+      ]);
+
+      const result = await repo.getTrends(THREE_DAYS);
+
+      expect(result).toEqual({
+        from: '2026-09-07',
+        to: '2026-09-09',
+        days: [
+          {
+            date: '2026-09-07',
+            appointmentsByStatus: { attended: 1, confirmed: 1, cancelled: 1 },
+            collected: 100.3,
+          },
+          {
+            date: '2026-09-08',
+            appointmentsByStatus: { no_show: 1 },
+            collected: 0,
+          },
+          { date: '2026-09-09', appointmentsByStatus: {}, collected: 50 },
+        ],
+      });
+      expect(prismaMock.appointments.findMany).toHaveBeenCalledWith({
+        where: {
+          appointment_datetime: { gte: THREE_DAYS.from, lt: THREE_DAYS.to },
+        },
+        select: { appointment_datetime: true, status: true },
+      });
+    });
+
+    it('con doctorId filtra las citas por su doctor y los pagos por el doctor asignado al paciente', async () => {
+      prismaMock.appointments.findMany.mockResolvedValue([]);
+      prismaMock.payments.findMany.mockResolvedValue([
+        payment('2026-09-07T14:00:00.000Z', '100', 'doctor-1'),
+        payment('2026-09-07T15:00:00.000Z', '70', 'doctor-2'),
+        payment('2026-09-07T16:00:00.000Z', '30', null),
+      ]);
+
+      const result = await repo.getTrends({
+        ...THREE_DAYS,
+        doctorId: 'doctor-1',
+      });
+
+      const args = (
+        prismaMock.appointments.findMany.mock.calls as unknown[][]
+      )[0][0] as {
+        where: Record<string, unknown>;
+      };
+      expect(args.where).toMatchObject({ doctor_id: 'doctor-1' });
+      expect(result.days[0].collected).toBe(100);
     });
   });
 });
