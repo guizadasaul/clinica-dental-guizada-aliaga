@@ -109,4 +109,96 @@ export class SupabaseAdminService {
     }
     return { authUserId: data.user.id };
   }
+
+  /**
+   * Cuenta nueva por correo + contraseña, sin confirmar (CLI-242). Usa
+   * generateLink en vez de signUp para que Supabase NO mande su correo (su
+   * SMTP no estaba funcionando, verificado en vivo) y para obtener el token
+   * del link de confirmación, que manda el backend por Resend. Si el correo
+   * ya existe sin confirmar, Supabase devuelve esa misma cuenta con un token
+   * nuevo; si ya está confirmado, 409.
+   */
+  async createEmailUser(email: string, password: string): Promise<EmailSignup> {
+    const client = this.requireClient(
+      'El registro por correo no está configurado todavía',
+    );
+    const { data, error } = await client.auth.admin.generateLink({
+      type: 'signup',
+      email,
+      password,
+    });
+    if (error) {
+      if (error.code === 'email_exists') {
+        throw new ConflictException(
+          'Ese correo ya tiene una cuenta. Inicia sesión o recupera tu contraseña.',
+        );
+      }
+      this.logger.error(
+        'No se pudo crear el usuario por correo en Supabase Auth',
+        error,
+      );
+      throw new ServiceUnavailableException('No se pudo crear la cuenta');
+    }
+    return {
+      authUserId: data.user.id,
+      hashedToken: data.properties.hashed_token,
+    };
+  }
+
+  /**
+   * Un token nuevo para confirmar el correo de una cuenta que todavía no lo
+   * confirmó (reenvío, CLI-242). null si la cuenta no existe, no tiene correo
+   * o ya está confirmada: nunca crea una cuenta.
+   */
+  async createEmailConfirmation(
+    authUserId: string,
+  ): Promise<{ email: string; hashedToken: string } | null> {
+    const client = this.requireClient('El reenvío no está configurado todavía');
+    const { data: found, error: findError } =
+      await client.auth.admin.getUserById(authUserId);
+    const email = found?.user?.email;
+    if (findError || !email || found.user.email_confirmed_at) {
+      return null;
+    }
+    // GoTrue acepta un link de signup sin contraseña para una cuenta que ya
+    // existe sin confirmar (verificado contra el proyecto real); los tipos
+    // del SDK la piden igual.
+    const { data, error } = await client.auth.admin.generateLink({
+      type: 'signup',
+      email,
+    } as Parameters<typeof client.auth.admin.generateLink>[0]);
+    if (error) {
+      this.logger.error(
+        `No se pudo generar el reenvío de confirmación (uid=${authUserId})`,
+        error,
+      );
+      throw new ServiceUnavailableException('No se pudo reenviar el correo');
+    }
+    return { email, hashedToken: data.properties.hashed_token };
+  }
+
+  /** Deshace una cuenta recién creada si no se pudo vincular (CLI-242). Nunca lanza. */
+  async deleteUser(authUserId: string): Promise<void> {
+    if (!this.client) return;
+    const { error } = await this.client.auth.admin.deleteUser(authUserId);
+    if (error) {
+      this.logger.error(
+        `No se pudo borrar la cuenta recién creada (uid=${authUserId})`,
+        error,
+      );
+    }
+  }
+
+  private requireClient(message: string): SupabaseClient {
+    if (!this.client) {
+      throw new ServiceUnavailableException(message);
+    }
+    return this.client;
+  }
+}
+
+export interface EmailSignup {
+  authUserId: string;
+  /** Token del link de confirmación (verifyOtp con token_hash). */
+  hashedToken: string;
 }

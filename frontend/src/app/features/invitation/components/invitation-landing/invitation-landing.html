@@ -15,6 +15,28 @@
       <p class="login-card__subtitle">
         Te enviamos un correo de confirmación a <strong>{{ email() }}</strong>. Haz clic en el enlace para activar tu cuenta y completar tu registro.
       </p>
+      <p class="login-card__subtitle">
+        Puedes abrirlo en cualquier celular o computadora. Si no lo ves, revisa la carpeta de spam.
+      </p>
+      @switch (resendState()) {
+        @case ('sent') {
+          <output class="register-resend__status">Te lo enviamos de nuevo.</output>
+        }
+        @case ('error') {
+          <p class="login-card__error" role="alert">
+            <span class="material-symbols-outlined" aria-hidden="true">error</span>
+            No pudimos reenviarlo. Intenta de nuevo en unos minutos.
+          </p>
+        }
+      }
+      <button
+        type="button"
+        class="auth-form__link register-resend"
+        [disabled]="resendState() === 'sending' || resendState() === 'sent'"
+        (click)="resendConfirmation()"
+      >
+        Reenviar el correo
+      </button>
     } @else if (valid()) {
       <h1 class="login-card__title">{{ copy().title }}</h1>
       <p class="login-card__subtitle">{{ copy().subtitle }}</p>

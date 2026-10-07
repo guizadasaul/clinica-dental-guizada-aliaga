@@ -120,4 +120,43 @@ describe('ResendEmailSender', () => {
       }),
     ).rejects.toThrow('dominio no verificado');
   });
+
+  describe('sendAccountEmail (CLI-242)', () => {
+    async function accountEmail(
+      displayName: string | null,
+    ): Promise<SentEmail> {
+      await sender.sendAccountEmail({
+        to: 'carla@example.com',
+        displayName,
+        actionUrl:
+          'https://app.example.com/auth/confirmar?token_hash=abc&type=signup',
+        kind: 'confirm_email',
+      });
+      const [, init] = fetchMock.mock.calls[0] as [string, { body: string }];
+      return JSON.parse(init.body) as SentEmail;
+    }
+
+    it('manda el correo de confirmación con el link, el botón y el diseño de la clínica', async () => {
+      const email = await accountEmail('Carla Mendoza');
+
+      expect(email.subject).toContain('Confirma tu correo');
+      expect(email.html).toContain('Hola Carla Mendoza,');
+      expect(email.html).toContain('Confirmar mi correo');
+      expect(email.html).toContain(
+        'href="https://app.example.com/auth/confirmar?token_hash=abc&amp;type=signup"',
+      );
+      expect(email.html).toContain('cid:clinic-logo');
+      expect(email.text).toContain(
+        'https://app.example.com/auth/confirmar?token_hash=abc&type=signup',
+      );
+      expect(email.text).toContain('vence en 1 hora');
+    });
+
+    it('sin nombre saluda solo con "Hola,"', async () => {
+      const email = await accountEmail(null);
+
+      expect(email.html).toContain('Hola,');
+      expect(email.text.startsWith('Hola,')).toBe(true);
+    });
+  });
 });

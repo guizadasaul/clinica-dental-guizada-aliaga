@@ -33,7 +33,8 @@ async function setup({
   };
   const auth = {
     loginWithGoogle: vi.fn().mockResolvedValue(undefined),
-    registerWithPassword: vi.fn().mockResolvedValue(undefined),
+    registerWithEmail: vi.fn().mockResolvedValue(undefined),
+    resendEmailConfirmation: vi.fn().mockResolvedValue(undefined),
     registerWithPhone: vi.fn().mockResolvedValue(undefined),
     loginWithPhone: vi.fn().mockResolvedValue(undefined),
     waitForSync: vi.fn().mockResolvedValue(undefined),
@@ -167,19 +168,52 @@ describe('InvitationLandingComponent', () => {
       expect(auth.loginWithGoogle).toHaveBeenCalled();
     });
 
-    it('email + password: remembers the token, creates the account and asks to confirm the email', async () => {
-      const { harness, auth } = await setup();
-
+    async function submitEmail(harness: Harness): Promise<void> {
       fill(harness, '#invite-email', 'Marylu@Example.com ');
       fill(harness, '#invite-password', PASSWORD);
       fill(harness, '#invite-confirm-password', PASSWORD);
       await settle(harness);
       el<HTMLFormElement>(harness, '.auth-form').dispatchEvent(new Event('submit'));
-      await settle(harness);
+      await flushPromises(harness);
+    }
 
-      expect(auth.registerWithPassword).toHaveBeenCalledWith('marylu@example.com', PASSWORD);
-      expect(localStorage.getItem('pendingInviteToken')).toBe('tok-1');
+    // CLI-242: la cuenta la crea el backend y canjea la invitación en el acto.
+    it('email + password: creates the account in the backend with the invite and asks to confirm the email', async () => {
+      const { harness, auth } = await setup();
+
+      await submitEmail(harness);
+
+      expect(auth.registerWithEmail).toHaveBeenCalledWith('marylu@example.com', PASSWORD, 'tok-1');
+      expect(localStorage.getItem('pendingInviteToken')).toBeNull();
       expect(text(harness)).toContain('Revisa tu correo');
+      expect(text(harness)).toContain('cualquier celular o computadora');
+    });
+
+    it('"Reenviar el correo" asks the backend to resend the confirmation once', async () => {
+      const { harness, auth } = await setup();
+      await submitEmail(harness);
+
+      el<HTMLButtonElement>(harness, '.register-resend').click();
+      await flushPromises(harness);
+
+      expect(auth.resendEmailConfirmation).toHaveBeenCalledWith('marylu@example.com');
+      expect(text(harness)).toContain('Te lo enviamos de nuevo.');
+      expect(el<HTMLButtonElement>(harness, '.register-resend').disabled).toBe(true);
+    });
+
+    it.each([
+      [409, { message: 'Ese correo ya tiene una cuenta. Inicia sesión o recupera tu contraseña.' }, 'Ese correo ya tiene una cuenta'],
+      [403, null, 'Este link de registro venció o ya se usó'],
+      [429, null, 'Hiciste demasiados intentos'],
+      [503, null, 'No pudimos crear la cuenta en este momento'],
+    ])('explains a %i from the backend and stays on the form', async (status, error, message) => {
+      const { harness, auth } = await setup();
+      auth.registerWithEmail.mockRejectedValue(new HttpErrorResponse({ status, error }));
+
+      await submitEmail(harness);
+
+      expect(text(harness)).toContain(message);
+      expect(text(harness)).not.toContain('Revisa tu correo');
     });
 
     it('phone + password: creates the account, waits for the sync and lands on the dashboard', async () => {
@@ -212,7 +246,7 @@ describe('InvitationLandingComponent', () => {
       el<HTMLFormElement>(harness, '.auth-form').dispatchEvent(new Event('submit'));
       await settle(harness);
 
-      expect(auth.registerWithPassword).not.toHaveBeenCalled();
+      expect(auth.registerWithEmail).not.toHaveBeenCalled();
       expect(localStorage.getItem('pendingInviteToken')).toBeNull();
     });
 

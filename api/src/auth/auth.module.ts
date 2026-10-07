@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { AuthController } from './infrastructure/http/auth.controller';
 import { PublicPhoneRegistrationController } from './infrastructure/http/public-phone-registration.controller';
+import { PublicEmailRegistrationController } from './infrastructure/http/public-email-registration.controller';
 import { AuthService } from './application/auth.service';
 import { UserRepository } from './domain/UserRepository';
 import { AccessTokenVerifier } from './domain/AccessTokenVerifier';
@@ -30,6 +31,7 @@ import { ResendEmailSender } from '../patient-invites/infrastructure/email/resen
   controllers: [
     AuthController,
     PublicPhoneRegistrationController,
+    PublicEmailRegistrationController,
     PatientInvitesController,
     PublicInviteStatusController,
   ],

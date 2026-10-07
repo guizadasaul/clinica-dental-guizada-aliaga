@@ -36,6 +36,28 @@ const INVITE_COPY: Record<InviteKind, InviteCopy> = {
   },
 };
 
+/** Mensaje para cada error del alta por correo (CLI-242). */
+function emailRegistrationError(err: unknown): string {
+  if (!(err instanceof HttpErrorResponse)) {
+    return err instanceof Error ? err.message : 'No se pudo crear la cuenta.';
+  }
+  switch (err.status) {
+    case 400:
+      return 'Revisa el correo y que la contraseña tenga entre 8 y 72 caracteres.';
+    case 403:
+      return 'Este link de registro venció o ya se usó. Pídele a la clínica uno nuevo.';
+    case 409:
+      // Correo ya registrado: el backend dice qué hacer.
+      return typeof err.error?.message === 'string'
+        ? err.error.message
+        : 'Ese correo ya tiene una cuenta. Inicia sesión o recupera tu contraseña.';
+    case 429:
+      return 'Hiciste demasiados intentos. Espera un momento y vuelve a intentarlo.';
+    default:
+      return 'No pudimos crear la cuenta en este momento. Intenta de nuevo en unos minutos.';
+  }
+}
+
 /** Mensaje para cada error del alta por teléfono (CLI-241). */
 function phoneRegistrationError(err: unknown): string {
   if (!(err instanceof HttpErrorResponse)) {
@@ -91,6 +113,7 @@ export class InvitationLandingComponent implements OnInit {
   protected readonly passwordVisible = signal(false);
   protected readonly formLoading = signal(false);
   protected readonly registered = signal(false);
+  protected readonly resendState = signal<'idle' | 'sending' | 'sent' | 'error'>('idle');
 
   // Gatea el botón de submit en tiempo real — no reemplaza la revalidación
   // dentro de onSubmit, que es la que de verdad decide si se manda algo.
@@ -201,17 +224,27 @@ export class InvitationLandingComponent implements OnInit {
   private async submitEmail(token: string, email: string, password: string): Promise<void> {
     this.errorMessage.set(null);
     this.formLoading.set(true);
-    // Igual que onContinueWithGoogle: el token queda guardado ANTES de crear
-    // la cuenta, para que syncWithBackend lo encuentre apenas se confirme por correo.
-    localStorage.setItem('pendingInviteToken', token);
+    // Sin pendingInviteToken: el backend canjea la invitación al crear la
+    // cuenta (CLI-242), no al confirmar el correo.
     try {
-      await this.authService.registerWithPassword(email, password);
+      await this.authService.registerWithEmail(email, password, token);
       this.registered.set(true);
     } catch (err) {
-      localStorage.removeItem('pendingInviteToken');
-      this.errorMessage.set(err instanceof Error ? err.message : 'No se pudo crear la cuenta.');
+      this.errorMessage.set(emailRegistrationError(err));
     } finally {
       this.formLoading.set(false);
+    }
+  }
+
+  /** "Reenviar correo" en la pantalla de "Revisa tu correo" (CLI-242). */
+  protected async resendConfirmation(): Promise<void> {
+    if (this.resendState() === 'sending') return;
+    this.resendState.set('sending');
+    try {
+      await this.authService.resendEmailConfirmation(this.email());
+      this.resendState.set('sent');
+    } catch {
+      this.resendState.set('error');
     }
   }
 
