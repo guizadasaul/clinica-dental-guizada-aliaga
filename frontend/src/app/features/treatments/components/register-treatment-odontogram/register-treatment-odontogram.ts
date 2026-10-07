@@ -8,6 +8,7 @@ import {
   computed,
 } from '@angular/core';
 import { DecimalPipe } from '@angular/common';
+import { HttpErrorResponse } from '@angular/common/http';
 import { TreatmentsService } from '../../services/treatments.service';
 import type { Treatment, ToothProcedure, TreatmentApplicationType, ToothSurfaceCode } from '../../models/treatment.model';
 import type { ToothApplicationRequest } from '../../models/treatment.request';
@@ -19,6 +20,11 @@ import {
 } from '../../../../shared/ui/odontogram-chart/odontogram-chart';
 import { examToothColorMap, examToothNames } from '../../../../shared/utils/odontogram-paint.util';
 import { clinicToday } from '../../../../shared/utils/clinic-date.util';
+import {
+  matchPlanLine,
+  planLinePrice,
+  type PlanLine,
+} from '../../../quotes/utils/treatment-plan';
 import {
   CatalogPickerComponent,
   type CatalogPickerExtraGroup,
@@ -108,6 +114,8 @@ export class RegisterTreatmentOdontogramComponent {
   readonly procedures = input<ToothProcedure[]>([]);
   /** Ids de los tratamientos que más usa el doctor (CLI-118) — chip "Frecuentes" del selector. */
   readonly frequentTreatmentIds = input<readonly string[]>([]);
+  /** CLI-228: lo que falta realizar del presupuesto del paciente. */
+  readonly planLines = input<readonly PlanLine[]>([]);
   readonly procedureRegistered = output<ProcedureRegisteredEvent>();
 
   // Diagnósticos: mismo criterio que StepOdontogramComponent.legendItems (una
@@ -238,6 +246,52 @@ export class RegisterTreatmentOdontogramComponent {
     () => this.panelQuantity() * (this.panelTreatment()?.basePrice ?? 0),
   );
 
+  /** Lo que se va a cobrar, en la moneda del tratamiento. */
+  protected readonly panelCharge = computed(() =>
+    this.isQuantityBased() ? this.computedTotal() : this.panelPriceCharged(),
+  );
+
+  /**
+   * CLI-228: la línea del presupuesto que cumple lo que se está por
+   * registrar (mismas reglas que el backend). null si no está en el plan.
+   */
+  protected readonly panelPlanLine = computed<PlanLine | null>(() => {
+    const treatment = this.panelTreatment();
+    if (!treatment) { return null; }
+    return matchPlanLine(
+      this.planLines(),
+      treatment.id,
+      treatment.applicationType,
+      this.effectiveToothNumbers(),
+    );
+  });
+
+  /** El precio de esa línea en la moneda del tratamiento. */
+  protected readonly panelPlanPrice = computed<number | null>(() => {
+    const line = this.panelPlanLine();
+    const treatment = this.panelTreatment();
+    return line && treatment ? planLinePrice(line, treatment.currency) : null;
+  });
+
+  protected readonly panelPriceChanges = computed(() => {
+    const planned = this.panelPlanPrice();
+    return planned !== null && Math.abs(planned - this.panelCharge()) >= 0.005;
+  });
+
+  /** Ya hay piezas elegidas (o el tipo no lleva piezas): se puede decir qué pasa con el presupuesto. */
+  protected readonly panelReadyForPlan = computed(() => {
+    const type = this.panelApplicationType();
+    if (type === null) { return false; }
+    if (type === 'single_tooth' || type === 'multiple_teeth') {
+      return this.panelToothNumbers().length > 0;
+    }
+    return true;
+  });
+
+  protected currencySymbol(currency: string | undefined): string {
+    return currency === 'USD' ? '$' : 'Bs.';
+  }
+
   /** Dientes resaltados en el odontograma mientras el panel está abierto — arcadas se derivan solas. */
   protected readonly chartSelectedTeeth = computed<number[]>(() => {
     if (!this.panelOpen()) { return []; }
@@ -292,6 +346,16 @@ export class RegisterTreatmentOdontogramComponent {
     this.panelOpen.set(true);
   }
 
+  /** CLI-228: abre el panel con una línea del presupuesto ya cargada (tratamiento, piezas y precio). */
+  openForPlanLine(line: PlanLine): void {
+    if (this.saving()) { return; }
+    this.resetPanelFields();
+    this.lastClickedTooth.set(line.toothNumbers.at(-1) ?? null);
+    this.panelToothNumbers.set([...line.toothNumbers]);
+    this.panelOpen.set(true);
+    this.onPanelTreatmentChange(line.treatmentId);
+  }
+
   protected onAddTreatmentClick(): void {
     this.resetPanelFields();
     this.lastClickedTooth.set(null);
@@ -333,6 +397,16 @@ export class RegisterTreatmentOdontogramComponent {
       this.panelToothNumbers.set(keep === undefined ? [] : [keep]);
     }
     this.reconcileSurfaces();
+
+    // Si está en el presupuesto, se propone lo que se le presupuestó (CLI-228).
+    const line = this.panelPlanLine();
+    if (line) {
+      if (this.isQuantityBased()) {
+        this.panelQuantity.set(line.quantity);
+      } else {
+        this.panelPriceCharged.set(planLinePrice(line, treatment.currency));
+      }
+    }
   }
 
   protected getSurface(toothNumber: number): ToothSurfaces {
@@ -406,6 +480,9 @@ export class RegisterTreatmentOdontogramComponent {
 
     this.saving.set(true);
     this.formError.set(null);
+    const planNote = this.panelPlanLine()
+      ? ' Se marcó como realizado en el presupuesto.'
+      : ` Se sumó ${this.currencySymbol(treatment.currency)} ${priceCharged.toFixed(2)} al presupuesto del paciente.`;
 
     const surfaces = this.panelSurfaces();
     const teethPayload: ToothApplicationRequest[] = teeth.map((number) => {
@@ -430,11 +507,15 @@ export class RegisterTreatmentOdontogramComponent {
 
       this.procedureRegistered.emit({
         procedures: result,
-        message: this.buildSuccessMessage(treatment, teeth),
+        message: this.buildSuccessMessage(treatment, teeth) + planNote,
       });
       this.panelOpen.set(false);
-    } catch {
-      this.formError.set('Error al guardar el tratamiento. Intenta de nuevo.');
+    } catch (error: unknown) {
+      // 409 (CLI-226): el presupuesto no deja ese precio — el backend dice por qué.
+      const conflict = error instanceof HttpErrorResponse && error.status === 409
+        ? (error.error as { message?: string } | null)?.message
+        : undefined;
+      this.formError.set(conflict ?? 'Error al guardar el tratamiento. Intenta de nuevo.');
     } finally {
       this.saving.set(false);
     }

@@ -138,6 +138,28 @@
             </div>
           }
 
+          <!-- CLI-228: qué pasa con el presupuesto del paciente -->
+          @if (panelReadyForPlan()) {
+            @if (panelPlanLine()) {
+              <p class="rto__plan-note">
+                <span class="material-symbols-outlined" aria-hidden="true">task_alt</span>
+                <span>
+                  Está en el presupuesto: se marcará como realizado.
+                  @if (panelPriceChanges()) {
+                    El presupuesto decía {{ currencySymbol(treatment.currency) }} {{ panelPlanPrice() | number:'1.2-2' }}; quedará en {{ currencySymbol(treatment.currency) }} {{ panelCharge() | number:'1.2-2' }}.
+                  }
+                </span>
+              </p>
+            } @else {
+              <p class="rto__plan-note rto__plan-note--new">
+                <span class="material-symbols-outlined" aria-hidden="true">add_circle</span>
+                <span>
+                  No está en el presupuesto: se sumarán {{ currencySymbol(treatment.currency) }} {{ panelCharge() | number:'1.2-2' }} al presupuesto del paciente.
+                </span>
+              </p>
+            }
+          }
+
           <!-- Procedure date -->
           <div class="rto__panel-field">
             <label class="rto__panel-label" for="procedureDate">Fecha del procedimiento</label>

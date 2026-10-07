@@ -8,6 +8,7 @@ import {
 import type { Treatment, ToothProcedure } from '../../models/treatment.model';
 import type { DentalExam } from '../../../patients/models/dental-exam.model';
 import type { DiagnosisCategory } from '../../../diagnoses/models/diagnosis.model';
+import type { PlanLine } from '../../../quotes/utils/treatment-plan';
 
 function setup() {
   TestBed.configureTestingModule({
@@ -97,6 +98,7 @@ function fakeProcedure(overrides: Partial<ToothProcedure> = {}): ToothProcedure 
     notes: null,
     performedBy: 'doctor-1',
     performedByName: 'Dr. Saul',
+    quoteItemId: null,
     createdAt: '2026-09-20T12:00:00.000Z',
     ...overrides,
   };
@@ -739,6 +741,111 @@ describe('RegisterTreatmentOdontogramComponent', () => {
       const chips = [...fixture.nativeElement.querySelectorAll('.catalog-picker__chip')].map((c) => (c as HTMLElement).textContent?.trim());
       expect(chips).not.toContain('Sugeridos');
       expect(el(fixture, '.catalog-picker__chip--active')?.textContent?.trim()).toBe('Frecuentes');
+    });
+  });
+
+  describe('presupuesto del paciente (CLI-228)', () => {
+    const PLAN_16: PlanLine = {
+      key: 'item-16',
+      quoteId: 'q-1',
+      treatmentId: 'treatment-1',
+      treatmentName: 'Corona metálica',
+      toothNumbers: [16],
+      isGroup: false,
+      quantity: 1,
+      total: 300,
+      exchangeRate: null,
+    };
+
+    async function withPlan(planLines: PlanLine[]) {
+      const ctx = setup();
+      ctx.fixture.componentRef.setInput('treatments', [fakeTreatment()]);
+      ctx.fixture.componentRef.setInput('planLines', planLines);
+      await settle(ctx.fixture);
+      const emitted: ProcedureRegisteredEvent[] = [];
+      ctx.fixture.componentInstance.procedureRegistered.subscribe((e) => emitted.push(e));
+      return { ...ctx, emitted };
+    }
+
+    function priceInput(fixture: ReturnType<typeof setup>['fixture']): HTMLInputElement {
+      return el(fixture, '#priceCharged');
+    }
+
+    it('lo que no está en el plan avisa que se suma, y el mensaje lo dice', async () => {
+      const { fixture, httpMock, emitted } = await withPlan([]);
+
+      clickTooth(fixture, 16);
+      await settle(fixture);
+      pickTreatment(fixture, 'treatment-1');
+      await settle(fixture);
+
+      expect(el(fixture, '.rto__plan-note--new')?.textContent).toContain(
+        'No está en el presupuesto: se sumarán Bs. 350.00',
+      );
+
+      saveButton(fixture).click();
+      await settle(fixture);
+      httpMock.expectOne('http://localhost:2999/patients/patient-1/tooth-procedures').flush([fakeProcedure()]);
+      await settle(fixture);
+
+      expect(emitted[0].message).toContain('Se sumó Bs. 350.00 al presupuesto del paciente.');
+    });
+
+    it('elegir el tratamiento en una pieza del plan propone el precio del presupuesto', async () => {
+      const { fixture } = await withPlan([PLAN_16]);
+
+      clickTooth(fixture, 16);
+      await settle(fixture);
+      pickTreatment(fixture, 'treatment-1');
+      await settle(fixture);
+
+      expect(priceInput(fixture).value).toBe('300');
+      expect(el(fixture, '.rto__plan-note')?.textContent).toContain('Está en el presupuesto: se marcará como realizado.');
+    });
+
+    it('openForPlanLine abre el panel cargado; si cambia el precio, lo avisa y lo manda', async () => {
+      const { fixture, httpMock, emitted } = await withPlan([PLAN_16]);
+
+      fixture.componentInstance.openForPlanLine(PLAN_16);
+      await settle(fixture);
+
+      expect(el(fixture, '.rto__panel')).toBeTruthy();
+      expect(priceInput(fixture).value).toBe('300');
+
+      priceInput(fixture).value = '320';
+      priceInput(fixture).dispatchEvent(new Event('input'));
+      await settle(fixture);
+      expect(el(fixture, '.rto__plan-note')?.textContent).toContain(
+        'El presupuesto decía Bs. 300.00; quedará en Bs. 320.00.',
+      );
+
+      saveButton(fixture).click();
+      await settle(fixture);
+      const req = httpMock.expectOne('http://localhost:2999/patients/patient-1/tooth-procedures');
+      expect(req.request.body).toMatchObject({ treatmentId: 'treatment-1', priceCharged: 320, teeth: [{ number: 16 }] });
+      req.flush([fakeProcedure()]);
+      await settle(fixture);
+
+      expect(emitted[0].message).toContain('Se marcó como realizado en el presupuesto.');
+    });
+
+    it('un 409 del backend muestra su mensaje (por ejemplo, el paciente ya pagó más)', async () => {
+      const { fixture, httpMock } = await withPlan([PLAN_16]);
+
+      fixture.componentInstance.openForPlanLine(PLAN_16);
+      await settle(fixture);
+      saveButton(fixture).click();
+      await settle(fixture);
+      httpMock
+        .expectOne('http://localhost:2999/patients/patient-1/tooth-procedures')
+        .flush(
+          { message: 'No se puede registrar con Bs 300.00: el paciente ya pagó Bs 350.00 de este tratamiento.' },
+          { status: 409, statusText: 'Conflict' },
+        );
+      await settle(fixture);
+
+      expect(el(fixture, '.rto__error')?.textContent).toContain('el paciente ya pagó Bs 350.00');
+      expect(el(fixture, '.rto__panel')).toBeTruthy();
     });
   });
 });

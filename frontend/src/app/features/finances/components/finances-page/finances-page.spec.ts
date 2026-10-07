@@ -56,6 +56,8 @@ function quote(overrides: Partial<Quote> = {}): Quote {
         subtotal: 700,
         currency: 'BOB',
         exchangeRate: null,
+        procedureId: 'proc-1',
+        performedAt: '2026-04-22',
       },
     ],
     payments: [
@@ -250,6 +252,8 @@ describe('FinancesPageComponent', () => {
     expect(finances.getPatientDetail).toHaveBeenCalledWith('p1');
     expect(root.querySelector('.fin__card--balance')?.textContent).toContain('Bs. 500.00');
     expect(root.querySelector('.fin__line')?.textContent).toContain('pieza 36');
+    // CLI-228: si ya se realizó.
+    expect(root.querySelector('.fin__line-status')?.textContent).toContain('Realizado el 22/04/2026');
     const rows = root.querySelectorAll('.fin__table tbody tr');
     expect(rows[0].textContent).toContain('QR BANECO');
     expect(rows[1].textContent).toContain('efectivo');

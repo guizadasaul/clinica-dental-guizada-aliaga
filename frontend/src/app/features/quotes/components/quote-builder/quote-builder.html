@@ -101,6 +101,13 @@
               <li class="qb__line">
                 <div class="qb__line-main">
                   <span class="qb__line-name">{{ line.treatmentName }}</span>
+                  <span class="qb__line-status" [class.qb__line-status--done]="line.performedAt">
+                    @if (line.performedAt) {
+                      Realizado el {{ line.performedAt | date:'dd/MM/yyyy':'UTC' }}
+                    } @else {
+                      Por realizar
+                    }
+                  </span>
                   @if (line.toothNumbers.length > 0) {
                     <span class="qb__line-teeth">
                       @for (n of line.toothNumbers; track n) {
@@ -115,15 +122,17 @@
                     <small class="qb__fx-hint">equivalente a $ {{ usd | number:'1.2-2' }}</small>
                   }
                 </div>
-                <button
-                  type="button"
-                  class="qb__remove-btn"
-                  [disabled]="removingItemId() === line.firstItemId"
-                  (click)="onRemoveItem(line.firstItemId)"
-                  aria-label="Eliminar línea"
-                >
-                  <span class="material-symbols-outlined">delete</span>
-                </button>
+                @if (!line.performedAt) {
+                  <button
+                    type="button"
+                    class="qb__remove-btn"
+                    [disabled]="removingItemId() === line.firstItemId"
+                    (click)="onRemoveItem(line.firstItemId)"
+                    aria-label="Eliminar línea"
+                  >
+                    <span class="material-symbols-outlined">delete</span>
+                  </button>
+                }
               </li>
             }
           </ul>

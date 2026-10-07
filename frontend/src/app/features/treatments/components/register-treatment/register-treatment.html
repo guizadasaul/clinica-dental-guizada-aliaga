@@ -9,13 +9,40 @@
     </div>
   }
 
+  <!-- CLI-228: lo que falta realizar del presupuesto -->
+  @if (planLines().length > 0) {
+    <section class="reg-treatment__plan" aria-labelledby="plan-title">
+      <h4 id="plan-title" class="reg-treatment__plan-title">Por realizar del presupuesto</h4>
+      <ul class="reg-treatment__plan-list">
+        @for (line of planLines(); track line.key) {
+          <li class="reg-treatment__plan-item">
+            <span class="reg-treatment__plan-name">{{ line.treatmentName }}</span>
+            <span class="reg-treatment__plan-teeth">
+              @switch (line.toothNumbers.length) {
+                @case (0) { Sin pieza }
+                @case (1) { Pieza {{ line.toothNumbers[0] }} }
+                @default { Piezas {{ line.toothNumbers.join(', ') }} }
+              }
+            </span>
+            <span class="reg-treatment__plan-price">Bs. {{ line.total | number:'1.2-2' }}</span>
+            <button type="button" class="reg-treatment__plan-btn" (click)="onPlanLineClick(line)">
+              Registrar
+            </button>
+          </li>
+        }
+      </ul>
+    </section>
+  }
+
   <app-register-treatment-odontogram
+    #odontogram
     [patientId]="patientId()"
     [treatments]="treatments()"
     [catalog]="diagnosisCatalog()"
     [currentExam]="currentExam()"
     [procedures]="registeredProcedures()"
     [frequentTreatmentIds]="frequentTreatmentIds()"
+    [planLines]="planLines()"
     (procedureRegistered)="onProcedureRegistered($event)"
   />
 

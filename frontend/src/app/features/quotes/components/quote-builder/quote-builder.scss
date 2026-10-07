@@ -143,6 +143,14 @@
     color: var(--color-gray-900);
   }
 
+  // CLI-228: si el tratamiento ya se realizó.
+  &__line-status {
+    font-size: var(--font-size-xs);
+    color: #4b5563;
+
+    &--done { color: #166534; }
+  }
+
   &__line-teeth {
     display: flex;
     flex-wrap: wrap;

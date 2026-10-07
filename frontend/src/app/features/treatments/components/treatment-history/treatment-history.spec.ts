@@ -23,6 +23,7 @@ function procedure(overrides: Partial<ToothProcedure> = {}): ToothProcedure {
     notes: null,
     performedBy: 'doctor-1',
     performedByName: 'Dr. Saul',
+    quoteItemId: null,
     createdAt: '2026-09-20T10:00:00.000Z',
     ...overrides,
   };

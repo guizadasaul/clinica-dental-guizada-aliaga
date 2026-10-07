@@ -1,7 +1,8 @@
 import { Component, forwardRef, input, output } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { By } from '@angular/platform-browser';
-import { DecimalPipe } from '@angular/common';
+import { DatePipe, DecimalPipe } from '@angular/common';
+import { HttpErrorResponse } from '@angular/common/http';
 import { FormsModule } from '@angular/forms';
 import { of, throwError, type Observable } from 'rxjs';
 import { QuoteBuilderComponent } from './quote-builder';
@@ -66,6 +67,8 @@ function item(overrides: Partial<QuoteItem> = {}): QuoteItem {
     subtotal: 150,
     currency: 'BOB',
     exchangeRate: null,
+    procedureId: null,
+    performedAt: null,
     ...overrides,
   };
 }
@@ -124,7 +127,7 @@ function setup(
     ],
   });
   TestBed.overrideComponent(QuoteBuilderComponent, {
-    set: { imports: [PageHeaderComponent, DecimalPipe, FormsModule, ScopePickerStub] },
+    set: { imports: [PageHeaderComponent, DatePipe, DecimalPipe, FormsModule, ScopePickerStub] },
   });
   const fixture = TestBed.createComponent(QuoteBuilderComponent);
   fixture.componentRef.setInput('patientId', 'patient-1');
@@ -252,6 +255,38 @@ describe('QuoteBuilderComponent', () => {
 
       expect(quotes.removeItem).toHaveBeenCalledWith('quote-1', 'item-1');
       expect(root.textContent).toContain('Todavía no agregaste tratamientos');
+    });
+
+    // CLI-228: el presupuesto es el plan que el doctor cumple.
+    it('cada línea dice si ya se realizó; las realizadas no se pueden quitar', () => {
+      const { root } = setup([
+        quote({
+          items: [
+            item({ id: 'hecho', procedureId: 'p1', performedAt: '2026-04-22' }),
+            item({ id: 'pendiente', toothNumber: 17 }),
+          ],
+        }),
+      ]);
+
+      const lines = [...root.querySelectorAll('.qb__line')];
+      expect(lines[0].querySelector('.qb__line-status')?.textContent).toContain('Realizado el 22/04/2026');
+      expect(lines[0].querySelector('.qb__remove-btn')).toBeNull();
+      expect(lines[1].querySelector('.qb__line-status')?.textContent).toContain('Por realizar');
+      expect(lines[1].querySelector('.qb__remove-btn')).not.toBeNull();
+    });
+
+    it('si el backend no deja quitarla (409, ya realizada), lo explica', async () => {
+      const { fixture, root, quotes } = setup([quote({ items: [item()] })]);
+      quotes.removeItem.mockReturnValue(
+        throwError(() => new HttpErrorResponse({ status: 409, error: { message: 'ya se realizó' } })),
+      );
+
+      root.querySelector<HTMLButtonElement>('.qb__remove-btn')!.click();
+      await settle(fixture);
+
+      expect(
+        (fixture.componentInstance as unknown as { formError(): string | null }).formError(),
+      ).toContain('Este tratamiento ya se realizó');
     });
 
     // Ojo: formError solo se pinta dentro del panel de "agregar línea"; si está cerrado,
