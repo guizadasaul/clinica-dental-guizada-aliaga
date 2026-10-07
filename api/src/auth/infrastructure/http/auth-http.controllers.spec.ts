@@ -1,6 +1,11 @@
 import { THROTTLER_LIMIT } from '@nestjs/throttler/dist/throttler.constants';
 import { AuthController } from './auth.controller';
 import { PublicPhoneRegistrationController } from './public-phone-registration.controller';
+import { PublicEmailRegistrationController } from './public-email-registration.controller';
+import {
+  RegisterEmailDto,
+  ResendConfirmationDto,
+} from './dto/register-email.dto';
 import { AuthService } from '../../application/auth.service';
 import type { AuthenticatedUser } from '../../domain/AuthenticatedUser';
 import { SyncUserDto } from './dto/sync-user.dto';
@@ -12,6 +17,9 @@ describe('controllers de auth', () => {
     syncUser: jest.fn(),
     getCurrentUser: jest.fn(),
     registerWithPhone: jest.fn(),
+    registerWithEmail: jest.fn(),
+    resendEmailConfirmation: jest.fn(),
+    requestPasswordRecovery: jest.fn(),
   };
   const user = { uid: 'auth-1' } as AuthenticatedUser;
 
@@ -81,6 +89,89 @@ describe('controllers de auth', () => {
       expect(limit()).toBe(5);
       process.env['THROTTLE_REGISTER_PHONE_PER_HOUR'] = '20';
       expect(limit()).toBe(20);
+    });
+  });
+
+  describe('PublicEmailRegistrationController (CLI-242)', () => {
+    const controller = new PublicEmailRegistrationController(
+      service as unknown as AuthService,
+    );
+    const savedEnv = { ...process.env };
+
+    afterEach(() => {
+      process.env = { ...savedEnv };
+    });
+
+    it('registra con correo y contraseña', async () => {
+      await controller.register({
+        email: 'carla@example.com',
+        password: 'clave-123',
+        inviteToken: 'token-1',
+      });
+
+      expect(service.registerWithEmail).toHaveBeenCalledWith(
+        'carla@example.com',
+        'clave-123',
+        'token-1',
+      );
+    });
+
+    it('reenvía la confirmación', async () => {
+      await controller.resend({ email: 'carla@example.com' });
+
+      expect(service.resendEmailConfirmation).toHaveBeenCalledWith(
+        'carla@example.com',
+      );
+    });
+
+    it('pide la recuperación de contraseña (CLI-243)', async () => {
+      await controller.recover({ email: 'carla@example.com' });
+
+      expect(service.requestPasswordRecovery).toHaveBeenCalledWith(
+        'carla@example.com',
+      );
+    });
+
+    it('recover limita a 5 por hora por default, configurable con THROTTLE_PASSWORD_RECOVER_PER_HOUR', () => {
+      const limit = Reflect.getMetadata(
+        `${THROTTLER_LIMIT}default`,
+        Reflect.get(PublicEmailRegistrationController.prototype, 'recover'),
+      ) as () => number;
+
+      delete process.env['THROTTLE_PASSWORD_RECOVER_PER_HOUR'];
+      expect(limit()).toBe(5);
+      process.env['THROTTLE_PASSWORD_RECOVER_PER_HOUR'] = '20';
+      expect(limit()).toBe(20);
+    });
+
+    it.each(['register', 'resend'])(
+      '%s limita a 5 por hora por default, configurable con THROTTLE_REGISTER_EMAIL_PER_HOUR',
+      (method) => {
+        const limit = Reflect.getMetadata(
+          `${THROTTLER_LIMIT}default`,
+          Reflect.get(PublicEmailRegistrationController.prototype, method),
+        ) as () => number;
+
+        delete process.env['THROTTLE_REGISTER_EMAIL_PER_HOUR'];
+        expect(limit()).toBe(5);
+        process.env['THROTTLE_REGISTER_EMAIL_PER_HOUR'] = '20';
+        expect(limit()).toBe(20);
+      },
+    );
+
+    it('el DTO normaliza el correo y exige una contraseña de 8 a 72 caracteres', async () => {
+      const dto = plainToInstance(RegisterEmailDto, {
+        email: '  Carla@Example.COM ',
+        password: 'corta',
+        inviteToken: 'tok',
+      });
+      const errors = await validate(dto);
+
+      expect(dto.email).toBe('carla@example.com');
+      expect(errors.map((e) => e.property)).toEqual(['password']);
+      await expect(
+        validate(plainToInstance(ResendConfirmationDto, { email: 'no-es' })),
+      ).resolves.toHaveLength(1);
     });
   });
 

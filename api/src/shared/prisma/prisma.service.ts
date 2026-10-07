@@ -73,6 +73,9 @@ export class PrismaService implements OnModuleInit, OnModuleDestroy {
   get patient_invites() {
     return this._client.patient_invites;
   }
+  get password_reset_links() {
+    return this._client.password_reset_links;
+  }
   get testimonials() {
     return this._client.testimonials;
   }

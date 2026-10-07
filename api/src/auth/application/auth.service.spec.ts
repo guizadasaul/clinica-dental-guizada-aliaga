@@ -1,5 +1,7 @@
 import {
+  ConflictException,
   ForbiddenException,
+  Logger,
   NotFoundException,
   UnprocessableEntityException,
 } from '@nestjs/common';
@@ -11,6 +13,7 @@ import { UserRole } from '../domain/value-objects/UserRole';
 import { AuthenticatedUser } from '../domain/AuthenticatedUser';
 import { PatientInvitesService } from '../../patient-invites/application/patient-invites.service';
 import { SupabaseAdminService } from '../infrastructure/SupabaseAdminService';
+import { EmailSender } from '../../patient-invites/domain/EmailSender';
 
 const AUTH_USER_ID = '11111111-1111-4111-8111-111111111111';
 
@@ -33,6 +36,7 @@ const mockRepo = {
   createPlaceholder: jest.fn(),
   linkAuthIdentity: jest.fn(),
   updateContactInfo: jest.fn(),
+  findByEmail: jest.fn(),
 };
 
 const mockPatientInvitesService = {
@@ -45,6 +49,15 @@ const mockPatientInvitesService = {
 const mockSupabaseAdminService = {
   setConfirmedPhone: jest.fn(),
   createPhoneUser: jest.fn(),
+  createEmailUser: jest.fn(),
+  createEmailConfirmation: jest.fn(),
+  createRecoveryLink: jest.fn(),
+  deleteUser: jest.fn(),
+};
+
+const mockEmailSender = {
+  sendInviteEmail: jest.fn(),
+  sendAccountEmail: jest.fn(),
 };
 
 const authUser: AuthenticatedUser = {
@@ -66,6 +79,7 @@ describe('AuthService', () => {
         { provide: UserRepository, useValue: mockRepo },
         { provide: PatientInvitesService, useValue: mockPatientInvitesService },
         { provide: SupabaseAdminService, useValue: mockSupabaseAdminService },
+        { provide: EmailSender, useValue: mockEmailSender },
       ],
     }).compile();
     service = module.get(AuthService);
@@ -408,6 +422,242 @@ describe('AuthService', () => {
       mockRepo.findByAuthUserId.mockRejectedValue(new Error('DB error'));
 
       await expect(service.getCurrentUser('uid')).rejects.toThrow('DB error');
+    });
+  });
+
+  describe('registerWithEmail (CLI-242)', () => {
+    const placeholder = new User(
+      'user-ficha',
+      null,
+      null,
+      UserRole.PATIENT,
+      'Carla Mendoza',
+      null,
+      null,
+      true,
+      new Date(),
+      new Date(),
+    );
+    const linkedUser = new User(
+      'user-ficha',
+      'new-uid',
+      'carla@example.com',
+      UserRole.PATIENT,
+      'Carla Mendoza',
+      null,
+      null,
+      true,
+      new Date(),
+      new Date(),
+    );
+
+    beforeEach(() => {
+      process.env['FRONTEND_URL'] = 'https://app.example.com';
+      mockPatientInvitesService.registrationTarget.mockResolvedValue({
+        valid: true,
+        phone: null,
+      });
+      mockSupabaseAdminService.createEmailUser.mockResolvedValue({
+        authUserId: 'new-uid',
+        hashedToken: 'hash-123',
+      });
+      mockRepo.findByAuthUserId.mockResolvedValue(null);
+      mockPatientInvitesService.redeem.mockResolvedValue({
+        userId: placeholder.id,
+      });
+      mockRepo.linkAuthIdentity.mockResolvedValue(linkedUser);
+    });
+
+    it('crea la cuenta, canjea la invitación y vincula la ficha en el mismo momento, y manda el correo', async () => {
+      await service.registerWithEmail(
+        'carla@example.com',
+        'secret123',
+        'invite-token',
+      );
+
+      expect(mockSupabaseAdminService.createEmailUser).toHaveBeenCalledWith(
+        'carla@example.com',
+        'secret123',
+      );
+      expect(mockPatientInvitesService.redeem).toHaveBeenCalledWith(
+        'invite-token',
+      );
+      expect(mockRepo.linkAuthIdentity).toHaveBeenCalledWith('user-ficha', {
+        authUserId: 'new-uid',
+        email: 'carla@example.com',
+        displayName: null,
+        photoUrl: null,
+      });
+      expect(mockEmailSender.sendAccountEmail).toHaveBeenCalledWith({
+        to: 'carla@example.com',
+        displayName: 'Carla Mendoza',
+        actionUrl:
+          'https://app.example.com/auth/confirmar?token_hash=hash-123&type=signup',
+        kind: 'confirm_email',
+      });
+    });
+
+    it('con una invitación vencida da 403 y no crea nada', async () => {
+      mockPatientInvitesService.registrationTarget.mockResolvedValue({
+        valid: false,
+        phone: null,
+      });
+
+      await expect(
+        service.registerWithEmail('carla@example.com', 'secret123', 'tok'),
+      ).rejects.toThrow(ForbiddenException);
+      expect(mockSupabaseAdminService.createEmailUser).not.toHaveBeenCalled();
+      expect(mockEmailSender.sendAccountEmail).not.toHaveBeenCalled();
+    });
+
+    it('un segundo intento antes de confirmar no vuelve a canjear: solo reenvía el correo', async () => {
+      mockRepo.findByAuthUserId.mockResolvedValue(linkedUser);
+
+      await service.registerWithEmail(
+        'carla@example.com',
+        'secret123',
+        'invite-token',
+      );
+
+      expect(mockPatientInvitesService.redeem).not.toHaveBeenCalled();
+      expect(mockRepo.linkAuthIdentity).not.toHaveBeenCalled();
+      expect(mockEmailSender.sendAccountEmail).toHaveBeenCalled();
+    });
+
+    it('si la invitación ya no se puede canjear, borra la cuenta recién creada y da 403', async () => {
+      mockPatientInvitesService.redeem.mockResolvedValue(null);
+
+      await expect(
+        service.registerWithEmail('carla@example.com', 'secret123', 'tok'),
+      ).rejects.toThrow(ForbiddenException);
+      expect(mockSupabaseAdminService.deleteUser).toHaveBeenCalledWith(
+        'new-uid',
+      );
+      expect(mockEmailSender.sendAccountEmail).not.toHaveBeenCalled();
+    });
+
+    it('si el correo ya es de otra cuenta de la clínica (409 al vincular), borra la cuenta recién creada', async () => {
+      mockRepo.linkAuthIdentity.mockRejectedValue(
+        new ConflictException('El email ya está en uso'),
+      );
+
+      await expect(
+        service.registerWithEmail('carla@example.com', 'secret123', 'tok'),
+      ).rejects.toThrow(ConflictException);
+      expect(mockSupabaseAdminService.deleteUser).toHaveBeenCalledWith(
+        'new-uid',
+      );
+    });
+
+    it('confirma el teléfono de la ficha como login, igual que al canjear en el sync', async () => {
+      mockRepo.linkAuthIdentity.mockResolvedValue(
+        new User(
+          'user-ficha',
+          'new-uid',
+          'carla@example.com',
+          UserRole.PATIENT,
+          'Carla Mendoza',
+          '70011122',
+          null,
+          true,
+          new Date(),
+          new Date(),
+        ),
+      );
+      mockSupabaseAdminService.setConfirmedPhone.mockResolvedValue({
+        ok: true,
+      });
+
+      await service.registerWithEmail(
+        'carla@example.com',
+        'secret123',
+        'invite-token',
+      );
+
+      expect(mockSupabaseAdminService.setConfirmedPhone).toHaveBeenCalledWith(
+        'new-uid',
+        '+59170011122',
+      );
+    });
+  });
+
+  describe('resendEmailConfirmation (CLI-242)', () => {
+    it('reenvía solo a una cuenta vinculada que todavía no confirmó', async () => {
+      mockRepo.findByEmail.mockResolvedValue(mockUser);
+      mockSupabaseAdminService.createEmailConfirmation.mockResolvedValue({
+        email: 'test@example.com',
+        hashedToken: 'hash-9',
+      });
+
+      await service.resendEmailConfirmation('test@example.com');
+
+      expect(
+        mockSupabaseAdminService.createEmailConfirmation,
+      ).toHaveBeenCalledWith(AUTH_USER_ID);
+      expect(mockEmailSender.sendAccountEmail).toHaveBeenCalledWith(
+        expect.objectContaining({
+          to: 'test@example.com',
+          kind: 'confirm_email',
+          actionUrl: expect.stringContaining('token_hash=hash-9') as unknown,
+        }),
+      );
+    });
+
+    it('no hace nada si el correo no tiene cuenta o ya está confirmada', async () => {
+      mockRepo.findByEmail.mockResolvedValueOnce(null);
+      await service.resendEmailConfirmation('nadie@example.com');
+
+      mockRepo.findByEmail.mockResolvedValueOnce(mockUser);
+      mockSupabaseAdminService.createEmailConfirmation.mockResolvedValueOnce(
+        null,
+      );
+      await service.resendEmailConfirmation('test@example.com');
+
+      expect(mockEmailSender.sendAccountEmail).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('requestPasswordRecovery (CLI-243)', () => {
+    beforeEach(() => {
+      process.env['FRONTEND_URL'] = 'https://app.example.com';
+    });
+
+    it('manda el link de recuperación por correo con token_hash', async () => {
+      mockSupabaseAdminService.createRecoveryLink.mockResolvedValue('hash-r');
+      mockRepo.findByEmail.mockResolvedValue(mockUser);
+
+      await service.requestPasswordRecovery('test@example.com');
+
+      expect(mockEmailSender.sendAccountEmail).toHaveBeenCalledWith({
+        to: 'test@example.com',
+        displayName: 'Test User',
+        actionUrl:
+          'https://app.example.com/auth/reset-password?token_hash=hash-r&type=recovery',
+        kind: 'reset_password',
+      });
+    });
+
+    it('sin cuenta con ese correo no manda nada y no lanza', async () => {
+      mockSupabaseAdminService.createRecoveryLink.mockResolvedValue(null);
+
+      await expect(
+        service.requestPasswordRecovery('nadie@example.com'),
+      ).resolves.toBeUndefined();
+      expect(mockEmailSender.sendAccountEmail).not.toHaveBeenCalled();
+    });
+
+    it('si falla Supabase o Resend, responde igual y lo deja en el log', async () => {
+      mockSupabaseAdminService.createRecoveryLink.mockRejectedValue(
+        new Error('caído'),
+      );
+      const logged = jest
+        .spyOn(Logger.prototype, 'error')
+        .mockImplementation(() => undefined);
+
+      await expect(
+        service.requestPasswordRecovery('test@example.com'),
+      ).resolves.toBeUndefined();
+      expect(logged).toHaveBeenCalled();
     });
   });
 });

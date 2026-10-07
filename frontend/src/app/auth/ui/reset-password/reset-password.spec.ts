@@ -1,5 +1,5 @@
 import { TestBed } from '@angular/core/testing';
-import { provideRouter, Router } from '@angular/router';
+import { ActivatedRoute, convertToParamMap, provideRouter, Router } from '@angular/router';
 import { ResetPasswordComponent } from './reset-password';
 import { AuthService } from '../../application/auth.service';
 
@@ -7,16 +7,27 @@ function createAuthServiceStub(overrides: Record<string, unknown> = {}) {
   return {
     authReady: Promise.resolve(),
     hasRecoverySession: vi.fn().mockResolvedValue(true),
+    verifyRecoveryLink: vi.fn().mockResolvedValue(undefined),
     updatePassword: vi.fn().mockResolvedValue(undefined),
     logout: vi.fn().mockResolvedValue(undefined),
     ...overrides,
   };
 }
 
-function setup(authService: ReturnType<typeof createAuthServiceStub>) {
+function setup(
+  authService: ReturnType<typeof createAuthServiceStub>,
+  query: Record<string, string> = {},
+) {
   TestBed.configureTestingModule({
     imports: [ResetPasswordComponent],
-    providers: [provideRouter([]), { provide: AuthService, useValue: authService }],
+    providers: [
+      provideRouter([]),
+      { provide: AuthService, useValue: authService },
+      {
+        provide: ActivatedRoute,
+        useValue: { snapshot: { queryParamMap: convertToParamMap(query) } },
+      },
+    ],
   });
   return TestBed.createComponent(ResetPasswordComponent);
 }
@@ -106,6 +117,42 @@ describe('ResetPasswordComponent', () => {
 
     expect(authService.updatePassword).toHaveBeenCalledWith('contraseñaValida1');
     expect(authService.logout).toHaveBeenCalled();
-    expect(navigateSpy).toHaveBeenCalledWith(['/auth/login'], { queryParams: { reset: 'success' } });
+    expect(navigateSpy).toHaveBeenCalledWith(['/auth/login'], {
+      queryParams: { reset: 'success' },
+    });
+  });
+
+  // CLI-243: el link del correo que manda el backend trae token_hash.
+  describe('link con token_hash', () => {
+    it('verifica el token antes de mostrar el formulario', async () => {
+      const authService = createAuthServiceStub();
+      const fixture = setup(authService, { token_hash: 'hash-r', type: 'recovery' });
+      await settle(fixture);
+      await settle(fixture);
+
+      expect(authService.verifyRecoveryLink).toHaveBeenCalledWith('hash-r');
+      expect(el(fixture, NEW_PASSWORD_INPUT)).not.toBeNull();
+    });
+
+    it('un link vencido o usado muestra "Enlace inválido" sin consultar la sesión', async () => {
+      const authService = createAuthServiceStub({
+        verifyRecoveryLink: vi.fn().mockRejectedValue(new Error('vencido')),
+      });
+      const fixture = setup(authService, { token_hash: 'viejo', type: 'recovery' });
+      await settle(fixture);
+      await settle(fixture);
+
+      expect(authService.hasRecoverySession).not.toHaveBeenCalled();
+      expect(el(fixture, NEW_PASSWORD_INPUT)).toBeNull();
+      expect((fixture.nativeElement as HTMLElement).textContent).toContain('inválido');
+    });
+
+    it('sin token_hash no verifica nada (links viejos de Supabase)', async () => {
+      const authService = createAuthServiceStub();
+      const fixture = setup(authService);
+      await settle(fixture);
+
+      expect(authService.verifyRecoveryLink).not.toHaveBeenCalled();
+    });
   });
 });

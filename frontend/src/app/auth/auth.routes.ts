@@ -17,6 +17,12 @@ export const authRoutes: Routes = [
       import('./ui/reset-password/reset-password').then((m) => m.ResetPasswordComponent),
   },
   {
+    // Link del correo de confirmación que manda el backend (CLI-242).
+    path: 'confirmar',
+    loadComponent: () =>
+      import('./ui/confirm-email/confirm-email').then((m) => m.ConfirmEmailComponent),
+  },
+  {
     path: 'callback',
     loadComponent: () =>
       import('./ui/callback/callback').then((m) => m.CallbackComponent),

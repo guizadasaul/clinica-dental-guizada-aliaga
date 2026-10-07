@@ -1,5 +1,6 @@
 import { TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
+import { HttpErrorResponse } from '@angular/common/http';
 import { ForgotPasswordComponent } from './forgot-password';
 import { AuthService } from '../../application/auth.service';
 
@@ -72,6 +73,28 @@ describe('ForgotPasswordComponent', () => {
     expect(authService.requestPasswordReset).toHaveBeenCalledWith('maria@correo.com');
     expect(el(fixture, TITLE)?.textContent).toContain('Revisa tu correo');
   });
+
+  // CLI-243: antes el error se tragaba y siempre decía "Revisa tu correo".
+  it.each([
+    [429, 'Hiciste demasiados pedidos'],
+    [0, 'No pudimos enviar el enlace'],
+  ])(
+    'si el backend falla (%i) lo dice y no muestra "Revisa tu correo"',
+    async (status, message) => {
+      const authService = createAuthServiceStub({
+        requestPasswordReset: vi.fn().mockRejectedValue(new HttpErrorResponse({ status })),
+      });
+      const fixture = setup(authService);
+      await settle(fixture);
+
+      type(el(fixture, EMAIL_INPUT), 'maria@correo.com');
+      submitForm(fixture);
+      await settle(fixture);
+
+      expect((fixture.nativeElement as HTMLElement).textContent).toContain(message);
+      expect(el(fixture, TITLE)?.textContent).not.toContain('Revisa tu correo');
+    },
+  );
 
   it('tras enviar, deshabilita el reenvío con cuenta regresiva de 60s', async () => {
     vi.useFakeTimers();
