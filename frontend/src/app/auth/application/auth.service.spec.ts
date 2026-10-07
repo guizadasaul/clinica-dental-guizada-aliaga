@@ -186,7 +186,7 @@ describe('AuthService', () => {
     httpMock.verify();
   });
 
-  it('registerWithPhone manda el token de invitación junto con el teléfono y la contraseña', async () => {
+  it('registerWithPhone manda el token de invitación junto con el teléfono y la contraseña, sin iniciar sesión', async () => {
     const { service, httpMock, fakeSupabase } = setup();
     const signInWithPassword = vi.fn().mockResolvedValue({ error: null });
     Object.assign(fakeSupabase.client.auth, { signInWithPassword });
@@ -201,10 +201,8 @@ describe('AuthService', () => {
     req.flush(null);
     await done;
 
-    expect(signInWithPassword).toHaveBeenCalledWith({
-      phone: '+59170011122',
-      password: 'una-clave-segura',
-    });
+    // CLI-241: el login lo hace quien llama, para no perder la invitación si falla.
+    expect(signInWithPassword).not.toHaveBeenCalled();
   });
 
   describe('recuperación de contraseña (CLI-42)', () => {

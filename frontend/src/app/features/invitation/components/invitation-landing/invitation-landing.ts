@@ -36,6 +36,28 @@ const INVITE_COPY: Record<InviteKind, InviteCopy> = {
   },
 };
 
+/** Mensaje para cada error del alta por teléfono (CLI-241). */
+function phoneRegistrationError(err: unknown): string {
+  if (!(err instanceof HttpErrorResponse)) {
+    return err instanceof Error ? err.message : 'No se pudo crear la cuenta.';
+  }
+  switch (err.status) {
+    case 400:
+      return 'Revisa el número de teléfono.';
+    case 403:
+      return 'Este link de registro venció o ya se usó. Pídele a la clínica uno nuevo.';
+    case 422:
+      // El número no es el de la ficha (CLI-144): el backend dice cuál usar.
+      return typeof err.error?.message === 'string'
+        ? err.error.message
+        : 'Regístrate con el número que diste en la clínica.';
+    case 429:
+      return 'Hiciste demasiados intentos. Espera un momento y vuelve a intentarlo.';
+    default:
+      return 'No pudimos crear la cuenta en este momento. Intenta de nuevo en unos minutos.';
+  }
+}
+
 @Component({
   selector: 'app-invitation-landing',
   standalone: true,
@@ -196,32 +218,52 @@ export class InvitationLandingComponent implements OnInit {
   private async submitPhone(token: string, phoneE164: string, password: string): Promise<void> {
     this.errorMessage.set(null);
     this.formLoading.set(true);
+    // El token queda guardado hasta que el sync lo canjee: si la cuenta se crea
+    // pero el login falla, entrar después desde "Iniciar sesión" la vincula igual.
     localStorage.setItem('pendingInviteToken', token);
     try {
-      await this.authService.registerWithPhone(phoneE164, password, token);
-      // waitForSync, no authReady: authReady ya está resuelta desde que
-      // arrancó la app (esta pantalla no es una carga fresca) — no sirve
-      // para esperar el sync nuevo que recién disparó este registro, y sin
-      // esperarlo el guard de ficha puede leer currentUser().role todavía
-      // en null y mandar a la landing aunque el link haya sido válido.
-      await this.authService.waitForSync();
-      await this.router.navigateByUrl('/dashboard');
-    } catch (err) {
-      localStorage.removeItem('pendingInviteToken');
-      if (err instanceof HttpErrorResponse && err.status === 409) {
-        this.errorMessage.set('Ese teléfono ya está registrado.');
-      } else if (err instanceof HttpErrorResponse && err.status === 422) {
-        // El número no es el de la ficha (CLI-144): el backend dice cuál usar.
+      try {
+        await this.authService.registerWithPhone(phoneE164, password, token);
+      } catch (err) {
+        // 409: el teléfono ya tiene una cuenta (por ejemplo, un intento
+        // anterior que se creó pero no llegó a entrar). Si la contraseña es
+        // la de esa cuenta, se entra y el sync vincula la invitación.
+        if (err instanceof HttpErrorResponse && err.status === 409) {
+          if (await this.enterWithPhone(phoneE164, password)) return;
+          localStorage.removeItem('pendingInviteToken');
+          this.errorMessage.set(
+            'Ese teléfono ya tiene una cuenta. Entra desde "Iniciar sesión" con tu contraseña.',
+          );
+          return;
+        }
+        localStorage.removeItem('pendingInviteToken');
+        this.errorMessage.set(phoneRegistrationError(err));
+        return;
+      }
+      if (!(await this.enterWithPhone(phoneE164, password))) {
         this.errorMessage.set(
-          typeof err.error?.message === 'string'
-            ? err.error.message
-            : 'Regístrate con el número que diste en la clínica.',
+          'Tu cuenta se creó, pero no pudimos iniciar sesión. Entra desde "Iniciar sesión" con tu teléfono y contraseña.',
         );
-      } else {
-        this.errorMessage.set(err instanceof Error ? err.message : 'No se pudo crear la cuenta.');
       }
     } finally {
       this.formLoading.set(false);
     }
+  }
+
+  /** Inicia sesión y entra al portal; false si el login falla. */
+  private async enterWithPhone(phoneE164: string, password: string): Promise<boolean> {
+    try {
+      await this.authService.loginWithPhone(phoneE164, password);
+    } catch {
+      return false;
+    }
+    // waitForSync, no authReady: authReady ya está resuelta desde que
+    // arrancó la app (esta pantalla no es una carga fresca) — no sirve
+    // para esperar el sync nuevo que recién disparó este login, y sin
+    // esperarlo el guard de ficha puede leer currentUser().role todavía
+    // en null y mandar a la landing aunque el link haya sido válido.
+    await this.authService.waitForSync();
+    await this.router.navigateByUrl('/dashboard');
+    return true;
   }
 }
