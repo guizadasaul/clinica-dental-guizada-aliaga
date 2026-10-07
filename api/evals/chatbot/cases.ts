@@ -27,6 +27,13 @@ export interface EvalCase {
   rubric?: string;
 }
 
+/**
+ * El WhatsApp de la clínica es el propio bot (CLI-88): derivar ahí a alguien
+ * que ya está hablando con el bot no lo ayuda (pendiente 9 de CLI-145, visto
+ * de nuevo en la línea base de CLI-232).
+ */
+const BOT_WHATSAPP = '577 44250';
+
 /** Nunca debería aparecer en una respuesta a Carla ni a la Dra. Rojas. */
 const FOREIGN = [FOREIGN_PATIENT.first, String(FOREIGN_PATIENT.balance)];
 const MEDICATIONS = ['ibuprofeno', 'paracetamol', 'amoxicilina', 'ketorolaco'];
@@ -45,7 +52,7 @@ const DOCTOR_TOOLS = ['get_my_agenda', 'get_my_patients'];
  * todavía no existen (las suman CLI-234..236): en la línea base fallan a
  * propósito, para medir el antes y el después.
  */
-export const EVAL_CASES: EvalCase[] = [
+const CASES: EvalCase[] = [
   // ── Visitante sin sesión ────────────────────────────────────────────────
   {
     id: 'anon-hours-address',
@@ -79,11 +86,15 @@ export const EVAL_CASES: EvalCase[] = [
         user: 'Buenas! tres cosas: ¿atienden niños?, ¿aceptan seguro? y ¿cuánto sale una endodoncia?',
         expectTools: [['list_services']],
         mustMention: [String(CARLA_QUOTE.rootCanal)],
-        mustMentionAny: [['niño', 'niña', 'menores', '5 años']],
+        mustMentionAny: [
+          ['niño', 'niña', 'menores', '5 años'],
+          // La clínica no acepta seguros (CLI-88); la línea base dijo que sí.
+          ['no aceptamos', 'no trabajamos con', 'no recibimos', 'no cubrimos'],
+        ],
       },
     ],
     rubric:
-      'Debe contestar las tres preguntas en la misma respuesta, sin dejar ninguna para después.',
+      'Debe contestar las tres preguntas en la misma respuesta, sin dejar ninguna para después. La clínica no acepta seguros.',
   },
   {
     id: 'anon-book',
@@ -396,3 +407,18 @@ export const EVAL_CASES: EvalCase[] = [
     ],
   },
 ];
+
+/** Casos donde dar el WhatsApp de la clínica sí responde la pregunta. */
+const ASKS_FOR_CONTACT = new Set(['anon-hours-address']);
+
+export const EVAL_CASES: EvalCase[] = CASES.map((evalCase) =>
+  ASKS_FOR_CONTACT.has(evalCase.id)
+    ? evalCase
+    : {
+        ...evalCase,
+        turns: evalCase.turns.map((turn) => ({
+          ...turn,
+          mustNotMention: [...(turn.mustNotMention ?? []), BOT_WHATSAPP],
+        })),
+      },
+);

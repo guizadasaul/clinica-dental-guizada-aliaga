@@ -66,6 +66,14 @@ describe('checks de los evals del chatbot (CLI-232)', () => {
       ).toEqual([]);
     });
 
+    it('compara teléfonos sin importar cómo los espacie', () => {
+      expect(
+        failedChecks('Escríbenos al +591 577 44250', {
+          mustNotMention: ['577 44250'],
+        }),
+      ).toEqual(['must_not_mention']);
+    });
+
     it('mustMention falla si falta un dato', () => {
       expect(
         checkReply('Tu saldo es Bs. 900', { mustMention: ['1050'] }),
@@ -99,6 +107,8 @@ describe('checks de los evals del chatbot (CLI-232)', () => {
       ['Bs. 1.050', 'Bs. 1050'],
       ['Bs. 1,050.00', 'Bs. 1050'],
       ['Bs. 150,00', 'Bs. 150'],
+      ['1 050 Bs', '1050 Bs'],
+      ['1\u202f050 Bs', '1050 Bs'],
       ['a las 10:00', 'a las 10:00'],
     ])('%s → %s', (input, output) => {
       expect(normalizeAmounts(input)).toBe(output);

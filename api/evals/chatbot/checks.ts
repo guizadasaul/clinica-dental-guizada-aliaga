@@ -127,12 +127,12 @@ function words(text: string): number {
 }
 
 /**
- * Normaliza montos para comparar: "Bs. 1.050,00", "1,050" y "1050" quedan
- * como "1050". Solo toca los separadores de miles/decimales entre dígitos.
+ * Normaliza montos para comparar: "Bs. 1.050,00", "1,050", "1 050" y "1050"
+ * quedan como "1050". Solo toca los separadores de miles/decimales entre dígitos.
  */
 export function normalizeAmounts(text: string): string {
   return text
-    .replace(/(\d)[.,](\d{3})(?!\d)/g, '$1$2')
+    .replace(/(\d)[.,\s\u00a0\u202f](\d{3})(?!\d)/g, '$1$2')
     .replace(/(\d)[.,]00(?!\d)/g, '$1');
 }
 
@@ -144,10 +144,13 @@ export function fold(text: string): string {
     .toLowerCase();
 }
 
+/** Para comparar: sin tildes, mayúsculas, formato de montos ni espacios. */
+function comparable(text: string): string {
+  return fold(normalizeAmounts(text)).replace(/\s+/g, '');
+}
+
 function mentions(reply: string, expected: string): boolean {
-  return fold(normalizeAmounts(reply)).includes(
-    fold(normalizeAmounts(expected)),
-  );
+  return comparable(reply).includes(comparable(expected));
 }
 
 export interface ReplyExpectations {
