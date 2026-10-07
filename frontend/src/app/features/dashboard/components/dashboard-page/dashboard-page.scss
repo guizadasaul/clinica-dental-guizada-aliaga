@@ -1,3 +1,5 @@
+@use 'responsive' as rsp;
+
 $sidebar-w: 260px;
 $topbar-h: 56px;
 
@@ -223,6 +225,7 @@ $topbar-h: 56px;
   cursor: pointer;
   transition: background var(--transition-fast), color var(--transition-fast);
   width: 100%;
+  @include rsp.tap-target;
 
   .material-symbols-outlined {
     font-size: 16px;
@@ -258,8 +261,10 @@ $topbar-h: 56px;
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 36px;
-  height: 36px;
+  // 44 px: es el botón que más se toca en el celular (CLI-247).
+  width: 44px;
+  height: 44px;
+  margin-left: calc(-1 * var(--space-2));
   border: none;
   background: transparent;
   color: #fff;

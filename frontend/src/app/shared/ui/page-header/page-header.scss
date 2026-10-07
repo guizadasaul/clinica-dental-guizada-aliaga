@@ -1,3 +1,5 @@
+@use 'responsive' as rsp;
+
 :host {
   display: block;
 }
@@ -23,6 +25,7 @@
     color: var(--color-text-muted);
     cursor: pointer;
     transition: color var(--transition-fast);
+    @include rsp.tap-target;
 
     .material-symbols-outlined {
       font-size: 1.125rem;
