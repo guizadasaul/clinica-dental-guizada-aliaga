@@ -177,6 +177,31 @@ export class SupabaseAdminService {
     return { email, hashedToken: data.properties.hashed_token };
   }
 
+  /**
+   * Token para el link de "olvidé mi contraseña" (CLI-243). null si no hay
+   * una cuenta con ese correo (por ejemplo, una creada solo con teléfono):
+   * quien llama responde igual, sin revelar si existe.
+   */
+  async createRecoveryLink(email: string): Promise<string | null> {
+    const client = this.requireClient(
+      'La recuperación de contraseña no está configurada todavía',
+    );
+    const { data, error } = await client.auth.admin.generateLink({
+      type: 'recovery',
+      email,
+    });
+    if (error) {
+      if (error.code === 'user_not_found' || error.status === 404) {
+        return null;
+      }
+      this.logger.error('No se pudo generar el link de recuperación', error);
+      throw new ServiceUnavailableException(
+        'No se pudo generar el link de recuperación',
+      );
+    }
+    return data.properties.hashed_token;
+  }
+
   /** Deshace una cuenta recién creada si no se pudo vincular (CLI-242). Nunca lanza. */
   async deleteUser(authUserId: string): Promise<void> {
     if (!this.client) return;

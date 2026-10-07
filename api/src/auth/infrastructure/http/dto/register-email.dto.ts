@@ -42,3 +42,12 @@ export class ResendConfirmationDto {
   @MaxLength(255)
   email!: string;
 }
+
+/** "Olvidé mi contraseña" (CLI-243). */
+export class RecoverPasswordDto {
+  @Transform(normalizeEmail)
+  @IsEmail(undefined, { message: 'email no tiene un formato válido' })
+  @Matches(EMAIL_RE, { message: 'email no tiene un formato válido' })
+  @MaxLength(255)
+  email!: string;
+}

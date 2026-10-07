@@ -99,6 +99,19 @@ const ACCOUNT_EMAIL_COPY: Record<AccountEmailKind, AccountEmailCopy> = {
     footerReason:
       'Recibiste este correo porque se creó una cuenta con esta dirección en Clínica Dental Guizada-Aliaga. Si no fuiste tú, puedes ignorar este mensaje.',
   },
+  reset_password: {
+    subject: 'Crea una nueva contraseña en Clínica Dental Guizada-Aliaga',
+    eyebrow: 'Recuperar contraseña',
+    heading: 'Crea una nueva contraseña',
+    preheader: 'usa este enlace para elegir una nueva contraseña.',
+    intro:
+      'Pediste cambiar la contraseña de tu cuenta en Clínica Dental Guizada-Aliaga. Presiona el botón para elegir una nueva; tu contraseña actual sigue funcionando hasta que la cambies.',
+    buttonLabel: 'Crear nueva contraseña',
+    textCta: 'Crea tu nueva contraseña aquí:',
+    expiresIn: '1 hora',
+    footerReason:
+      'Recibiste este correo porque alguien pidió recuperar la contraseña de esta cuenta. Si no fuiste tú, ignora este mensaje: tu contraseña no cambia.',
+  },
 };
 
 /**

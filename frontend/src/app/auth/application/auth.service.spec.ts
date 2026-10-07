@@ -249,6 +249,26 @@ describe('AuthService', () => {
     await expect(service.confirmEmail('hash-1')).rejects.toThrow();
   });
 
+  it('requestPasswordReset pide el link al backend (CLI-243)', async () => {
+    const { service, httpMock } = setup();
+
+    const done = service.requestPasswordReset('carla@example.com');
+    const req = httpMock.expectOne((r) => r.url.endsWith('/auth/password/recover'));
+    expect(req.request.body).toEqual({ email: 'carla@example.com' });
+    req.flush(null);
+    await done;
+  });
+
+  it('verifyRecoveryLink abre la sesión de recuperación con el token_hash (CLI-243)', async () => {
+    const { service, fakeSupabase } = setup();
+    const verifyOtp = vi.fn().mockResolvedValue({ error: null });
+    Object.assign(fakeSupabase.client.auth, { verifyOtp });
+
+    await service.verifyRecoveryLink('hash-r');
+
+    expect(verifyOtp).toHaveBeenCalledWith({ token_hash: 'hash-r', type: 'recovery' });
+  });
+
   describe('recuperación de contraseña (CLI-42)', () => {
     it('PASSWORD_RECOVERY marca la sesión como pendiente y hasRecoverySession() la reconoce', async () => {
       const { service, fakeSupabase } = setup();
@@ -275,14 +295,34 @@ describe('AuthService', () => {
       expect(service.currentUser()).toBeNull();
     });
 
-    it('un SIGNED_IN real para el mismo usuario sí promueve a currentUser aunque quede un marcador de recuperación', async () => {
-      vi.useFakeTimers();
+    // CLI-243: Supabase también emite SIGNED_IN al restaurar la sesión
+    // guardada en una recarga; verificado en vivo, eso dejaba entrar al
+    // portal con el link de recuperación sin cambiar la contraseña.
+    it('un SIGNED_IN de una sesión restaurada NO promueve la sesión de recuperación', async () => {
       const { service, httpMock, fakeSupabase } = setup();
 
       fakeSupabase.fireEvent('PASSWORD_RECOVERY', { user: { id: 'user-1' } });
       await service.authReady;
-
       fakeSupabase.fireEvent('SIGNED_IN', { user: { id: 'user-1' } });
+      await new Promise((resolve) => setTimeout(resolve, 0));
+
+      expect(service.currentUser()).toBeNull();
+      httpMock.expectNone((r) => r.url.endsWith('/auth/sync'));
+      expect(await service.hasRecoverySession()).toBe(true);
+    });
+
+    it('un login explícito deja atrás la recuperación y sí entra', async () => {
+      vi.useFakeTimers();
+      const { service, httpMock, fakeSupabase } = setup();
+      const signInWithPassword = vi.fn().mockImplementation(() => {
+        fakeSupabase.fireEvent('SIGNED_IN', { user: { id: 'user-1' } });
+        return Promise.resolve({ error: null });
+      });
+      Object.assign(fakeSupabase.client.auth, { signInWithPassword });
+
+      fakeSupabase.fireEvent('PASSWORD_RECOVERY', { user: { id: 'user-1' } });
+      await service.authReady;
+      await service.loginWithPassword('a@b.com', 'una-clave-segura');
       await vi.advanceTimersByTimeAsync(0);
       httpMock.expectOne((r) => r.url.endsWith('/auth/sync')).flush(BACKEND_USER);
       await vi.advanceTimersByTimeAsync(0);

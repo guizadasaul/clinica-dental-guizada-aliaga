@@ -19,6 +19,7 @@ describe('controllers de auth', () => {
     registerWithPhone: jest.fn(),
     registerWithEmail: jest.fn(),
     resendEmailConfirmation: jest.fn(),
+    requestPasswordRecovery: jest.fn(),
   };
   const user = { uid: 'auth-1' } as AuthenticatedUser;
 
@@ -121,6 +122,26 @@ describe('controllers de auth', () => {
       expect(service.resendEmailConfirmation).toHaveBeenCalledWith(
         'carla@example.com',
       );
+    });
+
+    it('pide la recuperación de contraseña (CLI-243)', async () => {
+      await controller.recover({ email: 'carla@example.com' });
+
+      expect(service.requestPasswordRecovery).toHaveBeenCalledWith(
+        'carla@example.com',
+      );
+    });
+
+    it('recover limita a 5 por hora por default, configurable con THROTTLE_PASSWORD_RECOVER_PER_HOUR', () => {
+      const limit = Reflect.getMetadata(
+        `${THROTTLER_LIMIT}default`,
+        Reflect.get(PublicEmailRegistrationController.prototype, 'recover'),
+      ) as () => number;
+
+      delete process.env['THROTTLE_PASSWORD_RECOVER_PER_HOUR'];
+      expect(limit()).toBe(5);
+      process.env['THROTTLE_PASSWORD_RECOVER_PER_HOUR'] = '20';
+      expect(limit()).toBe(20);
     });
 
     it.each(['register', 'resend'])(

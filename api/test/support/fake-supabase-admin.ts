@@ -69,6 +69,12 @@ export class FakeSupabaseAdmin {
     );
   }
 
+  /** Como generateLink recovery: null si no hay una cuenta con ese correo (CLI-243). */
+  createRecoveryLink(email: string): Promise<string | null> {
+    const exists = [...this.emailUsers.values()].some((u) => u.email === email);
+    return Promise.resolve(exists ? this.nextToken() : null);
+  }
+
   deleteUser(authUserId: string): Promise<void> {
     this.deletedUsers.push(authUserId);
     this.emailUsers.delete(authUserId);

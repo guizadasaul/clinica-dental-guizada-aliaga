@@ -91,19 +91,17 @@ export class AuthService {
 
       // Sesión de recuperación restaurada por Supabase (reload o volver a
       // /auth/reset-password sin haber enviado el formulario): el evento acá
-      // ya no es PASSWORD_RECOVERY sino INITIAL_SESSION/TOKEN_REFRESHED, así
-      // que sin este chequeo caería en el fallthrough de más abajo y se
-      // promovería a login real. Se excluye SIGNED_IN a propósito: ese
-      // evento solo lo dispara Supabase ante una autenticación fresca real
-      // (login con contraseña/teléfono, o el callback de OAuth) — si el
-      // usuario abandona la recuperación y después hace un login de verdad,
-      // ese login sí debe entrar aunque haya quedado un marcador viejo.
-      if (event !== 'SIGNED_IN' && this.isRecoveryPending(session.user.id)) {
+      // ya no es PASSWORD_RECOVERY, así que sin este chequeo caería en el
+      // fallthrough de más abajo y se promovería a login real. Vale para
+      // cualquier evento, SIGNED_IN incluido: Supabase también lo emite al
+      // restaurar una sesión guardada en una recarga (antes se lo excluía y,
+      // verificado en vivo en CLI-243, recargar con el link de recuperación
+      // dejaba entrar al portal sin cambiar la contraseña). Un login de verdad
+      // borra la marca antes de autenticar (clearRecoveryPending en cada
+      // método de login), así que ese sí entra.
+      if (this.isRecoveryPending(session.user.id)) {
         this.settleReady();
         return;
-      }
-      if (event === 'SIGNED_IN') {
-        this.clearRecoveryPending();
       }
 
       if (this.syncedUserId === session.user.id) {
@@ -132,6 +130,8 @@ export class AuthService {
   }
 
   async loginWithGoogle(): Promise<void> {
+    // Un login explícito deja atrás cualquier recuperación a medias (CLI-243).
+    this.clearRecoveryPending();
     const { error } = await this.supabase.auth.signInWithOAuth({
       provider: 'google',
       options: { redirectTo: `${window.location.origin}/auth/callback` },
@@ -172,6 +172,8 @@ export class AuthService {
    * navegador o desde la app de correo del celular. Deja la sesión iniciada.
    */
   async confirmEmail(tokenHash: string): Promise<void> {
+    // Un login explícito deja atrás cualquier recuperación a medias (CLI-243).
+    this.clearRecoveryPending();
     const { error } = await this.supabase.auth.verifyOtp({
       token_hash: tokenHash,
       type: 'signup',
@@ -182,6 +184,8 @@ export class AuthService {
   }
 
   async loginWithPassword(email: string, password: string): Promise<void> {
+    // Un login explícito deja atrás cualquier recuperación a medias (CLI-243).
+    this.clearRecoveryPending();
     const { error } = await this.supabase.auth.signInWithPassword({ email, password });
     if (error) {
       throw new Error(mapAuthError(error, 'No se pudo iniciar sesión.'));
@@ -197,6 +201,8 @@ export class AuthService {
    * SMS, solo login para una cuenta que ya lo tiene confirmado.
    */
   async loginWithPhone(phone: string, password: string): Promise<void> {
+    // Un login explícito deja atrás cualquier recuperación a medias (CLI-243).
+    this.clearRecoveryPending();
     const { error } = await this.supabase.auth.signInWithPassword({ phone, password });
     if (error) {
       throw new Error(mapAuthError(error, 'No se pudo iniciar sesión.'));
@@ -222,13 +228,31 @@ export class AuthService {
     );
   }
 
+  /**
+   * "Olvidé mi contraseña" (CLI-243): el link lo arma y lo manda el backend
+   * por Resend. Antes se pedía a Supabase, que no mandaba el correo, y el
+   * error se tragaba. El backend responde igual exista o no la cuenta; acá
+   * solo puede fallar por red o por demasiados pedidos, y eso sí se muestra.
+   */
   async requestPasswordReset(email: string): Promise<void> {
-    try {
-      await this.supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${window.location.origin}/auth/reset-password`,
-      });
-    } catch {
-      // Silenciado a propósito: nunca revelar si el correo existe o no.
+    await firstValueFrom(
+      this.http.post<void>(`${environment.backendUrl}/auth/password/recover`, { email }),
+    );
+  }
+
+  /**
+   * Abre la sesión de recuperación con el link del correo (CLI-243), por
+   * token_hash y no por PKCE: funciona en cualquier navegador. Supabase emite
+   * PASSWORD_RECOVERY, así que la sesión queda marcada como recuperación y
+   * no entra al portal hasta definir la contraseña.
+   */
+  async verifyRecoveryLink(tokenHash: string): Promise<void> {
+    const { error } = await this.supabase.auth.verifyOtp({
+      token_hash: tokenHash,
+      type: 'recovery',
+    });
+    if (error) {
+      throw new Error(mapAuthError(error, 'El enlace venció o ya se usó.'));
     }
   }
 
