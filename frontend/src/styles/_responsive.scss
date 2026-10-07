@@ -20,7 +20,11 @@ $tap-target: 44px;
 /// El <thead> queda para los lectores de pantalla, sin ocupar lugar.
 @mixin table-cards {
   @include bp.down(md) {
-    &,
+    // La tabla misma: declaraciones sueltas en vez de `&, tbody…` (Sonar
+    // S8776 marca una lista de selectores que mezcla `&` con otros).
+    display: block;
+    width: 100%;
+
     tbody,
     tr,
     td {
