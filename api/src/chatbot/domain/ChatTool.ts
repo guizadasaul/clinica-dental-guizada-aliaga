@@ -20,5 +20,10 @@ export interface ChatTool<TArgs extends object = object> {
   readonly description: string;
   readonly parameters: JsonSchema;
   readonly argsDto: new () => TArgs;
+  /**
+   * Tope propio en ms, para las tools que llaman a un servicio externo lento
+   * (el QR de BANECO, CLI-236). Sin valor: CHAT_TOOL_TIMEOUT_MS.
+   */
+  readonly timeoutMs?: number;
   execute(actor: ChatActor, args: TArgs): Promise<unknown>;
 }

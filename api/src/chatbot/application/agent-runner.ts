@@ -19,10 +19,17 @@ import { ToolExecutionPort } from '../domain/ToolExecution';
 import type { ToolExecutionPort as IToolExecutionPort } from '../domain/ToolExecution';
 import { readEnvInt } from '../../shared/env.util';
 import { fallbackReply } from './fallback-reply';
-import { linkOnlyReply, mergeLinks, removeUrls } from './reply-links';
+import {
+  linkOnlyReply,
+  mergeLinks,
+  qrOnlyReply,
+  removeUrls,
+} from './reply-links';
 import { guardOutput } from './output-guard';
 import type { OutputGuardAction } from './output-guard';
 import type { ChatLink } from '../domain/ChatLink';
+import { mergeAttachments } from '../domain/ChatAttachment';
+import type { ChatAttachment } from '../domain/ChatAttachment';
 import type { ChatLocale } from './fallback-reply';
 import type { ToolCallAudit } from './chat-audit.logger';
 
@@ -51,6 +58,8 @@ export interface AgentRunResult {
   reply: string;
   /** Links que produjeron las tools (ej. el de reserva); los agrega el backend, no el modelo. */
   links: ChatLink[];
+  /** Adjuntos que produjeron las tools (el QR de pago, CLI-236); tampoco pasan por el modelo. */
+  attachments: ChatAttachment[];
   /** Tools pedidas por el modelo y enviadas a ejecutar, en orden (métricas). */
   toolNames: string[];
   /** Cada tool ejecutada con su resultado y duración (auditoría, CLI-98). */
@@ -70,6 +79,7 @@ interface RunState {
   toolNames: string[];
   toolCalls: ToolCallAudit[];
   links: ChatLink[];
+  attachments: ChatAttachment[];
   usage: LlmUsage;
   cachedPromptTokens: number;
   llmLatencyMs: number;
@@ -113,6 +123,7 @@ export class AgentRunner {
       toolNames: [],
       toolCalls: [],
       links: [],
+      attachments: [],
       usage: { promptTokens: 0, completionTokens: 0 },
       cachedPromptTokens: 0,
       llmLatencyMs: 0,
@@ -196,6 +207,7 @@ export class AgentRunner {
       ms: Date.now() - started,
     });
     mergeLinks(state.links, result.links);
+    mergeAttachments(state.attachments, result.attachments);
     return result.content;
   }
 
@@ -205,6 +217,9 @@ export class AgentRunner {
     locale: ChatLocale | undefined,
   ): AgentRunResult {
     const reply = content ? removeUrls(content) : '';
+    if (!reply && state.attachments.length > 0) {
+      return this.result(qrOnlyReply(locale), state, null);
+    }
     if (!reply && state.links.length > 0) {
       return this.result(linkOnlyReply(locale), state, null);
     }
@@ -213,8 +228,10 @@ export class AgentRunner {
     }
     const guarded = guardOutput(reply, locale);
     if (guarded.action === 'blocked') {
-      // Una respuesta bloqueada no lleva links: no se sabe qué prometía.
+      // Una respuesta bloqueada no lleva links: no se sabe qué prometía. El
+      // QR tampoco: si quedó pendiente, el próximo pedido lo vuelve a mostrar.
       state.links = [];
+      state.attachments = [];
     }
     return this.result(guarded.reply, state, null, guarded.action);
   }
@@ -227,8 +244,10 @@ export class AgentRunner {
   ): AgentRunResult {
     return {
       reply,
-      // Con fallback no se muestran links: la respuesta no los menciona.
+      // Con fallback no se muestran links ni el QR: la respuesta no los
+      // menciona (un QR ya generado queda pendiente y se vuelve a mostrar).
       links: errorCode ? [] : state.links,
+      attachments: errorCode ? [] : state.attachments,
       toolNames: state.toolNames,
       toolCalls: state.toolCalls,
       usage: state.usage,

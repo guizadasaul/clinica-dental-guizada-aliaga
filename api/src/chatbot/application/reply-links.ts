@@ -12,6 +12,17 @@ export function linkOnlyReply(locale: ChatLocale = 'es'): string {
   return LINK_ONLY_REPLIES[locale] ?? LINK_ONLY_REPLIES.es;
 }
 
+const QR_ONLY_REPLIES: Record<ChatLocale, string> = {
+  es: 'Aquí tienes tu QR para pagar. Cuando pagues, presiona "Ya pagué".',
+  en: 'Here is your QR code to pay. Once you pay, press "I paid".',
+  pt: 'Aqui está o seu QR para pagar. Quando pagar, toque em "Já paguei".',
+};
+
+/** Para cuando el modelo generó el QR de pago (CLI-236) pero no escribió texto. */
+export function qrOnlyReply(locale: ChatLocale = 'es'): string {
+  return QR_ONLY_REPLIES[locale] ?? QR_ONLY_REPLIES.es;
+}
+
 /** Marca de un link de reserva escrito por el modelo, completo o recortado. */
 const BOOKING_PATH = '/reservar';
 

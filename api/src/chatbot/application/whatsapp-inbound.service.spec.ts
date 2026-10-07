@@ -46,6 +46,7 @@ describe('WhatsappInboundService (CLI-101)', () => {
   const handleMessage = jest.fn();
   const redeem = jest.fn();
   const sendText = jest.fn();
+  const sendImage = jest.fn();
   let service: WhatsappInboundService;
   let logSpy: jest.SpyInstance;
   let warnSpy: jest.SpyInstance;
@@ -62,7 +63,7 @@ describe('WhatsappInboundService (CLI-101)', () => {
       { fromChannelSender } as unknown as ActorResolver,
       { handleMessage } as unknown as ChatService,
       { redeem } as unknown as ChannelLinkingService,
-      { sendText },
+      { sendText, sendImage },
     );
     fromChannelSender.mockResolvedValue({ actor: PATIENT, match: 'patient' });
     handleMessage.mockResolvedValue({
@@ -70,6 +71,7 @@ describe('WhatsappInboundService (CLI-101)', () => {
       anonToken: null,
       reply: 'Debes 130 Bs.',
       links: [],
+      attachments: [],
     });
     sendText.mockResolvedValue(undefined);
     logSpy = jest.spyOn(Logger.prototype, 'log').mockImplementation(() => {});
@@ -187,6 +189,7 @@ describe('WhatsappInboundService (CLI-101)', () => {
             url: 'https://guizadaaliaga.com/reservar?slot=x',
           },
         ],
+        attachments: [],
       });
 
       await service.process(message());
@@ -195,6 +198,46 @@ describe('WhatsappInboundService (CLI-101)', () => {
         '+59171234567',
         'Te dejo el link.\n\nCompletar reserva y pago (28/09, 10:00): https://guizadaaliaga.com/reservar?slot=x',
       );
+    });
+
+    it('el QR de pago (CLI-236) va como imagen después del texto', async () => {
+      handleMessage.mockResolvedValue({
+        sessionId: 's-1',
+        anonToken: null,
+        reply: 'Aquí tienes tu QR por Bs. 1050.',
+        links: [],
+        attachments: [
+          {
+            type: 'qr_payment',
+            chargeId: 'charge-1',
+            amountBob: 1050,
+            imageBase64: 'cG5n',
+            lines: [],
+          },
+        ],
+      });
+      sendImage.mockResolvedValue(undefined);
+
+      await service.process(message());
+
+      expect(sendText).toHaveBeenCalledWith(
+        '+59171234567',
+        'Aquí tienes tu QR por Bs. 1050.',
+      );
+      expect(sendImage).toHaveBeenCalledWith(
+        '+59171234567',
+        'cG5n',
+        expect.stringContaining('Bs. 1050') as unknown,
+      );
+      expect(sendText.mock.invocationCallOrder[0]).toBeLessThan(
+        sendImage.mock.invocationCallOrder[0],
+      );
+      const [[, , caption]] = sendImage.mock.calls as [
+        string,
+        string,
+        string,
+      ][];
+      expect(caption).toContain('ya pagué');
     });
 
     it('un número compartido responde como visitante y sugiere vincularse', async () => {
@@ -366,6 +409,7 @@ describe('WhatsappInboundService (CLI-101)', () => {
                   anonToken: null,
                   reply: '1',
                   links: [],
+                  attachments: [],
                 });
               };
             }),
@@ -377,6 +421,7 @@ describe('WhatsappInboundService (CLI-101)', () => {
             anonToken: null,
             reply: '2',
             links: [],
+            attachments: [],
           });
         });
 

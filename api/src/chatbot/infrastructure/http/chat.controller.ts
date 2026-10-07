@@ -23,6 +23,7 @@ import { ActorResolver } from '../../application/actor-resolver.js';
 import { ChatChannel } from '../../domain/ChatChannel.js';
 import { chatAuditContext } from '../../domain/ChatAudit.js';
 import type { ChatLink } from '../../domain/ChatLink.js';
+import type { ChatAttachment } from '../../domain/ChatAttachment.js';
 import { SendChatMessageDto } from './dto/send-chat-message.dto.js';
 import { resolveRequestId } from './request-id.js';
 
@@ -32,6 +33,8 @@ export interface ChatMessageResponse {
   sessionId: string;
   reply: string;
   links: ChatLink[];
+  /** El QR de pago del paciente (CLI-236); [] en el resto de las respuestas. */
+  attachments: ChatAttachment[];
 }
 
 /**
@@ -74,6 +77,7 @@ export class ChatController {
       sessionId: result.sessionId,
       reply: result.reply,
       links: result.links,
+      attachments: result.attachments,
     };
   }
 

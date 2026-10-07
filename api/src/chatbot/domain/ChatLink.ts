@@ -1,3 +1,5 @@
+import type { ChatAttachment } from './ChatAttachment';
+
 /**
  * Un link que acompaña la respuesta del asistente (por ejemplo, el de
  * reserva). El texto lo escribe el modelo, pero los links los pone el backend:
@@ -12,12 +14,14 @@ export interface ChatLink {
 
 /**
  * Lo que devuelve una tool que además de datos para el modelo produce links
- * para el usuario. `data` va al LLM; `links` va directo a la respuesta, sin
- * pasar por el modelo.
+ * o adjuntos para el usuario (el QR de pago, CLI-236). `data` va al LLM;
+ * `links` y `attachments` van directo a la respuesta, sin pasar por el
+ * modelo.
  */
 export class ToolOutputWithLinks {
   constructor(
     readonly data: unknown,
     readonly links: ChatLink[],
+    readonly attachments: ChatAttachment[] = [],
   ) {}
 }

@@ -70,7 +70,7 @@ describe('SystemPromptBuilder', () => {
 
   it.each([
     [{ kind: 'anonymous' }, 'inicia sesión en la web'],
-    [userActor(UserRole.PATIENT), '"Mi presupuesto"'],
+    [userActor(UserRole.PATIENT), 'create_my_qr_payment'],
     [userActor(UserRole.ODONTOLOGIST), 'de colega a colega'],
     [userActor(UserRole.ADMIN), 'agenda de toda la clínica'],
   ] as [ChatActor, string][])(
@@ -81,7 +81,7 @@ describe('SystemPromptBuilder', () => {
       expect(prompt).toContain(guide);
       const others = [
         'inicia sesión en la web',
-        '"Mi presupuesto"',
+        'create_my_qr_payment',
         'de colega a colega',
         'agenda de toda la clínica',
       ].filter((text) => text !== guide);
