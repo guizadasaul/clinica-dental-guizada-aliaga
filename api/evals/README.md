@@ -57,7 +57,7 @@ En el plan gratuito, el cupo es por modelo: 8K tokens por minuto y 200K por día
 - Dos corridas completas en el mismo día agotan el cupo diario. Mientras tanto, el chat del entorno de desarrollo responde con el fallback.
 - Para iterar, conviene filtrar por rol o por caso.
 
-Si un caso termina con `error del agente: llm_rate_limited`, es el cupo y no el comportamiento. Leer el 429 de Groq: "tokens per day (TPD)" o "per minute".
+Los casos que terminan con error del proveedor no pasan por el juez, para no ensuciar los promedios. Si un caso termina con `error del agente: llm_rate_limited`, es el cupo y no el comportamiento. Leer el 429 de Groq: "tokens per day (TPD)" o "per minute".
 
 ## Datos
 

@@ -173,8 +173,11 @@ describe('Evals del chatbot (Groq real)', () => {
         ],
       });
     }
+    // Un turno que terminó en fallback (cupo de Groq, timeout) no dice nada
+    // del comportamiento: juzgarlo solo bajaría los promedios (CLI-238).
+    const errored = turns.some((t) => t.errorCode !== null);
     const verdict =
-      process.env['EVAL_JUDGE'] === '1'
+      process.env['EVAL_JUDGE'] === '1' && !errored
         ? await judge(
             llm,
             evalCase.role,

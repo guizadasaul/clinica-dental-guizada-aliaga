@@ -222,6 +222,16 @@ describe('Chatbot: autorización (e2e) — CLI-95', () => {
       await expectNoForeignData(turn);
     });
 
+    it('3b. A ve su presupuesto numerado y nunca el de B (CLI-235)', async () => {
+      const turn = await callTool(fx.patientA.token, 'get_my_quotes');
+
+      expect(turn.result['data']).toMatchObject({
+        total: 1,
+        quotes: [{ quote: 1, totalBob: A_QUOTE.total, paidBob: A_QUOTE.paid }],
+      });
+      await expectNoForeignData(turn);
+    });
+
     it('4. un reporte de admin pedido por el modelo se deniega sin tocar el service', async () => {
       const spy = jest.spyOn(reports, 'getFinancialReport');
 
@@ -294,6 +304,52 @@ describe('Chatbot: autorización (e2e) — CLI-95', () => {
         ],
       });
       await expectNoForeignData(turn);
+    });
+
+    it('8b. el resumen de un paciente de otro doctor da not_found (CLI-234)', async () => {
+      const turn = await callTool(fx.doctor1.token, 'get_my_patient_summary', {
+        name: `${PATIENT_B.firstName} ${PATIENT_B.lastName}`,
+      });
+
+      expect(turn.result['data']).toMatchObject({ error: 'not_found' });
+      await expectNoForeignData(turn);
+    });
+
+    it('8c. el resumen de su paciente trae su saldo real (CLI-234)', async () => {
+      const turn = await callTool(fx.doctor1.token, 'get_my_patient_summary', {
+        name: PATIENT_A.firstName,
+      });
+
+      expect(turn.result['data']).toMatchObject({
+        name: `${PATIENT_A.firstName} ${PATIENT_A.lastName}`,
+        quote: { balanceBob: A_QUOTE.total - A_QUOTE.paid },
+      });
+      await expectNoForeignData(turn);
+    });
+
+    it('8d. "quién me debe" lista solo a sus pacientes (CLI-234)', async () => {
+      const turn = await callTool(
+        fx.doctor1.token,
+        'get_my_patients_with_balance',
+      );
+
+      expect(turn.result['data']).toMatchObject({
+        total: 1,
+        totalBalanceBob: A_QUOTE.total - A_QUOTE.paid,
+      });
+      await expectNoForeignData(turn);
+    });
+
+    it('8e. un patientId en el resumen se rechaza (CLI-234)', async () => {
+      const turn = await callTool(fx.doctor1.token, 'get_my_patient_summary', {
+        name: PATIENT_B.firstName,
+        patientId: fx.patientB.patientId,
+      });
+
+      expect(turn.result).toEqual({
+        error: 'invalid_arguments',
+        fields: ['patientId'],
+      });
     });
   });
 
