@@ -388,7 +388,7 @@ describe('ChatWidgetComponent: QR de pago (CLI-237)', () => {
 
     expect(q('.chat-qr')?.getAttribute('data-state')).toBe('waiting');
     expect(q('.chat-qr__image')).not.toBeNull();
-    expect(q('.chat-qr [role="status"]')).not.toBeNull();
+    expect(q('.chat-qr output')).not.toBeNull();
   });
 
   it('"Anular" anula el cobro y saca el QR', async () => {

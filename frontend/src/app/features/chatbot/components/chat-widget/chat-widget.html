@@ -67,9 +67,9 @@
                 }
                 <p class="chat-qr__hint">{{ 'chatbot.qr.expires' | translate }}</p>
                 @if (card.state === 'waiting') {
-                  <p class="chat-qr__status" role="status">
+                  <output class="chat-qr__status">
                     {{ 'chatbot.qr.stillPending' | translate }}
-                  </p>
+                  </output>
                 }
                 @if (card.state === 'error') {
                   <p class="chat-qr__status chat-qr__status--error" role="alert">
