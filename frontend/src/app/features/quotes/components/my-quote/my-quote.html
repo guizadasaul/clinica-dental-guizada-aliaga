@@ -90,6 +90,7 @@
                         @if (l.toothNumbers.length > 0) {
                           <small class="mq__teeth">· pieza{{ l.toothNumbers.length === 1 ? '' : 's' }} {{ l.toothNumbers.join(', ') }}</small>
                         }
+                        <small class="mq__status" [class.mq__status--done]="l.performedAt">{{ performedLabel(l.performedAt) }}</small>
                       </td>
                       <td class="mq__num">{{ bs(l.total) }}</td>
                       <td class="mq__num">

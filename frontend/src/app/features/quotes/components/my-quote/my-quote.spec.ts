@@ -117,6 +117,25 @@ describe('MyQuoteComponent', () => {
     expect(root.querySelector('.mq__card--balance')?.textContent).toContain('Bs. 400,00');
   });
 
+  // CLI-229: el presupuesto es el plan del doctor; el paciente ve qué ya se hizo.
+  it('cada tratamiento dice si ya se realizó (con fecha) o si falta', () => {
+    const { root } = setup(
+      of([
+        quote({
+          lines: [
+            line('corona', 950, 950, { performedAt: '2026-04-22T00:00:00.000Z' }),
+            line('limpieza', 350),
+          ],
+        }),
+      ]),
+    );
+    const status = [...root.querySelectorAll('.mq__line .mq__status')].map((s) => s.textContent?.trim());
+
+    expect(status).toEqual(['Realizado el 22/04/2026', 'Por realizar']);
+    // Se puede pagar aunque todavía no se haya realizado.
+    expect(root.querySelectorAll('.mq__line input[type=checkbox]')).toHaveLength(2);
+  });
+
   it('muestra los pagos del más reciente al más antiguo con lo que cubrió cada uno', () => {
     const { root } = setup(
       of([
@@ -165,7 +184,8 @@ describe('MyQuoteComponent', () => {
   it('pagina los tratamientos de a 10', async () => {
     const lines = Array.from({ length: 13 }, (_, i) => line(`l${i + 1}`, 100));
     const { fixture, root } = setup(of([quote({ totalAmount: 1300, balance: 1300, lines })]));
-    const names = () => [...root.querySelectorAll('.mq__line td:nth-child(2)')].map((c) => c.textContent?.trim());
+    // El nombre es el primer texto de la celda (debajo va si se realizó, CLI-229).
+    const names = () => [...root.querySelectorAll('.mq__line td:nth-child(2)')].map((c) => c.firstChild?.textContent?.trim());
 
     expect(names()).toHaveLength(10);
     root.querySelector<HTMLButtonElement>('button[aria-label="Página siguiente"]')!.click();

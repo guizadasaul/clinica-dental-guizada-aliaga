@@ -139,6 +139,15 @@
   color: var(--color-gray-500);
 }
 
+// CLI-229: si el doctor ya realizó el tratamiento.
+.mq__status {
+  display: block;
+  font-size: var(--font-size-xs);
+  color: #4b5563;
+
+  &--done { color: #166534; }
+}
+
 // El pago y su detalle ("Cubrió: …") se leen como una sola fila.
 .mq__payment--detailed td {
   border-bottom: none;
