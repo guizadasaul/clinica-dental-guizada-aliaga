@@ -97,7 +97,8 @@ describe('DoctorAgendaComponent', () => {
   describe('horarios reservados (CLI-195)', () => {
     function blockToday(startHour: number, endHour: number): TimeBlock {
       const day = todayAtLaPazMorning().slice(0, 10);
-      const iso = (h: number) => new Date(`${day}T${String(h).padStart(2, '0')}:00:00-04:00`).toISOString();
+      const iso = (h: number) =>
+        new Date(`${day}T${String(h).padStart(2, '0')}:00:00-04:00`).toISOString();
       return {
         id: 'block-1',
         doctorId: 'doctor-a',
@@ -118,15 +119,27 @@ describe('DoctorAgendaComponent', () => {
     });
 
     it('un horario reservado no se puede clickear para agendar', async () => {
+      // Hora fija (miércoles 09:00 en La Paz): de noche todas las celdas de
+      // hoy ya pasaron y no son clickeables, así que reservar el día entero
+      // no bajaba nada y el test fallaba cada noche. Solo se fija Date.
+      vi.useFakeTimers({ toFake: ['Date'] });
+      vi.setSystemTime(new Date('2026-10-07T13:00:00Z'));
+      onTestFinished(() => {
+        vi.useRealTimers();
+      });
       const day = todayAtLaPazMorning().slice(0, 10);
       const free = setup([], [], []);
       await settle(free.fixture);
-      const freeCells = free.fixture.nativeElement.querySelectorAll('.agenda-cell:not(.agenda-cell--static)').length;
+      const freeCells = free.fixture.nativeElement.querySelectorAll(
+        '.agenda-cell:not(.agenda-cell--static)',
+      ).length;
       TestBed.resetTestingModule();
 
       const { fixture } = setup([], [], [blockToday(0, 24)]);
       await settle(fixture);
-      const cells = fixture.nativeElement.querySelectorAll('.agenda-cell:not(.agenda-cell--static)');
+      const cells = fixture.nativeElement.querySelectorAll(
+        '.agenda-cell:not(.agenda-cell--static)',
+      );
 
       expect(day).toBeTruthy();
       expect(cells.length).toBeLessThan(freeCells);
@@ -205,14 +218,16 @@ describe('DoctorAgendaComponent', () => {
     expect(fixture.nativeElement.querySelector('app-appointment-detail-dialog')).toBeTruthy();
 
     const openRecord = [
-      ...(fixture.nativeElement as HTMLElement).querySelectorAll<HTMLButtonElement>('.detail-modal__btn'),
+      ...(fixture.nativeElement as HTMLElement).querySelectorAll<HTMLButtonElement>(
+        '.detail-modal__btn',
+      ),
     ].find((b) => b.textContent?.includes('Abrir ficha'))!;
     openRecord.click();
     await settle(fixture);
 
     expect(fixture.nativeElement.querySelector('app-appointment-detail-dialog')).toBeFalsy();
     expect(fixture.nativeElement.querySelector('app-patient-wizard')).toBeTruthy();
-   }, 20_000);
+  }, 20_000);
 
   it('does not open the patient history from a slot when readOnly is true', async () => {
     const { fixture } = setup();
@@ -392,7 +407,8 @@ describe('DoctorAgendaComponent', () => {
         .toISOString()
         .slice(0, 10);
       const at = (hhmm: string) => new Date(`${nextMonday}T${hhmm}:00-04:00`).toISOString();
-      appointmentsService.getAgenda.mockImplementation(agendaOf([
+      appointmentsService.getAgenda.mockImplementation(
+        agendaOf([
           fakeAppointment({ id: 'madrugada', appointmentDatetime: at('03:00') }),
           fakeAppointment({ id: 'noche', appointmentDatetime: at('23:00') }),
         ]),
@@ -440,7 +456,9 @@ describe('DoctorAgendaComponent', () => {
 
       // La grilla es de 24 horas (CLI-192): ya no es la primera celda del día.
       const cell = [
-        ...(fixture.nativeElement as HTMLElement).querySelectorAll<HTMLButtonElement>('button.agenda-cell'),
+        ...(fixture.nativeElement as HTMLElement).querySelectorAll<HTMLButtonElement>(
+          'button.agenda-cell',
+        ),
       ].find((c) => c.getAttribute('aria-label')?.includes('a las 09:00'))!;
       expect(cell).toBeTruthy();
       cell.click();
@@ -461,15 +479,26 @@ describe('DoctorAgendaComponent', () => {
       const nextMonday = new Date(Date.parse(`${monday}T12:00:00Z`) + 7 * 86_400_000)
         .toISOString()
         .slice(0, 10);
-      appointmentsService.getAgenda.mockImplementation(agendaOf([
-          fakeAppointment({ id: 'a', appointmentDatetime: at(nextMonday, '09:45'), durationMinutes: 75 }),
-          fakeAppointment({ id: 'b', appointmentDatetime: at(nextMonday, '14:00'), durationMinutes: 30 }),
+      appointmentsService.getAgenda.mockImplementation(
+        agendaOf([
+          fakeAppointment({
+            id: 'a',
+            appointmentDatetime: at(nextMonday, '09:45'),
+            durationMinutes: 75,
+          }),
+          fakeAppointment({
+            id: 'b',
+            appointmentDatetime: at(nextMonday, '14:00'),
+            durationMinutes: 30,
+          }),
         ]),
       );
       await nextWeek(fixture);
       type Busy = { busyIntervals: () => { start: number; end: number }[] };
       const slotCell = [
-        ...(fixture.nativeElement as HTMLElement).querySelectorAll<HTMLButtonElement>('button.agenda-cell'),
+        ...(fixture.nativeElement as HTMLElement).querySelectorAll<HTMLButtonElement>(
+          'button.agenda-cell',
+        ),
       ].find((c) => c.getAttribute('aria-label')?.includes('a las 12:00'));
       slotCell?.click();
       await settle(fixture);
@@ -488,7 +517,8 @@ describe('DoctorAgendaComponent', () => {
       const nextMonday = new Date(Date.parse(`${monday}T12:00:00Z`) + 7 * 86_400_000)
         .toISOString()
         .slice(0, 10);
-      appointmentsService.getAgenda.mockImplementation(agendaOf([
+      appointmentsService.getAgenda.mockImplementation(
+        agendaOf([
           fakeAppointment({ appointmentDatetime: at(nextMonday, '10:00'), durationMinutes: 60 }),
         ]),
       );
@@ -599,7 +629,9 @@ describe('DoctorAgendaComponent', () => {
       fixture.componentInstance as unknown as Internals;
 
     function nextMondayOf(monday: string): string {
-      return new Date(Date.parse(`${monday}T12:00:00Z`) + 7 * 86_400_000).toISOString().slice(0, 10);
+      return new Date(Date.parse(`${monday}T12:00:00Z`) + 7 * 86_400_000)
+        .toISOString()
+        .slice(0, 10);
     }
 
     async function withAppointmentNextWeek(durationMinutes = 60) {
@@ -611,25 +643,36 @@ describe('DoctorAgendaComponent', () => {
         durationMinutes,
       });
       ctx.appointmentsService.getAgenda.mockImplementation(agendaOf([appt]));
-      (ctx.fixture.nativeElement.querySelector('[aria-label="Página siguiente"]') as HTMLButtonElement).click();
+      (
+        ctx.fixture.nativeElement.querySelector(
+          '[aria-label="Página siguiente"]',
+        ) as HTMLButtonElement
+      ).click();
       await settle(ctx.fixture);
       return { ...ctx, appt, nextMonday };
     }
 
     it('al reprogramar, las franjas de la propia cita quedan libres y el click abre el modal de reprogramar', async () => {
       const { fixture, appt, nextMonday } = await withAppointmentNextWeek();
-      const at = (m: number) => internals(fixture).cellsFor(nextMonday).find((c) => c.minutes === m)!;
+      const at = (m: number) =>
+        internals(fixture)
+          .cellsFor(nextMonday)
+          .find((c) => c.minutes === m)!;
       expect(at(10 * 60 + 30).bookable).toBe(false);
 
       internals(fixture).onStartReschedule(appt);
       await settle(fixture);
 
       expect(at(10 * 60 + 30).bookable).toBe(true);
-      expect(fixture.nativeElement.querySelector('.agenda__pick')?.textContent).toContain('Juana Perez');
+      expect(fixture.nativeElement.querySelector('.agenda__pick')?.textContent).toContain(
+        'Juana Perez',
+      );
       expect(fixture.nativeElement.querySelector('.agenda-slot--moving')).toBeTruthy();
 
       const cell = [
-        ...(fixture.nativeElement as HTMLElement).querySelectorAll<HTMLButtonElement>('button.agenda-cell'),
+        ...(fixture.nativeElement as HTMLElement).querySelectorAll<HTMLButtonElement>(
+          'button.agenda-cell',
+        ),
       ].find((b) => b.getAttribute('aria-label')?.includes('a las 10:30'))!;
       cell.click();
       await settle(fixture);
@@ -642,7 +685,11 @@ describe('DoctorAgendaComponent', () => {
 
     it('reprogramar desde la agenda común vuelve a la agenda propia', async () => {
       const { fixture, appt } = await withAppointmentNextWeek();
-      [...(fixture.nativeElement as HTMLElement).querySelectorAll<HTMLButtonElement>('.agenda__scope-btn')]
+      [
+        ...(fixture.nativeElement as HTMLElement).querySelectorAll<HTMLButtonElement>(
+          '.agenda__scope-btn',
+        ),
+      ]
         .find((b) => b.textContent?.includes('Agenda común'))!
         .click();
       await settle(fixture);
@@ -749,7 +796,10 @@ describe('DoctorAgendaComponent', () => {
       visibleDates: () => string[];
       selectedDate: () => string;
       bookingSlot: () => { date: string; minutes: number } | null;
-      followUpOffer: () => { origin: AppointmentAgendaItem; upcoming: AppointmentAgendaItem | null } | null;
+      followUpOffer: () => {
+        origin: AppointmentAgendaItem;
+        upcoming: AppointmentAgendaItem | null;
+      } | null;
       followUpPick: () => AppointmentAgendaItem | null;
       onOpenRecord: (patientId: string) => void;
       onHistoryComplete: () => void;
@@ -769,7 +819,9 @@ describe('DoctorAgendaComponent', () => {
       const ctx = setup([origin]);
       await settle(ctx.fixture);
       (
-        ctx.fixture.componentInstance as unknown as { detailAppointment: { set: (a: unknown) => void } }
+        ctx.fixture.componentInstance as unknown as {
+          detailAppointment: { set: (a: unknown) => void };
+        }
       ).detailAppointment.set(origin);
       internals(ctx.fixture).onOpenRecord('patient-1');
       return ctx;
@@ -799,7 +851,9 @@ describe('DoctorAgendaComponent', () => {
 
     it('desde un turno futuro no ofrece nada', async () => {
       const { fixture } = await openRecordFrom(
-        fakeAppointment({ appointmentDatetime: new Date(Date.now() + 3 * 86_400_000).toISOString() }),
+        fakeAppointment({
+          appointmentDatetime: new Date(Date.now() + 3 * 86_400_000).toISOString(),
+        }),
       );
 
       internals(fixture).onHistoryComplete();
@@ -819,7 +873,9 @@ describe('DoctorAgendaComponent', () => {
       await settle(fixture);
 
       expect(internals(fixture).followUpOffer()?.upcoming?.id).toBe('appt-next');
-      expect(fixture.nativeElement.querySelector('.agenda__followup')?.textContent).toContain('Ya tiene cita el');
+      expect(fixture.nativeElement.querySelector('.agenda__followup')?.textContent).toContain(
+        'Ya tiene cita el',
+      );
     });
 
     it('"Agendar" lleva a la semana siguiente esperando el click, y el click abre el modal con el paciente fijo', async () => {
