@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Injectable,
   Logger,
   ConflictException,
@@ -200,6 +201,30 @@ export class SupabaseAdminService {
       );
     }
     return data.properties.hashed_token;
+  }
+
+  /**
+   * Contraseña nueva elegida con el link de WhatsApp (CLI-244). Sirve igual
+   * para cuentas de teléfono y de correo: va por id, no por credencial.
+   */
+  async setPassword(authUserId: string, password: string): Promise<void> {
+    const client = this.requireClient(
+      'El cambio de contraseña no está configurado todavía',
+    );
+    const { error } = await client.auth.admin.updateUserById(authUserId, {
+      password,
+    });
+    if (!error) return;
+    if (error.code === 'weak_password') {
+      throw new BadRequestException(
+        'Esa contraseña es muy fácil de adivinar. Elige otra.',
+      );
+    }
+    this.logger.error(
+      `No se pudo cambiar la contraseña (uid=${authUserId})`,
+      error,
+    );
+    throw new ServiceUnavailableException('No se pudo cambiar la contraseña');
   }
 
   /** Deshace una cuenta recién creada si no se pudo vincular (CLI-242). Nunca lanza. */

@@ -18,6 +18,10 @@ export class FakeSupabaseAdmin {
     { email: string; confirmed: boolean }
   >();
   readonly deletedUsers: string[] = [];
+  /** authUserId → última contraseña puesta con setPassword (CLI-244). */
+  readonly passwords = new Map<string, string>();
+  /** Si está, setPassword falla con este error (una sola vez). */
+  failNextSetPassword: Error | null = null;
   private tokenSequence = 0;
 
   createPhoneUser(phoneE164: string): Promise<{ authUserId: string }> {
@@ -75,6 +79,16 @@ export class FakeSupabaseAdmin {
     return Promise.resolve(exists ? this.nextToken() : null);
   }
 
+  setPassword(authUserId: string, password: string): Promise<void> {
+    const failure = this.failNextSetPassword;
+    if (failure) {
+      this.failNextSetPassword = null;
+      return Promise.reject(failure);
+    }
+    this.passwords.set(authUserId, password);
+    return Promise.resolve();
+  }
+
   deleteUser(authUserId: string): Promise<void> {
     this.deletedUsers.push(authUserId);
     this.emailUsers.delete(authUserId);
@@ -97,5 +111,7 @@ export class FakeSupabaseAdmin {
     this.confirmedPhones.clear();
     this.emailUsers.clear();
     this.deletedUsers.length = 0;
+    this.passwords.clear();
+    this.failNextSetPassword = null;
   }
 }

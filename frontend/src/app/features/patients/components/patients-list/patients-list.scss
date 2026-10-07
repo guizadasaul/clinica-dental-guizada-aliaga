@@ -323,6 +323,16 @@
     }
   }
 
+  // Error al armar el link de contraseña nueva (CLI-244).
+  &__alert {
+    margin: 0;
+    padding: var(--space-3) var(--space-4);
+    border-radius: var(--radius-lg);
+    background: var(--color-error-light);
+    color: #93000a;
+    font-size: var(--font-size-sm);
+  }
+
   &__menu-hint {
     margin: 0;
     padding: 0 var(--space-3) var(--space-2);
