@@ -307,6 +307,24 @@ describe('AuthService', () => {
       expect(mockSupabaseAdminService.createPhoneUser).not.toHaveBeenCalled();
     });
 
+    // CLI-241: antes se le anteponía 591 a cualquier número extranjero.
+    it('keeps the country code of a foreign phone and matches it against the ficha', async () => {
+      mockPatientInvitesService.registrationTarget.mockResolvedValue({
+        valid: true,
+        phone: '+54 9 11 2345-6789',
+      });
+      mockSupabaseAdminService.createPhoneUser.mockResolvedValue({
+        authUserId: 'new-uid',
+      });
+
+      await service.registerWithPhone('+5491123456789', 'secret123', 'tok');
+
+      expect(mockSupabaseAdminService.createPhoneUser).toHaveBeenCalledWith(
+        '+5491123456789',
+        'secret123',
+      );
+    });
+
     // CLI-144: el teléfono de la ficha es el oficial.
     it('accepts the ficha phone even when stored in another format', async () => {
       mockPatientInvitesService.registrationTarget.mockResolvedValue({

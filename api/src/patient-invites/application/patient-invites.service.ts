@@ -20,7 +20,7 @@ import type {
   EmailSender as IEmailSender,
   InviteEmailKind,
 } from '../domain/EmailSender.js';
-import { phoneLastDigits, toE164Bolivia } from '../../shared/phone.util.js';
+import { phoneLastDigits, toLoginE164 } from '../../shared/phone.util.js';
 
 export interface CreateInviteResult {
   whatsappUrl?: string;
@@ -50,7 +50,7 @@ function hashToken(rawToken: string): string {
 }
 
 function buildWhatsappUrl(phone: string, message: string): string {
-  const normalized = toE164Bolivia(phone).slice(1);
+  const normalized = toLoginE164(phone).slice(1);
   return `https://wa.me/${normalized}?text=${encodeURIComponent(message)}`;
 }
 

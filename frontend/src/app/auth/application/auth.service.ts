@@ -186,8 +186,9 @@ export class AuthService {
    * forma de confirmar el teléfono sin SMS es vía Admin API, que requiere el
    * service_role key — no puede hacerse client-side como el signUp por
    * email). El backend solo la crea con una invitación vigente, así que el
-   * token viaja en el mismo request. Una vez creada, logueamos con las mismas
-   * credenciales para establecer la sesión igual que loginWithPhone.
+   * token viaja en el mismo request. Solo crea la cuenta: el login lo hace
+   * quien llama con loginWithPhone, para distinguir "no se creó" de "se creó
+   * pero no pudo entrar" y no perder la invitación en el segundo caso (CLI-241).
    */
   async registerWithPhone(phone: string, password: string, inviteToken: string): Promise<void> {
     await firstValueFrom(
@@ -197,7 +198,6 @@ export class AuthService {
         inviteToken,
       }),
     );
-    await this.loginWithPhone(phone, password);
   }
 
   async requestPasswordReset(email: string): Promise<void> {

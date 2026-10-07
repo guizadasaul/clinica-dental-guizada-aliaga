@@ -26,7 +26,7 @@ import { UserRole } from '../../auth/domain/value-objects/UserRole';
 import { ACCOUNT_DISABLED_MESSAGE } from '../../auth/domain/account-disabled';
 import { PhoneLoginError } from '../../auth/domain/value-objects/PhoneLoginError';
 import { SupabaseAdminService } from '../../auth/infrastructure/SupabaseAdminService';
-import { toE164, toE164Bolivia } from '../../shared/phone.util';
+import { toE164, toLoginE164 } from '../../shared/phone.util';
 import { canonicalPlace } from '../domain/place-names';
 import type { PatientFieldOptions } from '../domain/place-names';
 import { TreatmentRepository } from '../../treatments/domain/TreatmentRepository';
@@ -466,7 +466,7 @@ export class PatientsService {
     }
     const result = await this.supabaseAdminService.setConfirmedPhone(
       user.authUserId,
-      toE164Bolivia(phone),
+      toLoginE164(phone),
     );
     if (result.ok) {
       return null;

@@ -12,7 +12,7 @@ import { ACCOUNT_DISABLED_MESSAGE } from '../domain/account-disabled';
 import { UserRepository } from '../domain/UserRepository';
 import { PatientInvitesService } from '../../patient-invites/application/patient-invites.service';
 import { SupabaseAdminService } from '../infrastructure/SupabaseAdminService';
-import { phoneLastDigits, toE164Bolivia } from '../../shared/phone.util';
+import { phoneLastDigits, toLoginE164 } from '../../shared/phone.util';
 
 @Injectable()
 export class AuthService {
@@ -94,7 +94,7 @@ export class AuthService {
       if (linked?.phone) {
         const result = await this.supabaseAdminService.setConfirmedPhone(
           authUser.uid,
-          toE164Bolivia(linked.phone),
+          toLoginE164(linked.phone),
         );
         await this.userRepository.updateContactInfo(linked.id, {
           phoneLoginError: result.ok ? null : result.reason,
@@ -129,8 +129,8 @@ export class AuthService {
     if (!invite.valid) {
       throw new ForbiddenException('La invitación no es válida o ya venció');
     }
-    const phoneE164 = toE164Bolivia(phone);
-    if (invite.phone && toE164Bolivia(invite.phone) !== phoneE164) {
+    const phoneE164 = toLoginE164(phone);
+    if (invite.phone && toLoginE164(invite.phone) !== phoneE164) {
       throw new UnprocessableEntityException(
         `Regístrate con el número que diste en la clínica (terminado en ${phoneLastDigits(invite.phone)}).`,
       );
