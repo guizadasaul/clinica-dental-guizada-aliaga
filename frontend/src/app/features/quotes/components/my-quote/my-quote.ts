@@ -13,6 +13,15 @@ import { formatBs } from '../../../../shared/utils/money.util';
 import { CLINIC_TIME_ZONE } from '../../../../shared/utils/clinic-date.util';
 
 // Mismo formato corto que Finanzas del doctor (dd/mm/aaaa), en hora de Bolivia.
+// CLI-229: la fecha de un tratamiento es de calendario (columna date, medianoche
+// UTC): se muestra en UTC para no correrla un día.
+const PERFORMED_FORMATTER = new Intl.DateTimeFormat('es-BO', {
+  timeZone: 'UTC',
+  day: '2-digit',
+  month: '2-digit',
+  year: 'numeric',
+});
+
 const DATE_FORMATTER = new Intl.DateTimeFormat('es-BO', {
   timeZone: CLINIC_TIME_ZONE,
   day: '2-digit',
@@ -331,6 +340,13 @@ export class MyQuoteComponent implements OnInit {
   }
 
   protected readonly bs = formatBs;
+
+  /** CLI-229: si el doctor ya realizó el tratamiento. */
+  protected performedLabel(performedAt: string | null): string {
+    return performedAt
+      ? `Realizado el ${PERFORMED_FORMATTER.format(new Date(performedAt))}`
+      : 'Por realizar';
+  }
   protected readonly methodLabel = paymentMethodLabel;
   protected readonly paymentDate = (iso: string) => DATE_FORMATTER.format(new Date(iso));
 }
