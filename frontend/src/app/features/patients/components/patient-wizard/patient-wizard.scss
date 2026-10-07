@@ -77,7 +77,8 @@
   }
 
   &__step-label {
-    font-size: 0.6875rem;
+    // 12 px como mínimo legible en el celular (CLI-249; antes 11).
+    font-size: 0.75rem;
     color: #9ca3af;
     text-align: center;
     max-width: 80px;

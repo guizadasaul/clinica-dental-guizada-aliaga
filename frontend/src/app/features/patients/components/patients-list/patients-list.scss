@@ -1,3 +1,6 @@
+@use 'breakpoints' as bp;
+@use 'responsive' as rsp;
+
 .patients-list {
   display: flex;
   flex-direction: column;
@@ -377,5 +380,90 @@
   to {
     opacity: 1;
     transform: translateY(0);
+  }
+}
+
+// ─── Celular y tablet (CLI-249) ──────────────────────────────────────────────
+// La tabla medía 909 px: en el celular había que deslizarla de costado y en una
+// tablet, con el sidebar, tampoco entraba. Debajo de 1024 px cada paciente es
+// una tarjeta, con sus acciones abajo.
+
+.patients-list__table {
+  @include rsp.table-cards(lg);
+}
+
+@include bp.down(lg) {
+  .patients-list__table-wrap {
+    overflow: visible;
+    border: 0;
+    border-radius: 0;
+  }
+
+  .patients-list__row:hover {
+    background: var(--color-surface);
+  }
+
+  // El nombre encabeza la tarjeta, sin etiqueta.
+  .patients-list__cell--name {
+    padding-bottom: var(--space-2);
+    font-size: var(--font-size-base);
+    text-align: left;
+  }
+
+  .patients-list__cell--actions {
+    flex-wrap: wrap;
+    justify-content: flex-start;
+    gap: var(--space-2);
+    margin-top: var(--space-2);
+    padding-top: var(--space-3);
+    border-top: 1px solid var(--color-surface-dim);
+    white-space: normal;
+  }
+
+  .patients-list__btn {
+    flex: 1 1 auto;
+    justify-content: center;
+    min-height: 44px;
+    font-size: var(--font-size-sm);
+  }
+
+  .patients-list__menu-trigger {
+    width: 44px;
+    height: 44px;
+  }
+
+  .patients-list__menu {
+    max-height: 70dvh;
+    overflow-y: auto;
+  }
+
+  .patients-list__menu-item {
+    min-height: 44px;
+  }
+}
+
+// Buscador de lado a lado; "Nuevo paciente" y "Todos / Los míos" debajo
+// (antes el selector se salía por el borde derecho).
+@include bp.down(md) {
+  .patients-list__search-row {
+    flex-wrap: wrap;
+  }
+
+  .patients-list__search-wrap {
+    flex: 1 1 100%;
+    max-width: none;
+  }
+
+  .patients-list__new-btn {
+    min-height: 44px;
+    margin-left: 0;
+  }
+
+  .patients-list__owner-toggle {
+    margin-left: auto;
+  }
+
+  .patients-list__owner-btn {
+    min-height: 40px;
   }
 }

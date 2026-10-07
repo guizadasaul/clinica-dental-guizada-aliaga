@@ -19,11 +19,12 @@ $tap-target: 44px;
   }
 }
 
-/// Una tabla pasa a ser una lista de tarjetas en el celular. Cada <td> lleva
-/// `data-label` con el nombre de su columna, que se muestra a la izquierda.
-/// El <thead> queda para los lectores de pantalla, sin ocupar lugar.
-@mixin table-cards {
-  @include bp.down(md) {
+/// Una tabla pasa a ser una lista de tarjetas en el celular (o debajo de
+/// `$below`, si con el sidebar la tabla tampoco entra en una tablet). Cada
+/// <td> lleva `data-label` con el nombre de su columna, que se muestra a la
+/// izquierda. El <thead> queda para los lectores de pantalla, sin ocupar lugar.
+@mixin table-cards($below: md) {
+  @include bp.down($below) {
     // La tabla misma: declaraciones sueltas en vez de `&, tbody…` (Sonar
     // S8776 marca una lista de selectores que mezcla `&` con otros).
     display: block;

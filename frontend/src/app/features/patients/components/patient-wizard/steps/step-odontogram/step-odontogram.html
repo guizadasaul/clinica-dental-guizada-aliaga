@@ -6,7 +6,7 @@
     <div class="odontogram-step__chart">
 
       <div class="odontogram-step__toolbar">
-        <p class="odontogram-step__chart-hint">Haz clic en un diente para registrar un hallazgo en esa pieza.</p>
+        <p class="odontogram-step__chart-hint">Elige un diente para registrar un hallazgo en esa pieza.</p>
         <button
           type="button"
           class="step-form__btn step-form__btn--secondary"
@@ -148,7 +148,7 @@
 
     <!-- Finding form panel -->
     @if (panelOpen()) {
-      <section class="odontogram-step__panel" aria-label="Nuevo hallazgo">
+      <section appScrollIntoViewOnMobile class="odontogram-step__panel" aria-label="Nuevo hallazgo">
         <div class="odontogram-step__panel-header">
           <div class="odontogram-step__panel-tooth-badge">
             <span class="material-symbols-outlined">dentistry</span>
@@ -182,7 +182,7 @@
                 <span class="step-form__req">*</span>
               </span>
               @if (panelToothNumbers().length === 0) {
-                <p class="odontogram-step__panel-hint">Haz clic en {{ panelDiagnosis()!.scope === 'single_tooth' ? 'un diente' : 'una o más piezas' }} del odontograma.</p>
+                <p class="odontogram-step__panel-hint">Elige {{ panelDiagnosis()!.scope === 'single_tooth' ? 'un diente' : 'una o más piezas' }} del odontograma.</p>
               } @else {
                 <div class="odontogram-step__panel-chips">
                   @for (n of panelToothNumbers(); track n) {

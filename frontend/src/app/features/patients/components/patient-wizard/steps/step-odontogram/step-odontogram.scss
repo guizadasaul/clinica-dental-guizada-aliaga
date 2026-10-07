@@ -1,3 +1,4 @@
+@use 'breakpoints' as bp;
 @use '../step-form';
 
 .odontogram-step {
@@ -376,5 +377,17 @@
   to {
     opacity: 1;
     transform: translateY(0);
+  }
+}
+
+// Celular (CLI-249): la X del panel medía 28 px y "Diagnósticos anteriores", 20.
+@include bp.down(md) {
+  .odontogram-step__panel-close {
+    width: 44px;
+    height: 44px;
+  }
+
+  .odontogram-step__history-toggle {
+    min-height: 44px;
   }
 }

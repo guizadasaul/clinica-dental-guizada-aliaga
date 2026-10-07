@@ -1,3 +1,4 @@
+@use 'breakpoints' as bp;
 .rto {
   display: flex;
   flex-direction: column;
@@ -286,4 +287,12 @@
 
 @keyframes spin {
   to { transform: rotate(360deg); }
+}
+
+// Celular (CLI-249): la X del panel medía 28 px.
+@include bp.down(md) {
+  .rto__panel-close {
+    width: 44px;
+    height: 44px;
+  }
 }
