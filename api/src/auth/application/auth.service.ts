@@ -182,10 +182,9 @@ export class AuthService {
 
     // Un segundo intento antes de confirmar devuelve la misma cuenta, ya
     // vinculada: solo se reenvía el correo.
-    let account = await this.userRepository.findByAuthUserId(authUserId);
-    if (!account) {
-      account = await this.linkNewEmailAccount(inviteToken, authUserId, email);
-    }
+    const account =
+      (await this.userRepository.findByAuthUserId(authUserId)) ??
+      (await this.linkNewEmailAccount(inviteToken, authUserId, email));
     await this.emailSender.sendAccountEmail({
       to: email,
       displayName: account.displayName,
