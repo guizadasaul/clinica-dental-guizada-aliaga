@@ -37,7 +37,10 @@ const DOCTOR_TOOLS = [
   'get_my_agenda',
   'get_my_next_patient',
   'get_my_patients',
+  'get_my_patient_summary',
+  'get_my_patients_with_balance',
   'get_my_monthly_stats',
+  'get_my_top_treatments',
 ];
 const ADMIN_TOOLS = [
   'get_clinic_operational_report',
