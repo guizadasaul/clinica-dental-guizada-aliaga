@@ -1,3 +1,5 @@
+@use 'breakpoints' as bp;
+
 :host {
   display: block;
 }
@@ -200,5 +202,33 @@
     &:hover {
       background: #f3f4f6;
     }
+  }
+}
+
+// Celular (CLI-248): chips y opciones del tamaño del dedo, opciones en una
+// columna (en dos, los nombres largos se partían en tres renglones).
+@include bp.down(md) {
+  .catalog-picker__chip {
+    min-height: 40px;
+    padding: 0.5rem 0.875rem;
+    font-size: var(--font-size-sm);
+  }
+
+  .catalog-picker__grid {
+    grid-template-columns: 1fr;
+  }
+
+  .catalog-picker__option {
+    min-height: 44px;
+    align-items: center;
+  }
+
+  .catalog-picker__dot {
+    margin-top: 0;
+  }
+
+  .catalog-picker__section,
+  .catalog-picker__option-hint {
+    font-size: var(--font-size-xs);
   }
 }

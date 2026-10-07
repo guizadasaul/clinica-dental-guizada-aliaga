@@ -21,6 +21,7 @@ import { AdminModule } from './admin/admin.module';
 import { ReportsModule } from './reports/reports.module';
 import { ChatbotModule } from './chatbot/chatbot.module';
 import { HealthModule } from './health/health.module';
+import { PasswordResetModule } from './password-reset/password-reset.module';
 
 @Module({
   imports: [
@@ -49,6 +50,7 @@ import { HealthModule } from './health/health.module';
     ReportsModule,
     ChatbotModule,
     HealthModule,
+    PasswordResetModule,
   ],
   controllers: [AppController],
   providers: [AppService, { provide: APP_GUARD, useClass: ThrottlerGuard }],

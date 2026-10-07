@@ -1,3 +1,6 @@
+@use 'breakpoints' as bp;
+@use 'responsive' as rsp;
+
 .book-modal {
   position: fixed;
   inset: 0;
@@ -7,6 +10,9 @@
   justify-content: center;
   padding: var(--space-4);
   background: rgb(0 0 0 / 0.5);
+
+  // Celular (CLI-248): al final, para pisar lo de arriba.
+  @include rsp.dialog-backdrop;
 }
 
 .book-modal__panel {
@@ -29,9 +35,8 @@
     outline: none;
   }
 
-  @media (max-width: 640px) {
-    padding: var(--space-5);
-  }
+  // Celular (CLI-248): al final, para pisar lo de arriba.
+  @include rsp.dialog-sheet;
 }
 
 .book-modal__close {
@@ -57,6 +62,9 @@
     outline: 3px solid var(--color-primary);
     outline-offset: 2px;
   }
+
+  // Celular (CLI-248): al final, para pisar lo de arriba.
+  @include rsp.tap-target;
 }
 
 .book-modal__title {
@@ -90,6 +98,11 @@
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
   gap: var(--space-4);
+
+  // Celular (CLI-248): en dos columnas, los selects de la duración cortaban "30 min".
+  @include bp.down(sm) {
+    grid-template-columns: 1fr;
+  }
 }
 
 .book-modal__fieldset {
@@ -210,6 +223,9 @@
   justify-content: flex-end;
   gap: var(--space-3);
   margin-top: var(--space-2);
+
+  // Celular (CLI-248): al final, para pisar lo de arriba.
+  @include rsp.sheet-actions;
 }
 
 .book-modal__btn {

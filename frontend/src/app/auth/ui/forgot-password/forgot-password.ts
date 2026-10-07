@@ -1,5 +1,6 @@
 import { Component, ChangeDetectionStrategy, signal, inject, DestroyRef } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { HttpErrorResponse } from '@angular/common/http';
 import { RouterLink } from '@angular/router';
 import { AuthService } from '../../application/auth.service';
 import { allValid, field, touchAll } from '../../../shared/validation/field';
@@ -19,7 +20,9 @@ export class ForgotPasswordComponent {
   private readonly authService = inject(AuthService);
   private readonly destroyRef = inject(DestroyRef);
 
-  protected readonly email = field('', (v) => (isValidEmail(v) ? null : 'Ingresa un correo válido.'));
+  protected readonly email = field('', (v) =>
+    isValidEmail(v) ? null : 'Ingresa un correo válido.',
+  );
   protected readonly loading = signal(false);
   protected readonly errorMessage = signal<string | null>(null);
   protected readonly submitted = signal(false);
@@ -50,10 +53,16 @@ export class ForgotPasswordComponent {
 
     try {
       await this.authService.requestPasswordReset(normalizeEmail(this.email.value()));
-    } finally {
-      this.loading.set(false);
       this.submitted.set(true);
       this.startCooldown();
+    } catch (err) {
+      this.errorMessage.set(
+        err instanceof HttpErrorResponse && err.status === 429
+          ? 'Hiciste demasiados pedidos. Espera un momento y vuelve a intentarlo.'
+          : 'No pudimos enviar el enlace. Revisa tu conexión e intenta de nuevo.',
+      );
+    } finally {
+      this.loading.set(false);
     }
   }
 

@@ -10,6 +10,27 @@
   color: var(--color-primary);
 }
 
+// Reenvío del correo de confirmación (CLI-242).
+.register-resend {
+  margin-top: var(--space-2);
+  border: 0;
+  background: none;
+  cursor: pointer;
+  font: inherit;
+
+  &:disabled {
+    cursor: default;
+    opacity: 0.6;
+  }
+}
+
+.register-resend__status {
+  display: block;
+  margin-top: var(--space-2);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
+
 .channel-toggle {
   display: flex;
   gap: var(--space-2);

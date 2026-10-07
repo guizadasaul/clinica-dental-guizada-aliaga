@@ -20,7 +20,7 @@ import type {
   EmailSender as IEmailSender,
   InviteEmailKind,
 } from '../domain/EmailSender.js';
-import { phoneLastDigits, toE164Bolivia } from '../../shared/phone.util.js';
+import { buildWhatsappUrl, phoneLastDigits } from '../../shared/phone.util.js';
 
 export interface CreateInviteResult {
   whatsappUrl?: string;
@@ -47,11 +47,6 @@ export interface InviteRegistrationTarget {
 
 function hashToken(rawToken: string): string {
   return createHash('sha256').update(rawToken).digest('hex');
-}
-
-function buildWhatsappUrl(phone: string, message: string): string {
-  const normalized = toE164Bolivia(phone).slice(1);
-  return `https://wa.me/${normalized}?text=${encodeURIComponent(message)}`;
 }
 
 // WhatsApp no soporta HTML — *negrita* y _cursiva_ son su propio markdown.

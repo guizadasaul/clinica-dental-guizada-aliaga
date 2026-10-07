@@ -1,4 +1,10 @@
-import { phoneLastDigits, toE164, toE164Bolivia } from './phone.util';
+import {
+  buildWhatsappUrl,
+  phoneLastDigits,
+  toE164,
+  toE164Bolivia,
+  toLoginE164,
+} from './phone.util';
 
 describe('phone.util', () => {
   it.each([
@@ -30,6 +36,38 @@ describe('phone.util', () => {
 
     it.each(['', '12', 'abc', '+59100000000000'])('rechaza %p', (raw) => {
       expect(toE164(raw)).toBeNull();
+    });
+  });
+
+  describe('toLoginE164 (CLI-241)', () => {
+    it.each([
+      ['71234567', '+59171234567'],
+      ['+59171234567', '+59171234567'],
+      ['59171234567', '+59171234567'],
+      // Antes toE164Bolivia los convertía en +5915491123456789 y +5911202…
+      ['+5491123456789', '+5491123456789'],
+      ['+12025550123', '+12025550123'],
+      ['5491123456789', '+5491123456789'],
+    ])('%p → %s', (raw, e164) => {
+      expect(toLoginE164(raw)).toBe(e164);
+    });
+
+    it('si libphonenumber no lo reconoce, usa el criterio boliviano de siempre', () => {
+      expect(toLoginE164('123')).toBe('+591123');
+    });
+  });
+
+  describe('buildWhatsappUrl', () => {
+    it('arma el link de wa.me con el número sin "+" y el mensaje codificado', () => {
+      expect(buildWhatsappUrl('71234567', 'Hola *Ana*\nlink')).toBe(
+        'https://wa.me/59171234567?text=Hola%20*Ana*%0Alink',
+      );
+    });
+
+    it('conserva el código de país de un número extranjero', () => {
+      expect(buildWhatsappUrl('+5491123456789', 'x')).toBe(
+        'https://wa.me/5491123456789?text=x',
+      );
     });
   });
 });

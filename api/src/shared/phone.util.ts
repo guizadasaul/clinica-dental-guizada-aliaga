@@ -22,9 +22,31 @@ export function toE164(phone: string): string | null {
   return parsed?.isValid() ? parsed.number : null;
 }
 
+/**
+ * E.164 de un teléfono para usarlo como login o para WhatsApp (CLI-241):
+ * respeta el código de país de cualquier número válido ("+5491123456789"
+ * queda igual) y los números sin código se toman como bolivianos. Si
+ * libphonenumber no lo reconoce, cae al criterio boliviano de siempre.
+ * Antes se usaba toE164Bolivia directo, que le anteponía 591 a cualquier
+ * número extranjero y rompía el registro y el login.
+ */
+export function toLoginE164(phone: string): string {
+  return toE164(phone) ?? toE164Bolivia(phone);
+}
+
 /** Normaliza un teléfono boliviano (con o sin prefijo 591) a E.164, ej. "+59171234567". */
 export function toE164Bolivia(phone: string): string {
   const digits = phone.replace(/\D/g, '');
   const normalized = digits.startsWith('591') ? digits : `591${digits}`;
   return `+${normalized}`;
+}
+
+/**
+ * Link de wa.me con el mensaje ya escrito. Lo usan las invitaciones y los
+ * links de contraseña nueva (CLI-244). Sin emojis en `message`: wa.me
+ * corrompe los caracteres de 3+ bytes en UTF-8.
+ */
+export function buildWhatsappUrl(phone: string, message: string): string {
+  const normalized = toLoginE164(phone).slice(1);
+  return `https://wa.me/${normalized}?text=${encodeURIComponent(message)}`;
 }

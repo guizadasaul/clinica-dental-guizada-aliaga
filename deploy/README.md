@@ -114,19 +114,24 @@ dos sistemas de migración sobre las mismas tablas terminan en drift.
    - Redirect URLs: `<frontend>/auth/callback` y `<frontend>/auth/reset-password`. Solo en staging, además:
      `http://localhost:4200/**` (desarrollo local usa este proyecto para Auth).
 2. **Auth → SMTP**: `smtp.resend.com`, puerto 465, usuario `resend`, contraseña = una API key de Resend
-   exclusiva de ese proyecto, remitente en `send.guizadaaliaga.com`. Sin SMTP propio, Supabase no manda los
-   correos de recuperación de contraseña a destinatarios reales.
-3. **Auth → Providers**: Email, Phone y Google activos. El signup de Supabase queda abierto (Google y el
-   registro por email crean la identidad antes de canjear la invitación); quien decide si esa identidad
-   tiene cuenta es el backend: `POST /auth/sync` solo crea la fila en `users` con una invitación válida, y
-   `POST /auth/register/phone` exige el token de invitación.
-4. **Google OAuth** (Google Cloud Console): redirect URI autorizado
+   exclusiva de ese proyecto, remitente en `send.guizadaaliaga.com`. Desde CLI-242/243 la confirmación de
+   correo y la recuperación de contraseña las manda el backend por Resend (no este SMTP), así que esos
+   flujos no dependen de él.
+3. **Auth → Providers**: Email, Phone y Google activos. Phone no necesita proveedor de SMS (las cuentas de
+   teléfono las crea el backend con el número confirmado). El signup de Supabase queda abierto (Google crea
+   la identidad antes de canjear la invitación); quien decide si esa identidad tiene cuenta es el backend:
+   `POST /auth/sync` solo crea la fila en `users` con una invitación válida, y `POST /auth/register/phone` y
+   `POST /auth/register/email` exigen el token de invitación.
+4. **Auth → Providers → Email**: *Confirm email* activo, *Email OTP Expiration* en 3600 s (los correos dicen
+   "vence en 1 hora") y largo mínimo de contraseña 8. Detalle de cada flujo en
+   [`docs/cuentas-y-contrasenas.md`](../docs/cuentas-y-contrasenas.md).
+5. **Google OAuth** (Google Cloud Console): redirect URI autorizado
    `https://<ref>.supabase.co/auth/v1/callback` del proyecto. En producción, la pantalla de consentimiento
    publicada ("In production").
-5. **Settings → Data API**: desactivada (o `public` fuera de los schemas expuestos). El frontend no la usa.
-6. **Connect → Session pooler**: la connection string (puerto 5432) va al `.env` del servidor y al secret de
+6. **Settings → Data API**: desactivada (o `public` fuera de los schemas expuestos). El frontend no la usa.
+7. **Connect → Session pooler**: la connection string (puerto 5432) va al `.env` del servidor y al secret de
    GitHub del ambiente. No se comparte por chat ni se commitea.
-7. **Producción**: plan Pro (backups diarios, sin pausa por inactividad).
+8. **Producción**: plan Pro (backups diarios, sin pausa por inactividad).
 
 ## Frontend (Vercel)
 

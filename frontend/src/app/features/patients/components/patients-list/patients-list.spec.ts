@@ -5,6 +5,8 @@ import { PatientsListComponent } from './patients-list';
 import { PatientsService } from '../../services/patients.service';
 import { BookingService } from '../../../booking/services/booking.service';
 import { AuthService } from '../../../../auth/application/auth.service';
+import { PasswordResetLinkService } from '../../../../auth/application/password-reset-link.service';
+import { HttpErrorResponse } from '@angular/common/http';
 import type { PatientWithUser } from '../../models/patient.model';
 import type { Doctor } from '../../../booking/models/booking.model';
 import type { AuthenticatedUser } from '../../../../auth/models/authenticated-user.model';
@@ -90,16 +92,20 @@ function setup(
     deletePatient: vi.fn().mockReturnValue(of(undefined)),
   };
   const bookingService = { getDoctors: vi.fn().mockReturnValue(of(doctors)) };
+  const resetLinks = {
+    createLink: vi.fn().mockReturnValue(of({ whatsappUrl: 'https://wa.me/59170011122?text=x' })),
+  };
   TestBed.configureTestingModule({
     imports: [PatientsListComponent],
     providers: [
       { provide: PatientsService, useValue: patientsService },
       { provide: BookingService, useValue: bookingService },
       { provide: AuthService, useValue: authService },
+      { provide: PasswordResetLinkService, useValue: resetLinks },
     ],
   });
   const fixture = TestBed.createComponent(PatientsListComponent);
-  return { fixture, patientsService, bookingService };
+  return { fixture, patientsService, bookingService, resetLinks };
 }
 
 function el<T extends Element>(fixture: ReturnType<typeof setup>['fixture'], selector: string): T {
@@ -178,6 +184,7 @@ describe('PatientsListComponent', () => {
       expect.stringContaining('Ver historia clínica'),
       expect.stringContaining('Registrar tratamiento'),
       expect.stringContaining('Hacer presupuesto'),
+      expect.stringContaining('Link para nueva contraseña'),
       expect.stringContaining('Eliminar paciente'),
     ]);
 
@@ -571,6 +578,27 @@ describe('PatientsListComponent — búsqueda, acciones y menú', () => {
       expect(menu.style.right).toBe('100px');
     });
 
+    it('cerca del borde de abajo se abre hacia arriba, para que no quede fuera de la pantalla (CLI-249)', async () => {
+      const context = setup();
+      await settle(context.fixture);
+      const trigger = el<HTMLButtonElement>(context.fixture, '.patients-list__menu-trigger');
+      vi.spyOn(trigger, 'getBoundingClientRect').mockReturnValue({
+        top: 660,
+        bottom: 704,
+        right: 380,
+      } as DOMRect);
+      Object.defineProperty(window, 'innerWidth', { value: 390, configurable: true });
+      Object.defineProperty(window, 'innerHeight', { value: 760, configurable: true });
+
+      trigger.click();
+      context.fixture.detectChanges();
+
+      const menu = el<HTMLElement>(context.fixture, '.patients-list__menu');
+      expect(menu.style.top).toBe('');
+      expect(menu.style.bottom).toBe('108px');
+      expect(menu.style.right).toBe('10px');
+    });
+
     it('el mismo botón lo cierra', async () => {
       const { fixture, trigger } = await openMenu();
 
@@ -624,6 +652,74 @@ describe('PatientsListComponent — búsqueda, acciones y menú', () => {
       expect(events).toEqual(['patient-1', 'patient-1']);
       expect(el(fixture, '.patients-list__menu')).toBeNull();
     });
+  });
+});
+
+describe('PatientsListComponent — link para nueva contraseña (CLI-244)', () => {
+  async function openMenu(patient: PatientWithUser = fakePatientWithUser()) {
+    const context = setup([patient]);
+    await settle(context.fixture);
+    el<HTMLButtonElement>(context.fixture, '.patients-list__menu-trigger').click();
+    await settle(context.fixture);
+    return context;
+  }
+
+  function resetItem(fixture: ReturnType<typeof setup>['fixture']): HTMLButtonElement | undefined {
+    return [...(fixture.nativeElement as HTMLElement).querySelectorAll<HTMLButtonElement>('.patients-list__menu-item')].find(
+      (i) => i.textContent?.includes('Link para nueva contraseña'),
+    );
+  }
+
+  it('arma el link y abre WhatsApp con el mensaje', async () => {
+    const open = vi.spyOn(window, 'open').mockReturnValue(null);
+    const { fixture, resetLinks } = await openMenu();
+
+    resetItem(fixture)!.click();
+    await settle(fixture);
+
+    expect(resetLinks.createLink).toHaveBeenCalledWith('patient-1');
+    expect(open).toHaveBeenCalledWith('https://wa.me/59170011122?text=x', '_blank');
+    expect(el(fixture, '.patients-list__menu')).toBeNull();
+    expect(el(fixture, '.patients-list__alert')).toBeNull();
+    open.mockRestore();
+  });
+
+  it('no aparece si el paciente todavía no tiene cuenta', async () => {
+    const { fixture } = await openMenu(fakePatientWithUser({ hasAccount: false }));
+
+    expect(resetItem(fixture)).toBeUndefined();
+  });
+
+  it('sin teléfono en la ficha queda deshabilitado y dice por qué', async () => {
+    const base = fakePatientWithUser();
+    const { fixture } = await openMenu({ ...base, patient: { ...base.patient!, phone: null } });
+
+    expect(resetItem(fixture)!.disabled).toBe(true);
+    expect(el(fixture, '#menu-reset-hint-user-1')?.textContent).toContain('Carga su teléfono');
+  });
+
+  it('un 409 muestra el motivo que da el backend', async () => {
+    const { fixture, resetLinks } = await openMenu();
+    resetLinks.createLink.mockReturnValue(
+      throwError(
+        () => new HttpErrorResponse({ status: 409, error: { message: 'El paciente todavía no tiene una cuenta.' } }),
+      ),
+    );
+
+    resetItem(fixture)!.click();
+    await settle(fixture);
+
+    expect(el(fixture, '.patients-list__alert')?.textContent).toContain('todavía no tiene una cuenta');
+  });
+
+  it('otro error muestra un mensaje genérico', async () => {
+    const { fixture, resetLinks } = await openMenu();
+    resetLinks.createLink.mockReturnValue(throwError(() => new HttpErrorResponse({ status: 500 })));
+
+    resetItem(fixture)!.click();
+    await settle(fixture);
+
+    expect(el(fixture, '.patients-list__alert')?.textContent).toContain('No pudimos preparar el link');
   });
 });
 

@@ -1,0 +1,19 @@
+@use '../auth-shell';
+@use '../auth-form';
+
+:host {
+  display: block;
+}
+
+.confirm-email__cta {
+  display: inline-flex;
+  justify-content: center;
+  text-decoration: none;
+}
+
+.confirm-email__status {
+  display: block;
+  margin-bottom: var(--space-3);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}

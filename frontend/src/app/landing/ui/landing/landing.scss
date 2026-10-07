@@ -7,6 +7,10 @@
 
 :host {
   display: block;
+  // Red de seguridad de la landing: ningún elemento interno debería poder
+  // generar scroll horizontal de página (ver overflow del carrusel 3D de
+  // servicios). Antes estaba en html/body y afectaba al sitio entero (CLI-247).
+  overflow-x: clip;
 }
 
 // ============================================================

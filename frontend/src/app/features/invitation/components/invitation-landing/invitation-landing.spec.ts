@@ -19,14 +19,24 @@ interface SetupOptions {
   statusError?: boolean;
 }
 
-async function setup({ token = 'tok-1', status = { valid: true, kind: 'doctor' }, statusError = false }: SetupOptions = {}) {
+async function setup({
+  token = 'tok-1',
+  status = { valid: true, kind: 'doctor' },
+  statusError = false,
+}: SetupOptions = {}) {
   const invites = {
-    checkStatus: vi.fn().mockReturnValue(statusError ? throwError(() => new HttpErrorResponse({ status: 500 })) : of(status)),
+    checkStatus: vi
+      .fn()
+      .mockReturnValue(
+        statusError ? throwError(() => new HttpErrorResponse({ status: 500 })) : of(status),
+      ),
   };
   const auth = {
     loginWithGoogle: vi.fn().mockResolvedValue(undefined),
-    registerWithPassword: vi.fn().mockResolvedValue(undefined),
+    registerWithEmail: vi.fn().mockResolvedValue(undefined),
+    resendEmailConfirmation: vi.fn().mockResolvedValue(undefined),
     registerWithPhone: vi.fn().mockResolvedValue(undefined),
+    loginWithPhone: vi.fn().mockResolvedValue(undefined),
     waitForSync: vi.fn().mockResolvedValue(undefined),
   };
   TestBed.configureTestingModule({
@@ -41,7 +51,10 @@ async function setup({ token = 'tok-1', status = { valid: true, kind: 'doctor' }
     ],
   });
   const harness = await RouterTestingHarness.create();
-  await harness.navigateByUrl(token ? `/invitacion/${token}` : '/invitacion', InvitationLandingComponent);
+  await harness.navigateByUrl(
+    token ? `/invitacion/${token}` : '/invitacion',
+    InvitationLandingComponent,
+  );
   await harness.fixture.whenStable();
   harness.detectChanges();
   const navigate = vi.spyOn(TestBed.inject(Router), 'navigateByUrl').mockResolvedValue(true);
@@ -62,6 +75,12 @@ function fill(harness: Harness, selector: string, value: string): void {
   const input = el<HTMLInputElement>(harness, selector);
   input.value = value;
   input.dispatchEvent(new Event('input'));
+}
+
+/** El alta y el login son varias promesas encadenadas: deja correr la cola. */
+async function flushPromises(harness: Harness): Promise<void> {
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  await settle(harness);
 }
 
 async function settle(harness: Harness): Promise<void> {
@@ -149,19 +168,52 @@ describe('InvitationLandingComponent', () => {
       expect(auth.loginWithGoogle).toHaveBeenCalled();
     });
 
-    it('email + password: remembers the token, creates the account and asks to confirm the email', async () => {
-      const { harness, auth } = await setup();
-
+    async function submitEmail(harness: Harness): Promise<void> {
       fill(harness, '#invite-email', 'Marylu@Example.com ');
       fill(harness, '#invite-password', PASSWORD);
       fill(harness, '#invite-confirm-password', PASSWORD);
       await settle(harness);
-      (el<HTMLFormElement>(harness, '.auth-form')).dispatchEvent(new Event('submit'));
-      await settle(harness);
+      el<HTMLFormElement>(harness, '.auth-form').dispatchEvent(new Event('submit'));
+      await flushPromises(harness);
+    }
 
-      expect(auth.registerWithPassword).toHaveBeenCalledWith('marylu@example.com', PASSWORD);
-      expect(localStorage.getItem('pendingInviteToken')).toBe('tok-1');
+    // CLI-242: la cuenta la crea el backend y canjea la invitación en el acto.
+    it('email + password: creates the account in the backend with the invite and asks to confirm the email', async () => {
+      const { harness, auth } = await setup();
+
+      await submitEmail(harness);
+
+      expect(auth.registerWithEmail).toHaveBeenCalledWith('marylu@example.com', PASSWORD, 'tok-1');
+      expect(localStorage.getItem('pendingInviteToken')).toBeNull();
       expect(text(harness)).toContain('Revisa tu correo');
+      expect(text(harness)).toContain('cualquier celular o computadora');
+    });
+
+    it('"Reenviar el correo" asks the backend to resend the confirmation once', async () => {
+      const { harness, auth } = await setup();
+      await submitEmail(harness);
+
+      el<HTMLButtonElement>(harness, '.register-resend').click();
+      await flushPromises(harness);
+
+      expect(auth.resendEmailConfirmation).toHaveBeenCalledWith('marylu@example.com');
+      expect(text(harness)).toContain('Te lo enviamos de nuevo.');
+      expect(el<HTMLButtonElement>(harness, '.register-resend').disabled).toBe(true);
+    });
+
+    it.each([
+      [409, { message: 'Ese correo ya tiene una cuenta. Inicia sesión o recupera tu contraseña.' }, 'Ese correo ya tiene una cuenta'],
+      [403, null, 'Este link de registro venció o ya se usó'],
+      [429, null, 'Hiciste demasiados intentos'],
+      [503, null, 'No pudimos crear la cuenta en este momento'],
+    ])('explains a %i from the backend and stays on the form', async (status, error, message) => {
+      const { harness, auth } = await setup();
+      auth.registerWithEmail.mockRejectedValue(new HttpErrorResponse({ status, error }));
+
+      await submitEmail(harness);
+
+      expect(text(harness)).toContain(message);
+      expect(text(harness)).not.toContain('Revisa tu correo');
     });
 
     it('phone + password: creates the account, waits for the sync and lands on the dashboard', async () => {
@@ -175,10 +227,11 @@ describe('InvitationLandingComponent', () => {
       fill(harness, '#invite-password', PASSWORD);
       fill(harness, '#invite-confirm-password', PASSWORD);
       await settle(harness);
-      (el<HTMLFormElement>(harness, '.auth-form')).dispatchEvent(new Event('submit'));
-      await settle(harness);
+      el<HTMLFormElement>(harness, '.auth-form').dispatchEvent(new Event('submit'));
+      await flushPromises(harness);
 
       expect(auth.registerWithPhone).toHaveBeenCalledWith('+59170011122', PASSWORD, 'tok-1');
+      expect(auth.loginWithPhone).toHaveBeenCalledWith('+59170011122', PASSWORD);
       expect(auth.waitForSync).toHaveBeenCalled();
       expect(navigate).toHaveBeenCalledWith('/dashboard');
     });
@@ -190,16 +243,18 @@ describe('InvitationLandingComponent', () => {
       fill(harness, '#invite-password', PASSWORD);
       fill(harness, '#invite-confirm-password', `${PASSWORD}-otra`);
       await settle(harness);
-      (el<HTMLFormElement>(harness, '.auth-form')).dispatchEvent(new Event('submit'));
+      el<HTMLFormElement>(harness, '.auth-form').dispatchEvent(new Event('submit'));
       await settle(harness);
 
-      expect(auth.registerWithPassword).not.toHaveBeenCalled();
+      expect(auth.registerWithEmail).not.toHaveBeenCalled();
       expect(localStorage.getItem('pendingInviteToken')).toBeNull();
     });
 
     // CLI-144: el teléfono de la ficha es el oficial.
     it('shows which number to use when the ficha has a phone', async () => {
-      const { harness } = await setup({ status: { valid: true, kind: 'patient', phoneHint: '665' } });
+      const { harness } = await setup({
+        status: { valid: true, kind: 'patient', phoneHint: '665' },
+      });
 
       el<HTMLButtonElement>(harness, '.channel-toggle__btn:nth-child(2)').click();
       await settle(harness);
@@ -217,11 +272,15 @@ describe('InvitationLandingComponent', () => {
     });
 
     it('shows the backend message when the phone is not the one in the ficha (422)', async () => {
-      const { harness, auth } = await setup({ status: { valid: true, kind: 'patient', phoneHint: '665' } });
+      const { harness, auth } = await setup({
+        status: { valid: true, kind: 'patient', phoneHint: '665' },
+      });
       auth.registerWithPhone.mockRejectedValue(
         new HttpErrorResponse({
           status: 422,
-          error: { message: 'Regístrate con el número que diste en la clínica (terminado en 665).' },
+          error: {
+            message: 'Regístrate con el número que diste en la clínica (terminado en 665).',
+          },
         }),
       );
 
@@ -233,10 +292,12 @@ describe('InvitationLandingComponent', () => {
       fill(harness, '#invite-password', PASSWORD);
       fill(harness, '#invite-confirm-password', PASSWORD);
       await settle(harness);
-      (el<HTMLFormElement>(harness, '.auth-form')).dispatchEvent(new Event('submit'));
+      el<HTMLFormElement>(harness, '.auth-form').dispatchEvent(new Event('submit'));
       await settle(harness);
 
-      expect(text(harness)).toContain('Regístrate con el número que diste en la clínica (terminado en 665).');
+      expect(text(harness)).toContain(
+        'Regístrate con el número que diste en la clínica (terminado en 665).',
+      );
       expect(localStorage.getItem('pendingInviteToken')).toBeNull();
     });
 
@@ -252,16 +313,13 @@ describe('InvitationLandingComponent', () => {
       fill(harness, '#invite-password', PASSWORD);
       fill(harness, '#invite-confirm-password', PASSWORD);
       await settle(harness);
-      (el<HTMLFormElement>(harness, '.auth-form')).dispatchEvent(new Event('submit'));
+      el<HTMLFormElement>(harness, '.auth-form').dispatchEvent(new Event('submit'));
       await settle(harness);
 
       expect(text(harness)).toContain('Regístrate con el número que diste en la clínica.');
     });
 
-    it('forgets the token and explains it when the phone is already registered (409)', async () => {
-      const { harness, auth } = await setup();
-      auth.registerWithPhone.mockRejectedValue(new HttpErrorResponse({ status: 409 }));
-
+    async function submitPhone(harness: Harness): Promise<void> {
       el<HTMLButtonElement>(harness, '.channel-toggle__btn:nth-child(2)').click();
       await settle(harness);
       harness.fixture.debugElement
@@ -270,10 +328,58 @@ describe('InvitationLandingComponent', () => {
       fill(harness, '#invite-password', PASSWORD);
       fill(harness, '#invite-confirm-password', PASSWORD);
       await settle(harness);
-      (el<HTMLFormElement>(harness, '.auth-form')).dispatchEvent(new Event('submit'));
-      await settle(harness);
+      el<HTMLFormElement>(harness, '.auth-form').dispatchEvent(new Event('submit'));
+      await flushPromises(harness);
+    }
 
-      expect(text(harness)).toContain('Ese teléfono ya está registrado.');
+    // CLI-241: un intento anterior pudo crear la cuenta sin llegar a entrar.
+    it('on 409 logs in with that password and keeps the token so the sync links the invite', async () => {
+      const { harness, auth, navigate } = await setup();
+      auth.registerWithPhone.mockRejectedValue(new HttpErrorResponse({ status: 409 }));
+
+      await submitPhone(harness);
+
+      expect(auth.loginWithPhone).toHaveBeenCalledWith('+59170011122', PASSWORD);
+      expect(navigate).toHaveBeenCalledWith('/dashboard');
+      expect(localStorage.getItem('pendingInviteToken')).toBe('tok-1');
+    });
+
+    it('on 409 with another password forgets the token and points to the login', async () => {
+      const { harness, auth, navigate } = await setup();
+      auth.registerWithPhone.mockRejectedValue(new HttpErrorResponse({ status: 409 }));
+      auth.loginWithPhone.mockRejectedValue(new Error('Credenciales inválidas'));
+
+      await submitPhone(harness);
+
+      expect(text(harness)).toContain('Ese teléfono ya tiene una cuenta');
+      expect(navigate).not.toHaveBeenCalled();
+      expect(localStorage.getItem('pendingInviteToken')).toBeNull();
+    });
+
+    it('keeps the token when the account was created but the login failed', async () => {
+      const { harness, auth, navigate } = await setup();
+      auth.loginWithPhone.mockRejectedValue(new Error('red'));
+
+      await submitPhone(harness);
+
+      expect(text(harness)).toContain('Tu cuenta se creó, pero no pudimos iniciar sesión');
+      expect(navigate).not.toHaveBeenCalled();
+      expect(localStorage.getItem('pendingInviteToken')).toBe('tok-1');
+    });
+
+    it.each([
+      [400, 'Revisa el número de teléfono.'],
+      [403, 'Este link de registro venció o ya se usó'],
+      [429, 'Hiciste demasiados intentos'],
+      [503, 'No pudimos crear la cuenta en este momento'],
+    ])('explains a %i from the backend and forgets the token', async (status, message) => {
+      const { harness, auth } = await setup();
+      auth.registerWithPhone.mockRejectedValue(new HttpErrorResponse({ status }));
+
+      await submitPhone(harness);
+
+      expect(text(harness)).toContain(message);
+      expect(auth.loginWithPhone).not.toHaveBeenCalled();
       expect(localStorage.getItem('pendingInviteToken')).toBeNull();
     });
   });

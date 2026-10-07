@@ -10,9 +10,6 @@ html {
   font-family: var(--font-body);
   background: var(--color-bg);
   color: var(--color-text);
-  // Red de seguridad: ningún elemento interno debería poder generar scroll
-  // horizontal de página (ver overflow del carrusel 3D de servicios).
-  overflow-x: hidden;
 }
 
 *, *::before, *::after {
@@ -21,9 +18,22 @@ html {
 
 body {
   margin: 0;
-  overflow-x: hidden;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+// === CAMPOS EN EL CELULAR (CLI-247) ===
+// iOS hace zoom a la página al enfocar un campo con letra de menos de 16 px, y
+// no vuelve solo. !important porque cada componente fija su propio tamaño.
+// Antes, html y body tenían overflow-x: hidden, que escondía cualquier
+// desborde horizontal del panel: el contenido quedaba cortado sin que se
+// notara. Esa red de seguridad ahora vive solo en la landing (su carrusel 3D).
+@media (max-width: 767px) {
+  input:not([type='checkbox'], [type='radio'], [type='range'], [type='color']),
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
 }
 
 // === PANEL: margen de página y sub-títulos (CLI-111) ===

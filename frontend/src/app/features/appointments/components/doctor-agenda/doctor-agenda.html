@@ -93,6 +93,27 @@
     }
   </ng-template>
 
+  <!-- Columna de un día, la misma en la semana de escritorio y en la vista de celular. -->
+  <ng-template #dayColTpl let-date let-isToday="isToday">
+    <div
+      class="agenda-grid__day-col"
+      [class.agenda-grid__day-col--today]="isToday"
+      [style.height.px]="gridHeightPx"
+    >
+      @for (line of gridLines; track line.offset) {
+        <div
+          class="agenda-grid__line"
+          [class.agenda-grid__line--hour]="line.isHour"
+          [style.top.px]="line.offset"
+        ></div>
+      }
+      <ng-container *ngTemplateOutlet="cellsTpl; context: { $implicit: date }" />
+      @for (appt of appointmentsFor(date); track appt.id) {
+        <ng-container *ngTemplateOutlet="slotTpl; context: { $implicit: appt }" />
+      }
+    </div>
+  </ng-template>
+
   @if (blockDialog(); as dialog) {
     <app-time-block-dialog
       [date]="dialog.date"
@@ -167,16 +188,26 @@
     />
   } @else {
     <div class="agenda__nav">
-      <button type="button" class="agenda__nav-btn" (click)="onPrevPage()" aria-label="Página anterior">
+      <button
+        type="button"
+        class="agenda__nav-btn"
+        (click)="onPrevPage()"
+        [attr.aria-label]="dayView() ? 'Día anterior' : 'Semana anterior'"
+      >
         <span class="material-symbols-outlined">chevron_left</span>
       </button>
       <div class="agenda__nav-center">
-        <span class="agenda__nav-label">{{ rangeLabel() }}</span>
-        @if (!isCurrentWeekVisible()) {
+        <span class="agenda__nav-label">{{ dayView() ? focusLabel() : rangeLabel() }}</span>
+        @if (dayView() ? !focusIsToday() : !isCurrentWeekVisible()) {
           <button type="button" class="agenda__nav-today" (click)="onToday()">Hoy</button>
         }
       </div>
-      <button type="button" class="agenda__nav-btn" (click)="onNextPage()" aria-label="Página siguiente">
+      <button
+        type="button"
+        class="agenda__nav-btn"
+        (click)="onNextPage()"
+        [attr.aria-label]="dayView() ? 'Día siguiente' : 'Semana siguiente'"
+      >
         <span class="material-symbols-outlined">chevron_right</span>
       </button>
       @if (canBook()) {
@@ -186,6 +217,28 @@
         </button>
       }
     </div>
+
+    <!-- CLI-248: en el celular se ve un día a la vez; la semana queda en esta tira. -->
+    @if (dayView()) {
+      <div class="agenda-strip" role="tablist" aria-label="Días de la semana">
+        @for (d of dayStrip(); track d.date) {
+          <button
+            type="button"
+            role="tab"
+            class="agenda-strip__day"
+            [class.agenda-strip__day--today]="d.isToday"
+            [class.agenda-strip__day--selected]="d.isSelected"
+            [attr.aria-selected]="d.isSelected"
+            [attr.aria-label]="d.weekday + ' ' + d.dayNum + (d.hasAppointments ? ', con citas' : '')"
+            (click)="onSelectDay(d.date)"
+          >
+            <span class="agenda-strip__weekday">{{ d.weekday }}</span>
+            <span class="agenda-strip__num">{{ d.dayNum }}</span>
+            <span class="agenda-strip__dot" [class.agenda-strip__dot--on]="d.hasAppointments" aria-hidden="true"></span>
+          </button>
+        }
+      </div>
+    }
 
     @if (effectiveScope() === 'all' && doctorLegend().length > 0) {
       <ul class="agenda__legend" aria-label="Doctores">
@@ -212,12 +265,27 @@
     <!-- Siempre el mismo alto: si el texto apareciera o desapareciera, movería la grilla bajo el cursor. -->
     @if (canBook()) {
       <p class="agenda__hint agenda__hint--inline">
-        {{ picking() ? 'Haz clic en el horario que elija el paciente.' : 'Haz clic en un horario libre para agendar una cita.' }}
+        @if (dayView()) {
+          {{ picking() ? 'Toca el horario que elija el paciente.' : 'Toca un horario libre para agendar una cita.' }}
+        } @else {
+          {{ picking() ? 'Haz clic en el horario que elija el paciente.' : 'Haz clic en un horario libre para agendar una cita.' }}
+        }
       </p>
     }
 
     @if (loading()) {
       <p class="agenda__hint">Cargando agenda...</p>
+    } @else if (dayView()) {
+      <div class="agenda-grid-wrap">
+        <div #grid class="agenda-grid agenda-grid--day" [style.gridTemplateColumns]="mobileGridTemplateColumns">
+          <div class="agenda-grid__gutter" [style.height.px]="gridHeightPx">
+            @for (mark of hourMarks; track mark.offset) {
+              <span class="agenda-grid__hour-label" [style.top.px]="mark.offset">{{ mark.label }}</span>
+            }
+          </div>
+          <ng-container *ngTemplateOutlet="dayColTpl; context: { $implicit: focusDate(), isToday: focusIsToday() }" />
+        </div>
+      </div>
     } @else {
       <div class="agenda-grid-wrap">
         <div
@@ -289,23 +357,7 @@
                 </div>
               </div>
             } @else {
-              <div
-                class="agenda-grid__day-col"
-                [class.agenda-grid__day-col--today]="day.isToday"
-                [style.height.px]="gridHeightPx"
-              >
-                @for (line of gridLines; track line.offset) {
-                  <div
-                    class="agenda-grid__line"
-                    [class.agenda-grid__line--hour]="line.isHour"
-                    [style.top.px]="line.offset"
-                  ></div>
-                }
-                <ng-container *ngTemplateOutlet="cellsTpl; context: { $implicit: day.date }" />
-                @for (appt of appointmentsFor(day.date); track appt.id) {
-                  <ng-container *ngTemplateOutlet="slotTpl; context: { $implicit: appt }" />
-                }
-              </div>
+              <ng-container *ngTemplateOutlet="dayColTpl; context: { $implicit: day.date, isToday: day.isToday }" />
             }
           }
         </div>

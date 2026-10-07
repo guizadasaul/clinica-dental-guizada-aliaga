@@ -1,3 +1,5 @@
+@use 'breakpoints' as bp;
+
 .odontogram-chart {
   display: flex;
   flex-direction: column;
@@ -180,5 +182,45 @@
     height: 10px;
     border-radius: 2px;
     flex-shrink: 0;
+  }
+}
+
+// ─── Celular (CLI-249) ────────────────────────────────────────────────────────
+// Achicado al ancho de un celular, el dibujo dejaba dientes de 16 px, imposibles
+// de tocar con precisión. Ahí el lienzo mide 760 px (dientes permanentes de
+// 32–44 px de ancho y más de 100 de alto) y se desliza de costado.
+
+.odontogram-chart__swipe-hint {
+  display: none;
+}
+
+@include bp.down(md) {
+  .odontogram-chart__scroll {
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    margin-inline: calc(-1 * var(--space-4));
+    padding-inline: var(--space-4);
+  }
+
+  .odontogram-chart__canvas {
+    width: 760px;
+    max-width: none;
+  }
+
+  .odontogram-chart__swipe-hint {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    margin: 0;
+    font-size: var(--font-size-xs);
+    color: var(--color-text-muted);
+
+    .material-symbols-outlined {
+      font-size: 1.125rem;
+    }
+  }
+
+  .odontogram-chart__legend-title {
+    font-size: var(--font-size-xs);
   }
 }

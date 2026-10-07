@@ -224,9 +224,12 @@
     font-size: var(--font-size-sm);
 
     &:last-child { border-bottom: none; }
+
+    // El monto no se parte en dos renglones ("Bs." arriba, el número abajo).
+    > strong { flex-shrink: 0; white-space: nowrap; }
   }
 
-  &__teeth { color: var(--color-gray-500); }
+  &__teeth { color: var(--color-gray-500); font-size: var(--font-size-xs); }
 
   &__table {
     width: 100%;

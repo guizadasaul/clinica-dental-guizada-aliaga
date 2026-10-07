@@ -1,7 +1,9 @@
 import { Injectable, ServiceUnavailableException } from '@nestjs/common';
 import type {
+  AccountEmailKind,
   EmailSender,
   InviteEmailKind,
+  SendAccountEmailParams,
   SendInviteEmailParams,
 } from '../../domain/EmailSender.js';
 import {
@@ -59,6 +61,59 @@ const INVITE_EMAIL_COPY: Record<InviteEmailKind, InviteEmailCopy> = {
   },
 };
 
+/** Lo que cambia entre un correo y otro; el diseño es el mismo. */
+interface ClinicEmail {
+  subject: string;
+  eyebrow: string;
+  heading: string;
+  /** Texto oculto que el cliente de correo muestra como vista previa. */
+  preheader: string;
+  /** Vacío: "Hola," sin nombre. */
+  greetingName: string;
+  /** Párrafo principal en texto plano. */
+  intro: string;
+  /** El mismo párrafo en HTML (puede llevar <strong>). */
+  introHtml: string;
+  buttonLabel: string;
+  url: string;
+  /** Línea con el enlace en la versión de texto plano. */
+  textCta: string;
+  expiresIn: string;
+  /** Por qué recibió el correo, al pie. */
+  footerReason: string;
+}
+
+type AccountEmailCopy = Omit<ClinicEmail, 'greetingName' | 'introHtml' | 'url'>;
+
+const ACCOUNT_EMAIL_COPY: Record<AccountEmailKind, AccountEmailCopy> = {
+  confirm_email: {
+    subject: 'Confirma tu correo en Clínica Dental Guizada-Aliaga',
+    eyebrow: 'Confirma tu correo',
+    heading: 'Ya casi terminas',
+    preheader: 'confirma tu correo para entrar a tu cuenta de la clínica.',
+    intro:
+      'Creaste tu cuenta en Clínica Dental Guizada-Aliaga. Confirma que este correo es tuyo para entrar y ver tus citas, tu historial y tu presupuesto.',
+    buttonLabel: 'Confirmar mi correo',
+    textCta: 'Confirma tu correo aquí:',
+    expiresIn: '1 hora',
+    footerReason:
+      'Recibiste este correo porque se creó una cuenta con esta dirección en Clínica Dental Guizada-Aliaga. Si no fuiste tú, puedes ignorar este mensaje.',
+  },
+  reset_password: {
+    subject: 'Crea una nueva contraseña en Clínica Dental Guizada-Aliaga',
+    eyebrow: 'Recuperar contraseña',
+    heading: 'Crea una nueva contraseña',
+    preheader: 'usa este enlace para elegir una nueva contraseña.',
+    intro:
+      'Pediste cambiar la contraseña de tu cuenta en Clínica Dental Guizada-Aliaga. Presiona el botón para elegir una nueva; tu contraseña actual sigue funcionando hasta que la cambies.',
+    buttonLabel: 'Crear nueva contraseña',
+    textCta: 'Crea tu nueva contraseña aquí:',
+    expiresIn: '1 hora',
+    footerReason:
+      'Recibiste este correo porque alguien pidió recuperar la contraseña de esta cuenta. Si no fuiste tú, ignora este mensaje: tu contraseña no cambia.',
+  },
+};
+
 /**
  * Mismo patrón que BanecoClient (api/src/payments/infrastructure/baneco/baneco.client.ts):
  * las env vars se leen de forma perezosa (recién al mandar un email, no en el
@@ -69,6 +124,39 @@ const INVITE_EMAIL_COPY: Record<InviteEmailKind, InviteEmailCopy> = {
 @Injectable()
 export class ResendEmailSender implements EmailSender {
   async sendInviteEmail(params: SendInviteEmailParams): Promise<void> {
+    const copy = INVITE_EMAIL_COPY[params.kind];
+    const email: ClinicEmail = {
+      subject: copy.subject,
+      eyebrow: copy.eyebrow,
+      heading: copy.heading,
+      preheader: `${params.displayName}, ${copy.preheader}`,
+      greetingName: params.displayName,
+      intro: `El equipo de Clínica Dental Guizada-Aliaga ${copy.intro}`,
+      introHtml: `El equipo de <strong>Clínica Dental Guizada-Aliaga</strong> ${copy.intro}`,
+      buttonLabel: 'Completar mi registro',
+      url: params.inviteUrl,
+      textCta: copy.textCta,
+      expiresIn: formatInviteTtl(INVITE_TTL_MINUTES[params.kind]),
+      footerReason:
+        'Recibiste este correo porque un profesional de Clínica Dental Guizada-Aliaga registró tu contacto para invitarte a crear tu cuenta. Si crees que fue un error, puedes ignorar este mensaje.',
+    };
+    await this.send(params.to, email);
+  }
+
+  /** Correos de la cuenta (CLI-242): confirmar el correo, y desde CLI-243 recuperar la contraseña. */
+  async sendAccountEmail(params: SendAccountEmailParams): Promise<void> {
+    const copy = ACCOUNT_EMAIL_COPY[params.kind];
+    const greetingName = params.displayName ?? '';
+    await this.send(params.to, {
+      ...copy,
+      preheader: copy.preheader,
+      greetingName,
+      introHtml: copy.intro,
+      url: params.actionUrl,
+    });
+  }
+
+  private async send(to: string, email: ClinicEmail): Promise<void> {
     const apiKey = process.env['RESEND_API_KEY'];
     const fromEmail = process.env['RESEND_FROM_EMAIL'];
     if (!apiKey || !fromEmail) {
@@ -88,10 +176,10 @@ export class ResendEmailSender implements EmailSender {
         },
         body: JSON.stringify({
           from: fromEmail,
-          to: params.to,
-          subject: INVITE_EMAIL_COPY[params.kind].subject,
-          html: this.buildHtml(params),
-          text: this.buildText(params),
+          to,
+          subject: email.subject,
+          html: this.buildHtml(email),
+          text: this.buildText(email),
           attachments: [
             {
               filename: 'logo-clinica.png',
@@ -117,11 +205,12 @@ export class ResendEmailSender implements EmailSender {
     }
   }
 
-  private buildHtml(params: SendInviteEmailParams): string {
-    const name = this.escapeHtml(params.displayName);
-    const url = this.escapeHtml(params.inviteUrl);
-    const copy = INVITE_EMAIL_COPY[params.kind];
-    const expiresIn = formatInviteTtl(INVITE_TTL_MINUTES[params.kind]);
+  private buildHtml(email: ClinicEmail): string {
+    const url = this.escapeHtml(email.url);
+    const copy = email;
+    const greeting = email.greetingName
+      ? `Hola ${this.escapeHtml(email.greetingName)},`
+      : 'Hola,';
 
     return `
 <!doctype html>
@@ -133,7 +222,7 @@ export class ResendEmailSender implements EmailSender {
   </head>
   <body style="margin:0; padding:0; background-color:#f3ede1; font-family:'Source Sans 3', Arial, Helvetica, sans-serif;">
     <span style="display:none; visibility:hidden; opacity:0; overflow:hidden; height:0; width:0; max-height:0; max-width:0; mso-hide:all;">
-      ${name}, ${copy.preheader}
+      ${this.escapeHtml(email.preheader)}
     </span>
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#f3ede1;">
       <tr>
@@ -167,10 +256,10 @@ export class ResendEmailSender implements EmailSender {
                   ${copy.heading}
                 </h1>
                 <p style="margin:0 0 16px; font-size:16px; line-height:1.6; color:#1c1b1f;">
-                  Hola ${name},
+                  ${greeting}
                 </p>
                 <p style="margin:0 0 24px; font-size:16px; line-height:1.6; color:#1c1b1f;">
-                  El equipo de <strong>Clínica Dental Guizada-Aliaga</strong> ${copy.intro}
+                  ${email.introHtml}
                 </p>
               </td>
             </tr>
@@ -187,7 +276,7 @@ export class ResendEmailSender implements EmailSender {
                         rel="noopener noreferrer"
                         style="display:inline-block; padding:14px 36px; font-family:'Source Sans 3', Arial, Helvetica, sans-serif; font-size:16px; font-weight:700; color:#ffffff; text-decoration:none; border-radius:10px;"
                       >
-                        Completar mi registro
+                        ${email.buttonLabel}
                       </a>
                     </td>
                   </tr>
@@ -205,7 +294,7 @@ export class ResendEmailSender implements EmailSender {
                   <a href="${url}" style="color:#e89858;">${url}</a>
                 </p>
                 <p style="margin:0 0 32px; font-size:13px; line-height:1.5; color:#4d4640;">
-                  Por tu seguridad, este enlace vence en <strong>${expiresIn}</strong>.
+                  Por tu seguridad, este enlace vence en <strong>${email.expiresIn}</strong>.
                 </p>
               </td>
             </tr>
@@ -233,8 +322,7 @@ export class ResendEmailSender implements EmailSender {
                   <a href="mailto:clinicadentalguizadaaliaga@gmail.com" style="color:#4d4640; text-decoration:underline;">clinicadentalguizadaaliaga@gmail.com</a>
                 </p>
                 <p style="margin:0; font-size:12px; line-height:1.5; color:#9b9488;">
-                  Recibiste este correo porque un profesional de Clínica Dental Guizada-Aliaga registró tu contacto para
-                  invitarte a crear tu cuenta. Si crees que fue un error, puedes ignorar este mensaje.
+                  ${email.footerReason}
                 </p>
               </td>
             </tr>
@@ -251,17 +339,18 @@ export class ResendEmailSender implements EmailSender {
     `.trim();
   }
 
-  private buildText(params: SendInviteEmailParams): string {
-    const copy = INVITE_EMAIL_COPY[params.kind];
-    const expiresIn = formatInviteTtl(INVITE_TTL_MINUTES[params.kind]);
+  private buildText(email: ClinicEmail): string {
+    const greeting = email.greetingName
+      ? `Hola ${email.greetingName},`
+      : 'Hola,';
     return `
-Hola ${params.displayName},
+${greeting}
 
-El equipo de Clínica Dental Guizada-Aliaga ${copy.intro}
+${email.intro}
 
-${copy.textCta} ${params.inviteUrl}
+${email.textCta} ${email.url}
 
-Por tu seguridad, este enlace vence en ${expiresIn}.
+Por tu seguridad, este enlace vence en ${email.expiresIn}.
 
 —
 Clínica Dental Guizada-Aliaga

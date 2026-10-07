@@ -11,16 +11,24 @@ import {
   untracked,
   OnInit,
 } from '@angular/core';
+import { HttpErrorResponse } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
 import { PatientsService } from '../../services/patients.service';
 import { BookingService } from '../../../booking/services/booking.service';
 import { AuthService } from '../../../../auth/application/auth.service';
+import { PasswordResetLinkService } from '../../../../auth/application/password-reset-link.service';
 import type { Patient, PatientWithUser, PatientInviteContact } from '../../models/patient.model';
 import type { Doctor } from '../../../booking/models/booking.model';
 import { PageHeaderComponent } from '../../../../shared/ui/page-header/page-header';
 import { PaginationComponent, PAGE_SIZE } from '../../../../shared/ui/pagination/pagination';
 import { clampPage, pageSlice } from '../../../../shared/utils/pagination.util';
 import { PatientDeleteDialogComponent } from '../patient-delete-dialog/patient-delete-dialog';
+
+/** Abre hacia abajo (`top`) o, cerca del borde inferior, hacia arriba (`bottom`). */
+type MenuPosition = { top?: number; bottom?: number; right: number };
+
+/** Lo que ocupa el menú ⋮ completo: con menos espacio debajo, abre hacia arriba. */
+const MENU_MIN_SPACE_BELOW = 320;
 
 @Component({
   selector: 'app-patients-list',
@@ -34,6 +42,7 @@ export class PatientsListComponent implements OnInit {
   private readonly patientsService = inject(PatientsService);
   private readonly bookingService = inject(BookingService);
   private readonly authService = inject(AuthService);
+  private readonly resetLinks = inject(PasswordResetLinkService);
 
   // CLI-64: panel de admin viendo a un doctor puntual — reemplaza la lógica
   // de onlyMine y oculta el toggle "Solo mis pacientes" (no aplica en modo
@@ -63,7 +72,7 @@ export class PatientsListComponent implements OnInit {
   // `overflow-x: auto` — por spec de CSS eso fuerza `overflow-y` a `auto`
   // también, así que cualquier menú `absolute` que se quisiera salir de esa
   // caja quedaba recortado.
-  protected readonly menuPosition = signal<{ top: number; right: number } | null>(null);
+  protected readonly menuPosition = signal<MenuPosition | null>(null);
 
   @HostListener('document:click', ['$event'])
   onDocumentClick(event: MouseEvent): void {
@@ -90,6 +99,7 @@ export class PatientsListComponent implements OnInit {
   protected readonly deleting = signal<PatientWithUser | null>(null);
   protected readonly deleteBusy = signal(false);
   protected readonly deleteError = signal<string | null>(null);
+  protected readonly resetLinkError = signal<string | null>(null);
 
   protected readonly patients = signal<PatientWithUser[]>([]);
   protected readonly doctors = signal<Doctor[]>([]);
@@ -184,7 +194,9 @@ export class PatientsListComponent implements OnInit {
 
   protected readonly filtered = computed(() => {
     const q = this.filter().toLowerCase().trim();
-    if (!q) { return this.patients(); }
+    if (!q) {
+      return this.patients();
+    }
     return this.patients().filter((p) => {
       const name = this.fullName(p).toLowerCase();
       const phone = this.phoneLabel(p).toLowerCase();
@@ -254,10 +266,14 @@ export class PatientsListComponent implements OnInit {
       return;
     }
     const rect = trigger.getBoundingClientRect();
-    this.menuPosition.set({
-      top: rect.bottom + 8,
-      right: window.innerWidth - rect.right,
-    });
+    const right = window.innerWidth - rect.right;
+    // Cerca del borde de abajo (pasa seguido en el celular), el menú abre
+    // hacia arriba: si no, sus últimas opciones quedaban fuera de la pantalla.
+    if (window.innerHeight - rect.bottom < MENU_MIN_SPACE_BELOW) {
+      this.menuPosition.set({ bottom: window.innerHeight - rect.top + 8, right });
+      return;
+    }
+    this.menuPosition.set({ top: rect.bottom + 8, right });
   }
 
   /** Tratamiento y presupuesto solo con ficha y diagnóstico terminado (CLI-189); no depende de la cuenta. */
@@ -307,5 +323,30 @@ export class PatientsListComponent implements OnInit {
       phone: p.patient.phone,
       email: p.email,
     });
+  }
+
+  /**
+   * "Link para nueva contraseña" (CLI-244): para quien se registró con
+   * teléfono y no puede usar "Olvidé mi contraseña". Abre WhatsApp con el
+   * link de un solo uso ya escrito.
+   */
+  protected async onSendPasswordLink(p: PatientWithUser): Promise<void> {
+    this.closeMenu();
+    if (!p.patient) {
+      return;
+    }
+    this.resetLinkError.set(null);
+    try {
+      const { whatsappUrl } = await firstValueFrom(this.resetLinks.createLink(p.patient.id));
+      window.open(whatsappUrl, '_blank');
+    } catch (err) {
+      const message =
+        err instanceof HttpErrorResponse && err.status === 409 ? err.error?.message : null;
+      this.resetLinkError.set(
+        typeof message === 'string'
+          ? message
+          : 'No pudimos preparar el link de WhatsApp. Intenta de nuevo.',
+      );
+    }
   }
 }

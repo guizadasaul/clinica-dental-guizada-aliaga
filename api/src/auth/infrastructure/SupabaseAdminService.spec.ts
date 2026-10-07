@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ConflictException,
   Logger,
   ServiceUnavailableException,
@@ -10,7 +11,13 @@ jest.mock('@supabase/supabase-js', () => ({ createClient: jest.fn() }));
 
 describe('SupabaseAdminService', () => {
   const savedEnv = { ...process.env };
-  const admin = { updateUserById: jest.fn(), createUser: jest.fn() };
+  const admin = {
+    updateUserById: jest.fn(),
+    createUser: jest.fn(),
+    generateLink: jest.fn(),
+    getUserById: jest.fn(),
+    deleteUser: jest.fn(),
+  };
   let warn: jest.SpyInstance;
   let error: jest.SpyInstance;
 
@@ -150,6 +157,180 @@ describe('SupabaseAdminService', () => {
         new SupabaseAdminService().createPhoneUser('+59170000000', 'clave'),
       ).rejects.toThrow('No se pudo crear la cuenta');
       expect(error).toHaveBeenCalled();
+    });
+  });
+
+  describe('createEmailUser (CLI-242)', () => {
+    it('crea la cuenta sin confirmar con generateLink (Supabase no manda su correo) y devuelve el token', async () => {
+      admin.generateLink.mockResolvedValue({
+        data: { user: { id: 'uid-1' }, properties: { hashed_token: 'hash-1' } },
+        error: null,
+      });
+
+      await expect(
+        new SupabaseAdminService().createEmailUser('a@b.com', 'secret123'),
+      ).resolves.toEqual({ authUserId: 'uid-1', hashedToken: 'hash-1' });
+      expect(admin.generateLink).toHaveBeenCalledWith({
+        type: 'signup',
+        email: 'a@b.com',
+        password: 'secret123',
+      });
+    });
+
+    it('un correo ya confirmado da 409 con un mensaje que dice qué hacer', async () => {
+      admin.generateLink.mockResolvedValue({
+        data: null,
+        error: { code: 'email_exists', status: 422 },
+      });
+
+      await expect(
+        new SupabaseAdminService().createEmailUser('a@b.com', 'secret123'),
+      ).rejects.toThrow(ConflictException);
+    });
+
+    it('otro error de Supabase da 503 y queda en el log', async () => {
+      admin.generateLink.mockResolvedValue({
+        data: null,
+        error: { code: 'unexpected_failure', status: 500 },
+      });
+
+      await expect(
+        new SupabaseAdminService().createEmailUser('a@b.com', 'secret123'),
+      ).rejects.toThrow(ServiceUnavailableException);
+      expect(error).toHaveBeenCalled();
+    });
+  });
+
+  describe('createEmailConfirmation (CLI-242)', () => {
+    it('genera un token nuevo para una cuenta sin confirmar, sin contraseña', async () => {
+      admin.getUserById.mockResolvedValue({
+        data: { user: { email: 'a@b.com', email_confirmed_at: null } },
+        error: null,
+      });
+      admin.generateLink.mockResolvedValue({
+        data: { properties: { hashed_token: 'hash-2' } },
+        error: null,
+      });
+
+      await expect(
+        new SupabaseAdminService().createEmailConfirmation('uid-1'),
+      ).resolves.toEqual({ email: 'a@b.com', hashedToken: 'hash-2' });
+      expect(admin.generateLink).toHaveBeenCalledWith({
+        type: 'signup',
+        email: 'a@b.com',
+      });
+    });
+
+    it('no hace nada si la cuenta ya está confirmada o no existe', async () => {
+      admin.getUserById.mockResolvedValueOnce({
+        data: { user: { email: 'a@b.com', email_confirmed_at: '2026-10-07' } },
+        error: null,
+      });
+      admin.getUserById.mockResolvedValueOnce({
+        data: { user: null },
+        error: { status: 404 },
+      });
+      const service = new SupabaseAdminService();
+
+      await expect(
+        service.createEmailConfirmation('uid-1'),
+      ).resolves.toBeNull();
+      await expect(
+        service.createEmailConfirmation('uid-2'),
+      ).resolves.toBeNull();
+      expect(admin.generateLink).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('deleteUser (CLI-242)', () => {
+    it('borra la cuenta y nunca lanza aunque Supabase falle', async () => {
+      admin.deleteUser.mockResolvedValue({ error: { status: 500 } });
+
+      await expect(
+        new SupabaseAdminService().deleteUser('uid-1'),
+      ).resolves.toBeUndefined();
+      expect(admin.deleteUser).toHaveBeenCalledWith('uid-1');
+      expect(error).toHaveBeenCalled();
+    });
+  });
+
+  describe('createRecoveryLink (CLI-243)', () => {
+    it('genera el token de recuperación sin que Supabase mande su correo', async () => {
+      admin.generateLink.mockResolvedValue({
+        data: { properties: { hashed_token: 'hash-r' } },
+        error: null,
+      });
+
+      await expect(
+        new SupabaseAdminService().createRecoveryLink('a@b.com'),
+      ).resolves.toBe('hash-r');
+      expect(admin.generateLink).toHaveBeenCalledWith({
+        type: 'recovery',
+        email: 'a@b.com',
+      });
+    });
+
+    it('sin cuenta con ese correo devuelve null (verificado: 404 user_not_found)', async () => {
+      admin.generateLink.mockResolvedValue({
+        data: null,
+        error: { code: 'user_not_found', status: 404 },
+      });
+
+      await expect(
+        new SupabaseAdminService().createRecoveryLink('a@b.com'),
+      ).resolves.toBeNull();
+    });
+
+    it('otro error da 503', async () => {
+      admin.generateLink.mockResolvedValue({
+        data: null,
+        error: { code: 'unexpected_failure', status: 500 },
+      });
+
+      await expect(
+        new SupabaseAdminService().createRecoveryLink('a@b.com'),
+      ).rejects.toThrow(ServiceUnavailableException);
+    });
+  });
+
+  describe('setPassword (CLI-244)', () => {
+    it('cambia la contraseña de la cuenta por id', async () => {
+      admin.updateUserById.mockResolvedValue({ error: null });
+
+      await new SupabaseAdminService().setPassword('auth-1', 'una-clave-nueva');
+
+      expect(admin.updateUserById).toHaveBeenCalledWith('auth-1', {
+        password: 'una-clave-nueva',
+      });
+    });
+
+    it('una contraseña débil da 400 con un mensaje para el paciente', async () => {
+      admin.updateUserById.mockResolvedValue({
+        error: { code: 'weak_password', status: 422 },
+      });
+
+      await expect(
+        new SupabaseAdminService().setPassword('auth-1', '12345678'),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('otro error da 503 y queda en el log', async () => {
+      admin.updateUserById.mockResolvedValue({
+        error: { code: 'unexpected_failure', status: 500 },
+      });
+
+      await expect(
+        new SupabaseAdminService().setPassword('auth-1', 'una-clave-nueva'),
+      ).rejects.toThrow(ServiceUnavailableException);
+      expect(error).toHaveBeenCalled();
+    });
+
+    it('sin service role key responde 503', async () => {
+      delete process.env['SUPABASE_SERVICE_ROLE_KEY'];
+
+      await expect(
+        new SupabaseAdminService().setPassword('auth-1', 'una-clave-nueva'),
+      ).rejects.toThrow(ServiceUnavailableException);
     });
   });
 });

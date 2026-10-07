@@ -109,6 +109,18 @@ describe('PatientInvitesService', () => {
       expect(result.whatsappUrl).toContain('https://wa.me/59170011122?text=');
     });
 
+    it('keeps the country code of a foreign phone in the wa.me link (CLI-241)', async () => {
+      mockInviteRepo.findPatientContactInfo.mockResolvedValue({
+        ...CONTACT_WITH_BOTH,
+        phone: '+5491123456789',
+      });
+      mockInviteRepo.create.mockResolvedValue({});
+
+      const result = await service.createInvite('patient-1', 'whatsapp');
+
+      expect(result.whatsappUrl).toContain('https://wa.me/5491123456789?text=');
+    });
+
     it('normalizes a phone that already has the country code without duplicating it', async () => {
       mockInviteRepo.findPatientContactInfo.mockResolvedValue({
         ...CONTACT_WITH_BOTH,

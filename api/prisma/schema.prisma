@@ -407,6 +407,21 @@ model patient_invites {
   patients   patients? @relation(fields: [patient_id], references: [id], onDelete: Cascade)
 }
 
+/// Links de un solo uso para elegir una contraseña nueva (CLI-244): los arma
+/// el doctor desde la ficha y viajan por WhatsApp, para las cuentas que no
+/// tienen correo. Del token solo se guarda el sha256.
+model password_reset_links {
+  id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id    String    @db.Uuid
+  token_hash String    @unique @db.VarChar(64)
+  expires_at DateTime  @db.Timestamptz(6)
+  used_at    DateTime? @db.Timestamptz(6)
+  created_at DateTime  @default(now()) @db.Timestamptz(6)
+  users      users     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@index([user_id])
+}
+
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
 model payments {
   id             String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
@@ -769,6 +784,7 @@ model users {
   tooth_procedures        tooth_procedures[]
   dental_exams            dental_exams[]
   patient_invites         patient_invites[]
+  password_reset_links    password_reset_links[]
   chat_sessions           chat_sessions[]
   chat_channel_identities chat_channel_identities[]
   chat_link_codes         chat_link_codes[]

@@ -11,6 +11,7 @@ import { AppointmentsService } from './appointments/services/appointments.servic
 import { BookingService } from './booking/services/booking.service';
 import { AdminDoctorsService } from './admin/services/admin-doctors.service';
 import { DoctorProfileService } from './settings/services/doctor-profile.service';
+import { PasswordResetLinkService } from '../auth/application/password-reset-link.service';
 
 const API = 'http://localhost:2999';
 
@@ -34,6 +35,7 @@ function services() {
     booking: TestBed.inject(BookingService),
     admin: TestBed.inject(AdminDoctorsService),
     profile: TestBed.inject(DoctorProfileService),
+    resetLinks: TestBed.inject(PasswordResetLinkService),
   };
 }
 
@@ -189,7 +191,8 @@ function cases(s: ReturnType<typeof services>): Case[] {
     },
     {
       name: 'reportes: serie diaria (CLI-199)',
-      call: () => s.reports.getTrends({ from: '2026-09-01', to: '2026-09-30', doctorId: 'doctor-1' }),
+      call: () =>
+        s.reports.getTrends({ from: '2026-09-01', to: '2026-09-30', doctorId: 'doctor-1' }),
       method: 'GET',
       url: `${API}/admin/reports/trends`,
       params: { from: '2026-09-01', to: '2026-09-30', doctorId: 'doctor-1' },
@@ -325,6 +328,26 @@ function cases(s: ReturnType<typeof services>): Case[] {
       call: () => s.invites.checkStatus('tok'),
       method: 'GET',
       url: `${API}/invites/tok/status`,
+    },
+    {
+      name: 'contraseña nueva: armar el link de WhatsApp',
+      call: () => s.resetLinks.createLink('p1'),
+      method: 'POST',
+      url: `${API}/patients/p1/password-reset-links`,
+      body: {},
+    },
+    {
+      name: 'contraseña nueva: validar el link',
+      call: () => s.resetLinks.checkStatus('tok'),
+      method: 'GET',
+      url: `${API}/password-reset/tok/status`,
+    },
+    {
+      name: 'contraseña nueva: guardarla',
+      call: () => s.resetLinks.resetPassword('tok', 'una-clave-nueva'),
+      method: 'POST',
+      url: `${API}/password-reset/tok`,
+      body: { password: 'una-clave-nueva' },
     },
     {
       name: 'agenda: sin filtros',
