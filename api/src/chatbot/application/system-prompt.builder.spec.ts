@@ -58,13 +58,61 @@ describe('SystemPromptBuilder', () => {
     }
   });
 
+  it('incluye las reglas de tono y de respuesta única (CLI-233)', () => {
+    const prompt = builder.build({ kind: 'anonymous' }, NOW);
+
+    expect(prompt).toContain('siempre tuteando');
+    expect(prompt).toContain('Todo en una sola respuesta');
+    expect(prompt).toContain('Nunca digas "un momento"');
+    expect(prompt).toContain('nunca lo des como contacto');
+    expect(prompt).toContain('nunca lo calcules');
+  });
+
+  it.each([
+    [{ kind: 'anonymous' }, 'inicia sesión en la web'],
+    [userActor(UserRole.PATIENT), '"Mi presupuesto"'],
+    [userActor(UserRole.ODONTOLOGIST), 'de colega a colega'],
+    [userActor(UserRole.ADMIN), 'agenda de toda la clínica'],
+  ] as [ChatActor, string][])(
+    'agrega solo la guía del rol del actor',
+    (actor, guide) => {
+      const prompt = builder.build(actor, NOW);
+
+      expect(prompt).toContain(guide);
+      const others = [
+        'inicia sesión en la web',
+        '"Mi presupuesto"',
+        'de colega a colega',
+        'agenda de toda la clínica',
+      ].filter((text) => text !== guide);
+      for (const text of others) {
+        expect(prompt).not.toContain(text);
+      }
+    },
+  );
+
+  it('deja la fecha y la hora al final para no romper la caché del prefijo', () => {
+    const prompt = builder.build(userActor(UserRole.PATIENT), NOW);
+
+    expect(prompt.trimEnd().split('\n').at(-1)).toMatch(
+      /^Fecha y hora actual en la clínica:/,
+    );
+  });
+
   // Tope: 600 → 650 en CLI-88 (reglas de contacto y urgencias) → 800 en
   // CLI-89 (datos fijos de la clínica, para que no invente una dirección como
-  // pasó en la prueba en vivo). CLI-99 lo optimiza con datos de uso reales.
-  it('se mantiene compacto (~800 tokens como máximo)', () => {
-    const prompt = builder.build(userActor(UserRole.ADMIN), NOW);
-
-    // Aproximación de 4 caracteres por token.
-    expect(prompt.length / 4).toBeLessThanOrEqual(800);
-  });
+  // pasó en la prueba en vivo) → 1050 en CLI-233 (tono, respuesta única y la
+  // guía de cada rol; el prefijo se cachea igual, ver CLI-99).
+  it.each([
+    { kind: 'anonymous' },
+    userActor(UserRole.PATIENT),
+    userActor(UserRole.ODONTOLOGIST),
+    userActor(UserRole.ADMIN),
+  ] as ChatActor[])(
+    'se mantiene compacto (~1050 tokens como máximo)',
+    (actor) => {
+      // Aproximación de 4 caracteres por token.
+      expect(builder.build(actor, NOW).length / 4).toBeLessThanOrEqual(1050);
+    },
+  );
 });

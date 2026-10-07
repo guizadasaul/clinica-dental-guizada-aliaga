@@ -10,6 +10,7 @@ import {
   clinicDate,
   clinicDayStart,
   clinicTime,
+  clinicWeekday,
   daysBetween,
 } from './clinic-time.js';
 import {
@@ -52,6 +53,7 @@ function patientName(appointment: AppointmentWithPatient): string {
 function agendaView(appointment: AppointmentWithPatient) {
   return {
     date: clinicDate(appointment.appointmentDatetime),
+    weekday: clinicWeekday(appointment.appointmentDatetime),
     time: clinicTime(appointment.appointmentDatetime),
     patient: patientName(appointment),
     phone: appointment.patientPhone ?? appointment.guestPhone,

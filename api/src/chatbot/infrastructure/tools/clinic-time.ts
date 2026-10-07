@@ -27,6 +27,25 @@ export function clinicTime(instant: Date): string {
   return TIME_FORMATTER.format(instant);
 }
 
+const WEEKDAY_FORMATTER = new Intl.DateTimeFormat('es-BO', {
+  timeZone: CLINIC_TIMEZONE,
+  weekday: 'long',
+});
+
+/**
+ * Día de la semana ("viernes") en el huso de la clínica. Las tools lo
+ * mandan junto a la fecha porque el modelo lo calculaba mal (CLI-233:
+ * dijo "domingo 9 de octubre" y era viernes).
+ */
+export function clinicWeekday(instant: Date): string {
+  return WEEKDAY_FORMATTER.format(instant);
+}
+
+/** Día de la semana de una fecha YYYY-MM-DD. */
+export function weekdayOf(date: string): string {
+  return clinicWeekday(clinicDayStart(date));
+}
+
 /** Minúsculas y sin tildes, para comparar texto que escribe el usuario. */
 export function normalizeText(text: string): string {
   return text

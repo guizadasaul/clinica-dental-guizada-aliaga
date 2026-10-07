@@ -30,13 +30,14 @@ export interface ResolvedInboundMessage {
 /** Respuestas fijas del canal (tuteo, igual que el agente). */
 export const WHATSAPP_REPLIES = {
   nonText:
-    'Por ahora solo puedo leer mensajes de texto. Escríbeme tu consulta, por favor.',
+    'Por ahora solo puedo leer mensajes de texto. Cuéntame por escrito en qué te ayudo y con gusto te respondo.',
   linked:
-    'Listo, este número quedó vinculado a tu cuenta. Ya puedes consultarme por tus citas y tu información.',
+    '¡Listo! Este número quedó vinculado a tu cuenta. Ya puedes preguntarme por tus citas, tus tratamientos y tu saldo.',
   linkFailed:
     'No pude vincular este número. Revisa el código en la web o pide uno nuevo (vence a los 10 minutos).',
-  limit: 'Alcanzaste el límite de mensajes por hoy. Prueba de nuevo mañana.',
-  busy: 'Todavía estoy respondiendo tu mensaje anterior. Espera un momento.',
+  limit:
+    'Por hoy alcanzaste el límite de mensajes. Escríbeme mañana y con gusto te ayudo.',
+  busy: 'Todavía estoy respondiendo tu mensaje anterior. Escríbeme de nuevo cuando te llegue mi respuesta.',
   ambiguousHint:
     'Este número está registrado en más de una cuenta, así que te atiendo como visitante. Para consultar tus datos, pide un código de vinculación en la web de la clínica.',
 } as const;

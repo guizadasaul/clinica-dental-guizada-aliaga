@@ -29,7 +29,7 @@ const RAW_TOOL_MARKERS: readonly string[] = [
 ];
 
 const REFUSALS: Record<ChatLocale, string> = {
-  es: 'No puedo compartir eso. ¿Te ayudo con información de la clínica o con una reserva?',
+  es: 'Eso no lo puedo compartir, perdona. ¿Te ayudo con información de la clínica o con una reserva?',
   en: "I can't share that. Can I help you with clinic information or a booking?",
   pt: 'Não posso compartilhar isso. Posso ajudar com informações da clínica ou com uma reserva?',
 };
