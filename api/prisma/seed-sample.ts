@@ -1645,6 +1645,80 @@ async function seedAppointments(
   );
 }
 
+interface SeedTestimonial {
+  id: string;
+  name: string;
+  treatment: string;
+  comment: string;
+}
+
+/**
+ * Testimonios de prueba para el carrusel de la landing (CLI-35). Viven acá y
+ * no en seed.ts porque ese seed también se corre en producción, que solo debe
+ * mostrar comentarios reales. `id` fijo por entrada: el upsert es idempotente.
+ */
+const TEST_TESTIMONIALS: SeedTestimonial[] = [
+  {
+    id: '3f6a8b1c-1a2d-4e3f-9b7a-1c2d3e4f5a01',
+    name: 'Sofía Ramírez',
+    treatment: 'Blanqueamiento dental láser',
+    comment:
+      'Después de años sin animarme a sonreír en las fotos, hice el blanqueamiento láser y no lo podía creer: en una sola sesión noté la diferencia. El equipo me hizo sentir súper cómoda todo el tiempo.',
+  },
+  {
+    id: '3f6a8b1c-1a2d-4e3f-9b7a-1c2d3e4f5a02',
+    name: 'Marcelo Quispe',
+    treatment: 'Ortodoncia con brackets metálicos',
+    comment:
+      'Empecé el tratamiento de ortodoncia hace un año y ver el avance mes a mes fue increíble. Siempre me explicaron cada paso con paciencia, nunca me sentí apurado en las consultas.',
+  },
+  {
+    id: '3f6a8b1c-1a2d-4e3f-9b7a-1c2d3e4f5a03',
+    name: 'Daniela Fernández',
+    treatment: 'Implante',
+    comment:
+      'Tenía mucho miedo de hacerme un implante, pero el Dr. Ariel y su equipo me acompañaron en todo el proceso. El resultado quedó perfecto, ni se nota que no es mi diente original.',
+  },
+  {
+    id: '3f6a8b1c-1a2d-4e3f-9b7a-1c2d3e4f5a04',
+    name: 'Rodrigo Salazar',
+    treatment: 'Limpieza, profilaxis y flúor',
+    comment:
+      'Vengo cada seis meses a mi limpieza y siempre salgo contento. La atención es rápida, puntual y el consultorio está impecable.',
+  },
+  {
+    id: '3f6a8b1c-1a2d-4e3f-9b7a-1c2d3e4f5a05',
+    name: 'Valentina Ortiz',
+    treatment: 'Corona de porcelana libre de metal',
+    comment:
+      'Me hice una corona de porcelana y el color quedó idéntico al resto de mis dientes. Se nota la dedicación en cada detalle.',
+  },
+];
+
+async function upsertTestimonials() {
+  for (const t of TEST_TESTIMONIALS) {
+    await prisma.testimonials.upsert({
+      where: { id: t.id },
+      create: {
+        id: t.id,
+        name: t.name,
+        treatment: t.treatment,
+        comment: t.comment,
+        status: 'approved',
+      },
+      update: {
+        name: t.name,
+        treatment: t.treatment,
+        comment: t.comment,
+        status: 'approved',
+      },
+    });
+  }
+  console.log(
+    `✓ ${TEST_TESTIMONIALS.length} testimonios de prueba sincronizados.`,
+  );
+}
+
 async function main() {
   assertNotProduction(process.env);
   const today = clinicToday();
@@ -1664,6 +1738,7 @@ async function main() {
   );
 
   await seedAppointments(cat, doctors, patients, today);
+  await upsertTestimonials();
 }
 
 main()
