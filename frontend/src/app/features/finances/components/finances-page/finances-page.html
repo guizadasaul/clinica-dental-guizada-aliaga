@@ -116,6 +116,13 @@
                       @if (line.toothNumbers.length > 0) {
                         <small class="fin__teeth">· pieza{{ line.toothNumbers.length === 1 ? '' : 's' }} {{ line.toothNumbers.join(', ') }}</small>
                       }
+                      <small class="fin__line-status" [class.fin__line-status--done]="line.performedAt">
+                        @if (line.performedAt) {
+                          Realizado el {{ line.performedAt | date: 'dd/MM/yyyy' : 'UTC' }}
+                        } @else {
+                          Por realizar
+                        }
+                      </small>
                     </span>
                     <strong>Bs. {{ line.total | number: '1.2-2' }}</strong>
                   </li>

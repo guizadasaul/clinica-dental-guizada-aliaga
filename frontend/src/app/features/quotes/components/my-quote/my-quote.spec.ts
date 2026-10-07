@@ -7,7 +7,7 @@ import type { Payment, Quote, QuoteLine } from '../../models/quote.model';
 import type { QrCharge } from '../../../finances/models/finance.model';
 
 function line(key: string, total: number, pending = total, extra: Partial<QuoteLine> = {}): QuoteLine {
-  return { key, treatmentName: `Tratamiento ${key}`, toothNumbers: [], total, paid: total - pending, pending, ...extra };
+  return { key, treatmentName: `Tratamiento ${key}`, toothNumbers: [], total, paid: total - pending, pending, performedAt: null, ...extra };
 }
 
 function pay(id: string, amount: number, paymentDate: string, extra: Partial<Payment> = {}): Payment {

@@ -23,6 +23,7 @@ function proc(overrides: Partial<ToothProcedure> = {}): ToothProcedure {
     notes: null,
     performedBy: 'doctor-1',
     performedByName: 'Dra. Lucía Mamani',
+    quoteItemId: null,
     createdAt: '2026-09-16T15:00:00.000Z',
     ...overrides,
   };

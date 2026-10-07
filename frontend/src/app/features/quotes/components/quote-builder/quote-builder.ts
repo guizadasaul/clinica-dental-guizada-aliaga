@@ -10,12 +10,14 @@ import {
   viewChild,
 } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
-import { DecimalPipe } from '@angular/common';
+import { DatePipe, DecimalPipe } from '@angular/common';
+import { HttpErrorResponse } from '@angular/common/http';
 import { catchError, of } from 'rxjs';
 import { FormsModule } from '@angular/forms';
 import { QuotesService } from '../../services/quotes.service';
 import { TreatmentsService } from '../../../treatments/services/treatments.service';
 import type { Quote, QuoteItem } from '../../models/quote.model';
+import { linePerformedAt } from '../../utils/quote-lines';
 import type { Treatment } from '../../../treatments/models/treatment.model';
 import { applicationTypeAllowsQuantity } from '../../../../shared/constants/dental-chart.constants';
 import {
@@ -34,13 +36,15 @@ interface GroupedItem {
   readonly total: number;
   readonly currency: string;
   readonly exchangeRate: number | null;
+  /** CLI-228: cuándo se realizó (todas sus filas); null = por realizar. */
+  readonly performedAt: string | null;
 }
 
 @Component({
   selector: 'app-quote-builder',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [PageHeaderComponent, DecimalPipe, FormsModule, TreatmentScopePickerComponent],
+  imports: [PageHeaderComponent, DatePipe, DecimalPipe, FormsModule, TreatmentScopePickerComponent],
   templateUrl: './quote-builder.html',
   styleUrl: './quote-builder.scss',
 })
@@ -106,6 +110,7 @@ export class QuoteBuilderComponent {
         total: first.subtotal,
         currency: first.currency,
         exchangeRate: first.exchangeRate,
+        performedAt: linePerformedAt(rows),
       };
     });
   });
@@ -204,8 +209,13 @@ export class QuoteBuilderComponent {
         this.quotesService.removeItem(quote.id, itemId).subscribe({ next: resolve, error: reject });
       });
       this.quote.set(updated);
-    } catch {
-      this.formError.set('No se pudo eliminar la línea. Intenta de nuevo.');
+    } catch (error: unknown) {
+      // 409 (CLI-226): lo que ya se realizó no se quita del presupuesto.
+      this.formError.set(
+        error instanceof HttpErrorResponse && error.status === 409
+          ? 'Este tratamiento ya se realizó: no se puede quitar del presupuesto.'
+          : 'No se pudo eliminar la línea. Intenta de nuevo.',
+      );
     } finally {
       this.removingItemId.set(null);
     }

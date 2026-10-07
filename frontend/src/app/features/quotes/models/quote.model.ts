@@ -10,6 +10,10 @@ export interface QuoteItem {
   subtotal: number;
   currency: string;
   exchangeRate: number | null;
+  /** CLI-226: el tratamiento registrado que cumplió esta fila; null = por realizar. */
+  procedureId: string | null;
+  /** CLI-226: fecha (YYYY-MM-DD…) de ese tratamiento. */
+  performedAt: string | null;
 }
 
 /** CLI-218: a qué tratamiento se aplicó (parte de) un pago. */
@@ -28,6 +32,8 @@ export interface QuoteLine {
   total: number;
   paid: number;
   pending: number;
+  /** CLI-226: cuándo se realizó (todas sus filas); null = por realizar. */
+  performedAt: string | null;
 }
 
 export interface Payment {

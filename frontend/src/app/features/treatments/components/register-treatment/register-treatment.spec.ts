@@ -1,4 +1,5 @@
 import { Component, input, output } from '@angular/core';
+import { DecimalPipe } from '@angular/common';
 import { TestBed } from '@angular/core/testing';
 import { By } from '@angular/platform-browser';
 import { of, throwError } from 'rxjs';
@@ -7,6 +8,9 @@ import { TreatmentsService } from '../../services/treatments.service';
 import { PatientsService } from '../../../patients/services/patients.service';
 import { DiagnosesService } from '../../../diagnoses/services/diagnoses.service';
 import { PageHeaderComponent } from '../../../../shared/ui/page-header/page-header';
+import { QuotesService } from '../../../quotes/services/quotes.service';
+import type { Quote, QuoteItem } from '../../../quotes/models/quote.model';
+import type { PlanLine } from '../../../quotes/utils/treatment-plan';
 import type { ProcedureRegisteredEvent } from '../register-treatment-odontogram/register-treatment-odontogram';
 import type { ToothProcedure } from '../../models/treatment.model';
 
@@ -19,8 +23,36 @@ class OdontogramStub {
   readonly currentExam = input<unknown>(null);
   readonly procedures = input<ToothProcedure[]>([]);
   readonly frequentTreatmentIds = input<string[]>([]);
+  readonly planLines = input<PlanLine[]>([]);
   readonly procedureRegistered = output<ProcedureRegisteredEvent>();
+  readonly openForPlanLine = vi.fn();
 }
+
+const planItem = (id: string, overrides: Partial<QuoteItem> = {}) =>
+  ({
+    id,
+    treatmentId: 'resina',
+    treatmentName: 'Resina',
+    toothNumber: 14,
+    applicationGroupId: null,
+    quantity: 1,
+    subtotal: 150,
+    exchangeRate: null,
+    procedureId: null,
+    performedAt: null,
+    ...overrides,
+  }) as QuoteItem;
+
+const PLAN: Quote[] = [
+  {
+    id: 'q-1',
+    createdAt: '2026-02-25T00:00:00Z',
+    items: [
+      planItem('hecho', { toothNumber: 16, procedureId: 'p1', performedAt: '2026-04-22' }),
+      planItem('por-hacer'),
+    ],
+  } as Quote,
+];
 
 const proc = (overrides: Partial<ToothProcedure> = {}) =>
   ({
@@ -31,7 +63,10 @@ const proc = (overrides: Partial<ToothProcedure> = {}) =>
     ...overrides,
   }) as ToothProcedure;
 
-function setup(fail = false) {
+function setup(fail = false, quotes: Quote[] = PLAN) {
+  const quotesService = {
+    getByPatient: vi.fn(() => (fail ? throwError(() => new Error('500')) : of(quotes))),
+  };
   const reply = <T>(value: T) => (fail ? throwError(() => new Error('500')) : of(value));
   TestBed.configureTestingModule({
     imports: [RegisterTreatmentComponent],
@@ -53,10 +88,11 @@ function setup(fail = false) {
         useValue: { getCurrentDentalExam: () => reply({ id: 'exam-1' }) },
       },
       { provide: DiagnosesService, useValue: { getCatalog: () => of([{ id: 'cat-1' }]) } },
+      { provide: QuotesService, useValue: quotesService },
     ],
   });
   TestBed.overrideComponent(RegisterTreatmentComponent, {
-    set: { imports: [PageHeaderComponent, OdontogramStub] },
+    set: { imports: [PageHeaderComponent, OdontogramStub, DecimalPipe] },
   });
   const fixture = TestBed.createComponent(RegisterTreatmentComponent);
   fixture.componentRef.setInput('patientId', 'patient-1');
@@ -67,7 +103,7 @@ function setup(fail = false) {
   const root = fixture.nativeElement as HTMLElement;
   const odontogram = fixture.debugElement.query(By.directive(OdontogramStub))
     .componentInstance as OdontogramStub;
-  return { fixture, root, events, odontogram };
+  return { fixture, root, events, odontogram, quotesService };
 }
 
 describe('RegisterTreatmentComponent', () => {
@@ -110,7 +146,8 @@ describe('RegisterTreatmentComponent', () => {
     odontogram.procedureRegistered.emit({
       procedures: [
         proc({ id: 'g-a', toothNumber: 14, applicationGroupId: 'g1', priceCharged: 300 }),
-        proc({ id: 'g-b', toothNumber: 15, applicationGroupId: 'g1', priceCharged: 0 }),
+        // Cada fila del grupo reporta el precio del grupo (CLI-53): se cuenta una vez.
+        proc({ id: 'g-b', toothNumber: 15, applicationGroupId: 'g1', priceCharged: 300 }),
       ],
       message: 'ok',
     });
@@ -143,5 +180,43 @@ describe('RegisterTreatmentComponent', () => {
     root.querySelector<HTMLButtonElement>('app-page-header button')!.click();
 
     expect(events).toEqual({ done: 1, cancelled: 2 });
+  });
+
+  describe('plan del presupuesto (CLI-228)', () => {
+    it('lista lo que falta realizar y se lo pasa al odontograma', () => {
+      const { root, odontogram } = setup();
+
+      const items = [...root.querySelectorAll('.reg-treatment__plan-item')];
+      expect(items).toHaveLength(1);
+      expect(items[0].textContent).toContain('Resina');
+      expect(items[0].textContent).toContain('Pieza 14');
+      expect(items[0].textContent).toContain('Bs. 150.00');
+      expect(odontogram.planLines().map((l) => l.key)).toEqual(['por-hacer']);
+    });
+
+    it('"Registrar" abre el panel del odontograma con esa línea', () => {
+      const { root, odontogram } = setup();
+
+      root.querySelector<HTMLButtonElement>('.reg-treatment__plan-btn')!.click();
+
+      expect(odontogram.openForPlanLine).toHaveBeenCalledWith(
+        expect.objectContaining({ key: 'por-hacer', toothNumbers: [14] }),
+      );
+    });
+
+    it('al registrar vuelve a cargar el plan', () => {
+      const { fixture, odontogram, quotesService } = setup();
+
+      odontogram.procedureRegistered.emit({ procedures: [proc({ id: 'p9' })], message: 'ok' });
+      fixture.detectChanges();
+
+      expect(quotesService.getByPatient).toHaveBeenCalledTimes(2);
+    });
+
+    it('sin nada por realizar (o si falla) no muestra la lista', () => {
+      expect(setup(false, []).root.querySelector('.reg-treatment__plan')).toBeNull();
+      TestBed.resetTestingModule();
+      expect(setup(true).root.querySelector('.reg-treatment__plan')).toBeNull();
+    });
   });
 });
