@@ -1,3 +1,5 @@
+@use 'breakpoints' as bp;
+
 // ─── Reportes (CLI-199) ──────────────────────────────────────────────────────
 // Resumen antes que el detalle: filtros → KPIs → gráficos → tablas.
 
@@ -427,4 +429,20 @@ $series-2: #d9731f;
   color: var(--color-error);
   text-decoration: underline;
   cursor: pointer;
+}
+
+// Celular (CLI-251): las tablas de reportes conservan su scroll de costado
+// (tienen muchas columnas numéricas que conviene comparar en fila), con un
+// aviso para que se note que hay más a la derecha.
+.reports-page__swipe-hint {
+  display: none;
+}
+
+@include bp.down(md) {
+  .reports-page__swipe-hint {
+    display: block;
+    margin: 0 0 var(--space-2);
+    font-size: var(--font-size-xs);
+    color: var(--color-text-muted);
+  }
 }

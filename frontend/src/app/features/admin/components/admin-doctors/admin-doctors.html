@@ -57,10 +57,10 @@
                     <span>{{ doctor.displayName ?? 'Sin nombre' }}</span>
                   </div>
                 </td>
-                <td class="admin-doctors__cell">{{ doctor.specialty ?? '—' }}</td>
-                <td class="admin-doctors__cell">{{ doctor.email ?? '—' }}</td>
-                <td class="admin-doctors__cell">{{ doctor.phone ?? '—' }}</td>
-                <td class="admin-doctors__cell">
+                <td class="admin-doctors__cell" data-label="Especialidad">{{ doctor.specialty ?? '—' }}</td>
+                <td class="admin-doctors__cell admin-doctors__cell--email" data-label="Email">{{ doctor.email ?? '—' }}</td>
+                <td class="admin-doctors__cell" data-label="Teléfono">{{ doctor.phone ?? '—' }}</td>
+                <td class="admin-doctors__cell" data-label="Estado">
                   @switch (statusOf(doctor)) {
                     @case ('active') {
                       <span class="admin-doctors__badge admin-doctors__badge--active">Activo</span>
