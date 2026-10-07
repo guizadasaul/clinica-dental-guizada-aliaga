@@ -49,7 +49,7 @@ describe('ChatbotService', () => {
       expect(req1.request.method).toBe('POST');
       expect(req1.request.body).toEqual({ message: 'Hola', locale: 'es' });
       req1.flush({ sessionToken: 'tok-123456789012345678901', reply: 'Hola!', links: [] });
-      await expect(first).resolves.toEqual({ reply: 'Hola!', links: [] });
+      await expect(first).resolves.toEqual({ reply: 'Hola!', links: [], attachments: [] });
       expect(localStorage.getItem(GUEST_TOKEN_KEY)).toBe('tok-123456789012345678901');
 
       const second = firstValueFrom(service.send('¿Horario?'));
@@ -99,9 +99,11 @@ describe('ChatbotService', () => {
         reply: 'El lunes',
         links: [{ label: 'Reservar', url: 'http://localhost:4200/reservar' }],
       });
+      // Una respuesta sin attachments (backend anterior a CLI-236) da [].
       await expect(first).resolves.toEqual({
         reply: 'El lunes',
         links: [{ label: 'Reservar', url: 'http://localhost:4200/reservar' }],
+        attachments: [],
       });
       expect(localStorage.getItem(GUEST_TOKEN_KEY)).toBeNull();
       expect(JSON.parse(localStorage.getItem(USER_SESSION_KEY)!)).toEqual({
@@ -114,6 +116,24 @@ describe('ChatbotService', () => {
       expect(req2.request.body).toEqual({ message: '¿Y mi saldo?', sessionId: 's-1' });
       req2.flush({ sessionId: 's-1', reply: '300 Bs.', links: [] });
       await second;
+    });
+
+    it('pasa el QR de pago que manda el backend (CLI-237)', async () => {
+      const { service, http } = setup(PATIENT);
+      const qr = {
+        type: 'qr_payment' as const,
+        chargeId: 'charge-1',
+        amountBob: 1050,
+        imageBase64: 'iVBOR',
+        lines: [],
+      };
+
+      const reply = firstValueFrom(service.send('quiero pagar'));
+      http
+        .expectOne(`${API}/chat/messages`)
+        .flush({ sessionId: 's-1', reply: 'Aquí está', links: [], attachments: [qr] });
+
+      await expect(reply).resolves.toEqual({ reply: 'Aquí está', links: [], attachments: [qr] });
     });
 
     it('no retoma la conversación guardada de otra cuenta', async () => {
@@ -150,7 +170,7 @@ describe('ChatbotService', () => {
       expect(retry.request.body).toEqual({ message: 'Hola' });
       retry.flush({ sessionId: 'nueva', reply: 'ok', links: [] });
 
-      await expect(reply).resolves.toEqual({ reply: 'ok', links: [] });
+      await expect(reply).resolves.toEqual({ reply: 'ok', links: [], attachments: [] });
       expect(JSON.parse(localStorage.getItem(USER_SESSION_KEY)!).sessionId).toBe('nueva');
     });
 

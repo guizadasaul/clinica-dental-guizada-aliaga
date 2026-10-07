@@ -7,6 +7,8 @@ import { Subject, of, throwError } from 'rxjs';
 import { AuthService } from '../../../../auth/application/auth.service';
 import type { AuthenticatedUser, UserRole } from '../../../../auth/models/authenticated-user.model';
 import { ChatbotService, type ChatbotReply } from '../../services/chatbot.service';
+import { QuotesService } from '../../../quotes/services/quotes.service';
+import type { ChatQrPayment } from '../../models/chat.model';
 import { CHAT_MESSAGE_MAX_LENGTH, ChatWidgetComponent, isOwnUrl, toSegments } from './chat-widget';
 
 const ORIGIN = globalThis.location.origin;
@@ -17,8 +19,12 @@ function user(role: UserRole | null): AuthenticatedUser {
 
 function setup(currentUser: AuthenticatedUser | null = null, guest = false) {
   const chatbot = {
-    send: vi.fn().mockReturnValue(of({ reply: 'Respuesta', links: [] })),
+    send: vi.fn().mockReturnValue(of({ reply: 'Respuesta', links: [], attachments: [] })),
     clear: vi.fn().mockReturnValue(of(undefined)),
+  };
+  const quotes = {
+    verifyMyQrCharge: vi.fn(),
+    cancelMyQrCharge: vi.fn(),
   };
   TestBed.configureTestingModule({
     imports: [ChatWidgetComponent],
@@ -26,6 +32,7 @@ function setup(currentUser: AuthenticatedUser | null = null, guest = false) {
       provideRouter([]),
       provideTranslateService({ defaultLanguage: 'es' }),
       { provide: ChatbotService, useValue: chatbot },
+      { provide: QuotesService, useValue: quotes },
       { provide: AuthService, useValue: { currentUser: signal(currentUser) } },
     ],
   });
@@ -57,7 +64,7 @@ function setup(currentUser: AuthenticatedUser | null = null, guest = false) {
     await render();
   };
   const bubbles = () => [...root.querySelectorAll<HTMLElement>('.chat-msg')];
-  return { fixture, root, q, chatbot, render, openPanel, type, sendMessage, bubbles };
+  return { fixture, root, q, chatbot, quotes, render, openPanel, type, sendMessage, bubbles };
 }
 
 describe('isOwnUrl / toSegments', () => {
@@ -179,7 +186,7 @@ describe('ChatWidgetComponent', () => {
     await sendMessage('Otra');
     expect(chatbot.send).toHaveBeenCalledTimes(1);
 
-    pending.next({ reply: 'Listo', links: [] });
+    pending.next({ reply: 'Listo', links: [], attachments: [] });
     pending.complete();
     await render();
     expect(q('.chat-msg--typing')).toBeNull();
@@ -198,7 +205,7 @@ describe('ChatWidgetComponent', () => {
   it('muestra la respuesta como texto plano, sin interpretar HTML', async () => {
     const { chatbot, openPanel, sendMessage, bubbles, root } = setup();
     chatbot.send.mockReturnValue(
-      of({ reply: '<img src=x onerror="alert(1)"><b>hola</b>', links: [] }),
+      of({ reply: '<img src=x onerror="alert(1)"><b>hola</b>', links: [], attachments: [] }),
     );
     await openPanel();
 
@@ -319,5 +326,118 @@ describe('ChatWidgetComponent', () => {
       await render();
       expect(chatbot.clear).toHaveBeenCalledWith('guest');
     });
+  });
+});
+
+describe('ChatWidgetComponent: QR de pago (CLI-237)', () => {
+  const QR: ChatQrPayment = {
+    type: 'qr_payment',
+    chargeId: 'charge-1',
+    amountBob: 1050,
+    imageBase64: 'iVBORw0KGgoQR',
+    lines: [
+      { treatment: 'Resina simple', amountBob: 250 },
+      { treatment: 'Endodoncia', amountBob: 800 },
+    ],
+  };
+
+  async function withQr() {
+    const ctx = setup(user('patient'));
+    ctx.chatbot.send.mockReturnValue(
+      of({ reply: 'Aquí tienes tu QR.', links: [], attachments: [QR] } satisfies ChatbotReply),
+    );
+    await ctx.openPanel();
+    await ctx.sendMessage('quiero pagar');
+    return ctx;
+  }
+
+  afterEach(() => vi.restoreAllMocks());
+
+  it('muestra el texto y, en su propia burbuja, la tarjeta con la imagen, el monto y lo que cubre', async () => {
+    const { q, root } = await withQr();
+
+    expect(root.textContent).toContain('Aquí tienes tu QR.');
+    const image = q<HTMLImageElement>('.chat-qr__image')!;
+    expect(image.getAttribute('src')).toBe('data:image/png;base64,iVBORw0KGgoQR');
+    expect(image.getAttribute('alt')).toBeTruthy();
+    expect(q('.chat-qr__lines')?.textContent).toContain('Endodoncia: Bs. 800');
+    expect(q<HTMLAnchorElement>('.chat-qr a[download]')?.getAttribute('href')).toBe(
+      'data:image/png;base64,iVBORw0KGgoQR',
+    );
+  });
+
+  it('"Ya pagué" verifica ese cobro y, si se pagó, lo marca pagado y agradece', async () => {
+    const { q, quotes, render, root } = await withQr();
+    quotes.verifyMyQrCharge.mockReturnValue(of({ status: 'paid', quote: {} }));
+
+    q<HTMLButtonElement>('.chat-qr__btn--primary')!.click();
+    await render();
+
+    expect(quotes.verifyMyQrCharge).toHaveBeenCalledWith('charge-1');
+    expect(q('.chat-qr')?.getAttribute('data-state')).toBe('paid');
+    expect(q('.chat-qr__image')).toBeNull();
+    expect(root.querySelectorAll('.chat-msg--assistant').length).toBeGreaterThanOrEqual(4);
+  });
+
+  it('si el banco todavía no acredita, sigue mostrando el QR con el aviso', async () => {
+    const { q, quotes, render } = await withQr();
+    quotes.verifyMyQrCharge.mockReturnValue(of({ status: 'pending' }));
+
+    q<HTMLButtonElement>('.chat-qr__btn--primary')!.click();
+    await render();
+
+    expect(q('.chat-qr')?.getAttribute('data-state')).toBe('waiting');
+    expect(q('.chat-qr__image')).not.toBeNull();
+    expect(q('.chat-qr output')).not.toBeNull();
+  });
+
+  it('"Anular" anula el cobro y saca el QR', async () => {
+    const { q, quotes, render } = await withQr();
+    quotes.cancelMyQrCharge.mockReturnValue(of({ status: 'cancelled' }));
+
+    q<HTMLButtonElement>('.chat-qr__btn--ghost')!.click();
+    await render();
+
+    expect(quotes.cancelMyQrCharge).toHaveBeenCalledWith('charge-1');
+    expect(q('.chat-qr')?.getAttribute('data-state')).toBe('cancelled');
+    expect(q('.chat-qr__image')).toBeNull();
+  });
+
+  it('si al anular el banco dice que ya estaba pagado, queda como pagado', async () => {
+    const { q, quotes, render } = await withQr();
+    quotes.cancelMyQrCharge.mockReturnValue(of({ status: 'paid', quote: {} }));
+
+    q<HTMLButtonElement>('.chat-qr__btn--ghost')!.click();
+    await render();
+
+    expect(q('.chat-qr')?.getAttribute('data-state')).toBe('paid');
+  });
+
+  it('un error al verificar se avisa y deja reintentar', async () => {
+    const { q, quotes, render } = await withQr();
+    quotes.verifyMyQrCharge.mockReturnValue(
+      throwError(() => new HttpErrorResponse({ status: 500 })),
+    );
+
+    q<HTMLButtonElement>('.chat-qr__btn--primary')!.click();
+    await render();
+
+    expect(q('.chat-qr [role="alert"]')).not.toBeNull();
+    expect(q<HTMLButtonElement>('.chat-qr__btn--primary')!.disabled).toBe(false);
+  });
+
+  it('mientras verifica no deja apretar dos veces', async () => {
+    const { q, quotes, render } = await withQr();
+    const pending = new Subject<{ status: 'pending' }>();
+    quotes.verifyMyQrCharge.mockReturnValue(pending);
+
+    q<HTMLButtonElement>('.chat-qr__btn--primary')!.click();
+    await render();
+
+    expect(q<HTMLButtonElement>('.chat-qr__btn--primary')!.disabled).toBe(true);
+    q<HTMLButtonElement>('.chat-qr__btn--primary')!.click();
+    expect(quotes.verifyMyQrCharge).toHaveBeenCalledTimes(1);
+    pending.next({ status: 'pending' });
+    pending.complete();
   });
 });

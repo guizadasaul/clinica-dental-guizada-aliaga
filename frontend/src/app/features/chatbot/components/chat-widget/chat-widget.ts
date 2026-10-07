@@ -19,7 +19,8 @@ import { TranslatePipe, TranslateService } from '@ngx-translate/core';
 import { firstValueFrom } from 'rxjs';
 import { AuthService } from '../../../../auth/application/auth.service';
 import { ChatbotService, type ChatMode } from '../../services/chatbot.service';
-import type { ChatLink } from '../../models/chat.model';
+import { QuotesService } from '../../../quotes/services/quotes.service';
+import type { ChatAttachment, ChatLink, ChatQrPayment } from '../../models/chat.model';
 import type { ChatLocale } from '../../models/chat.request';
 
 export const CHAT_MESSAGE_MAX_LENGTH = 1000;
@@ -32,13 +33,27 @@ interface TextSegment {
   href: string | null;
 }
 
+/**
+ * Estado de la tarjeta del QR (CLI-237). `waiting`: el banco todavía no
+ * acreditó el pago cuando el paciente presionó "Ya pagué".
+ */
+type QrState = 'pending' | 'busy' | 'waiting' | 'paid' | 'cancelled' | 'error';
+
+interface QrCard {
+  payment: ChatQrPayment;
+  state: QrState;
+}
+
 interface ChatEntry {
   id: number;
   role: 'user' | 'assistant' | 'error';
   segments: TextSegment[];
   /** Solo los errores: clave de i18n en vez de texto. */
   errorKey: string | null;
+  /** Parámetros de la clave de i18n (ej. el monto pagado). */
+  errorParams?: Record<string, unknown>;
   links: ChatLink[];
+  qr: QrCard | null;
 }
 
 /** Solo es clicable lo que apunta al propio frontend (ej. /reservar?...). */
@@ -87,6 +102,7 @@ function errorKeyFor(error: unknown): string {
 })
 export class ChatWidgetComponent {
   private readonly chatbot = inject(ChatbotService);
+  private readonly quotes = inject(QuotesService);
   private readonly auth = inject(AuthService);
   private readonly translate = inject(TranslateService);
   private readonly router = inject(Router);
@@ -178,10 +194,10 @@ export class ChatWidgetComponent {
     this.draft.set('');
     this.sending.set(true);
     try {
-      const { reply, links } = await firstValueFrom(
+      const { reply, links, attachments } = await firstValueFrom(
         this.chatbot.send(text, this.locale(), this.mode()),
       );
-      this.push('assistant', reply, links);
+      this.push('assistant', reply, links, attachments);
     } catch (error) {
       this.pushError(errorKeyFor(error));
     } finally {
@@ -211,6 +227,56 @@ export class ChatWidgetComponent {
     void this.router.navigateByUrl(`${target.pathname}${target.search}${target.hash}`);
   }
 
+  /** "Ya pagué": le pregunta al banco (vía la API) si el QR se pagó. */
+  protected async checkQr(entryId: number): Promise<void> {
+    const card = this.qrOf(entryId);
+    if (!card || card.state === 'busy') return;
+    this.setQrState(entryId, 'busy');
+    try {
+      const result = await firstValueFrom(this.quotes.verifyMyQrCharge(card.payment.chargeId));
+      if (result.status === 'paid') {
+        this.setQrState(entryId, 'paid');
+        this.pushNotice('chatbot.qr.paidMessage', { amount: card.payment.amountBob });
+      } else {
+        this.setQrState(entryId, result.status === 'cancelled' ? 'cancelled' : 'waiting');
+      }
+    } catch {
+      this.setQrState(entryId, 'error');
+    }
+  }
+
+  /** "Anular": si el banco dice que ya se pagó, se registra el pago (CLI-220). */
+  protected async cancelQr(entryId: number): Promise<void> {
+    const card = this.qrOf(entryId);
+    if (!card || card.state === 'busy') return;
+    this.setQrState(entryId, 'busy');
+    try {
+      const result = await firstValueFrom(this.quotes.cancelMyQrCharge(card.payment.chargeId));
+      this.setQrState(entryId, result.status === 'paid' ? 'paid' : 'cancelled');
+      if (result.status === 'paid') {
+        this.pushNotice('chatbot.qr.paidMessage', { amount: card.payment.amountBob });
+      }
+    } catch {
+      this.setQrState(entryId, 'error');
+    }
+  }
+
+  protected qrImage(card: QrCard): string {
+    return `data:image/png;base64,${card.payment.imageBase64}`;
+  }
+
+  private qrOf(entryId: number): QrCard | null {
+    return this.messages().find((entry) => entry.id === entryId)?.qr ?? null;
+  }
+
+  private setQrState(entryId: number, state: QrState): void {
+    this.messages.update((list) =>
+      list.map((entry) =>
+        entry.id === entryId && entry.qr ? { ...entry, qr: { ...entry.qr, state } } : entry,
+      ),
+    );
+  }
+
   private mode(): ChatMode {
     return this.guest() ? 'guest' : 'account';
   }
@@ -220,13 +286,44 @@ export class ChatWidgetComponent {
     return LOCALES.has(lang) ? (lang as ChatLocale) : undefined;
   }
 
-  private push(role: 'user' | 'assistant', text: string, links: ChatLink[] = []): void {
+  private push(
+    role: 'user' | 'assistant',
+    text: string,
+    links: ChatLink[] = [],
+    attachments: ChatAttachment[] = [],
+  ): void {
+    const entries: ChatEntry[] = [
+      {
+        id: this.nextId++,
+        role,
+        segments: toSegments(text, globalThis.location.origin),
+        errorKey: null,
+        links,
+        qr: null,
+      },
+      // Cada QR va en su propia burbuja, debajo de la respuesta.
+      ...attachments.map((payment) => ({
+        id: this.nextId++,
+        role: 'assistant' as const,
+        segments: [],
+        errorKey: null,
+        links: [],
+        qr: { payment, state: 'pending' as const },
+      })),
+    ];
+    this.messages.update((list) => [...list, ...entries]);
+  }
+
+  /** Mensaje fijo del asistente (traducido), sin pasar por el backend. */
+  private pushNotice(key: string, params: Record<string, unknown>): void {
     const entry: ChatEntry = {
       id: this.nextId++,
-      role,
-      segments: toSegments(text, globalThis.location.origin),
-      errorKey: null,
-      links,
+      role: 'assistant',
+      segments: [],
+      errorKey: key,
+      errorParams: params,
+      links: [],
+      qr: null,
     };
     this.messages.update((list) => [...list, entry]);
   }
@@ -238,6 +335,7 @@ export class ChatWidgetComponent {
       segments: [],
       errorKey,
       links: [],
+      qr: null,
     };
     this.messages.update((list) => [...list, entry]);
   }
