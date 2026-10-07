@@ -13,6 +13,10 @@ export type EvalRole = 'anonymous' | 'patient' | 'doctor' | 'admin';
 
 /** Lo que se espera de la respuesta a un mensaje del usuario. */
 export interface EvalTurn extends ReplyExpectations, ToolExpectations {
+  /**
+   * Mensaje del usuario. `{nextAppointmentDay}` se reemplaza por el día
+   * (YYYY-MM-DD) de las próximas citas de los fixtures.
+   */
   user: string;
 }
 
@@ -397,7 +401,7 @@ const CASES: EvalCase[] = [
     description: 'Agenda de un día de toda la clínica',
     turns: [
       {
-        user: '¿cuántas citas hay en tres días y con quién?',
+        user: '¿qué citas hay en la clínica el {nextAppointmentDay} y con quién?',
         expectTools: [['get_clinic_agenda']],
         mustMention: [
           DOCTOR.replace('Dra. ', ''),
