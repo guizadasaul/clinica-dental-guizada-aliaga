@@ -254,6 +254,17 @@ describe('doctor tools (CLI-92, CLI-234)', () => {
       expect(result).toMatchObject({ from: today, to: addDays(today, 6) });
     });
 
+    it('con no_show y sin fechas mira los últimos 30 días (las faltas siempre son pasadas)', async () => {
+      appointmentsService.getAgenda.mockResolvedValue([]);
+      const today = clinicDate(new Date());
+
+      const result = await new GetMyAgendaTool(appointments).execute(doctor, {
+        status: 'no_show',
+      });
+
+      expect(result).toMatchObject({ from: addDays(today, -29), to: today });
+    });
+
     it('con solo "from" trae ese día', async () => {
       appointmentsService.getAgenda.mockResolvedValue([]);
 
@@ -543,8 +554,8 @@ describe('doctor tools (CLI-92, CLI-234)', () => {
           treatment: 'Limpieza dental',
         },
         visits: 2,
-        noShows: 1,
-        lastNoShow: { date: '2026-10-05', weekday: 'lunes', time: '10:00' },
+        missedAppointments: 1,
+        lastMissed: { date: '2026-10-05', weekday: 'lunes', time: '10:00' },
         treatmentsDone: {
           total: 2,
           latest: [
@@ -567,6 +578,7 @@ describe('doctor tools (CLI-92, CLI-234)', () => {
             },
           ],
         },
+        note: expect.stringContaining('no asistió') as unknown,
       });
       expect(JSON.stringify(result)).not.toContain('privado');
     });
@@ -584,7 +596,7 @@ describe('doctor tools (CLI-92, CLI-234)', () => {
         nextAppointment: null,
         lastVisit: null,
         visits: 0,
-        noShows: 0,
+        missedAppointments: 0,
         quote: null,
       });
     });

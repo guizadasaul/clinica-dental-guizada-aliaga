@@ -45,6 +45,8 @@ const NO_PARAMETERS: JsonSchema = {
 const MAX_AGENDA_DAYS = 31;
 /** Sin fechas: hoy y los 6 días siguientes ("¿qué tengo esta semana?"). */
 const DEFAULT_AGENDA_DAYS = 7;
+/** Las faltas siempre son pasadas: sin fechas se miran los últimos 30 días. */
+const DEFAULT_NO_SHOW_DAYS = 30;
 const MAX_AGENDA_ITEMS = 50;
 const DEFAULT_PATIENTS = 15;
 const MAX_CANDIDATES = 10;
@@ -176,6 +178,20 @@ function monthRange(month: string | undefined): {
   return { month: resolved, from, to };
 }
 
+function agendaRange(
+  args: MyAgendaArgsDto,
+  status: AgendaStatus,
+): { from: string; to: string } {
+  const today = clinicDate(new Date());
+  if (!args.from && !args.to && status === 'no_show') {
+    return { from: addDays(today, -(DEFAULT_NO_SHOW_DAYS - 1)), to: today };
+  }
+  const from = args.from ?? today;
+  const to =
+    args.to ?? (args.from ? from : addDays(from, DEFAULT_AGENDA_DAYS - 1));
+  return { from, to };
+}
+
 function quoteSummary(quote: Quote) {
   return {
     status: QUOTE_STATUS_LABEL[quote.status] ?? quote.status,
@@ -201,7 +217,7 @@ function quoteSummary(quote: Quote) {
 export class GetMyAgendaTool implements ChatTool<MyAgendaArgsDto> {
   readonly name = 'get_my_agenda';
   readonly description =
-    'Citas de su agenda entre dos fechas, con paciente, tratamiento y estado. Sin fechas: hoy y 6 días más; un solo día: from = to. Máx. 31 días.';
+    'Citas de su agenda entre dos fechas, con paciente, tratamiento y estado. Sin fechas: hoy y 6 días más (no_show: los últimos 30 días); un solo día: from = to. Máx. 31 días.';
   readonly parameters: JsonSchema = {
     type: 'object',
     properties: {
@@ -222,9 +238,8 @@ export class GetMyAgendaTool implements ChatTool<MyAgendaArgsDto> {
   async execute(actor: ChatActor, args: MyAgendaArgsDto): Promise<unknown> {
     const doctorId = doctorIdOf(actor);
     if (!doctorId) return NOT_A_DOCTOR;
-    const from = args.from ?? clinicDate(new Date());
-    const to =
-      args.to ?? (args.from ? from : addDays(from, DEFAULT_AGENDA_DAYS - 1));
+    const status: AgendaStatus = args.status ?? 'confirmed';
+    const { from, to } = agendaRange(args, status);
     const days = daysBetween(from, to);
     if (days < 0 || days >= MAX_AGENDA_DAYS) {
       return {
@@ -232,7 +247,6 @@ export class GetMyAgendaTool implements ChatTool<MyAgendaArgsDto> {
         note: 'Rango de 1 a 31 días, con from <= to.',
       };
     }
-    const status: AgendaStatus = args.status ?? 'confirmed';
     const now = new Date();
     const appointments = (
       await this.appointmentsService.getAgenda({
@@ -370,8 +384,8 @@ export class GetMyPatientSummaryTool implements ChatTool<MyPatientSummaryArgsDto
       nextAppointment: upcoming[0] ? visitView(upcoming[0]) : null,
       lastVisit: attended[0] ? visitView(attended[0]) : null,
       visits: attended.length,
-      noShows: noShows.length,
-      ...(noShows[0] && { lastNoShow: visitView(noShows[0]) }),
+      missedAppointments: noShows.length,
+      ...(noShows[0] && { lastMissed: visitView(noShows[0]) }),
       treatmentsDone: {
         total: treatments.length,
         latest: treatments.slice(0, MAX_SUMMARY_TREATMENTS).map((t) => ({
@@ -381,6 +395,7 @@ export class GetMyPatientSummaryTool implements ChatTool<MyPatientSummaryArgsDto
         })),
       },
       quote: finance.quote ? quoteSummary(finance.quote) : null,
+      note: 'missedAppointments = citas a las que "no asistió" (dilo así, no "no-show").',
     };
   }
 }
@@ -466,7 +481,7 @@ export class GetMyMonthlyStatsTool implements ChatTool<MyMonthArgsDto> {
       collectedBob: money?.collected ?? 0,
       pendingBob: money?.pending ?? 0,
       notes: [
-        'Cada cita cuenta en un solo estado: upcomingConfirmed son las que todavía no llegaron; attended, las confirmadas cuya hora ya pasó; noShow, las que el doctor marcó como "no asistió". Para saber quiénes faltaron: get_my_agenda con status no_show.',
+        'Cada cita cuenta en un solo estado: upcomingConfirmed son las que todavía no llegaron; attended, las confirmadas cuya hora ya pasó; noShow, las que el doctor marcó como "no asistió" (dilo así, no "no-show"). Para saber quiénes faltaron: get_my_agenda con status no_show.',
         '"Cobrado" es del mes; "pendiente" es el saldo actual de sus pacientes asignados, no solo del mes.',
       ],
     };
