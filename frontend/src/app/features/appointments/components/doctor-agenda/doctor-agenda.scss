@@ -1,3 +1,6 @@
+@use 'breakpoints' as bp;
+@use 'responsive' as rsp;
+
 .agenda {
   display: flex;
   flex-direction: column;
@@ -30,6 +33,8 @@
       color: var(--color-text);
       box-shadow: var(--shadow-sm);
     }
+
+    @include rsp.tap-target;
   }
 
   &__legend {
@@ -637,5 +642,113 @@
   &:focus-visible {
     outline: 3px solid var(--color-primary);
     outline-offset: 2px;
+  }
+}
+
+// ─── Celular (CLI-248) ───────────────────────────────────────────────────────
+// Un día a la vez: la tira de días reemplaza a los encabezados de la grilla, y
+// "Reservar horario" pasa a su propia fila para que la fecha no se aplaste.
+
+@include bp.down(md) {
+  .agenda__nav {
+    flex-wrap: wrap;
+    gap: var(--space-2);
+  }
+
+  .agenda__nav-center {
+    flex: 1;
+    justify-content: center;
+    min-width: 0;
+  }
+
+  .agenda__nav-label {
+    text-align: center;
+  }
+
+  .agenda__nav-btn {
+    width: 44px;
+    height: 44px;
+  }
+
+  .agenda__nav-today {
+    min-height: 32px;
+    padding: 0.25rem 0.75rem;
+  }
+
+  .agenda__block-btn {
+    order: 3;
+    width: 100%;
+    justify-content: center;
+    margin-left: 0;
+    min-height: 44px;
+  }
+
+  .agenda-grid--day {
+    max-height: calc(100dvh - 18rem);
+    min-height: 22rem;
+  }
+
+  .agenda-grid--day .agenda-grid__hour-label,
+  .agenda-grid--day .agenda-slot__time {
+    font-size: var(--font-size-xs);
+  }
+}
+
+.agenda-strip {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: var(--space-1);
+
+  &__day {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.125rem;
+    min-height: 3.5rem;
+    padding: var(--space-1) 0;
+    border: 1px solid transparent;
+    border-radius: var(--radius-lg);
+    background: transparent;
+    font-family: var(--font-body);
+    color: var(--color-text);
+    cursor: pointer;
+
+    &--today {
+      border-color: var(--color-primary);
+    }
+
+    &--selected {
+      background: var(--color-navy);
+      border-color: var(--color-navy);
+      color: #fff;
+    }
+
+    &:focus-visible {
+      outline: 3px solid var(--color-primary);
+      outline-offset: 2px;
+    }
+  }
+
+  &__weekday {
+    font-size: var(--font-size-xs);
+    font-weight: 600;
+    text-transform: uppercase;
+  }
+
+  &__num {
+    font-family: var(--font-headline);
+    font-size: 1.125rem;
+    line-height: 1;
+  }
+
+  // Siempre ocupa su lugar: así los números no saltan entre días con y sin citas.
+  &__dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+
+    &--on {
+      background: var(--color-primary);
+    }
   }
 }
