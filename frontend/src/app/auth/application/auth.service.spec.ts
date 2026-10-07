@@ -205,6 +205,50 @@ describe('AuthService', () => {
     expect(signInWithPassword).not.toHaveBeenCalled();
   });
 
+  it('registerWithEmail crea la cuenta en el backend con la invitación (CLI-242)', async () => {
+    const { service, httpMock } = setup();
+
+    const done = service.registerWithEmail('carla@example.com', 'una-clave-segura', 'tok-1');
+    const req = httpMock.expectOne((r) => r.url.endsWith('/auth/register/email'));
+    expect(req.request.body).toEqual({
+      email: 'carla@example.com',
+      password: 'una-clave-segura',
+      inviteToken: 'tok-1',
+    });
+    req.flush(null);
+    await done;
+  });
+
+  it('resendEmailConfirmation pide el reenvío al backend', async () => {
+    const { service, httpMock } = setup();
+
+    const done = service.resendEmailConfirmation('carla@example.com');
+    const req = httpMock.expectOne((r) => r.url.endsWith('/auth/register/email/resend'));
+    expect(req.request.body).toEqual({ email: 'carla@example.com' });
+    req.flush(null);
+    await done;
+  });
+
+  it('confirmEmail verifica el token_hash del link, sin PKCE (sirve en cualquier navegador)', async () => {
+    const { service, fakeSupabase } = setup();
+    const verifyOtp = vi.fn().mockResolvedValue({ error: null });
+    Object.assign(fakeSupabase.client.auth, { verifyOtp });
+
+    await service.confirmEmail('hash-1');
+
+    expect(verifyOtp).toHaveBeenCalledWith({ token_hash: 'hash-1', type: 'signup' });
+  });
+
+  it('confirmEmail traduce el error de un link vencido o usado', async () => {
+    const { service, fakeSupabase } = setup();
+    const verifyOtp = vi.fn().mockResolvedValue({
+      error: { code: 'otp_expired', message: 'Email link is invalid or has expired' },
+    });
+    Object.assign(fakeSupabase.client.auth, { verifyOtp });
+
+    await expect(service.confirmEmail('hash-1')).rejects.toThrow();
+  });
+
   describe('recuperación de contraseña (CLI-42)', () => {
     it('PASSWORD_RECOVERY marca la sesión como pendiente y hasRecoverySession() la reconoce', async () => {
       const { service, fakeSupabase } = setup();

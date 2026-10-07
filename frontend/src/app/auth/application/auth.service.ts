@@ -142,21 +142,43 @@ export class AuthService {
     // En éxito el browser navega a Google; nada después de esta línea corre.
   }
 
-  async registerWithPassword(
-    email: string,
-    password: string,
-  ): Promise<{ confirmationRequired: boolean }> {
-    const { data, error } = await this.supabase.auth.signUp({
-      email,
-      password,
-      options: { emailRedirectTo: `${window.location.origin}/auth/callback` },
+  /**
+   * Alta por correo + contraseña (CLI-242). La crea el backend, que además
+   * canjea la invitación en el mismo momento y manda el correo de
+   * confirmación por Resend. Antes era un signUp desde acá: Supabase no
+   * mandaba su correo y, con la invitación de 5 minutos canjeada recién al
+   * confirmar, la cuenta podía quedar sin ficha.
+   */
+  async registerWithEmail(email: string, password: string, inviteToken: string): Promise<void> {
+    await firstValueFrom(
+      this.http.post<void>(`${environment.backendUrl}/auth/register/email`, {
+        email,
+        password,
+        inviteToken,
+      }),
+    );
+  }
+
+  /** Reenvía el correo de confirmación; nunca revela si el correo existe. */
+  async resendEmailConfirmation(email: string): Promise<void> {
+    await firstValueFrom(
+      this.http.post<void>(`${environment.backendUrl}/auth/register/email/resend`, { email }),
+    );
+  }
+
+  /**
+   * Confirma el correo con el link que mandó el backend (CLI-242). Usa el
+   * token_hash, no el flujo PKCE: funciona aunque el link se abra en otro
+   * navegador o desde la app de correo del celular. Deja la sesión iniciada.
+   */
+  async confirmEmail(tokenHash: string): Promise<void> {
+    const { error } = await this.supabase.auth.verifyOtp({
+      token_hash: tokenHash,
+      type: 'signup',
     });
     if (error) {
-      throw new Error(mapAuthError(error, 'No se pudo crear la cuenta.'));
+      throw new Error(mapAuthError(error, 'El enlace de confirmación venció o ya se usó.'));
     }
-    // Con mailer_autoconfirm=false (config actual del proyecto), data.session
-    // es null hasta que el usuario confirme por correo.
-    return { confirmationRequired: data.session === null };
   }
 
   async loginWithPassword(email: string, password: string): Promise<void> {

@@ -1,4 +1,5 @@
 import {
+  ConflictException,
   ForbiddenException,
   Injectable,
   Inject,
@@ -12,7 +13,15 @@ import { ACCOUNT_DISABLED_MESSAGE } from '../domain/account-disabled';
 import { UserRepository } from '../domain/UserRepository';
 import { PatientInvitesService } from '../../patient-invites/application/patient-invites.service';
 import { SupabaseAdminService } from '../infrastructure/SupabaseAdminService';
+import { EmailSender } from '../../patient-invites/domain/EmailSender';
+import type { EmailSender as IEmailSender } from '../../patient-invites/domain/EmailSender';
 import { phoneLastDigits, toLoginE164 } from '../../shared/phone.util';
+
+/** Link del correo de confirmación: verifyOtp con token_hash, sin PKCE. */
+function confirmationUrl(hashedToken: string): string {
+  const frontend = process.env['FRONTEND_URL'] || 'http://localhost:4200';
+  return `${frontend}/auth/confirmar?token_hash=${encodeURIComponent(hashedToken)}&type=signup`;
+}
 
 @Injectable()
 export class AuthService {
@@ -22,6 +31,7 @@ export class AuthService {
     @Inject(UserRepository) private readonly userRepository: UserRepository,
     private readonly patientInvitesService: PatientInvitesService,
     private readonly supabaseAdminService: SupabaseAdminService,
+    @Inject(EmailSender) private readonly emailSender: IEmailSender,
   ) {}
 
   async syncUser(
@@ -85,20 +95,8 @@ export class AuthService {
           photoUrl: authUser.photoUrl,
         },
       );
-      // El teléfono puede venir de una ficha que el doctor ya completó antes
-      // de que el paciente reclamara la invitación — si está, lo confirmamos
-      // en Supabase Auth ahora para que quede utilizable como login desde el
-      // primer momento, sin que el doctor tenga que volver a tocar la ficha.
-      // Si no queda habilitado (CLI-143), el login sigue igual, pero se marca
-      // en la cuenta para que el doctor o el admin lo vean en la ficha.
-      if (linked?.phone) {
-        const result = await this.supabaseAdminService.setConfirmedPhone(
-          authUser.uid,
-          toLoginE164(linked.phone),
-        );
-        await this.userRepository.updateContactInfo(linked.id, {
-          phoneLoginError: result.ok ? null : result.reason,
-        });
+      if (linked) {
+        await this.enableFichaPhoneLogin(linked, authUser.uid);
       }
       return linked;
     } catch (error) {
@@ -136,6 +134,113 @@ export class AuthService {
       );
     }
     await this.supabaseAdminService.createPhoneUser(phoneE164, password);
+  }
+
+  /**
+   * El teléfono puede venir de una ficha que el doctor ya completó antes
+   * de que el paciente reclamara la invitación — si está, lo confirmamos
+   * en Supabase Auth ahora para que quede utilizable como login desde el
+   * primer momento, sin que el doctor tenga que volver a tocar la ficha.
+   * Si no queda habilitado (CLI-143), el login sigue igual, pero se marca
+   * en la cuenta para que el doctor o el admin lo vean en la ficha.
+   */
+  private async enableFichaPhoneLogin(
+    linked: User,
+    authUserId: string,
+  ): Promise<void> {
+    if (!linked.phone) return;
+    const result = await this.supabaseAdminService.setConfirmedPhone(
+      authUserId,
+      toLoginE164(linked.phone),
+    );
+    await this.userRepository.updateContactInfo(linked.id, {
+      phoneLoginError: result.ok ? null : result.reason,
+    });
+  }
+
+  /**
+   * Alta por correo + contraseña (CLI-242). Antes era un signUp desde el
+   * navegador y la invitación se canjeaba recién al confirmar el correo: si
+   * el paciente tardaba más de 5 minutos (la vigencia de la invitación), la
+   * cuenta quedaba sin ficha. Ahora la cuenta se crea acá, la invitación se
+   * canjea y se vincula en el mismo momento, y el correo de confirmación lo
+   * manda el backend (Supabase no estaba mandando los suyos) con un link que
+   * funciona en cualquier navegador.
+   */
+  async registerWithEmail(
+    email: string,
+    password: string,
+    inviteToken: string,
+  ): Promise<void> {
+    const invite =
+      await this.patientInvitesService.registrationTarget(inviteToken);
+    if (!invite.valid) {
+      throw new ForbiddenException('La invitación no es válida o ya venció');
+    }
+    const { authUserId, hashedToken } =
+      await this.supabaseAdminService.createEmailUser(email, password);
+
+    // Un segundo intento antes de confirmar devuelve la misma cuenta, ya
+    // vinculada: solo se reenvía el correo.
+    const account =
+      (await this.userRepository.findByAuthUserId(authUserId)) ??
+      (await this.linkNewEmailAccount(inviteToken, authUserId, email));
+    await this.emailSender.sendAccountEmail({
+      to: email,
+      displayName: account.displayName,
+      actionUrl: confirmationUrl(hashedToken),
+      kind: 'confirm_email',
+    });
+  }
+
+  private async linkNewEmailAccount(
+    inviteToken: string,
+    authUserId: string,
+    email: string,
+  ): Promise<User> {
+    let linked: User | null = null;
+    try {
+      const redeemed = await this.patientInvitesService.redeem(inviteToken);
+      if (!redeemed) {
+        throw new ForbiddenException('La invitación no es válida o ya venció');
+      }
+      linked = await this.userRepository.linkAuthIdentity(redeemed.userId, {
+        authUserId,
+        email,
+        displayName: null,
+        photoUrl: null,
+      });
+      if (!linked) {
+        throw new ConflictException('Esta invitación ya se usó');
+      }
+    } catch (error) {
+      // Sin ficha vinculada, la cuenta no sirve: se deshace para que el
+      // paciente pueda volver a intentarlo con el mismo correo.
+      await this.supabaseAdminService.deleteUser(authUserId);
+      throw error;
+    }
+    await this.enableFichaPhoneLogin(linked, authUserId);
+    return linked;
+  }
+
+  /**
+   * Reenvía el correo de confirmación (CLI-242). Siempre termina igual (no
+   * revela si el correo existe): solo manda algo si es una cuenta vinculada
+   * que todavía no confirmó, y nunca crea una cuenta.
+   */
+  async resendEmailConfirmation(email: string): Promise<void> {
+    const account = await this.userRepository.findByEmail(email);
+    if (!account?.authUserId) return;
+    const pending = await this.supabaseAdminService.createEmailConfirmation(
+      account.authUserId,
+    );
+    if (!pending) return;
+    await this.emailSender.sendAccountEmail({
+      to: pending.email,
+      displayName: account.displayName,
+      actionUrl: confirmationUrl(pending.hashedToken),
+      kind: 'confirm_email',
+    });
   }
 
   async getCurrentUser(uid: string): Promise<User> {

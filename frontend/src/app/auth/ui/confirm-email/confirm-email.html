@@ -1,0 +1,57 @@
+<div class="login-page">
+  <div class="login-card">
+    @switch (state()) {
+      @case ('confirming') {
+        <span class="callback-spinner" aria-hidden="true"></span>
+        <p class="login-card__subtitle">Confirmando tu correo...</p>
+      }
+      @case ('confirmed-no-session') {
+        <h1 class="login-card__title">Tu correo quedó confirmado</h1>
+        <p class="login-card__subtitle">Ya puedes entrar con tu correo y tu contraseña.</p>
+        <a routerLink="/auth/login" class="auth-form__submit confirm-email__cta">Iniciar sesión</a>
+      }
+      @case ('failed') {
+        <h1 class="login-card__title">No pudimos confirmar tu correo</h1>
+        <div class="login-card__error" role="alert">
+          <span class="material-symbols-outlined" aria-hidden="true">error</span>
+          {{ errorMessage() }}
+        </div>
+        <p class="login-card__subtitle">
+          Si ya lo confirmaste antes, solo inicia sesión. Si no, te mandamos un enlace nuevo.
+        </p>
+        <form class="auth-form" (submit)="resend($event)" novalidate>
+          <div class="auth-form__field">
+            <label class="auth-form__label" for="confirm-email">Tu correo</label>
+            <input
+              id="confirm-email"
+              class="auth-form__input"
+              type="email"
+              autocomplete="email"
+              [value]="resendEmail()"
+              (input)="onEmailInput($event)"
+            />
+          </div>
+          @if (resendState() === 'invalid') {
+            <p class="login-card__error" role="alert">Ingresa un correo válido.</p>
+          }
+          @if (resendState() === 'sent') {
+            <output class="confirm-email__status">
+              Si ese correo tiene una cuenta sin confirmar, te enviamos un enlace nuevo.
+            </output>
+          }
+          <button
+            type="submit"
+            class="auth-form__submit"
+            [disabled]="resendState() === 'sending' || resendState() === 'sent'"
+          >
+            Enviarme un enlace nuevo
+          </button>
+        </form>
+        <a routerLink="/auth/login" class="login-card__back">
+          <span class="material-symbols-outlined" aria-hidden="true">arrow_back</span>
+          Ir a iniciar sesión
+        </a>
+      }
+    }
+  </div>
+</div>
