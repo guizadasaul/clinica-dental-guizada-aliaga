@@ -11,6 +11,7 @@ import type { InboundWhatsappMessage } from '../domain/WhatsappInbound';
 import { WhatsappSender, WhatsappSendError } from '../domain/WhatsappSender';
 import type { WhatsappSender as IWhatsappSender } from '../domain/WhatsappSender';
 import type { ChatLink } from '../domain/ChatLink';
+import type { ChatAttachment } from '../domain/ChatAttachment';
 import { ActorResolver } from './actor-resolver';
 import type { ChannelSender } from './actor-resolver';
 import {
@@ -58,6 +59,20 @@ function withLinks(reply: string, links: ChatLink[]): string {
   return [reply, ...links.map((link) => `${link.label}: ${link.url}`)].join(
     '\n\n',
   );
+}
+
+interface WhatsappReply {
+  text: string;
+  attachments: ChatAttachment[];
+}
+
+function textOnly(text: string): WhatsappReply {
+  return { text, attachments: [] };
+}
+
+/** WhatsApp no tiene los botones de la tarjeta web: se paga y se avisa por texto. */
+function qrCaption(qr: ChatAttachment): string {
+  return `QR de pago por Bs. ${qr.amountBob}. Vence en 30 minutos. Cuando pagues, escríbeme "ya pagué".`;
 }
 
 /**
@@ -147,9 +162,13 @@ export class WhatsappInboundService {
       return resolved;
     }
 
-    const reply = await this.replyFor(resolved);
+    const { text, attachments } = await this.replyFor(resolved);
     try {
-      await this.sender.sendText(number, reply);
+      await this.sender.sendText(number, text);
+      // El QR de pago va como imagen aparte, después del texto (CLI-236).
+      for (const qr of attachments) {
+        await this.sender.sendImage(number, qr.imageBase64, qrCaption(qr));
+      }
     } catch (error) {
       if (!(error instanceof WhatsappSendError)) throw error;
       this.logger.warn(
@@ -163,16 +182,18 @@ export class WhatsappInboundService {
     message,
     number,
     sender,
-  }: ResolvedInboundMessage): Promise<string> {
+  }: ResolvedInboundMessage): Promise<WhatsappReply> {
     if (message.type !== 'text' || !message.text) {
-      return WHATSAPP_REPLIES.nonText;
+      return textOnly(WHATSAPP_REPLIES.nonText);
     }
     const command = LINK_COMMAND.exec(message.text.trim());
     if (command) {
       const result = await this.linking.redeem('whatsapp', number, command[1]);
-      return result.status === 'linked'
-        ? WHATSAPP_REPLIES.linked
-        : WHATSAPP_REPLIES.linkFailed;
+      return textOnly(
+        result.status === 'linked'
+          ? WHATSAPP_REPLIES.linked
+          : WHATSAPP_REPLIES.linkFailed,
+      );
     }
 
     try {
@@ -187,11 +208,15 @@ export class WhatsappInboundService {
           : { anonToken: anonTokenFor(number), serverIssuedAnonToken: true }),
       });
       const reply = withLinks(result.reply, result.links);
-      return sender.match === 'ambiguous'
-        ? `${WHATSAPP_REPLIES.ambiguousHint}\n\n${reply}`
-        : reply;
+      return {
+        text:
+          sender.match === 'ambiguous'
+            ? `${WHATSAPP_REPLIES.ambiguousHint}\n\n${reply}`
+            : reply,
+        attachments: result.attachments,
+      };
     } catch (error) {
-      return this.replyForError(error);
+      return textOnly(this.replyForError(error));
     }
   }
 

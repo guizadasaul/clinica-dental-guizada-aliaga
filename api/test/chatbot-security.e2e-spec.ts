@@ -392,6 +392,22 @@ describe('Chatbot: autorización (e2e) — CLI-95', () => {
       expect(turn.result).toEqual({ error: 'not_allowed' });
     });
 
+    it.each([
+      'create_my_qr_payment',
+      'check_my_qr_payment',
+      'cancel_my_qr_payment',
+    ])(
+      '11b. el pago con QR (%s) se deniega a un visitante y a un doctor (CLI-236)',
+      async (name) => {
+        for (const token of [null, fx.doctor1.token]) {
+          const turn = await callTool(token, name);
+
+          expect(turn.result).toEqual({ error: 'not_allowed' });
+          expect(turn.body).not.toHaveProperty('attachments.0');
+        }
+      },
+    );
+
     it('12. una tool inexistente devuelve unknown_tool', async () => {
       const turn = await callTool(null, 'query_database', {
         sql: 'SELECT * FROM users',

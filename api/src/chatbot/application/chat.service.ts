@@ -16,6 +16,7 @@ import { ChatRepository } from '../domain/ChatRepository';
 import type { ChatRepository as IChatRepository } from '../domain/ChatRepository';
 import type { ChatSession } from '../domain/ChatSession';
 import type { ChatLink } from '../domain/ChatLink';
+import type { ChatAttachment } from '../domain/ChatAttachment';
 import type { LlmMessage } from '../domain/LlmProvider';
 import { readEnvInt } from '../../shared/env.util';
 import { AgentRunner } from './agent-runner';
@@ -65,6 +66,8 @@ export interface ChatReply {
   reply: string;
   /** Links para mostrar junto a la respuesta (ej. el de reserva). */
   links: ChatLink[];
+  /** Adjuntos para mostrar junto a la respuesta (el QR de pago, CLI-236). */
+  attachments: ChatAttachment[];
 }
 
 interface ResolvedSession {
@@ -178,6 +181,7 @@ export class ChatService {
       anonToken,
       reply: result.reply,
       links: result.links,
+      attachments: result.attachments,
     };
   }
 

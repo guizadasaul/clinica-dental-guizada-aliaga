@@ -7,8 +7,14 @@ import { QuotesService } from '../../../quotes/application/quotes.service.js';
 import type { Quote } from '../../../quotes/domain/Quote.js';
 import type { QuoteLine } from '../../../quotes/domain/QuoteBalance.js';
 import { PatientsService } from '../../../patients/application/patients.service.js';
+import { FinancesService } from '../../../finances/application/finances.service.js';
+import type { QrChargeView } from '../../../finances/application/finances.service.js';
+import { QrChargeStatus } from '../../../quotes/domain/QrCharge.js';
+import { ToolOutputWithLinks } from '../../domain/ChatLink.js';
+import type { QrPaymentAttachment } from '../../domain/ChatAttachment.js';
 import { clinicDate, clinicTime, clinicWeekday } from './clinic-time.js';
 import {
+  CreateMyQrPaymentArgsDto,
   MyAppointmentsArgsDto,
   MyTreatmentsArgsDto,
   MyVisitsArgsDto,
@@ -38,10 +44,20 @@ const NO_PROFILE = {
   note: 'El usuario todavía no tiene ficha de paciente en la clínica.',
 };
 
-// En vivo el modelo ofrecía "si deseas pagar, avísame" (CLI-145): el bot no
-// cobra. Desde CLI-218 el paciente sí puede pagar con QR en "Mi presupuesto".
+// Desde CLI-236 el paciente paga con un QR BANECO que genera el propio chat.
+// El modelo no cobra ni toma datos de pago: solo genera el QR si lo pide.
 const PAYMENT_NOTE =
-  'El asistente no cobra: el saldo se paga con QR desde "Mi presupuesto" en la web, o en la clínica (efectivo, QR o transferencia).';
+  'Para pagar, si el paciente lo pide: create_my_qr_payment (QR BANECO aquí mismo). También puede pagar en la clínica (efectivo, QR o transferencia).';
+/** El QR lo anula solo el conciliador a los 30 minutos (CLI-220). */
+const QR_EXPIRES_MINUTES = 30;
+/** Generar, verificar o anular llama a BANECO: más lento que una consulta. */
+const QR_TIMEOUT_MS = 20_000;
+const QR_NOTE =
+  'El QR aparece debajo de tu respuesta: no lo describas ni des ids. Di el monto y qué cubre, que vence en 30 minutos y que, cuando pague, presione "Ya pagué" o te lo diga aquí.';
+const NO_PENDING_QR = {
+  noPendingQr: true,
+  note: 'No hay un QR pendiente. Si ya pagó, el pago quedó registrado: dile su saldo actual con get_my_balance.',
+};
 
 // Visto en los evals (CLI-235): el modelo escribía "(cita 1, línea 2)".
 const NUMBERS_NOTE =
@@ -330,6 +346,213 @@ export class GetMyPendingTreatmentsTool implements ChatTool<object> {
   }
 }
 
+function qrAttachment(
+  view: QrChargeView,
+  quote: Quote | undefined,
+): QrPaymentAttachment {
+  return {
+    type: 'qr_payment',
+    chargeId: view.chargeId,
+    amountBob: round2(view.amount),
+    imageBase64: view.qrImageBase64,
+    lines: view.lines.map((allocation) => ({
+      treatment:
+        quote?.lines.find((l) => l.key === allocation.lineKey)?.treatmentName ??
+        'Tratamiento',
+      amountBob: round2(allocation.amount),
+    })),
+  };
+}
+
+/** Lo que ve el modelo (monto y qué cubre) y, aparte, la tarjeta con el QR. */
+function qrOutput(
+  view: QrChargeView,
+  quote: Quote | undefined,
+  alreadyPending: boolean,
+): ToolOutputWithLinks {
+  const attachment = qrAttachment(view, quote);
+  return new ToolOutputWithLinks(
+    {
+      amountBob: attachment.amountBob,
+      lines: attachment.lines,
+      expiresInMinutes: QR_EXPIRES_MINUTES,
+      ...(alreadyPending && {
+        alreadyPending: true,
+        pendingNote:
+          'Ya tenía este QR pendiente: es el mismo. Para pagar otra cosa, primero tiene que pagarlo o anularlo.',
+      }),
+      note: QR_NOTE,
+    },
+    [],
+    [attachment],
+  );
+}
+
+@Injectable()
+export class CreateMyQrPaymentTool implements ChatTool<CreateMyQrPaymentArgsDto> {
+  readonly name = 'create_my_qr_payment';
+  readonly description =
+    'QR BANECO para pagar, solo si el paciente pide pagar. Sin lines: todo lo pendiente; lines: números de línea de get_my_quotes. Si ya hay uno pendiente, devuelve ese.';
+  readonly parameters: JsonSchema = {
+    type: 'object',
+    properties: {
+      quote: { type: 'integer', minimum: 1, maximum: MAX_QUOTES },
+      lines: {
+        type: 'array',
+        items: { type: 'integer', minimum: 1 },
+        minItems: 1,
+        maxItems: 50,
+      },
+    },
+    additionalProperties: false,
+  };
+  readonly argsDto = CreateMyQrPaymentArgsDto;
+  readonly timeoutMs = QR_TIMEOUT_MS;
+
+  constructor(
+    private readonly quotesService: QuotesService,
+    private readonly financesService: FinancesService,
+  ) {}
+
+  async execute(
+    actor: ChatActor,
+    args: CreateMyQrPaymentArgsDto,
+  ): Promise<unknown> {
+    const patientId = patientIdOf(actor);
+    if (!patientId) return NO_PROFILE;
+    const [quotes, pending] = await Promise.all([
+      this.quotesService.findSharedByPatient(patientId),
+      this.financesService.getPendingPatientQrCharge(patientId),
+    ]);
+    // Un QR pendiente a la vez (CLI-218): se muestra el mismo en vez de fallar.
+    if (pending) {
+      return qrOutput(
+        pending,
+        quotes.find((q) => q.id === pending.quoteId),
+        true,
+      );
+    }
+
+    const quote = args.quote
+      ? quotes.slice(0, MAX_QUOTES)[args.quote - 1]
+      : quotes.find((q) => q.balance > 0);
+    if (!quote || quote.balance <= 0) {
+      return {
+        error: 'no_balance',
+        note: 'Ese presupuesto no tiene saldo pendiente: no hay nada que pagar.',
+      };
+    }
+    const numbers = args.lines ?? [];
+    const selected =
+      numbers.length > 0
+        ? numbers.map((n) => ({ number: n, line: quote.lines[n - 1] }))
+        : quote.lines
+            .map((line, index) => ({ number: index + 1, line }))
+            .filter(({ line }) => line.pending > 0);
+    const missing = selected.filter(({ line }) => !line).map((s) => s.number);
+    if (missing.length > 0) {
+      return {
+        error: 'invalid_line',
+        lines: missing,
+        note: 'Esos números de línea no existen en el presupuesto (ver get_my_quotes).',
+      };
+    }
+    const paid = selected
+      .filter(({ line }) => line.pending <= 0)
+      .map((s) => s.number);
+    if (paid.length > 0) {
+      return {
+        error: 'line_already_paid',
+        lines: paid,
+        note: 'Esas líneas ya están pagadas.',
+      };
+    }
+
+    const view = await this.financesService.createPatientQrCharge(
+      patientId,
+      quote.id,
+      selected.map(({ line }) => line.key),
+    );
+    return qrOutput(view, quote, false);
+  }
+}
+
+@Injectable()
+export class CheckMyQrPaymentTool implements ChatTool<object> {
+  readonly name = 'check_my_qr_payment';
+  readonly description =
+    'Verifica con el banco si ya pagó su QR pendiente ("ya pagué").';
+  readonly parameters = NO_PARAMETERS;
+  readonly argsDto = NO_ARGS;
+  readonly timeoutMs = QR_TIMEOUT_MS;
+
+  constructor(private readonly financesService: FinancesService) {}
+
+  async execute(actor: ChatActor): Promise<unknown> {
+    const patientId = patientIdOf(actor);
+    if (!patientId) return NO_PROFILE;
+    const pending =
+      await this.financesService.getPendingPatientQrCharge(patientId);
+    if (!pending) return NO_PENDING_QR;
+    const result = await this.financesService.verifyPatientQrCharge(
+      patientId,
+      pending.chargeId,
+    );
+    if (result.status === QrChargeStatus.PAID) {
+      return {
+        status: 'paid',
+        amountBob: round2(pending.amount),
+        balanceBob: round2(result.quote.balance),
+        note: 'Pago confirmado y registrado.',
+      };
+    }
+    if (result.status === QrChargeStatus.PENDING) {
+      return {
+        status: 'pending',
+        amountBob: round2(pending.amount),
+        note: 'El banco todavía no lo acredita: que espere unos minutos y vuelva a avisar.',
+      };
+    }
+    return {
+      status: 'cancelled',
+      note: 'El QR venció o se anuló sin pago; si quiere, puede generar otro.',
+    };
+  }
+}
+
+@Injectable()
+export class CancelMyQrPaymentTool implements ChatTool<object> {
+  readonly name = 'cancel_my_qr_payment';
+  readonly description =
+    'Anula su QR pendiente (si ya estaba pagado, se registra el pago).';
+  readonly parameters = NO_PARAMETERS;
+  readonly argsDto = NO_ARGS;
+  readonly timeoutMs = QR_TIMEOUT_MS;
+
+  constructor(private readonly financesService: FinancesService) {}
+
+  async execute(actor: ChatActor): Promise<unknown> {
+    const patientId = patientIdOf(actor);
+    if (!patientId) return NO_PROFILE;
+    const pending =
+      await this.financesService.getPendingPatientQrCharge(patientId);
+    if (!pending) return NO_PENDING_QR;
+    // CLI-220: anular nunca pierde un pago; si BANECO dice que ya se pagó,
+    // se registra en vez de anularse.
+    const result = await this.financesService.cancelPatientQrCharge(
+      patientId,
+      pending.chargeId,
+    );
+    return result.status === QrChargeStatus.PAID
+      ? {
+          status: 'paid',
+          balanceBob: round2(result.quote.balance),
+          note: 'No se anuló porque ya estaba pagado: el pago quedó registrado.',
+        }
+      : { status: 'cancelled', note: 'QR anulado.' };
+  }
+}
+
 export const PATIENT_TOOLS = [
   GetMyNextAppointmentTool,
   GetMyAppointmentsTool,
@@ -338,4 +561,7 @@ export const PATIENT_TOOLS = [
   GetMyBalanceTool,
   GetMyTreatmentsTool,
   GetMyPendingTreatmentsTool,
+  CreateMyQrPaymentTool,
+  CheckMyQrPaymentTool,
+  CancelMyQrPaymentTool,
 ];

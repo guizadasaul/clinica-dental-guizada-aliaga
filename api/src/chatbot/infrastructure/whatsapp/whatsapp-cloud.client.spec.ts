@@ -114,4 +114,65 @@ describe('WhatsappCloudClient (CLI-101)', () => {
       providerCode: null,
     });
   });
+
+  describe('sendImage: el QR de pago (CLI-236)', () => {
+    it('sube la imagen a /media y manda el mensaje con su id y el texto al pie', async () => {
+      fetchSpy
+        .mockResolvedValueOnce(new Response('{"id":"media-1"}'))
+        .mockResolvedValueOnce(new Response('{"messages":[{"id":"wamid.Y"}]}'));
+      const png = Buffer.from('png-bytes').toString('base64');
+
+      await client.sendImage('+59171234567', png, 'QR por Bs. 1050');
+
+      const [uploadUrl, upload] = fetchSpy.mock.calls[0] as [
+        string,
+        RequestInit,
+      ];
+      expect(uploadUrl).toBe('https://graph.facebook.com/v23.0/pn-123/media');
+      expect(upload.headers).toEqual({ Authorization: `Bearer ${TOKEN}` });
+      const form = upload.body as FormData;
+      expect(form.get('messaging_product')).toBe('whatsapp');
+      const file = form.get('file') as Blob;
+      expect(file.type).toBe('image/png');
+      expect(Buffer.from(await file.arrayBuffer()).toString()).toBe(
+        'png-bytes',
+      );
+
+      const [messageUrl, message] = fetchSpy.mock.calls[1] as [
+        string,
+        RequestInit,
+      ];
+      expect(messageUrl).toBe(
+        'https://graph.facebook.com/v23.0/pn-123/messages',
+      );
+      expect(JSON.parse(message.body as string)).toEqual({
+        messaging_product: 'whatsapp',
+        recipient_type: 'individual',
+        to: '59171234567',
+        type: 'image',
+        image: { id: 'media-1', caption: 'QR por Bs. 1050' },
+      });
+    });
+
+    it('si Meta no devuelve el id de la imagen falla sin mandar el mensaje', async () => {
+      fetchSpy.mockResolvedValueOnce(new Response('{}'));
+
+      await expect(
+        client.sendImage('59171234567', 'cG5n', 'QR'),
+      ).rejects.toBeInstanceOf(WhatsappSendError);
+      expect(fetchSpy).toHaveBeenCalledTimes(1);
+    });
+
+    it('un error al subir lleva status y código de Meta', async () => {
+      fetchSpy.mockResolvedValueOnce(
+        new Response(JSON.stringify({ error: { code: 131053 } }), {
+          status: 400,
+        }),
+      );
+
+      await expect(
+        client.sendImage('59171234567', 'cG5n', 'QR'),
+      ).rejects.toMatchObject({ status: 400, providerCode: 131053 });
+    });
+  });
 });

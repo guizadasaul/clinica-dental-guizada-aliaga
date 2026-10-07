@@ -33,6 +33,9 @@ const PATIENT_TOOLS = [
   'get_my_balance',
   'get_my_treatments',
   'get_my_pending_treatments',
+  'create_my_qr_payment',
+  'check_my_qr_payment',
+  'cancel_my_qr_payment',
 ];
 const DOCTOR_TOOLS = [
   'get_my_agenda',

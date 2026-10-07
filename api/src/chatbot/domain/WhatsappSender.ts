@@ -5,6 +5,8 @@
 export interface WhatsappSender {
   /** `to` en E.164 o solo dígitos con código de país. */
   sendText(to: string, text: string): Promise<void>;
+  /** Una imagen PNG (el QR de pago, CLI-236) con un texto al pie. */
+  sendImage(to: string, pngBase64: string, caption: string): Promise<void>;
 }
 
 export const WhatsappSender = Symbol('WhatsappSender');

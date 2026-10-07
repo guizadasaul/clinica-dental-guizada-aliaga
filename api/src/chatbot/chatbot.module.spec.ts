@@ -48,6 +48,7 @@ describe('ChatbotModule', () => {
   // CLI-234: el doctor suma 3 tools (resumen de paciente, deudores y ranking
   // de tratamientos) y queda en 3616 → tope 3850. CLI-235: el paciente suma
   // get_my_visits y las líneas numeradas del presupuesto → 3794, tope 4050.
+  // CLI-236: las 3 tools del pago con QR → 4602, tope 4900.
   it.each([
     ['anónimo', { kind: 'anonymous' as const }, 2100],
     [
@@ -58,7 +59,7 @@ describe('ChatbotModule', () => {
         role: UserRole.PATIENT,
         patientId: 'p1',
       },
-      4050,
+      4900,
     ],
     [
       'odontólogo',
@@ -137,6 +138,10 @@ describe('ChatbotModule', () => {
         'get_my_balance',
         'get_my_treatments',
         'get_my_pending_treatments',
+        'get_my_visits',
+        'create_my_qr_payment',
+        'check_my_qr_payment',
+        'cancel_my_qr_payment',
       ]),
     );
     expect(

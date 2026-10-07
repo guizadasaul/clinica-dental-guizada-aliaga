@@ -5,10 +5,18 @@ import type { QuotesService } from '../../../quotes/application/quotes.service';
 import type { Quote } from '../../../quotes/domain/Quote';
 import type { QuoteLine } from '../../../quotes/domain/QuoteBalance';
 import type { PatientsService } from '../../../patients/application/patients.service';
+import type {
+  FinancesService,
+  QrChargeView,
+} from '../../../finances/application/finances.service';
+import { ToolOutputWithLinks } from '../../domain/ChatLink';
 import type { ToothProcedure } from '../../../patients/domain/ToothProcedure';
 import type { ChatActor } from '../../domain/ChatActor';
 import { ClassValidatorToolArgsValidator } from './class-validator-tool-args.validator';
 import {
+  CancelMyQrPaymentTool,
+  CheckMyQrPaymentTool,
+  CreateMyQrPaymentTool,
   GetMyAppointmentsTool,
   GetMyBalanceTool,
   GetMyNextAppointmentTool,
@@ -123,14 +131,21 @@ describe('patient tools (CLI-91, CLI-235)', () => {
   };
   const quotesService = { findSharedByPatient: jest.fn() };
   const patientsService = { findToothProcedures: jest.fn() };
+  const financesService = {
+    getPendingPatientQrCharge: jest.fn(),
+    createPatientQrCharge: jest.fn(),
+    verifyPatientQrCharge: jest.fn(),
+    cancelPatientQrCharge: jest.fn(),
+  };
+  const finances = financesService as unknown as FinancesService;
   const appointments = appointmentsService as unknown as AppointmentsService;
   const quotes = quotesService as unknown as QuotesService;
   const patients = patientsService as unknown as PatientsService;
 
   beforeEach(() => jest.clearAllMocks());
 
-  it('exporta las 7 tools del paciente', () => {
-    expect(PATIENT_TOOLS).toHaveLength(7);
+  it('exporta las 10 tools del paciente', () => {
+    expect(PATIENT_TOOLS).toHaveLength(10);
   });
 
   describe.each([
@@ -171,6 +186,22 @@ describe('patient tools (CLI-91, CLI-235)', () => {
       () =>
         new GetMyPendingTreatmentsTool(quotes).execute(patientWithoutProfile),
     ],
+    [
+      'create_my_qr_payment',
+      () =>
+        new CreateMyQrPaymentTool(quotes, finances).execute(
+          patientWithoutProfile,
+          {},
+        ),
+    ],
+    [
+      'check_my_qr_payment',
+      () => new CheckMyQrPaymentTool(finances).execute(patientWithoutProfile),
+    ],
+    [
+      'cancel_my_qr_payment',
+      () => new CancelMyQrPaymentTool(finances).execute(patientWithoutProfile),
+    ],
   ])('%s', (_name, run) => {
     it('sin ficha de paciente responde no_patient_profile sin consultar nada', async () => {
       await expect(run()).resolves.toMatchObject({
@@ -180,6 +211,8 @@ describe('patient tools (CLI-91, CLI-235)', () => {
       expect(appointmentsService.getPatientVisits).not.toHaveBeenCalled();
       expect(quotesService.findSharedByPatient).not.toHaveBeenCalled();
       expect(patientsService.findToothProcedures).not.toHaveBeenCalled();
+      expect(financesService.getPendingPatientQrCharge).not.toHaveBeenCalled();
+      expect(financesService.createPatientQrCharge).not.toHaveBeenCalled();
     });
   });
 
@@ -338,7 +371,7 @@ describe('patient tools (CLI-91, CLI-235)', () => {
             ],
           },
         ],
-        note: expect.stringContaining('Mi presupuesto') as unknown,
+        note: expect.stringContaining('create_my_qr_payment') as unknown,
       });
       const json = JSON.stringify(result);
       expect(json).not.toContain('nota');
@@ -416,7 +449,7 @@ describe('patient tools (CLI-91, CLI-235)', () => {
       ).resolves.toEqual({
         totalBalanceBob: 450.56,
         quotesWithBalance: 2,
-        note: expect.stringContaining('no cobra') as unknown,
+        note: expect.stringContaining('create_my_qr_payment') as unknown,
       });
     });
   });
@@ -522,7 +555,237 @@ describe('patient tools (CLI-91, CLI-235)', () => {
           status: 'por realizar',
         },
       ]);
-      expect(result.note).toContain('no cobra');
+      expect(result.note).toContain('create_my_qr_payment');
+    });
+  });
+
+  describe('pago con QR (CLI-236)', () => {
+    const KEY_1 = '11111111-1111-4111-8111-111111111111';
+    const KEY_2 = '22222222-2222-4222-8222-222222222222';
+    const KEY_3 = '33333333-3333-4333-8333-333333333333';
+    const carlaQuote = () =>
+      quote({
+        id: 'quote-carla',
+        balance: 1050,
+        lines: [
+          line({
+            key: KEY_1,
+            treatmentName: 'Limpieza',
+            paid: 150,
+            pending: 0,
+          }),
+          line({
+            key: KEY_2,
+            treatmentName: 'Resina',
+            toothNumbers: [16],
+            paid: 150,
+            pending: 50,
+          }),
+          line({
+            key: KEY_3,
+            treatmentName: 'Endodoncia',
+            paid: 0,
+            pending: 800,
+          }),
+        ],
+      });
+    const view = (overrides: Partial<QrChargeView> = {}): QrChargeView => ({
+      chargeId: 'charge-1',
+      quoteId: 'quote-carla',
+      amount: 850,
+      qrImageBase64: 'iVBORw0KGgoQR',
+      status: 'pending',
+      lines: [
+        { lineKey: KEY_2, amount: 50 },
+        { lineKey: KEY_3, amount: 800 },
+      ],
+      ...overrides,
+    });
+    const create = () => new CreateMyQrPaymentTool(quotes, finances);
+
+    beforeEach(() => {
+      quotesService.findSharedByPatient.mockResolvedValue([carlaQuote()]);
+      financesService.getPendingPatientQrCharge.mockResolvedValue(null);
+      financesService.createPatientQrCharge.mockResolvedValue(view());
+    });
+
+    it('sin líneas genera el QR por todo lo pendiente, con el patientId del actor', async () => {
+      const result = await create().execute(patient, {});
+
+      expect(financesService.createPatientQrCharge).toHaveBeenCalledWith(
+        'patient-1',
+        'quote-carla',
+        [KEY_2, KEY_3],
+      );
+      expect(result).toBeInstanceOf(ToolOutputWithLinks);
+      const output = result as ToolOutputWithLinks;
+      expect(output.attachments).toEqual([
+        {
+          type: 'qr_payment',
+          chargeId: 'charge-1',
+          amountBob: 850,
+          imageBase64: 'iVBORw0KGgoQR',
+          lines: [
+            { treatment: 'Resina', amountBob: 50 },
+            { treatment: 'Endodoncia', amountBob: 800 },
+          ],
+        },
+      ]);
+      // El modelo ve el monto y qué cubre; nunca la imagen ni el id del cobro.
+      expect(output.data).toMatchObject({
+        amountBob: 850,
+        expiresInMinutes: 30,
+      });
+      const forModel = JSON.stringify(output.data);
+      expect(forModel).not.toContain('charge-1');
+      expect(forModel).not.toContain('iVBORw0KGgoQR');
+      expect(forModel).not.toContain(KEY_2);
+    });
+
+    it('con números de línea paga solo esas', async () => {
+      await create().execute(patient, { lines: [3] });
+
+      expect(financesService.createPatientQrCharge).toHaveBeenCalledWith(
+        'patient-1',
+        'quote-carla',
+        [KEY_3],
+      );
+    });
+
+    it('rechaza líneas que no existen o que ya están pagadas, sin generar nada', async () => {
+      await expect(
+        create().execute(patient, { lines: [3, 9] }),
+      ).resolves.toMatchObject({ error: 'invalid_line', lines: [9] });
+      await expect(
+        create().execute(patient, { lines: [1] }),
+      ).resolves.toMatchObject({ error: 'line_already_paid', lines: [1] });
+      expect(financesService.createPatientQrCharge).not.toHaveBeenCalled();
+    });
+
+    it('sin saldo no genera nada', async () => {
+      quotesService.findSharedByPatient.mockResolvedValue([
+        quote({ balance: 0, status: 'paid' }),
+      ]);
+
+      await expect(create().execute(patient, {})).resolves.toMatchObject({
+        error: 'no_balance',
+      });
+      expect(financesService.createPatientQrCharge).not.toHaveBeenCalled();
+    });
+
+    it('si ya tiene un QR pendiente devuelve ese en vez de fallar', async () => {
+      financesService.getPendingPatientQrCharge.mockResolvedValue(view());
+
+      const result = (await create().execute(patient, {
+        lines: [3],
+      })) as ToolOutputWithLinks;
+
+      expect(financesService.createPatientQrCharge).not.toHaveBeenCalled();
+      expect(result.attachments[0].chargeId).toBe('charge-1');
+      expect(result.data).toMatchObject({ alreadyPending: true });
+    });
+
+    describe('check_my_qr_payment', () => {
+      const check = () => new CheckMyQrPaymentTool(finances);
+
+      it('sin QR pendiente lo dice', async () => {
+        await expect(check().execute(patient)).resolves.toMatchObject({
+          noPendingQr: true,
+        });
+        expect(financesService.verifyPatientQrCharge).not.toHaveBeenCalled();
+      });
+
+      it('verifica el QR pendiente del paciente y da el saldo nuevo si se pagó', async () => {
+        financesService.getPendingPatientQrCharge.mockResolvedValue(view());
+        financesService.verifyPatientQrCharge.mockResolvedValue({
+          status: 'paid',
+          quote: quote({ balance: 200 }),
+        });
+
+        await expect(check().execute(patient)).resolves.toMatchObject({
+          status: 'paid',
+          amountBob: 850,
+          balanceBob: 200,
+        });
+        expect(financesService.verifyPatientQrCharge).toHaveBeenCalledWith(
+          'patient-1',
+          'charge-1',
+        );
+      });
+
+      it.each([
+        ['pending', 'pending'],
+        ['cancelled', 'cancelled'],
+      ])('banco %s → %s', async (bank, status) => {
+        financesService.getPendingPatientQrCharge.mockResolvedValue(view());
+        financesService.verifyPatientQrCharge.mockResolvedValue({
+          status: bank,
+        });
+
+        await expect(check().execute(patient)).resolves.toMatchObject({
+          status,
+        });
+      });
+    });
+
+    describe('cancel_my_qr_payment', () => {
+      const cancel = () => new CancelMyQrPaymentTool(finances);
+
+      it('anula el QR pendiente del paciente', async () => {
+        financesService.getPendingPatientQrCharge.mockResolvedValue(view());
+        financesService.cancelPatientQrCharge.mockResolvedValue({
+          status: 'cancelled',
+        });
+
+        await expect(cancel().execute(patient)).resolves.toEqual({
+          status: 'cancelled',
+          note: 'QR anulado.',
+        });
+        expect(financesService.cancelPatientQrCharge).toHaveBeenCalledWith(
+          'patient-1',
+          'charge-1',
+        );
+      });
+
+      it('si ya estaba pagado lo dice y da el saldo (CLI-220: anular nunca pierde un pago)', async () => {
+        financesService.getPendingPatientQrCharge.mockResolvedValue(view());
+        financesService.cancelPatientQrCharge.mockResolvedValue({
+          status: 'paid',
+          quote: quote({ balance: 0 }),
+        });
+
+        await expect(cancel().execute(patient)).resolves.toMatchObject({
+          status: 'paid',
+          balanceBob: 0,
+        });
+      });
+
+      it('sin QR pendiente no anula nada', async () => {
+        await expect(cancel().execute(patient)).resolves.toMatchObject({
+          noPendingQr: true,
+        });
+        expect(financesService.cancelPatientQrCharge).not.toHaveBeenCalled();
+      });
+    });
+
+    it('las tools de QR tienen un tope de tiempo mayor (llaman a BANECO)', () => {
+      expect(create().timeoutMs).toBeGreaterThan(5_000);
+      expect(new CheckMyQrPaymentTool(finances).timeoutMs).toBeGreaterThan(
+        5_000,
+      );
+    });
+
+    it('el pago se elige por número: nunca acepta keys ni ids', async () => {
+      const validator = new ClassValidatorToolArgsValidator();
+      await expect(
+        validator.validate(create().argsDto, { lines: [KEY_2] }),
+      ).resolves.toMatchObject({ ok: false });
+      await expect(
+        validator.validate(create().argsDto, { quoteId: 'quote-otro' }),
+      ).resolves.toEqual({ ok: false, fields: ['quoteId'] });
+      await expect(
+        validator.validate(create().argsDto, { quote: 1, lines: [2, 3] }),
+      ).resolves.toMatchObject({ ok: true });
     });
   });
 
