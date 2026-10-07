@@ -33,6 +33,17 @@ on:
         description: Recargar los datos de muestra — pacientes, citas, presupuestos (solo staging)
         type: boolean
         default: false
+      # Solo a mano (CLI-227): vincula los tratamientos ya registrados con su
+      # línea del presupuesto y suma los que no estaban. Sin backfill_apply es
+      # un dry-run que solo informa cuánto sube la deuda de cada paciente.
+      backfill_quote_procedures:
+        description: Vincular los tratamientos registrados con su presupuesto (CLI-227)
+        type: boolean
+        default: false
+      backfill_apply:
+        description: Aplicar el backfill (si no, solo dry-run)
+        type: boolean
+        default: false
   workflow_call:
     inputs:
       environment:
@@ -141,6 +152,13 @@ jobs:
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
         run: npm run seed:sample
+
+      - name: Backfill de tratamientos y presupuestos (CLI-227)
+        if: inputs.backfill_quote_procedures
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          BACKFILL_FLAG: ${{ inputs.backfill_apply && '--apply' || '' }}
+        run: npx ts-node prisma/backfill-quote-procedures.ts $BACKFILL_FLAG
 
       - name: Verificar la base
         env:
