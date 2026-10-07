@@ -35,6 +35,7 @@ import { TimeBlockDialogComponent } from '../time-block-dialog/time-block-dialog
 import { AppointmentDetailDialogComponent } from '../appointment-detail-dialog/appointment-detail-dialog';
 import { appointmentPatientLabel } from '../../models/appointment-patient-label';
 import { PageHeaderComponent } from '../../../../shared/ui/page-header/page-header';
+import { ViewportService } from '../../../../shared/services/viewport.service';
 
 const TIME_FORMATTER = new Intl.DateTimeFormat('es-BO', {
   timeZone: 'America/La_Paz',
@@ -69,6 +70,11 @@ const WEEKDAY_INDEX: Record<string, number> = {
   Fri: 5,
   Sat: 6,
 };
+
+const WEEKDAY_LONG_FORMATTER = new Intl.DateTimeFormat('es-BO', {
+  timeZone: 'America/La_Paz',
+  weekday: 'long',
+});
 
 const MONTH_FORMATTER = new Intl.DateTimeFormat('es-BO', {
   timeZone: 'America/La_Paz',
@@ -350,6 +356,14 @@ export class DoctorAgendaComponent {
 
   protected readonly gridTemplateColumns = '56px repeat(6, minmax(140px, 1fr))';
 
+  // CLI-248: en el celular la grilla de 7 columnas no entra (896 px) y las
+  // citas de hoy quedaban fuera de la pantalla. Ahí se ve un día a la vez,
+  // con la semana en una tira arriba; los datos se siguen cargando por semana.
+  protected readonly isMobile = inject(ViewportService).isMobile;
+  protected readonly mobileGridTemplateColumns = '48px 1fr';
+  /** Día que muestra la vista de celular; siempre cae dentro de la semana cargada. */
+  protected readonly focusDate = signal(laPazDateString(new Date()));
+
   protected readonly visibleDates = computed(() =>
     Array.from({ length: this.VIEW_DAYS }, (_, i) => addDaysToDateString(this.selectedDate(), i)),
   );
@@ -382,6 +396,30 @@ export class DoctorAgendaComponent {
   protected readonly isCurrentWeekVisible = computed(
     () => this.selectedDate() === mondayOf(laPazDateString(new Date())),
   );
+
+  /** La tira de días de la vista de celular. */
+  protected readonly dayStrip = computed(() => {
+    const today = laPazDateString(new Date());
+    const byDate = this.appointmentsByDate();
+    return this.visibleDates().map((date) => ({
+      date,
+      ...this.dayHeaderParts(date),
+      isToday: date === today,
+      isSelected: date === this.focusDate(),
+      hasAppointments: (byDate.get(date)?.length ?? 0) > 0,
+    }));
+  });
+
+  protected readonly focusIsToday = computed(
+    () => this.focusDate() === laPazDateString(new Date()),
+  );
+
+  /** "Miércoles 7 de octubre": el título de la vista de un día. */
+  protected readonly focusLabel = computed(() => {
+    const date = this.focusDate();
+    const d = new Date(`${date}T12:00:00-04:00`);
+    return `${capitalize(WEEKDAY_LONG_FORMATTER.format(d))} ${Number(date.split('-')[2])} de ${MONTH_FORMATTER.format(d)}`;
+  });
 
   protected readonly rangeLabel = computed(() => {
     const dates = this.visibleDates();
@@ -746,7 +784,9 @@ export class DoctorAgendaComponent {
   }
 
   protected onNewBlock(): void {
-    this.blockDialog.set({ block: null, date: this.selectedDate() });
+    // En el celular se propone el día que se está viendo, no el lunes.
+    const date = this.isMobile() ? this.focusDate() : this.selectedDate();
+    this.blockDialog.set({ block: null, date });
   }
 
   protected onOpenBlock(block: TimeBlock, date: string): void {
@@ -840,17 +880,45 @@ export class DoctorAgendaComponent {
   }
 
   protected onPrevPage(): void {
-    this.selectedDate.set(addDaysToDateString(this.selectedDate(), -7));
-    void this.load();
+    if (this.isMobile()) {
+      this.showDay(addDaysToDateString(this.focusDate(), -1));
+      return;
+    }
+    this.showWeek(addDaysToDateString(this.selectedDate(), -7));
   }
 
   protected onNextPage(): void {
-    this.selectedDate.set(addDaysToDateString(this.selectedDate(), 7));
-    void this.load();
+    if (this.isMobile()) {
+      this.showDay(addDaysToDateString(this.focusDate(), 1));
+      return;
+    }
+    this.showWeek(addDaysToDateString(this.selectedDate(), 7));
   }
 
   protected onToday(): void {
-    this.selectedDate.set(mondayOf(laPazDateString(new Date())));
+    this.showDay(laPazDateString(new Date()));
+  }
+
+  /** Vista de celular: elegir un día de la tira. */
+  protected onSelectDay(date: string): void {
+    this.showDay(date);
+  }
+
+  /** Muestra ese día y, si cae en otra semana, carga esa semana. */
+  private showDay(date: string): void {
+    this.focusDate.set(date);
+    const monday = mondayOf(date);
+    if (monday !== this.selectedDate()) {
+      this.selectedDate.set(monday);
+      void this.load();
+    }
+  }
+
+  /** Cambio de semana del escritorio: el día de celular queda en hoy o en el lunes. */
+  private showWeek(monday: string): void {
+    const today = laPazDateString(new Date());
+    this.focusDate.set(mondayOf(today) === monday ? today : monday);
+    this.selectedDate.set(monday);
     void this.load();
   }
 

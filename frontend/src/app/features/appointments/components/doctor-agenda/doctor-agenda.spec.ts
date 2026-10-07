@@ -11,6 +11,7 @@ import type {
 import { AuthService } from '../../../../auth/application/auth.service';
 import { PatientsService } from '../../../patients/services/patients.service';
 import { TreatmentsService } from '../../../treatments/services/treatments.service';
+import { ViewportService } from '../../../../shared/services/viewport.service';
 
 // 14:00 UTC = 10:00 en La Paz (UTC-4) — dentro de la grilla (9:00–24:00).
 // El día calendario se toma de "hoy" en La Paz (now - 4h), no de "hoy" en
@@ -65,6 +66,7 @@ function setup(
   appointments: AppointmentAgendaItem[] = [fakeAppointment()],
   schedule: DoctorScheduleBlock[] = [],
   timeBlocks: TimeBlock[] = [],
+  mobile = false,
 ) {
   const appointmentsService = {
     getAgenda: vi.fn(agendaOf(appointments)),
@@ -81,6 +83,8 @@ function setup(
       { provide: TreatmentsService, useValue: { getAll: () => of([]) } },
       // El doctor logueado — en la agenda común solo sus turnos abren la ficha.
       { provide: AuthService, useValue: { currentUser: signal({ id: 'doctor-a' }) } },
+      // CLI-248: el ancho de pantalla decide entre la semana y la vista de un día.
+      { provide: ViewportService, useValue: { isMobile: signal(mobile) } },
     ],
   });
   const fixture = TestBed.createComponent(DoctorAgendaComponent);
@@ -415,7 +419,7 @@ describe('DoctorAgendaComponent', () => {
       );
 
       (
-        fixture.nativeElement.querySelector('[aria-label="Página siguiente"]') as HTMLButtonElement
+        fixture.nativeElement.querySelector('[aria-label="Semana siguiente"]') as HTMLButtonElement
       ).click();
       await settle(fixture);
 
@@ -442,7 +446,7 @@ describe('DoctorAgendaComponent', () => {
     // La semana siguiente siempre es futura entera — no depende de la hora en que corre el test.
     async function nextWeek(fixture: ComponentFixture<DoctorAgendaComponent>): Promise<void> {
       (
-        fixture.nativeElement.querySelector('[aria-label="Página siguiente"]') as HTMLButtonElement
+        fixture.nativeElement.querySelector('[aria-label="Semana siguiente"]') as HTMLButtonElement
       ).click();
       await settle(fixture);
     }
@@ -544,7 +548,7 @@ describe('DoctorAgendaComponent', () => {
       const { fixture } = setup([]);
       await settle(fixture);
       (
-        fixture.nativeElement.querySelector('[aria-label="Página anterior"]') as HTMLButtonElement
+        fixture.nativeElement.querySelector('[aria-label="Semana anterior"]') as HTMLButtonElement
       ).click();
       await settle(fixture);
 
@@ -645,7 +649,7 @@ describe('DoctorAgendaComponent', () => {
       ctx.appointmentsService.getAgenda.mockImplementation(agendaOf([appt]));
       (
         ctx.fixture.nativeElement.querySelector(
-          '[aria-label="Página siguiente"]',
+          '[aria-label="Semana siguiente"]',
         ) as HTMLButtonElement
       ).click();
       await settle(ctx.fixture);
@@ -919,6 +923,145 @@ describe('DoctorAgendaComponent', () => {
 
       expect(internals(fixture).followUpOffer()).toBeNull();
       expect(internals(fixture).followUpPick()).toBeNull();
+    });
+  });
+
+  describe('vista de un día en el celular (CLI-248)', () => {
+    /** Fecha (YYYY-MM-DD) de hoy en La Paz corrida `days` días. */
+    function laPazDate(days = 0): string {
+      const laPazNow = new Date(Date.now() - 4 * 60 * 60 * 1000 + days * 24 * 60 * 60 * 1000);
+      return laPazNow.toISOString().slice(0, 10);
+    }
+
+    /** Lunes de esta semana en La Paz, a las 10:00 de La Paz. */
+    function mondayAtLaPazMorning(): { date: string; iso: string } {
+      const laPazNow = new Date(Date.now() - 4 * 60 * 60 * 1000);
+      const fromMonday = (laPazNow.getUTCDay() + 6) % 7;
+      const date = laPazDate(-fromMonday);
+      return { date, iso: `${date}T14:00:00.000Z` };
+    }
+
+    function el<T extends Element>(
+      fixture: ComponentFixture<DoctorAgendaComponent>,
+      selector: string,
+    ): T | null {
+      return (fixture.nativeElement as HTMLElement).querySelector<T>(selector);
+    }
+
+    function all(
+      fixture: ComponentFixture<DoctorAgendaComponent>,
+      selector: string,
+    ): HTMLElement[] {
+      return [...(fixture.nativeElement as HTMLElement).querySelectorAll<HTMLElement>(selector)];
+    }
+
+    function navLabel(fixture: ComponentFixture<DoctorAgendaComponent>): string {
+      return el(fixture, '.agenda__nav-label')?.textContent?.trim() ?? '';
+    }
+
+    async function click(
+      fixture: ComponentFixture<DoctorAgendaComponent>,
+      target: HTMLElement | null,
+    ) {
+      target!.click();
+      await settle(fixture);
+    }
+
+    it('muestra solo el día de hoy, con la semana en una tira y hoy elegido', async () => {
+      const { fixture } = setup([fakeAppointment()], [], [], true);
+      await settle(fixture);
+
+      expect(all(fixture, '.agenda-strip__day')).toHaveLength(7);
+      const selected = el<HTMLElement>(fixture, '.agenda-strip__day--selected');
+      expect(selected?.getAttribute('aria-selected')).toBe('true');
+      expect(selected?.classList).toContain('agenda-strip__day--today');
+      // Sin encabezados de la semana: una sola columna de día.
+      expect(all(fixture, '.agenda-grid__day-header')).toHaveLength(0);
+      expect(all(fixture, '.agenda-grid--day .agenda-grid__day-col')).toHaveLength(1);
+      expect(all(fixture, '.agenda-slot')).toHaveLength(1);
+      expect(navLabel(fixture)).toMatch(/^\p{Lu}\p{Ll}+ \d{1,2} de \p{Ll}+$/u);
+      expect(el(fixture, '.agenda__nav-today')).toBeNull();
+    });
+
+    it('en escritorio sigue la semana completa, sin la tira de días', async () => {
+      const { fixture } = setup([fakeAppointment()]);
+      await settle(fixture);
+
+      expect(el(fixture, '.agenda-strip')).toBeNull();
+      expect(all(fixture, '.agenda-grid__day-header')).toHaveLength(6);
+    });
+
+    it('las flechas pasan de a un día y "Hoy" vuelve al día actual', async () => {
+      const { fixture } = setup([fakeAppointment()], [], [], true);
+      await settle(fixture);
+      const today = navLabel(fixture);
+
+      await click(fixture, all(fixture, '.agenda__nav-btn')[1]);
+      expect(navLabel(fixture)).not.toBe(today);
+      expect(all(fixture, '.agenda__nav-btn')[1].getAttribute('aria-label')).toBe('Día siguiente');
+      // La cita es de hoy: mañana no se ve.
+      expect(all(fixture, '.agenda-slot')).toHaveLength(0);
+
+      await click(fixture, el(fixture, '.agenda__nav-today'));
+      expect(navLabel(fixture)).toBe(today);
+      expect(all(fixture, '.agenda-slot')).toHaveLength(1);
+
+      await click(fixture, all(fixture, '.agenda__nav-btn')[0]);
+      await click(fixture, all(fixture, '.agenda__nav-btn')[1]);
+      expect(navLabel(fixture)).toBe(today);
+    });
+
+    it('al pasar el domingo carga la semana siguiente, y al volver, la anterior', async () => {
+      const { fixture, appointmentsService } = setup([], [], [], true);
+      await settle(fixture);
+      const loadsBefore = agendaLoads(appointmentsService);
+
+      // Desde hoy, a lo sumo 7 pasos llegan al lunes siguiente.
+      for (let i = 0; i < 7; i++) {
+        await click(fixture, all(fixture, '.agenda__nav-btn')[1]);
+      }
+      expect(agendaLoads(appointmentsService)).toBe(loadsBefore + 1);
+      expect(all(fixture, '.agenda-strip__day')[0].getAttribute('aria-label')).toMatch(/^Lun /);
+
+      for (let i = 0; i < 7; i++) {
+        await click(fixture, all(fixture, '.agenda__nav-btn')[0]);
+      }
+      expect(agendaLoads(appointmentsService)).toBe(loadsBefore + 2);
+    });
+
+    it('tocar un día de la tira muestra sus citas, y la tira marca los días con citas', async () => {
+      const monday = mondayAtLaPazMorning();
+      const { fixture } = setup(
+        [fakeAppointment({ id: 'lunes', appointmentDatetime: monday.iso })],
+        [],
+        [],
+        true,
+      );
+      await settle(fixture);
+
+      const mondayChip = all(fixture, '.agenda-strip__day')[0];
+      expect(mondayChip.getAttribute('aria-label')).toMatch(/, con citas$/);
+      expect(all(fixture, '.agenda-strip__dot--on')).toHaveLength(1);
+
+      await click(fixture, mondayChip);
+
+      expect(mondayChip.getAttribute('aria-selected')).toBe('true');
+      expect(all(fixture, '.agenda-slot')).toHaveLength(1);
+    });
+
+    it('"Reservar horario" propone el día que se está viendo, no el lunes', async () => {
+      const laPazNow = new Date(Date.now() - 4 * 60 * 60 * 1000);
+      const sunday = laPazDate((7 - laPazNow.getUTCDay()) % 7);
+      const { fixture } = setup([], [], [], true);
+      await settle(fixture);
+      await click(fixture, all(fixture, '.agenda-strip__day').at(-1)!);
+
+      await click(fixture, el(fixture, '.agenda__block-btn'));
+
+      const dialog = (
+        fixture.componentInstance as unknown as { blockDialog: () => { date: string } | null }
+      ).blockDialog();
+      expect(dialog?.date).toBe(sunday);
     });
   });
 });

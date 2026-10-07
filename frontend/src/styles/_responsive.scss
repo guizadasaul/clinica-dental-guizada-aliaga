@@ -1,6 +1,10 @@
 // src/styles/_responsive.scss
 // Patrones de celular del panel (CLI-247). Cada componente los incluye con
 // `@use 'responsive' as rsp;` en vez de reinventar su propio @media.
+//
+// El @include va AL FINAL de la regla: Sass emite las declaraciones que
+// siguen a un bloque anidado en una regla aparte, más abajo, y esas pisarían
+// las del @media del mixin (visto en CLI-248 con los diálogos de la agenda).
 
 @use 'breakpoints' as bp;
 
@@ -70,41 +74,63 @@ $tap-target: 44px;
   }
 }
 
-/// Un diálogo centrado pasa a ocupar toda la pantalla en el celular: el
-/// contenido scrollea adentro y no queda nada fuera de la vista.
+/// Un diálogo centrado pasa a ser una hoja que sube desde abajo en el
+/// celular, de borde a borde: alta como su contenido y, si no entra, ocupa
+/// toda la pantalla y scrollea adentro. Nada queda fuera de la vista.
+$sheet-pad-x: var(--space-4);
+$sheet-pad-y: var(--space-5);
+
 @mixin dialog-sheet {
   @include bp.down(sm) {
     width: 100%;
     max-width: 100%;
-    height: 100dvh;
+    height: auto;
     max-height: 100dvh;
     margin: 0;
-    border-radius: 0;
+    padding: $sheet-pad-y $sheet-pad-x 0;
+    border-radius: var(--radius-xl) var(--radius-xl) 0 0;
     overflow-y: auto;
   }
 }
 
-/// El fondo oscuro del diálogo, sin márgenes en el celular para que la hoja
-/// llegue a los bordes.
+/// El fondo oscuro del diálogo, sin márgenes en el celular y con la hoja
+/// apoyada abajo.
 @mixin dialog-backdrop {
   @include bp.down(sm) {
     padding: 0;
-    align-items: stretch;
+    align-items: flex-end;
   }
 }
 
-/// Barra de botones que queda pegada abajo de la hoja mientras se scrollea.
-@mixin sheet-actions {
+/// Barra de botones que queda pegada abajo de la hoja mientras se scrollea,
+/// de borde a borde. Va adentro del panel que usa `dialog-sheet`.
+@mixin sheet-actions($bg: var(--color-surface)) {
   @include bp.down(sm) {
     position: sticky;
     bottom: 0;
     z-index: 1;
-    padding: var(--space-3) var(--space-4) calc(var(--space-3) + env(safe-area-inset-bottom));
-    background: inherit;
+    margin: var(--space-4) calc(-1 * #{$sheet-pad-x}) 0;
+    padding: var(--space-3) $sheet-pad-x calc(var(--space-3) + env(safe-area-inset-bottom));
+    background: $bg;
     border-top: 1px solid var(--color-border);
 
+    // wrap-reverse: si los botones no entran en una fila, la acción principal
+    // (la última) queda arriba.
+    flex-wrap: wrap-reverse;
+
     > * {
-      flex: 1;
+      flex: 1 1 0;
+      min-height: $tap-target;
+      // Sin el margin-right: auto que algunos usan en escritorio para separar
+      // el botón de borrar de los demás.
+      margin-inline: 0;
+    }
+
+    // Con tres botones o más, en una fila no entran: uno debajo del otro.
+    // (Selector de cantidad sin `&`: Sonar S8776 no acepta `&` anidado acá.)
+    > :first-child:nth-last-child(n + 3),
+    > :first-child:nth-last-child(n + 3) ~ * {
+      flex-basis: 100%;
     }
   }
 }
