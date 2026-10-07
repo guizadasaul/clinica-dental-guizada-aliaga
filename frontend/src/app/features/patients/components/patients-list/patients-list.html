@@ -49,6 +49,10 @@
     </div>
   </div>
 
+  @if (resetLinkError(); as error) {
+    <p class="patients-list__alert" role="alert">{{ error }}</p>
+  }
+
   @if (patients().length === 0) {
     <div class="patients-list__empty">
       <span class="material-symbols-outlined patients-list__empty-icon">group</span>
@@ -223,6 +227,25 @@
                         <p class="patients-list__menu-hint" [id]="'menu-treat-hint-' + p.userId">
                           Disponible al terminar el diagnóstico.
                         </p>
+                      }
+                      <!-- Contraseña nueva por WhatsApp, solo con cuenta (CLI-244) -->
+                      @if (p.patient && p.hasAccount) {
+                        <button
+                          type="button"
+                          class="patients-list__menu-item"
+                          role="menuitem"
+                          [disabled]="!p.patient.phone"
+                          [attr.aria-describedby]="p.patient.phone ? null : 'menu-reset-hint-' + p.userId"
+                          (click)="onSendPasswordLink(p)"
+                        >
+                          <span class="material-symbols-outlined">lock_reset</span>
+                          Link para nueva contraseña
+                        </button>
+                        @if (!p.patient.phone) {
+                          <p class="patients-list__menu-hint" [id]="'menu-reset-hint-' + p.userId">
+                            Carga su teléfono para mandarle el link por WhatsApp.
+                          </p>
+                        }
                       }
                       <button type="button" class="patients-list__menu-item patients-list__menu-item--danger" role="menuitem" (click)="askDelete(p)">
                         <span class="material-symbols-outlined">delete</span>

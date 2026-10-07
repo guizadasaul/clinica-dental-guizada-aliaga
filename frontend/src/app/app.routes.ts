@@ -23,4 +23,10 @@ export const routes: Routes = [
     loadChildren: () =>
       import('./features/invitation/invitation.routes').then((r) => r.invitationRoutes),
   },
+  {
+    // Link de contraseña nueva que manda la clínica por WhatsApp (CLI-244).
+    path: 'recuperar/:token',
+    loadComponent: () =>
+      import('./auth/ui/new-password/new-password').then((c) => c.NewPasswordComponent),
+  },
 ];

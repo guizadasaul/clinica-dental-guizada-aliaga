@@ -40,3 +40,13 @@ export function toE164Bolivia(phone: string): string {
   const normalized = digits.startsWith('591') ? digits : `591${digits}`;
   return `+${normalized}`;
 }
+
+/**
+ * Link de wa.me con el mensaje ya escrito. Lo usan las invitaciones y los
+ * links de contraseña nueva (CLI-244). Sin emojis en `message`: wa.me
+ * corrompe los caracteres de 3+ bytes en UTF-8.
+ */
+export function buildWhatsappUrl(phone: string, message: string): string {
+  const normalized = toLoginE164(phone).slice(1);
+  return `https://wa.me/${normalized}?text=${encodeURIComponent(message)}`;
+}

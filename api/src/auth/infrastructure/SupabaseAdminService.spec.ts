@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ConflictException,
   Logger,
   ServiceUnavailableException,
@@ -288,6 +289,47 @@ describe('SupabaseAdminService', () => {
 
       await expect(
         new SupabaseAdminService().createRecoveryLink('a@b.com'),
+      ).rejects.toThrow(ServiceUnavailableException);
+    });
+  });
+
+  describe('setPassword (CLI-244)', () => {
+    it('cambia la contraseña de la cuenta por id', async () => {
+      admin.updateUserById.mockResolvedValue({ error: null });
+
+      await new SupabaseAdminService().setPassword('auth-1', 'una-clave-nueva');
+
+      expect(admin.updateUserById).toHaveBeenCalledWith('auth-1', {
+        password: 'una-clave-nueva',
+      });
+    });
+
+    it('una contraseña débil da 400 con un mensaje para el paciente', async () => {
+      admin.updateUserById.mockResolvedValue({
+        error: { code: 'weak_password', status: 422 },
+      });
+
+      await expect(
+        new SupabaseAdminService().setPassword('auth-1', '12345678'),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('otro error da 503 y queda en el log', async () => {
+      admin.updateUserById.mockResolvedValue({
+        error: { code: 'unexpected_failure', status: 500 },
+      });
+
+      await expect(
+        new SupabaseAdminService().setPassword('auth-1', 'una-clave-nueva'),
+      ).rejects.toThrow(ServiceUnavailableException);
+      expect(error).toHaveBeenCalled();
+    });
+
+    it('sin service role key responde 503', async () => {
+      delete process.env['SUPABASE_SERVICE_ROLE_KEY'];
+
+      await expect(
+        new SupabaseAdminService().setPassword('auth-1', 'una-clave-nueva'),
       ).rejects.toThrow(ServiceUnavailableException);
     });
   });
