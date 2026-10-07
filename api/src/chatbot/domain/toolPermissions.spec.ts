@@ -28,6 +28,7 @@ const PUBLIC_TOOLS = [
 const PATIENT_TOOLS = [
   'get_my_next_appointment',
   'get_my_appointments',
+  'get_my_visits',
   'get_my_quotes',
   'get_my_balance',
   'get_my_treatments',

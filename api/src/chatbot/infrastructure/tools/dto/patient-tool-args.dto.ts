@@ -19,3 +19,11 @@ export class MyTreatmentsArgsDto {
   @Max(20)
   limit?: number;
 }
+
+export class MyVisitsArgsDto {
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Max(20)
+  limit?: number;
+}
