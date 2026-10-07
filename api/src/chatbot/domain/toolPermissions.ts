@@ -29,6 +29,7 @@ export const TOOL_PERMISSIONS = {
 
   get_my_next_appointment: PATIENT_ONLY,
   get_my_appointments: PATIENT_ONLY,
+  get_my_visits: PATIENT_ONLY,
   get_my_quotes: PATIENT_ONLY,
   get_my_balance: PATIENT_ONLY,
   get_my_treatments: PATIENT_ONLY,

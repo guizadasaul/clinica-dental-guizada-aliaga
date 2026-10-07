@@ -1,11 +1,11 @@
 import { UserRole } from '../../../auth/domain/value-objects/UserRole';
 import type { AppointmentsService } from '../../../appointments/application/appointments.service';
+import type { PatientAppointment } from '../../../appointments/domain/PatientAppointment';
 import type { QuotesService } from '../../../quotes/application/quotes.service';
 import type { Quote } from '../../../quotes/domain/Quote';
-import type { QuoteItem } from '../../../quotes/domain/QuoteItem';
+import type { QuoteLine } from '../../../quotes/domain/QuoteBalance';
 import type { PatientsService } from '../../../patients/application/patients.service';
 import type { ToothProcedure } from '../../../patients/domain/ToothProcedure';
-import type { ITreatmentRepository } from '../../../treatments/domain/TreatmentRepository';
 import type { ChatActor } from '../../domain/ChatActor';
 import { ClassValidatorToolArgsValidator } from './class-validator-tool-args.validator';
 import {
@@ -15,6 +15,7 @@ import {
   GetMyPendingTreatmentsTool,
   GetMyQuotesTool,
   GetMyTreatmentsTool,
+  GetMyVisitsTool,
   PATIENT_TOOLS,
 } from './patient.tools';
 
@@ -30,18 +31,15 @@ const anonymous: ChatActor = { kind: 'anonymous' };
 // 10:00 en La Paz.
 const APPOINTMENT_AT = new Date('2026-09-28T14:00:00Z');
 
-function item(overrides: Partial<QuoteItem> = {}): QuoteItem {
+function line(overrides: Partial<QuoteLine> = {}): QuoteLine {
   return {
-    id: 'item-1',
-    quoteId: 'quote-1',
-    treatmentId: 't-limpieza',
-    toothNumber: null,
-    applicationGroupId: null,
-    unitPrice: 250,
-    quantity: 1,
-    subtotal: 250,
-    currency: 'BOB',
-    exchangeRate: null,
+    key: '11111111-1111-4111-8111-111111111111',
+    treatmentName: 'Limpieza',
+    toothNumbers: [],
+    total: 250,
+    paid: 100,
+    pending: 150,
+    performedAt: null,
     ...overrides,
   };
 }
@@ -52,11 +50,13 @@ function quote(overrides: Partial<Quote> = {}): Quote {
     patientId: 'patient-1',
     totalAmount: 400,
     totalPaid: 100,
+    balance: 300,
     status: 'partially_paid',
     notes: 'nota interna que no debe salir',
     createdAt: new Date('2026-09-01T15:00:00Z'),
     updatedAt: new Date('2026-09-01T15:00:00Z'),
-    items: [item()],
+    sharedAt: new Date('2026-09-01T15:00:00Z'),
+    items: [],
     payments: [
       {
         id: 'pay-1',
@@ -67,7 +67,20 @@ function quote(overrides: Partial<Quote> = {}): Quote {
         paymentDate: new Date('2026-09-02T15:00:00Z'),
         notes: 'nota del pago',
         createdAt: new Date('2026-09-02T15:00:00Z'),
+        allocations: [],
+        covered: [],
       },
+    ],
+    lines: [
+      line(),
+      line({
+        key: '22222222-2222-4222-8222-222222222222',
+        treatmentName: 'Resina',
+        toothNumbers: [11, 12],
+        total: 150,
+        paid: 0,
+        pending: 150,
+      }),
     ],
     ...overrides,
   };
@@ -80,6 +93,7 @@ function procedure(overrides: Partial<ToothProcedure> = {}): ToothProcedure {
     toothNumber: 16,
     applicationGroupId: null,
     treatmentId: 't-resina',
+    treatmentName: 'Resina',
     priceCharged: 300,
     quantity: 1,
     procedureDate: new Date('2026-09-10T12:00:00Z'),
@@ -88,35 +102,35 @@ function procedure(overrides: Partial<ToothProcedure> = {}): ToothProcedure {
     performedBy: 'doctor-1',
     createdAt: new Date('2026-09-10T12:00:00Z'),
     ...overrides,
+  } as ToothProcedure;
+}
+
+function visit(date: string, status: string): PatientAppointment {
+  return {
+    id: `v-${date}`,
+    appointmentDatetime: new Date(`${date}T14:00:00Z`),
+    durationMinutes: 30,
+    doctorName: 'Dra. Lucía Rojas',
+    treatmentName: 'Limpieza',
+    status,
   };
 }
 
-describe('patient tools (CLI-91)', () => {
-  const appointmentsService = { getPatientAppointments: jest.fn() };
+describe('patient tools (CLI-91, CLI-235)', () => {
+  const appointmentsService = {
+    getPatientAppointments: jest.fn(),
+    getPatientVisits: jest.fn(),
+  };
   const quotesService = { findSharedByPatient: jest.fn() };
   const patientsService = { findToothProcedures: jest.fn() };
-  const treatmentRepo = {
-    findById: jest.fn((id: string) =>
-      Promise.resolve(
-        (
-          {
-            't-limpieza': { name: 'Limpieza' },
-            't-resina': { name: 'Resina' },
-            't-ortodoncia': { name: 'Brackets' },
-          } as Record<string, { name: string }>
-        )[id] ?? null,
-      ),
-    ),
-  };
   const appointments = appointmentsService as unknown as AppointmentsService;
   const quotes = quotesService as unknown as QuotesService;
   const patients = patientsService as unknown as PatientsService;
-  const treatments = treatmentRepo as unknown as ITreatmentRepository;
 
   beforeEach(() => jest.clearAllMocks());
 
-  it('exporta las 6 tools del paciente', () => {
-    expect(PATIENT_TOOLS).toHaveLength(6);
+  it('exporta las 7 tools del paciente', () => {
+    expect(PATIENT_TOOLS).toHaveLength(7);
   });
 
   describe.each([
@@ -135,12 +149,13 @@ describe('patient tools (CLI-91)', () => {
         }),
     ],
     [
-      'get_my_quotes',
+      'get_my_visits',
       () =>
-        new GetMyQuotesTool(quotes, treatments).execute(
-          patientWithoutProfile,
-          {},
-        ),
+        new GetMyVisitsTool(appointments).execute(patientWithoutProfile, {}),
+    ],
+    [
+      'get_my_quotes',
+      () => new GetMyQuotesTool(quotes).execute(patientWithoutProfile),
     ],
     [
       'get_my_balance',
@@ -149,17 +164,12 @@ describe('patient tools (CLI-91)', () => {
     [
       'get_my_treatments',
       () =>
-        new GetMyTreatmentsTool(patients, treatments).execute(
-          patientWithoutProfile,
-          {},
-        ),
+        new GetMyTreatmentsTool(patients).execute(patientWithoutProfile, {}),
     ],
     [
       'get_my_pending_treatments',
       () =>
-        new GetMyPendingTreatmentsTool(quotes, treatments).execute(
-          patientWithoutProfile,
-        ),
+        new GetMyPendingTreatmentsTool(quotes).execute(patientWithoutProfile),
     ],
   ])('%s', (_name, run) => {
     it('sin ficha de paciente responde no_patient_profile sin consultar nada', async () => {
@@ -167,6 +177,7 @@ describe('patient tools (CLI-91)', () => {
         error: 'no_patient_profile',
       });
       expect(appointmentsService.getPatientAppointments).not.toHaveBeenCalled();
+      expect(appointmentsService.getPatientVisits).not.toHaveBeenCalled();
       expect(quotesService.findSharedByPatient).not.toHaveBeenCalled();
       expect(patientsService.findToothProcedures).not.toHaveBeenCalled();
     });
@@ -251,14 +262,44 @@ describe('patient tools (CLI-91)', () => {
     });
   });
 
+  describe('get_my_visits', () => {
+    it('incluye las citas a las que no asistió y dice cuántas fueron', async () => {
+      appointmentsService.getPatientVisits.mockResolvedValue([
+        visit('2026-10-05', 'no_show'),
+        visit('2026-10-03', 'confirmed'),
+        visit('2026-09-01', 'attended'),
+      ]);
+
+      const result = await new GetMyVisitsTool(appointments).execute(patient, {
+        limit: 2,
+      });
+
+      expect(appointmentsService.getPatientVisits).toHaveBeenCalledWith(
+        'patient-1',
+      );
+      expect(result).toMatchObject({
+        total: 3,
+        missed: 1,
+        visits: [
+          {
+            date: '2026-10-05',
+            weekday: 'lunes',
+            time: '10:00',
+            doctor: 'Dra. Lucía Rojas',
+            attended: false,
+          },
+          { date: '2026-10-03', weekday: 'sábado', attended: true },
+        ],
+      });
+      expect(JSON.stringify(result)).not.toContain('v-2026');
+    });
+  });
+
   describe('get_my_quotes', () => {
-    it('devuelve total, pagado, saldo, ítems con nombre y pagos con recibo, sin notas ni ids', async () => {
+    it('numera presupuestos y líneas, con lo pagado y lo pendiente de cada una, sin notas ni ids', async () => {
       quotesService.findSharedByPatient.mockResolvedValue([quote()]);
 
-      const result = await new GetMyQuotesTool(quotes, treatments).execute(
-        patient,
-        {},
-      );
+      const result = await new GetMyQuotesTool(quotes).execute(patient);
 
       expect(quotesService.findSharedByPatient).toHaveBeenCalledWith(
         'patient-1',
@@ -267,15 +308,28 @@ describe('patient tools (CLI-91)', () => {
         total: 1,
         quotes: [
           {
+            quote: 1,
             date: '2026-09-01',
             status: 'pago parcial',
             totalBob: 400,
             paidBob: 100,
             balanceBob: 300,
-            items: [
+            lines: [
               {
+                line: 1,
                 treatment: 'Limpieza',
-                subtotalBob: 250,
+                totalBob: 250,
+                paidBob: 100,
+                pendingBob: 150,
+                status: 'por realizar',
+              },
+              {
+                line: 2,
+                treatment: 'Resina',
+                teeth: [11, 12],
+                totalBob: 150,
+                paidBob: 0,
+                pendingBob: 150,
                 status: 'por realizar',
               },
             ],
@@ -284,81 +338,34 @@ describe('patient tools (CLI-91)', () => {
             ],
           },
         ],
-        // CLI-145: el bot no cobra ni agenda pagos.
-        note: expect.stringContaining('no cobra') as unknown,
+        note: expect.stringContaining('Mi presupuesto') as unknown,
       });
       const json = JSON.stringify(result);
       expect(json).not.toContain('nota');
       expect(json).not.toContain('quote-1');
       expect(json).not.toContain('patient-1');
-    });
-
-    it('agrupa una aplicación en varias piezas en una sola línea con su precio una vez', async () => {
-      quotesService.findSharedByPatient.mockResolvedValue([
-        quote({
-          items: [
-            item({
-              id: 'a',
-              treatmentId: 't-resina',
-              toothNumber: 11,
-              applicationGroupId: 'g1',
-              subtotal: 600,
-            }),
-            item({
-              id: 'b',
-              treatmentId: 't-resina',
-              toothNumber: 12,
-              applicationGroupId: 'g1',
-              subtotal: 600,
-            }),
-          ],
-        }),
-      ]);
-
-      const {
-        quotes: [first],
-      } = (await new GetMyQuotesTool(quotes, treatments).execute(
-        patient,
-        {},
-      )) as {
-        quotes: Array<{ items: unknown[] }>;
-      };
-
-      expect(first.items).toEqual([
-        {
-          treatment: 'Resina',
-          teeth: [11, 12],
-          subtotalBob: 600,
-          status: 'por realizar',
-        },
-      ]);
+      // Las keys de las líneas son UUIDs: el LLM elige por número (CLI-235).
+      expect(json).not.toContain('11111111-');
     });
 
     // CLI-226: el paciente pregunta "¿qué me falta hacerme?".
     it('marca cada tratamiento como realizado (con fecha) o por realizar', async () => {
       quotesService.findSharedByPatient.mockResolvedValue([
         quote({
-          items: [
-            item({
-              id: 'a',
-              treatmentId: 't-resina',
-              toothNumber: 11,
-              procedureId: 'proc-a',
-              performedAt: new Date('2026-04-22'),
-            }),
-            item({ id: 'b', treatmentId: 't-resina', toothNumber: 12 }),
+          lines: [
+            line({ performedAt: new Date('2026-04-22T12:00:00Z') }),
+            line(),
           ],
         }),
       ]);
 
       const {
         quotes: [first],
-      } = (await new GetMyQuotesTool(quotes, treatments).execute(
-        patient,
-        {},
-      )) as { quotes: Array<{ items: Array<{ status: string }> }> };
+      } = (await new GetMyQuotesTool(quotes).execute(patient)) as {
+        quotes: Array<{ lines: Array<{ status: string }> }>;
+      };
 
-      expect(first.items.map((i) => i.status)).toEqual([
+      expect(first.lines.map((l) => l.status)).toEqual([
         'realizado el 2026-04-22',
         'por realizar',
       ]);
@@ -370,27 +377,15 @@ describe('patient tools (CLI-91)', () => {
         ...Array.from({ length: 5 }, () => quote({ status: 'paid' })),
       ]);
 
-      const result = (await new GetMyQuotesTool(quotes, treatments).execute(
-        patient,
-      )) as { total: number; quotes: Array<{ status: string }> };
+      const result = (await new GetMyQuotesTool(quotes).execute(patient)) as {
+        total: number;
+        quotes: Array<{ quote: number; status: string }>;
+      };
 
       expect(result.quotes).toHaveLength(5);
       expect(result.total).toBe(6);
+      expect(result.quotes.map((q) => q.quote)).toEqual([1, 2, 3, 4, 5]);
       expect(result.quotes[0].status).toBe('pago parcial');
-    });
-
-    it('nombra genérico un tratamiento desconocido', async () => {
-      quotesService.findSharedByPatient.mockResolvedValue([
-        quote({ items: [item({ treatmentId: 'desconocido' })] }),
-      ]);
-
-      const {
-        quotes: [first],
-      } = (await new GetMyQuotesTool(quotes, treatments).execute(patient)) as {
-        quotes: Array<{ items: Array<{ treatment: string }> }>;
-      };
-
-      expect(first.items[0].treatment).toBe('Tratamiento');
     });
 
     it('muestra el estado crudo si no tiene traducción', async () => {
@@ -400,10 +395,7 @@ describe('patient tools (CLI-91)', () => {
 
       const {
         quotes: [first],
-      } = (await new GetMyQuotesTool(quotes, treatments).execute(
-        patient,
-        {},
-      )) as {
+      } = (await new GetMyQuotesTool(quotes).execute(patient)) as {
         quotes: Array<{ status: string }>;
       };
 
@@ -412,11 +404,11 @@ describe('patient tools (CLI-91)', () => {
   });
 
   describe('get_my_balance', () => {
-    it('suma los saldos sin pagar y no cuenta sobrepagos como negativos', async () => {
+    it('suma los saldos de los presupuestos compartidos', async () => {
       quotesService.findSharedByPatient.mockResolvedValue([
-        quote({ totalAmount: 400, totalPaid: 100 }),
-        quote({ totalAmount: 150.555, totalPaid: 0 }),
-        quote({ totalAmount: 100, totalPaid: 120, status: 'paid' }),
+        quote({ balance: 300 }),
+        quote({ balance: 150.555 }),
+        quote({ balance: 0, status: 'paid' }),
       ]);
 
       await expect(
@@ -436,21 +428,21 @@ describe('patient tools (CLI-91)', () => {
           id: 'p1',
           applicationGroupId: 'g1',
           toothNumber: 31,
-          treatmentId: 't-ortodoncia',
+          treatmentName: 'Brackets',
         }),
         procedure({
           id: 'p2',
           applicationGroupId: 'g1',
           toothNumber: 32,
-          treatmentId: 't-ortodoncia',
+          treatmentName: 'Brackets',
         }),
-        procedure({ id: 'p3', toothNumber: null, treatmentId: 't-limpieza' }),
+        procedure({ id: 'p3', toothNumber: null, treatmentName: 'Limpieza' }),
       ]);
 
-      const result = await new GetMyTreatmentsTool(
-        patients,
-        treatments,
-      ).execute(patient, {});
+      const result = await new GetMyTreatmentsTool(patients).execute(
+        patient,
+        {},
+      );
 
       expect(patientsService.findToothProcedures).toHaveBeenCalledWith(
         'patient-1',
@@ -474,10 +466,7 @@ describe('patient tools (CLI-91)', () => {
         procedure({ id: 'c' }),
       ]);
 
-      const result = (await new GetMyTreatmentsTool(
-        patients,
-        treatments,
-      ).execute(patient, {
+      const result = (await new GetMyTreatmentsTool(patients).execute(patient, {
         limit: 2,
       })) as { total: number; treatments: unknown[] };
 
@@ -485,50 +474,54 @@ describe('patient tools (CLI-91)', () => {
       expect(result.treatments).toHaveLength(2);
       expect(result.total).toBe(3);
     });
-
-    it('nombra genérico un tratamiento que ya no existe', async () => {
-      patientsService.findToothProcedures.mockResolvedValue([
-        procedure({ treatmentId: 'borrado' }),
-      ]);
-
-      const {
-        treatments: [first],
-      } = (await new GetMyTreatmentsTool(patients, treatments).execute(
-        patient,
-        {},
-      )) as { treatments: Array<{ treatment: string }> };
-
-      expect(first.treatment).toBe('Tratamiento');
-    });
   });
 
   describe('get_my_pending_treatments', () => {
-    it('lista los ítems de presupuestos sin pagar por completo, con la aclaración', async () => {
+    it('lista lo que falta realizar o pagar, con el número de presupuesto y de línea', async () => {
       quotesService.findSharedByPatient.mockResolvedValue([
-        quote({ status: 'paid', items: [item({ treatmentId: 't-limpieza' })] }),
         quote({
-          status: 'pending',
-          items: [item({ treatmentId: 't-resina', toothNumber: 26 })],
+          lines: [
+            // Realizada y pagada: no falta nada.
+            line({
+              performedAt: new Date('2026-09-10T12:00:00Z'),
+              paid: 250,
+              pending: 0,
+            }),
+            // Realizada pero con saldo: falta pagarla.
+            line({
+              treatmentName: 'Resina',
+              performedAt: new Date('2026-09-10T12:00:00Z'),
+            }),
+            // Pagada pero por realizar: falta hacerla.
+            line({ treatmentName: 'Endodoncia', paid: 250, pending: 0 }),
+          ],
         }),
       ]);
 
-      const result = (await new GetMyPendingTreatmentsTool(
-        quotes,
-        treatments,
-      ).execute(patient)) as {
-        treatments: unknown[];
-        note: string;
-      };
+      const result = (await new GetMyPendingTreatmentsTool(quotes).execute(
+        patient,
+      )) as { treatments: unknown[]; note: string };
 
       expect(result.treatments).toEqual([
         {
+          quote: 1,
+          line: 2,
           treatment: 'Resina',
-          teeth: [26],
-          subtotalBob: 250,
+          totalBob: 250,
+          paidBob: 100,
+          pendingBob: 150,
+          status: 'realizado el 2026-09-10',
+        },
+        {
+          quote: 1,
+          line: 3,
+          treatment: 'Endodoncia',
+          totalBob: 250,
+          paidBob: 250,
+          pendingBob: 0,
           status: 'por realizar',
         },
       ]);
-      expect(result.note).toContain('presupuestos');
       expect(result.note).toContain('no cobra');
     });
   });
@@ -538,8 +531,9 @@ describe('patient tools (CLI-91)', () => {
 
     it('ninguna tool del paciente acepta un patientId', async () => {
       const appointmentsTool = new GetMyAppointmentsTool(appointments);
-      const quotesTool = new GetMyQuotesTool(quotes, treatments);
+      const quotesTool = new GetMyQuotesTool(quotes);
       const nextTool = new GetMyNextAppointmentTool(appointments);
+      const visitsTool = new GetMyVisitsTool(appointments);
 
       await expect(
         validator.validate(appointmentsTool.argsDto, {
@@ -556,9 +550,12 @@ describe('patient tools (CLI-91)', () => {
       await expect(
         validator.validate(nextTool.argsDto, { userId: 'otro' }),
       ).resolves.toEqual({ ok: false, fields: ['userId'] });
+      await expect(
+        validator.validate(visitsTool.argsDto, { patientId: 'otro' }),
+      ).resolves.toEqual({ ok: false, fields: ['patientId'] });
     });
 
-    it('valida scope, límites y estado', async () => {
+    it('valida scope y límites', async () => {
       await expect(
         validator.validate(new GetMyAppointmentsTool(appointments).argsDto, {
           scope: 'todas',
@@ -566,15 +563,14 @@ describe('patient tools (CLI-91)', () => {
         }),
       ).resolves.toEqual({ ok: false, fields: ['scope', 'limit'] });
       await expect(
-        validator.validate(new GetMyQuotesTool(quotes, treatments).argsDto, {
-          status: 'x',
+        validator.validate(new GetMyTreatmentsTool(patients).argsDto, {
+          limit: 0,
         }),
-      ).resolves.toEqual({ ok: false, fields: ['status'] });
+      ).resolves.toEqual({ ok: false, fields: ['limit'] });
       await expect(
-        validator.validate(
-          new GetMyTreatmentsTool(patients, treatments).argsDto,
-          { limit: 0 },
-        ),
+        validator.validate(new GetMyVisitsTool(appointments).argsDto, {
+          limit: 21,
+        }),
       ).resolves.toEqual({ ok: false, fields: ['limit'] });
     });
   });

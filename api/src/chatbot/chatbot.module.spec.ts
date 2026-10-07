@@ -46,7 +46,8 @@ describe('ChatbotModule', () => {
   // doctor 2631, admin 3355 caracteres; los topes dejan un 6-8 % de margen. Si
   // una tool nueva los supera, recortar descripciones antes de subirlos.
   // CLI-234: el doctor suma 3 tools (resumen de paciente, deudores y ranking
-  // de tratamientos) y queda en 3616 → tope 3850.
+  // de tratamientos) y queda en 3616 → tope 3850. CLI-235: el paciente suma
+  // get_my_visits y las líneas numeradas del presupuesto → 3794, tope 4050.
   it.each([
     ['anónimo', { kind: 'anonymous' as const }, 2100],
     [
@@ -57,7 +58,7 @@ describe('ChatbotModule', () => {
         role: UserRole.PATIENT,
         patientId: 'p1',
       },
-      3600,
+      4050,
     ],
     [
       'odontólogo',
