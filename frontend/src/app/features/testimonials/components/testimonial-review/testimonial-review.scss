@@ -1,3 +1,5 @@
+@use 'breakpoints' as bp;
+
 .testimonial-review {
   display: flex;
   flex-direction: column;
@@ -131,5 +133,18 @@
         background: #fef2f2;
       }
     }
+  }
+}
+
+// Celular (CLI-251): "Rechazar" y "Aprobar" a lo ancho y de 44 px.
+@include bp.down(md) {
+  .review-item__actions {
+    justify-content: stretch;
+  }
+
+  .review-item__btn {
+    flex: 1;
+    justify-content: center;
+    min-height: 44px;
   }
 }

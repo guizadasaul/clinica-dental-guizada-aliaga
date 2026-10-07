@@ -1,3 +1,6 @@
+@use 'breakpoints' as bp;
+@use 'responsive' as rsp;
+
 .admin-doctors {
   display: flex;
   flex-direction: column;
@@ -454,5 +457,55 @@
       color: var(--color-text);
       box-shadow: 0 1px 2px rgb(0 0 0 / 0.08);
     }
+  }
+}
+
+// ─── Celular y tablet (CLI-251) ──────────────────────────────────────────────
+// La tabla medía 1119 px: debajo de 1024 px cada doctor es una tarjeta, con
+// las acciones abajo (mismo patrón que la lista de pacientes).
+
+.admin-doctors__table {
+  @include rsp.table-cards(lg);
+}
+
+@include bp.down(lg) {
+  .admin-doctors__table-wrap {
+    overflow: visible;
+    border: 0;
+    border-radius: 0;
+  }
+
+  .admin-doctors__cell--name {
+    padding-bottom: var(--space-2);
+    font-size: var(--font-size-base);
+    text-align: left;
+  }
+
+  // Un email largo se parte en vez de empujar la tarjeta.
+  .admin-doctors__cell--email {
+    overflow-wrap: anywhere;
+  }
+
+  .admin-doctors__cell--actions {
+    flex-wrap: wrap;
+    justify-content: flex-start;
+    gap: var(--space-2);
+    margin-top: var(--space-2);
+    padding-top: var(--space-3);
+    border-top: 1px solid var(--color-surface-dim);
+  }
+
+  .admin-doctors__btn {
+    flex: 1 1 auto;
+    justify-content: center;
+    min-height: 44px;
+  }
+}
+
+// Celular: los círculos de color de "Editar" medían 28 px.
+@include bp.down(md) {
+  .admin-doctors__color-swatch {
+    width: 2.5rem;
+    height: 2.5rem;
   }
 }
