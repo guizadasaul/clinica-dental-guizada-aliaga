@@ -39,7 +39,7 @@ export class MyVisitsArgsDto {
 
 /**
  * Qué pagar con QR (CLI-236). Por número de presupuesto y de línea, tal como
- * los muestra get_my_quotes: el LLM nunca maneja ids. Sin líneas: todo lo
+ * los muestra get_my_quotes: el LLM nunca maneja ids. Sin líneas: el saldo
  * pendiente del presupuesto.
  */
 export class CreateMyQrPaymentArgsDto {
