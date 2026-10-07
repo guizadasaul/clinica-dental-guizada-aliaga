@@ -14,6 +14,7 @@ import type { PatientBalance, PatientFinanceDetail } from '../../models/finance.
 import type { Quote } from '../../../quotes/models/quote.model';
 import { groupQuoteLines, paymentMethodLabel } from '../../../quotes/utils/quote-lines';
 import { PaginationComponent, PAGE_SIZE } from '../../../../shared/ui/pagination/pagination';
+import { ScrollIntoViewOnMobileDirective } from '../../../../shared/directives/scroll-into-view-on-mobile.directive';
 import { clampPage, pageSlice } from '../../../../shared/utils/pagination.util';
 import { RegisterPaymentComponent } from '../register-payment/register-payment';
 
@@ -34,7 +35,14 @@ const SEARCH_DEBOUNCE_MS = 250;
   selector: 'app-finances-page',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [PageHeaderComponent, DecimalPipe, DatePipe, RegisterPaymentComponent, PaginationComponent],
+  imports: [
+    PageHeaderComponent,
+    DecimalPipe,
+    DatePipe,
+    RegisterPaymentComponent,
+    PaginationComponent,
+    ScrollIntoViewOnMobileDirective,
+  ],
   templateUrl: './finances-page.html',
   styleUrl: './finances-page.scss',
 })

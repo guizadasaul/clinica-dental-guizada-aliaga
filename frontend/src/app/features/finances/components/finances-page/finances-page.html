@@ -69,7 +69,8 @@
         }
         @default {
           @if (detail(); as d) {
-            <h2 class="fin__name">{{ d.patientName }}</h2>
+            <!-- CLI-250: en el celular el detalle queda debajo de la lista; tocar un paciente lleva hasta acá. -->
+            <h2 appScrollIntoViewOnMobile class="fin__name">{{ d.patientName }}</h2>
 
             @if (d.quote; as q) {
               <div class="fin__cards">

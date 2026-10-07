@@ -44,8 +44,8 @@
         <tbody>
           @for (row of groupedProcedures(); track row.key) {
             <tr class="th__row">
-              <td class="th__cell th__cell--date">{{ formatDate(row.procedureDate) }}</td>
-              <td class="th__cell">
+              <td class="th__cell th__cell--date" data-label="Fecha">{{ formatDate(row.procedureDate) }}</td>
+              <td class="th__cell" data-label="Diente">
                 @if (row.toothNumbers.length > 0) {
                   @for (n of row.toothNumbers; track n) {
                     <span class="th__tooth-badge">#{{ n }}</span>
@@ -55,15 +55,17 @@
                 }
               </td>
               <td class="th__cell th__cell--name">{{ getTreatmentName(row.treatmentId) }}</td>
-              <td class="th__cell th__cell--surfaces">{{ row.surfaces }}</td>
-              <td class="th__cell th__cell--price">
-                {{ getTreatmentCurrencySymbol(row.treatmentId) }} {{ row.totalPrice | number:'1.2-2' }}
-                @if (getTreatmentBasePriceBob(row.treatmentId); as bob) {
-                  <br />
-                  <small class="th__fx-hint">aprox. Bs {{ bob | number:'1.2-2' }}</small>
-                }
+              <td class="th__cell th__cell--surfaces" data-label="Superficies">{{ row.surfaces }}</td>
+              <td class="th__cell th__cell--price" data-label="Precio">
+                <span class="th__price">
+                  {{ getTreatmentCurrencySymbol(row.treatmentId) }} {{ row.totalPrice | number:'1.2-2' }}
+                  @if (getTreatmentBasePriceBob(row.treatmentId); as bob) {
+                    <br />
+                    <small class="th__fx-hint">aprox. Bs {{ bob | number:'1.2-2' }}</small>
+                  }
+                </span>
               </td>
-              <td class="th__cell th__cell--notes">{{ row.notes ?? '—' }}</td>
+              <td class="th__cell th__cell--notes" data-label="Notas">{{ row.notes ?? '—' }}</td>
             </tr>
           }
         </tbody>

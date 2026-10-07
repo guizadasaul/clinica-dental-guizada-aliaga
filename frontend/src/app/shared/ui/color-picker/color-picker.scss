@@ -1,3 +1,5 @@
+@use 'breakpoints' as bp;
+
 .color-picker {
   // <fieldset> sin el borde, el margen ni el ancho mínimo que pone el navegador.
   min-width: 0;
@@ -45,4 +47,17 @@
   overflow: hidden;
   clip: rect(0 0 0 0);
   white-space: nowrap;
+}
+
+// Celular (CLI-250): círculos de 40 px (antes 32), más fáciles de acertar.
+@include bp.down(md) {
+  .color-picker__swatch {
+    width: 2.5rem;
+    height: 2.5rem;
+  }
+
+  .color-picker__custom {
+    width: 3rem;
+    height: 2.5rem;
+  }
 }
