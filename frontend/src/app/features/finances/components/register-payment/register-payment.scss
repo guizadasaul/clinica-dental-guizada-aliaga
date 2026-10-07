@@ -1,3 +1,5 @@
+@use 'breakpoints' as bp;
+
 .rp {
   display: flex;
   flex-direction: column;
@@ -177,5 +179,15 @@
       color: var(--color-gray-700);
       &:hover:not(:disabled) { background: white; }
     }
+  }
+}
+
+// Celular (CLI-250): la X medía 32 px.
+@include bp.down(md) {
+  .rp__close {
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    height: 44px;
   }
 }

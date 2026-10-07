@@ -1,3 +1,5 @@
+@use 'breakpoints' as bp;
+
 .schedule {
   display: flex;
   flex-direction: column;
@@ -97,4 +99,55 @@
   overflow: hidden;
   clip: rect(0 0 0 0);
   white-space: nowrap;
+}
+
+// ─── Celular (CLI-250) ───────────────────────────────────────────────────────
+// En una fila no entraban día, desde, "a", hasta y el tacho: se cortaban en dos
+// renglones desordenados. Ahora cada bloque es una tarjeta chica: el día y el
+// tacho arriba, "desde" y "hasta" abajo en dos mitades iguales.
+
+@include bp.down(md) {
+  .schedule__row {
+    position: relative;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    padding: var(--space-3);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    background: var(--color-surface);
+
+    // El día ocupa la primera fila, dejando lugar al tacho.
+    select {
+      grid-column: 1 / -1;
+      min-height: 44px;
+      margin-right: calc(44px + var(--space-2));
+    }
+
+    // Desde y hasta en dos mitades iguales. Con el relleno de escritorio,
+    // "08:30 AM" no entraba y se perdía la mañana o la tarde.
+    input {
+      width: 100%;
+      min-width: 0;
+      min-height: 44px;
+      padding-inline: var(--space-2);
+    }
+
+    // El "a" entre las horas: los campos ya dicen "Desde" y "Hasta" a los
+    // lectores de pantalla, y a la vista se entiende por el orden.
+    > span {
+      display: none;
+    }
+  }
+
+  .schedule__remove {
+    position: absolute;
+    top: var(--space-3);
+    right: var(--space-3);
+    width: 44px;
+    height: 44px;
+  }
+
+  .schedule__add {
+    min-height: 44px;
+  }
 }

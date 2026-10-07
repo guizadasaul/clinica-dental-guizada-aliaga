@@ -1,3 +1,6 @@
+@use 'breakpoints' as bp;
+@use 'responsive' as rsp;
+
 .th {
   display: flex;
   flex-direction: column;
@@ -162,4 +165,33 @@
 
 @keyframes th-spin {
   to { transform: rotate(360deg); }
+}
+
+// ─── Celular (CLI-250) ───────────────────────────────────────────────────────
+// La tabla medía 567 px y había que deslizarla de costado: cada tratamiento
+// pasa a ser una tarjeta, con el nombre como título.
+
+.th__table {
+  @include rsp.table-cards;
+}
+
+@include bp.down(md) {
+  .th__table-wrap {
+    overflow: visible;
+    border: 0;
+    border-radius: 0;
+  }
+
+  // Con la tabla delante: le gana al `tr { display: block }` del mixin.
+  .th__table .th__row {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .th__cell--name {
+    order: -1;
+    padding-bottom: var(--space-2);
+    font-weight: 600;
+    text-align: left;
+  }
 }

@@ -1,3 +1,5 @@
+@use 'responsive' as rsp;
+
 .pagination {
   display: flex;
   flex-wrap: wrap;
@@ -50,4 +52,7 @@
     opacity: 0.4;
     cursor: not-allowed;
   }
+
+  // Celular (CLI-250): 44 px, al final para pisar el ancho de arriba.
+  @include rsp.tap-target;
 }
