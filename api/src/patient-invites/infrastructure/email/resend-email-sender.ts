@@ -8,6 +8,7 @@ import type {
 } from '../../domain/EmailSender.js';
 import {
   INVITE_TTL_MINUTES,
+  LINK_TTL_MINUTES,
   formatInviteTtl,
 } from '../../domain/PatientInvite.js';
 import { CLINIC_LOGO_PNG_BASE64 } from './clinic-logo.js';
@@ -95,7 +96,7 @@ const ACCOUNT_EMAIL_COPY: Record<AccountEmailKind, AccountEmailCopy> = {
       'Creaste tu cuenta en Clínica Dental Guizada-Aliaga. Confirma que este correo es tuyo para entrar y ver tus citas, tu historial y tu presupuesto.',
     buttonLabel: 'Confirmar mi correo',
     textCta: 'Confirma tu correo aquí:',
-    expiresIn: '1 hora',
+    expiresIn: formatInviteTtl(LINK_TTL_MINUTES),
     footerReason:
       'Recibiste este correo porque se creó una cuenta con esta dirección en Clínica Dental Guizada-Aliaga. Si no fuiste tú, puedes ignorar este mensaje.',
   },
@@ -108,7 +109,7 @@ const ACCOUNT_EMAIL_COPY: Record<AccountEmailKind, AccountEmailCopy> = {
       'Pediste cambiar la contraseña de tu cuenta en Clínica Dental Guizada-Aliaga. Presiona el botón para elegir una nueva; tu contraseña actual sigue funcionando hasta que la cambies.',
     buttonLabel: 'Crear nueva contraseña',
     textCta: 'Crea tu nueva contraseña aquí:',
-    expiresIn: '1 hora',
+    expiresIn: formatInviteTtl(LINK_TTL_MINUTES),
     footerReason:
       'Recibiste este correo porque alguien pidió recuperar la contraseña de esta cuenta. Si no fuiste tú, ignora este mensaje: tu contraseña no cambia.',
   },

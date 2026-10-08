@@ -37,20 +37,20 @@ describe('ResendEmailSender', () => {
   }
 
   // CLI-77: el vencimiento depende de a quién va dirigida la invitación.
-  it('tells a patient the link expires in 5 minutes, in both the html and the plain-text part', async () => {
+  it('tells a patient the link expires in 24 hours, in both the html and the plain-text part (CLI-255)', async () => {
     const email = await sentEmail('patient');
 
-    expect(email.html).toContain('vence en <strong>5 minutos</strong>');
-    expect(email.text).toContain('vence en 5 minutos');
+    expect(email.html).toContain('vence en <strong>24 horas</strong>');
+    expect(email.text).toContain('vence en 24 horas');
   });
 
-  it('tells a doctor the link expires in 48 hours and uses the doctor subject', async () => {
+  it('tells a doctor the link expires in 24 hours and uses the doctor subject', async () => {
     const email = await sentEmail('doctor');
 
     expect(email.subject).toContain('unirte al equipo');
-    expect(email.html).toContain('vence en <strong>48 horas</strong>');
-    expect(email.text).toContain('vence en 48 horas');
-    expect(email.html).not.toContain('5 minutos');
+    expect(email.html).toContain('vence en <strong>24 horas</strong>');
+    expect(email.text).toContain('vence en 24 horas');
+    expect(email.html).not.toContain('48 horas');
   });
 
   // CLI-174: el preheader y la línea del enlace en texto plano decían
@@ -149,7 +149,7 @@ describe('ResendEmailSender', () => {
       expect(email.text).toContain(
         'https://app.example.com/auth/confirmar?token_hash=abc&type=signup',
       );
-      expect(email.text).toContain('vence en 1 hora');
+      expect(email.text).toContain('vence en 24 horas');
     });
 
     it('el correo de recuperación (CLI-243) aclara que la contraseña actual sigue funcionando', async () => {

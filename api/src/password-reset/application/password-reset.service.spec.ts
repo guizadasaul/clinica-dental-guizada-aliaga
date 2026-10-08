@@ -50,7 +50,7 @@ describe('PasswordResetService', () => {
   });
 
   describe('createLink', () => {
-    it('guarda solo el hash, vence a los 30 minutos y devuelve el WhatsApp con el link', async () => {
+    it('guarda solo el hash, vence a las 24 horas y devuelve el WhatsApp con el link', async () => {
       repo.findPatientAccount.mockResolvedValue(ACCOUNT);
       const before = Date.now();
 
@@ -64,14 +64,14 @@ describe('PasswordResetService', () => {
       expect(whatsappUrl).toMatch(/^https:\/\/wa\.me\/59170011122\?text=/);
       expect(text).toContain('https://app.example.com/recuperar/');
       expect(text).toContain('*Juana Perez*');
-      expect(text).toContain('30 minutos');
+      expect(text).toContain('vence en 24 horas');
       expect(tokenHash).toBe(sha256(rawToken));
       expect(tokenHash).not.toBe(rawToken);
       expect(expiresAt.getTime() - before).toBeGreaterThanOrEqual(
-        30 * 60_000 - 1000,
+        24 * 60 * 60_000 - 1000,
       );
       expect(expiresAt.getTime() - before).toBeLessThanOrEqual(
-        30 * 60_000 + 1000,
+        24 * 60 * 60_000 + 1000,
       );
     });
 

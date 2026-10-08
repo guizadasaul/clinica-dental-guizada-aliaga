@@ -166,7 +166,7 @@ describe('Contraseña nueva por WhatsApp (e2e) — CLI-244', () => {
     await reset(second).expect(204);
   });
 
-  it('el link vence a los 30 minutos', async () => {
+  it('el link vence a las 24 horas (CLI-255)', async () => {
     const fx = await patient('Vence', '+59170000248');
     const token = tokenFrom(
       ((await createLink(fx.patientId)).body as { whatsappUrl: string })
@@ -176,8 +176,8 @@ describe('Contraseña nueva por WhatsApp (e2e) — CLI-244', () => {
       where: { users: { display_name: `${TAG} Vence` } },
     });
     const ttl = link.expires_at.getTime() - link.created_at.getTime();
-    expect(ttl).toBeGreaterThan(29 * 60_000);
-    expect(ttl).toBeLessThanOrEqual(30 * 60_000 + 5000);
+    expect(ttl).toBeGreaterThan(24 * 60 * 60_000 - 60_000);
+    expect(ttl).toBeLessThanOrEqual(24 * 60 * 60_000 + 5000);
 
     await prisma.password_reset_links.update({
       where: { id: link.id },
