@@ -8,6 +8,11 @@ export interface ConfirmBookingData {
   guestLastNameMaternal: string | null;
   guestPhone: string;
   guestEmail: string | null;
+  /**
+   * CLI-257: tratamiento de la línea que se suma al presupuesto (el de la
+   * cita o, si no tiene, la consulta por defecto). null: no se suma nada.
+   */
+  treatmentId: string | null;
 }
 
 export interface ConfirmedBooking {

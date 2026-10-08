@@ -198,6 +198,12 @@ export class PaymentsService {
       return;
     }
 
+    // CLI-257: la línea del presupuesto lleva el tratamiento de la cita o, si
+    // no tiene, la consulta por defecto (la que se cobró al reservar).
+    const treatmentId =
+      appointment.treatmentId ??
+      (await this.treatmentRepo.findDefaultConsultation())?.id ??
+      null;
     const confirmed = await this.confirmationRepo.confirmPaidBooking({
       appointmentId: appointment.id,
       paidAt: statusResult.payment?.paidAt ?? new Date(),
@@ -208,6 +214,7 @@ export class PaymentsService {
       guestLastNameMaternal: appointment.guestLastNameMaternal,
       guestPhone: appointment.guestPhone,
       guestEmail: appointment.guestEmail,
+      treatmentId,
     });
     if (!confirmed) {
       this.logger.debug(

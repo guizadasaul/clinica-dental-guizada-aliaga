@@ -10,6 +10,9 @@ import { PrismaBookingConfirmationRepository } from './infrastructure/persistenc
 import { AppointmentsModule } from '../appointments/appointments.module';
 import { TreatmentsModule } from '../treatments/treatments.module';
 import { FinancesModule } from '../finances/finances.module';
+import { WebConsultationReconciler } from './application/web-consultation-reconciler.service';
+import { WebConsultationRepository } from './domain/WebConsultationRepository';
+import { PrismaWebConsultationRepository } from './infrastructure/persistence/prisma-web-consultation.repository';
 
 @Module({
   imports: [
@@ -27,6 +30,11 @@ import { FinancesModule } from '../finances/finances.module';
     {
       provide: BookingConfirmationRepository,
       useClass: PrismaBookingConfirmationRepository,
+    },
+    WebConsultationReconciler,
+    {
+      provide: WebConsultationRepository,
+      useClass: PrismaWebConsultationRepository,
     },
   ],
 })

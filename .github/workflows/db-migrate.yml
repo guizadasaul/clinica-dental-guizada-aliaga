@@ -40,6 +40,12 @@ on:
         description: Vincular los tratamientos registrados con su presupuesto (CLI-227)
         type: boolean
         default: false
+      # Solo a mano (CLI-257): las reservas web ya pagadas suman su consulta
+      # pagada al presupuesto del paciente. Usa el mismo backfill_apply.
+      backfill_web_consultations:
+        description: Sumar al presupuesto las consultas web ya pagadas (CLI-257)
+        type: boolean
+        default: false
       backfill_apply:
         description: Aplicar el backfill (si no, solo dry-run)
         type: boolean
@@ -159,6 +165,13 @@ jobs:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           BACKFILL_FLAG: ${{ inputs.backfill_apply && '--apply' || '' }}
         run: npx ts-node prisma/backfill-quote-procedures.ts $BACKFILL_FLAG
+
+      - name: Backfill de consultas web pagadas (CLI-257)
+        if: inputs.backfill_web_consultations
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          BACKFILL_FLAG: ${{ inputs.backfill_apply && '--apply' || '' }}
+        run: npx ts-node prisma/backfill-web-consultations.ts $BACKFILL_FLAG
 
       - name: Verificar la base
         env:

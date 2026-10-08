@@ -71,50 +71,53 @@ enum DiagnosisModifier {
 /// proyecto (no hay ninguna constraint de este tipo todavía) y agregarla sin
 /// verificar el código de error real arriesga romper el 409 limpio actual.
 model appointments {
-  id                       String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  patient_id               String?     @db.Uuid
-  treatment_id             String?     @db.Uuid
+  id                       String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  patient_id               String?      @db.Uuid
+  treatment_id             String?      @db.Uuid
   /// FK al doctor con el que se reserva (CLI-61: columna + índice compuesto;
   /// CLI-56: createHold ya pasa doctor_id explícito, así que se retira el
   /// default transicional a la función cli61_default_doctor_id() — la
   /// función misma se dropea en la migración de CLI-56).
-  doctor_id                String      @db.Uuid
-  appointment_datetime     DateTime    @db.Timestamptz(6)
+  doctor_id                String       @db.Uuid
+  appointment_datetime     DateTime     @db.Timestamptz(6)
   /// Congelada al reservar (CLI-47) — snapshot de treatments.estimated_minutes
   /// en el momento del hold, o 30 (un slot) si no se especificó tratamiento.
   /// Cambiar estimated_minutes en el catálogo después no debe reinterpretar
   /// agendas ya reservadas, mismo criterio que los precios de quote_items.
-  duration_minutes         Int         @default(30)
-  status                   String      @default("scheduled") @db.VarChar(20)
+  duration_minutes         Int          @default(30)
+  status                   String       @default("scheduled") @db.VarChar(20)
   /// public_web | whatsapp | doctor (CLI-148: agendada por el doctor desde su agenda, nace confirmada y sin pago).
-  source                   String      @db.VarChar(20)
-  whatsapp_name            String?     @db.VarChar(200)
-  whatsapp_phone           String?     @db.VarChar(20)
+  source                   String       @db.VarChar(20)
+  whatsapp_name            String?      @db.VarChar(200)
+  whatsapp_phone           String?      @db.VarChar(20)
   notes                    String?
-  created_at               DateTime    @default(now()) @db.Timestamptz(6)
-  hold_expires_at          DateTime?   @db.Timestamptz(6)
+  created_at               DateTime     @default(now()) @db.Timestamptz(6)
+  hold_expires_at          DateTime?    @db.Timestamptz(6)
   /// @deprecated Reemplazado por guest_first_name/guest_last_name_paternal/guest_last_name_maternal (CLI-43). Se conserva sin escribir, como respaldo auditable de las filas anteriores.
-  guest_full_name          String?     @db.VarChar(200)
-  guest_first_name         String?     @db.VarChar(100)
-  guest_last_name_paternal String?     @db.VarChar(100)
-  guest_last_name_maternal String?     @db.VarChar(100)
-  guest_phone              String?     @unique(map: "idx_one_active_appointment_guest_phone", where: raw("((((status)::text = 'held'::text) OR ((status)::text = 'confirmed'::text)) AND (guest_phone IS NOT NULL))")) @db.VarChar(20)
-  guest_email              String?     @db.VarChar(255)
-  baneco_qr_id             String?     @unique @db.VarChar(50)
-  baneco_transaction_id    String?     @unique @db.VarChar(50)
+  guest_full_name          String?      @db.VarChar(200)
+  guest_first_name         String?      @db.VarChar(100)
+  guest_last_name_paternal String?      @db.VarChar(100)
+  guest_last_name_maternal String?      @db.VarChar(100)
+  guest_phone              String?      @unique(map: "idx_one_active_appointment_guest_phone", where: raw("((((status)::text = 'held'::text) OR ((status)::text = 'confirmed'::text)) AND (guest_phone IS NOT NULL))")) @db.VarChar(20)
+  guest_email              String?      @db.VarChar(255)
+  baneco_qr_id             String?      @unique @db.VarChar(50)
+  baneco_transaction_id    String?      @unique @db.VarChar(50)
   baneco_qr_image          String?
-  payment_amount           Decimal?    @db.Decimal(10, 2)
-  paid_at                  DateTime?   @db.Timestamptz(6)
+  payment_amount           Decimal?     @db.Decimal(10, 2)
+  paid_at                  DateTime?    @db.Timestamptz(6)
+  /// CLI-257: la línea "Consulta" que una reserva web pagada suma al presupuesto del paciente.
+  quote_item_id            String?      @unique @db.Uuid
+  quote_item               quote_items? @relation("appointment_quote_item", fields: [quote_item_id], references: [id], onDelete: SetNull, onUpdate: NoAction)
   /// CLI-149: cuándo y quién canceló la cita (status = 'cancelled'). Cancelar
   /// libera el turno: los índices únicos de abajo solo cuentan held/confirmed.
-  cancelled_at             DateTime?   @db.Timestamptz(6)
-  cancelled_by             String?     @db.Uuid
+  cancelled_at             DateTime?    @db.Timestamptz(6)
+  cancelled_by             String?      @db.Uuid
   /// CLI-103: motivo de la cancelación (antes se agregaba a `notes` como "Cancelada: ...").
-  cancel_reason            String?     @db.VarChar(200)
-  patients                 patients?   @relation(fields: [patient_id], references: [id], onUpdate: NoAction)
-  treatments               treatments? @relation(fields: [treatment_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  users                    users       @relation("AppointmentDoctor", fields: [doctor_id], references: [id], onDelete: Restrict, onUpdate: NoAction)
-  cancelled_by_user        users?      @relation("AppointmentCancelledBy", fields: [cancelled_by], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  cancel_reason            String?      @db.VarChar(200)
+  patients                 patients?    @relation(fields: [patient_id], references: [id], onUpdate: NoAction)
+  treatments               treatments?  @relation(fields: [treatment_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  users                    users        @relation("AppointmentDoctor", fields: [doctor_id], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  cancelled_by_user        users?       @relation("AppointmentCancelledBy", fields: [cancelled_by], references: [id], onDelete: SetNull, onUpdate: NoAction)
 
   @@unique([doctor_id, appointment_datetime], map: "idx_one_active_appointment_slot", where: raw("(((status)::text = 'held'::text) OR ((status)::text = 'confirmed'::text))"))
   @@index([appointment_datetime], map: "idx_appointments_datetime")
@@ -434,6 +437,9 @@ model payments {
   created_at     DateTime          @default(now()) @db.Timestamptz(6)
   quotes         quotes            @relation(fields: [quote_id], references: [id], onUpdate: NoAction)
   qr_charge      quote_qr_charges?
+  /// CLI-257: a qué línea se aplica entero (el pago de una reserva web, a su consulta). Sin esto, el reparto es FIFO.
+  quote_item_id  String?           @db.Uuid
+  quote_item     quote_items?      @relation("payment_quote_item", fields: [quote_item_id], references: [id], onDelete: SetNull, onUpdate: NoAction)
 }
 
 /// Cobro con QR BANECO de un presupuesto (CLI-159). Nace `pending` al generar
@@ -527,6 +533,8 @@ model quote_items {
   application_groups   application_groups?     @relation(fields: [application_group_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
   qr_charge_lines      quote_qr_charge_lines[]
   tooth_procedures     tooth_procedures[]
+  appointment          appointments?           @relation("appointment_quote_item")
+  payments             payments[]              @relation("payment_quote_item")
 
   @@index([quote_id], map: "idx_quote_items_quote")
   @@index([application_group_id], map: "idx_quote_items_application_group")
