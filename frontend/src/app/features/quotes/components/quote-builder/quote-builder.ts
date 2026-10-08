@@ -25,6 +25,12 @@ import {
   type TreatmentScopeSelection,
 } from '../../../treatments/components/treatment-scope-picker/treatment-scope-picker';
 import { PageHeaderComponent } from '../../../../shared/ui/page-header/page-header';
+import { PatientsService } from '../../../patients/services/patients.service';
+import { DiagnosesService } from '../../../diagnoses/services/diagnoses.service';
+import type { DentalExam } from '../../../patients/models/dental-exam.model';
+import type { ToothProcedure } from '../../../treatments/models/treatment.model';
+import type { DiagnosisCategory } from '../../../diagnoses/models/diagnosis.model';
+import { patientOdontogram } from '../../../../shared/utils/patient-odontogram.util';
 
 interface GroupedItem {
   readonly key: string;
@@ -51,6 +57,8 @@ interface GroupedItem {
 export class QuoteBuilderComponent {
   private readonly quotesService = inject(QuotesService);
   private readonly treatmentsService = inject(TreatmentsService);
+  private readonly patientsService = inject(PatientsService);
+  private readonly diagnosesService = inject(DiagnosesService);
 
   readonly patientId = input.required<string>();
   readonly closed = output<void>();
@@ -66,6 +74,21 @@ export class QuoteBuilderComponent {
   protected readonly frequentIds = toSignal(
     this.treatmentsService.getFrequentIds().pipe(catchError(() => of([] as string[]))),
     { initialValue: [] as string[] },
+  );
+
+  // CLI-256: el odontograma del presupuesto es el mismo que el de
+  // diagnóstico y tratamientos, con el diagnóstico vigente del paciente y lo
+  // que ya se le hizo. Si algo falla, el odontograma queda sin pintar y el
+  // presupuesto se arma igual.
+  private readonly diagnosisCatalog = toSignal(
+    this.diagnosesService.getCatalog().pipe(catchError(() => of([] as DiagnosisCategory[]))),
+    { initialValue: [] as DiagnosisCategory[] },
+  );
+  private readonly currentExam = signal<DentalExam | null>(null);
+  private readonly procedures = signal<ToothProcedure[]>([]);
+
+  protected readonly odontogram = computed(() =>
+    patientOdontogram(this.diagnosisCatalog(), this.currentExam()?.findings ?? [], this.procedures()),
   );
 
   protected readonly quote = signal<Quote | null>(null);
@@ -120,6 +143,14 @@ export class QuoteBuilderComponent {
       const patientId = this.patientId();
       if (!patientId) { return; }
       this.loadOrCreateQuote(patientId);
+      this.patientsService.getCurrentDentalExam(patientId).subscribe({
+        next: (exam) => this.currentExam.set(exam),
+        error: () => this.currentExam.set(null),
+      });
+      this.treatmentsService.getToothProcedures(patientId).subscribe({
+        next: (procedures) => this.procedures.set(procedures),
+        error: () => this.procedures.set([]),
+      });
     }, { allowSignalWrites: true });
   }
 

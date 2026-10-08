@@ -4,7 +4,10 @@ import {
   type TreatmentScopeSelection,
 } from './treatment-scope-picker';
 import type { Treatment } from '../../models/treatment.model';
-import type { OdontogramEntry } from '../../../patients/models/patient.model';
+import {
+  EMPTY_PATIENT_ODONTOGRAM,
+  type PatientOdontogram,
+} from '../../../../shared/utils/patient-odontogram.util';
 
 function treatment(
   id: string,
@@ -43,14 +46,11 @@ const TREATMENTS = [
   }),
 ];
 
-function setup(
-  inputs: { entries?: OdontogramEntry[]; treated?: number[]; frequent?: string[] } = {},
-) {
+function setup(inputs: { odontogram?: PatientOdontogram; frequent?: string[] } = {}) {
   TestBed.configureTestingModule({ imports: [TreatmentScopePickerComponent] });
   const fixture = TestBed.createComponent(TreatmentScopePickerComponent);
   fixture.componentRef.setInput('treatments', TREATMENTS);
-  fixture.componentRef.setInput('odontogramEntries', inputs.entries ?? []);
-  fixture.componentRef.setInput('treatedTeeth', inputs.treated ?? []);
+  fixture.componentRef.setInput('odontogram', inputs.odontogram ?? EMPTY_PATIENT_ODONTOGRAM);
   fixture.componentRef.setInput('frequentIds', inputs.frequent ?? []);
   const emitted: (TreatmentScopeSelection | null)[] = [];
   fixture.componentInstance.selectionChange.subscribe((s) => emitted.push(s));
@@ -76,14 +76,16 @@ function setup(
       .click();
     fixture.detectChanges();
   };
+  // CLI-256: el odontograma compartido (el mismo de diagnóstico y tratamientos).
   const tooth = (n: number) =>
-    root.querySelector<HTMLButtonElement>(`.tsp__tooth[aria-label="Diente ${n}"]`)!;
+    root.querySelector<SVGGElement>(`.odontogram-chart__cell[data-tooth="${n}"]`)!;
+  const isSelected = (n: number) => tooth(n).classList.contains('odontogram-chart__cell--selected');
   const click = (n: number) => {
-    tooth(n).click();
+    tooth(n).dispatchEvent(new MouseEvent('click', { bubbles: true }));
     fixture.detectChanges();
   };
   const last = () => emitted.at(-1);
-  return { fixture, root, emitted, choose, tooth, click, last, cardIds, search, chip };
+  return { fixture, root, emitted, choose, tooth, isSelected, click, last, cardIds, search, chip };
 }
 
 describe('TreatmentScopePickerComponent', () => {
@@ -100,7 +102,7 @@ describe('TreatmentScopePickerComponent', () => {
     choose('general');
 
     expect(last()).toEqual({ treatment: TREATMENTS[3], toothNumbers: [] });
-    expect(root.querySelector('.tsp__tooth')).toBeNull();
+    expect(root.querySelector('app-odontogram-chart')).toBeNull();
   });
 
   it('un tratamiento en dólares muestra su equivalente aproximado en Bs.', () => {
@@ -176,7 +178,7 @@ describe('TreatmentScopePickerComponent', () => {
 
   describe('una pieza', () => {
     it('hasta elegir el diente no hay selección válida; elegir otro lo reemplaza', () => {
-      const { choose, click, last, tooth } = setup();
+      const { choose, click, last, isSelected } = setup();
       choose('uno');
       expect(last()).toBeNull();
 
@@ -185,20 +187,17 @@ describe('TreatmentScopePickerComponent', () => {
 
       click(26);
       expect(last()?.toothNumbers).toEqual([26]);
-      expect(tooth(26).classList).toContain('tsp__tooth--selected');
-      expect(tooth(16).classList).not.toContain('tsp__tooth--selected');
+      expect(isSelected(26)).toBe(true);
+      expect(isSelected(16)).toBe(false);
     });
 
     it('también se puede elegir un diente de leche (CLI-180)', () => {
-      const { root, choose, click, last, tooth } = setup();
+      const { choose, click, last } = setup();
       choose('uno');
 
-      expect(root.querySelectorAll('.tsp__arch--deciduous .tsp__tooth')).toHaveLength(20);
       click(54);
 
       expect(last()?.toothNumbers).toEqual([54]);
-      expect(tooth(54).closest('.tsp__arch--deciduous')).not.toBeNull();
-      expect(tooth(16).closest('.tsp__arch--deciduous')).toBeNull();
     });
   });
 
@@ -235,77 +234,55 @@ describe('TreatmentScopePickerComponent', () => {
 
   describe('arcada', () => {
     it('resalta toda la arcada sin selección manual y no manda dientes (los deriva el backend)', () => {
-      const { root, choose, tooth, last } = setup();
+      const { root, choose, tooth, isSelected, last } = setup();
 
       choose('arcada');
 
       expect(last()).toEqual({ treatment: TREATMENTS[2], toothNumbers: [] });
-      expect(tooth(16).disabled).toBe(true);
-      expect(tooth(16).classList).toContain('tsp__tooth--selected');
-      expect(tooth(46).classList).not.toContain('tsp__tooth--selected');
+      // No se toca: el odontograma no es interactivo.
+      expect(tooth(16).getAttribute('role')).toBeNull();
+      expect(isSelected(16)).toBe(true);
+      expect(isSelected(46)).toBe(false);
       expect(root.textContent).toContain('toda la arcada/boca');
     });
 
     it('la arcada no resalta los dientes de leche, como la registra la API', () => {
-      const { choose, tooth } = setup();
+      const { choose, isSelected } = setup();
 
       choose('arcada');
 
-      expect(tooth(54).classList).not.toContain('tsp__tooth--selected');
+      expect(isSelected(54)).toBe(false);
     });
 
     it('los clicks no cambian nada', () => {
-      const { fixture, choose, last } = setup();
+      const { choose, click, last } = setup();
       choose('arcada');
       const before = last();
 
-      (
-        fixture.componentInstance as unknown as { onToothClick(t: { number: number }): void }
-      ).onToothClick({ number: 16 });
+      click(16);
 
       expect(last()).toEqual(before);
     });
   });
 
-  describe('colores del odontograma', () => {
-    const entry = (toothNumber: number, toothCondition: string) =>
-      ({ toothNumber, toothCondition }) as OdontogramEntry;
-
-    function crownFill(root: HTMLElement, n: number): string | null {
-      const fills = [...root.querySelectorAll(`.tsp__tooth[aria-label="Diente ${n}"] [fill]`)].map(
-        (e) => e.getAttribute('fill'),
-      );
-      return fills.find((f) => f !== '#e5e7eb' && f !== '#f3f4f6') ?? null;
-    }
-
-    function stroke(root: HTMLElement, n: number): string | null {
-      return (
-        root
-          .querySelector(`.tsp__tooth[aria-label="Diente ${n}"] [stroke]`)
-          ?.getAttribute('stroke') ?? null
-      );
-    }
-
-    it('pinta cada diente según su diagnóstico más reciente', () => {
+  describe('odontograma del paciente (CLI-256)', () => {
+    it('es el odontograma compartido de diagnóstico y tratamientos, con los colores del paciente', () => {
       const { root, choose } = setup({
-        entries: [entry(16, 'caries'), entry(16, 'sano'), entry(26, 'desconocido')],
+        odontogram: {
+          toothColor: new Map([[16, '#dc2626']]),
+          toothNames: new Map([[16, ['Caries']]]),
+          treatedTeeth: [36],
+          legendItems: [{ name: 'Caries', color: '#dc2626', group: 'Diagnósticos' }],
+        },
       });
       choose('uno');
 
-      expect(crownFill(root, 16)).toBe('#dc2626');
-      expect(crownFill(root, 26)).toBe('#374151');
-      expect(crownFill(root, 11)).toBe('white');
-    });
-
-    it('borde: elegido > ya tratado > con diagnóstico > sin nada', () => {
-      const { root, choose, click } = setup({ entries: [entry(26, 'caries')], treated: [36] });
-      choose('varios');
-      click(16);
-
-      expect(stroke(root, 16)).toBe('#1a2b5e');
-      expect(stroke(root, 36)).toBe('#16a34a');
-      expect(stroke(root, 26)).toBe('#6b7280');
-      expect(stroke(root, 11)).toBe('#d1d5db');
+      expect(root.querySelector('app-odontogram-chart')).not.toBeNull();
+      const paint = root.querySelector('.odontogram-chart__cell[data-tooth="16"] .odontogram-chart__cell-shape');
+      expect(paint?.getAttribute('fill')).toBe('#dc2626');
+      expect(root.textContent).toContain('Caries');
+      // Ya no existe el dibujo viejo de dientes cuadrados.
+      expect(root.querySelector('.tsp__tooth, .tsp__arch')).toBeNull();
     });
   });
 
