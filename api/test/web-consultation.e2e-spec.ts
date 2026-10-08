@@ -134,8 +134,8 @@ describe('Consulta web en el presupuesto (e2e) — CLI-257', () => {
     quote.lines.find((l) => l.treatmentName === 'Consulta E2E CLI-257')!;
 
   beforeAll(async () => {
-    // El barrido lo dispara cada test a mano.
-    process.env['WEB_CONSULTATION_SYNC_INTERVAL_MS'] = '0';
+    // El barrido está apagado en los e2e (support/e2e-env.ts): cada test lo
+    // dispara a mano.
     const moduleFixture = await Test.createTestingModule({
       imports: [AppModule],
     })

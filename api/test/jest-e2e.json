@@ -9,5 +9,6 @@
   },
   "moduleNameMapper": {
     "^(\\.{1,2}/.*)\\.js$": "$1"
-  }
+  },
+  "setupFiles": ["<rootDir>/support/e2e-env.ts"]
 }
