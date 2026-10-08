@@ -8,6 +8,9 @@ import { of, throwError, type Observable } from 'rxjs';
 import { QuoteBuilderComponent } from './quote-builder';
 import { QuotesService } from '../../services/quotes.service';
 import { TreatmentsService } from '../../../treatments/services/treatments.service';
+import { PatientsService } from '../../../patients/services/patients.service';
+import { DiagnosesService } from '../../../diagnoses/services/diagnoses.service';
+import type { PatientOdontogram } from '../../../../shared/utils/patient-odontogram.util';
 import { PageHeaderComponent } from '../../../../shared/ui/page-header/page-header';
 import type { Quote, QuoteItem } from '../../models/quote.model';
 import type { Treatment } from '../../../treatments/models/treatment.model';
@@ -29,6 +32,7 @@ import {
 class ScopePickerStub {
   readonly treatments = input<Treatment[]>([]);
   readonly frequentIds = input<string[]>([]);
+  readonly odontogram = input<PatientOdontogram | null>(null);
   readonly selectionChange = output<TreatmentScopeSelection | null>();
   readonly reset = vi.fn();
 }
@@ -105,6 +109,7 @@ function setup(
   };
   const treatments = {
     getFrequentIds: vi.fn().mockReturnValue(frequent),
+    getToothProcedures: vi.fn().mockReturnValue(of([])),
     getAll: vi
       .fn()
       .mockReturnValue(
@@ -119,11 +124,26 @@ function setup(
         ]),
       ),
   };
+  // CLI-256: diagnóstico vigente y catálogo para pintar el odontograma.
+  const patients = {
+    getCurrentDentalExam: vi.fn().mockReturnValue(
+      of({
+        findings: [
+          { toothNumber: 16, diagnosisColor: '#dc2626', categoryName: 'Caries', diagnosisName: 'Caries' },
+        ],
+      }),
+    ),
+  };
+  const diagnoses = {
+    getCatalog: vi.fn().mockReturnValue(of([{ name: 'Caries', diagnoses: [{ color: '#dc2626' }] }])),
+  };
   TestBed.configureTestingModule({
     imports: [QuoteBuilderComponent],
     providers: [
       { provide: QuotesService, useValue: quotes },
       { provide: TreatmentsService, useValue: treatments },
+      { provide: PatientsService, useValue: patients },
+      { provide: DiagnosesService, useValue: diagnoses },
     ],
   });
   TestBed.overrideComponent(QuoteBuilderComponent, {
@@ -193,7 +213,12 @@ describe('QuoteBuilderComponent', () => {
         imports: [QuoteBuilderComponent],
         providers: [
           { provide: QuotesService, useValue: quotes },
-          { provide: TreatmentsService, useValue: { getAll: () => of([]), getFrequentIds: () => of([]) } },
+          {
+            provide: TreatmentsService,
+            useValue: { getAll: () => of([]), getFrequentIds: () => of([]), getToothProcedures: () => of([]) },
+          },
+          { provide: PatientsService, useValue: { getCurrentDentalExam: () => of(null) } },
+          { provide: DiagnosesService, useValue: { getCatalog: () => of([]) } },
         ],
       });
       const fixture = TestBed.createComponent(QuoteBuilderComponent);
@@ -394,6 +419,14 @@ describe('QuoteBuilderComponent', () => {
       const { fixture } = setup([quote()], throwError(() => new Error('500')));
 
       expect(picker(fixture).frequentIds()).toEqual([]);
+    });
+
+    it('le pasa al odontograma el diagnóstico vigente del paciente, como en tratamientos (CLI-256)', () => {
+      const { fixture } = setup();
+
+      const odontogram = picker(fixture).odontogram();
+      expect(odontogram?.toothColor.get(16)).toBe('#dc2626');
+      expect(odontogram?.legendItems).toEqual([{ name: 'Caries', color: '#dc2626', group: 'Diagnósticos' }]);
     });
   });
 
