@@ -6,6 +6,7 @@ import {
   ConfirmedBooking,
   IBookingConfirmationRepository,
 } from '../../domain/BookingConfirmationRepository.js';
+import { attachWebConsultation } from './web-consultation-writes.js';
 
 @Injectable()
 export class PrismaBookingConfirmationRepository implements IBookingConfirmationRepository {
@@ -80,6 +81,19 @@ export class PrismaBookingConfirmationRepository implements IBookingConfirmation
         where: { id: data.appointmentId },
         data: { patient_id: patient.id },
       });
+
+      // CLI-257: la consulta pagada va a su presupuesto, con el pago aplicado
+      // a esa línea. En la misma transacción: si algo falla, la reserva no
+      // queda confirmada a medias.
+      if (data.treatmentId) {
+        await attachWebConsultation(tx, {
+          appointmentId: data.appointmentId,
+          patientId: patient.id,
+          treatmentId: data.treatmentId,
+          amount: data.amount,
+          paidAt: data.paidAt,
+        });
+      }
 
       return {
         appointmentId: data.appointmentId,

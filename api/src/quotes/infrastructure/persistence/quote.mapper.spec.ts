@@ -215,4 +215,57 @@ describe('QuoteMapper', () => {
       { lineKey: 'group-1', amount: 50.5 },
     ]);
   });
+  // CLI-257
+  describe('paymentAllocations', () => {
+    type PaymentRecord = Parameters<typeof QuoteMapper.paymentAllocations>[0];
+    const payment = (overrides: Partial<PaymentRecord>): PaymentRecord =>
+      ({ id: 'pay-1', amount: '50', ...overrides }) as unknown as PaymentRecord;
+
+    it('el pago de una reserva web va entero a su consulta', () => {
+      expect(
+        QuoteMapper.paymentAllocations(
+          payment({
+            quote_item: { id: 'item-9', application_group_id: null },
+          }),
+        ),
+      ).toEqual([{ lineKey: 'item-9', amount: 50 }]);
+    });
+
+    it('si la línea es de un grupo, la clave es la del grupo', () => {
+      expect(
+        QuoteMapper.paymentAllocations(
+          payment({
+            quote_item: { id: 'item-9', application_group_id: 'group-2' },
+          }),
+        ),
+      ).toEqual([{ lineKey: 'group-2', amount: 50 }]);
+    });
+
+    it('las líneas del QR mandan sobre la línea del pago', () => {
+      expect(
+        QuoteMapper.paymentAllocations(
+          payment({
+            qr_charge: {
+              lines: [
+                {
+                  quote_item_id: 'item-1',
+                  application_group_id: null,
+                  amount: '20',
+                },
+              ],
+            },
+            quote_item: { id: 'item-9', application_group_id: null },
+          } as unknown as Partial<PaymentRecord>),
+        ),
+      ).toEqual([{ lineKey: 'item-1', amount: 20 }]);
+    });
+
+    it('sin QR ni línea: sin asignaciones (reparto FIFO)', () => {
+      expect(
+        QuoteMapper.paymentAllocations(
+          payment({ qr_charge: { lines: [] }, quote_item: null }),
+        ),
+      ).toEqual([]);
+    });
+  });
 });

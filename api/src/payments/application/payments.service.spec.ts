@@ -80,13 +80,14 @@ interface FakeAppointmentOptions {
   guestLastNamePaternal?: string | null;
   guestPhone?: string | null;
   guestEmail?: string | null;
+  treatmentId?: string | null;
 }
 
 function fakeAppointment(options: FakeAppointmentOptions = {}): Appointment {
   return new Appointment(
     'appt-1',
     null,
-    null,
+    options.treatmentId ?? null,
     new Date('2026-08-17T13:00:00.000Z'),
     30,
     options.status ?? AppointmentStatus.HELD,
@@ -309,6 +310,63 @@ describe('PaymentsService', () => {
           guestFirstName: 'Juana',
           guestLastNamePaternal: 'Perez',
         }),
+      );
+    });
+
+    it('la línea del presupuesto lleva la consulta por defecto si la cita no tiene tratamiento (CLI-257)', async () => {
+      mockAppointmentRepo.findByQrId.mockResolvedValue(
+        fakeAppointment({ banecoQrId: 'qr-1', paymentAmount: 50 }),
+      );
+      mockGateway.getQrStatus.mockResolvedValue({
+        status: QrStatus.PAID,
+        payment: null,
+      });
+      mockTreatmentRepo.findDefaultConsultation.mockResolvedValue(CONSULTATION);
+      mockConfirmationRepo.confirmPaidBooking.mockResolvedValue(null);
+
+      await service.handleBanecoNotification('qr-1');
+
+      expect(mockConfirmationRepo.confirmPaidBooking).toHaveBeenCalledWith(
+        expect.objectContaining({ treatmentId: CONSULTATION.id, amount: 50 }),
+      );
+    });
+
+    it('si la cita ya tiene tratamiento, la línea lleva ese (CLI-257)', async () => {
+      mockAppointmentRepo.findByQrId.mockResolvedValue(
+        fakeAppointment({
+          banecoQrId: 'qr-1',
+          paymentAmount: 50,
+          treatmentId: 'treat-cita',
+        }),
+      );
+      mockGateway.getQrStatus.mockResolvedValue({
+        status: QrStatus.PAID,
+        payment: null,
+      });
+      mockConfirmationRepo.confirmPaidBooking.mockResolvedValue(null);
+
+      await service.handleBanecoNotification('qr-1');
+
+      expect(mockConfirmationRepo.confirmPaidBooking).toHaveBeenCalledWith(
+        expect.objectContaining({ treatmentId: 'treat-cita' }),
+      );
+    });
+
+    it('sin consulta configurada confirma igual, sin línea de presupuesto (CLI-257)', async () => {
+      mockAppointmentRepo.findByQrId.mockResolvedValue(
+        fakeAppointment({ banecoQrId: 'qr-1', paymentAmount: 50 }),
+      );
+      mockGateway.getQrStatus.mockResolvedValue({
+        status: QrStatus.PAID,
+        payment: null,
+      });
+      mockTreatmentRepo.findDefaultConsultation.mockResolvedValue(null);
+      mockConfirmationRepo.confirmPaidBooking.mockResolvedValue(null);
+
+      await service.handleBanecoNotification('qr-1');
+
+      expect(mockConfirmationRepo.confirmPaidBooking).toHaveBeenCalledWith(
+        expect.objectContaining({ treatmentId: null }),
       );
     });
 

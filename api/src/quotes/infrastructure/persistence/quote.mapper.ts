@@ -23,6 +23,8 @@ type QuoteItemRecordWithGroup = quote_items & {
 };
 type PaymentRecord = payments & {
   qr_charge?: { lines: quote_qr_charge_lines[] } | null;
+  /** CLI-257: la línea a la que se aplica entero (el pago de una reserva web). */
+  quote_item?: { id: string; application_group_id: string | null } | null;
 };
 type QuoteRecordWithItems = quotes & {
   quote_items: QuoteItemRecordWithGroup[];
@@ -94,11 +96,31 @@ export class QuoteMapper {
       paymentDate: record.payment_date,
       notes: record.notes ?? null,
       createdAt: record.created_at,
-      allocations: QuoteMapper.linesToAllocations(
-        record.qr_charge?.lines ?? [],
-      ),
+      allocations: QuoteMapper.paymentAllocations(record),
       covered: [],
     };
+  }
+
+  /**
+   * A qué líneas se aplica un pago: las que eligió el paciente al generar su
+   * QR (CLI-218) o, si es el de una reserva web, entero a su consulta
+   * (CLI-257). Sin ninguna de las dos, el reparto es FIFO (QuoteBalance).
+   */
+  static paymentAllocations(record: PaymentRecord): PaymentAllocation[] {
+    const lines = record.qr_charge?.lines ?? [];
+    if (lines.length > 0) {
+      return QuoteMapper.linesToAllocations(lines);
+    }
+    if (record.quote_item) {
+      return [
+        {
+          lineKey:
+            record.quote_item.application_group_id ?? record.quote_item.id,
+          amount: Number(record.amount),
+        },
+      ];
+    }
+    return [];
   }
 
   static linesToAllocations(

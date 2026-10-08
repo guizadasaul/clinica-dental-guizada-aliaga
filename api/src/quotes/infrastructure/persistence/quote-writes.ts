@@ -22,7 +22,13 @@ export const QUOTE_INCLUDE = {
     },
   },
   // CLI-218: el QR que originó cada pago, con los tratamientos que eligió el paciente.
-  payments: { include: { qr_charge: { include: { lines: true } } } },
+  payments: {
+    include: {
+      qr_charge: { include: { lines: true } },
+      // CLI-257: el pago de una reserva web va entero a su consulta.
+      quote_item: { select: { id: true, application_group_id: true } },
+    },
+  },
 } as const;
 
 /** Una fila recién creada del presupuesto: con qué se vincula el procedimiento (CLI-226). */
