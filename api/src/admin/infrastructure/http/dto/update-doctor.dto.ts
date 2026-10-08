@@ -22,6 +22,7 @@ import { IsE164Phone } from '../../../../shared/validators/phone.validator.js';
 import { HEX_COLOR_REGEX } from '../../../../shared/doctor-color-palette.js';
 import { NoHtml } from '../../../../shared/validators/text-safety.validator.js';
 import { IsValidSchedule, ScheduleBlockDto } from './schedule-block.dto.js';
+import { NoUndecidedTitle } from '../../../../shared/validators/public-name.validator.js';
 
 export class UpdateDoctorDto {
   @IsOptional()
@@ -30,6 +31,7 @@ export class UpdateDoctorDto {
   @IsNotEmpty()
   @MaxLength(200)
   @NoHtml()
+  @NoUndecidedTitle()
   displayName?: string;
 
   // Todos opcionales en el PATCH: un doctor cargado antes de CLI-76 no tiene

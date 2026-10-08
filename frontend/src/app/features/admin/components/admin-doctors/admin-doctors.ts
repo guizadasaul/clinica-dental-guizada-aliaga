@@ -23,6 +23,7 @@ import type { CreateDoctorRequest, UpdateDoctorRequest } from '../../models/admi
 import type { Doctor } from '../../../booking/models/booking.model';
 import type { InviteChannel } from '../../../patient-invites/services/patient-invites.service';
 import { PageHeaderComponent } from '../../../../shared/ui/page-header/page-header';
+import { undecidedTitleError } from '../../../../shared/validation/public-name.validator';
 
 const WEEKDAY_LABELS = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
 
@@ -111,7 +112,10 @@ export class AdminDoctorsComponent implements OnInit {
     personNameError(v, 'El apellido paterno', this.mode() === 'create'),
   );
   protected readonly lastNameMaternalField = field<string>('', (v) => personNameError(v, 'El apellido materno', false));
-  protected readonly displayNameField = field<string>('', (v) => requiredTextError(v, DISPLAY_NAME_MAX_LENGTH));
+  protected readonly displayNameField = field<string>(
+    '',
+    (v) => requiredTextError(v, DISPLAY_NAME_MAX_LENGTH) ?? undecidedTitleError(v),
+  );
   protected readonly emailField = field<string>('', emailFieldError);
   protected readonly specialtyField = field<string>('', (v) => optionalTextError(v, SPECIALTY_MAX_LENGTH));
   protected readonly bioField = field<string>('', (v) => optionalTextError(v, BIO_MAX_LENGTH));

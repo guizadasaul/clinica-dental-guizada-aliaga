@@ -21,6 +21,7 @@ import { PersonNamePart } from '../../../../shared/validators/person-name-part.v
 import { IsE164Phone } from '../../../../shared/validators/phone.validator.js';
 import { NoHtml } from '../../../../shared/validators/text-safety.validator.js';
 import { IsValidSchedule, ScheduleBlockDto } from './schedule-block.dto.js';
+import { NoUndecidedTitle } from '../../../../shared/validators/public-name.validator.js';
 
 export class CreateDoctorDto {
   // Nombre público (con "Dr./Dra."): lo que ve el paciente al reservar.
@@ -29,6 +30,7 @@ export class CreateDoctorDto {
   @IsNotEmpty()
   @MaxLength(200)
   @NoHtml()
+  @NoUndecidedTitle()
   displayName: string;
 
   // Nombre y apellidos reales (CLI-76) — mismas reglas que en pacientes

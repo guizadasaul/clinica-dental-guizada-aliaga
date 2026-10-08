@@ -132,7 +132,7 @@ function setup(
   const finances = { listPatients: vi.fn().mockReturnValue(options.balances ?? of([])) };
   const user = signal(
     options.displayName === undefined
-      ? { id: 'doc-1', displayName: 'Ariel Guizada', photoURL: null }
+      ? { id: 'doc-1', displayName: 'Dr. Ariel Guizada', photoURL: null }
       : { id: 'doc-1', displayName: options.displayName, photoURL: null },
   );
   TestBed.configureTestingModule({
@@ -188,7 +188,7 @@ describe('DoctorDashboardComponent', () => {
   });
 
   describe('inicio', () => {
-    it('saluda al doctor por su primer nombre y muestra sus citas confirmadas de hoy', async () => {
+    it('saluda al doctor con su título y su primer nombre y muestra sus citas confirmadas de hoy', async () => {
       const { fixture, appointments } = setup();
       await render(fixture);
 
@@ -299,11 +299,20 @@ describe('DoctorDashboardComponent', () => {
       expect(text(fixture)).toContain('No hay citas programadas para hoy');
     });
 
+    it('una doctora con "Dra." en su nombre público no ve "Dr. Dra." (CLI-254)', async () => {
+      const { fixture } = setup({ displayName: 'Dra. María López' });
+      await render(fixture);
+
+      expect(text(fixture)).toContain(', Dra. María');
+      expect(text(fixture)).not.toContain('Dr. Dra.');
+    });
+
     it('sin nombre cargado saluda como "Doctor"', async () => {
       const { fixture } = setup({ displayName: null });
       await render(fixture);
 
-      expect(text(fixture)).toContain('Dr. Doctor');
+      expect(text(fixture)).toContain(', Doctor');
+      expect(text(fixture)).not.toContain('Dr. Doctor');
     });
 
     it.each([
