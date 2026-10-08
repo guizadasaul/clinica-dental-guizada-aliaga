@@ -29,6 +29,7 @@ import type { AppointmentAgendaItem } from '../../../appointments/models/appoint
 import { appointmentPatientLabel } from '../../../appointments/models/appointment-patient-label';
 import type { Patient, PatientInviteContact } from '../../../patients/models/patient.model';
 import type { InviteChannel } from '../../../patient-invites/services/patient-invites.service';
+import { doctorGreetingName } from '../../doctor-greeting.util';
 
 const INVITE_SUCCESS_MESSAGE: Record<InviteChannel, string> = {
   email: 'Correo enviado correctamente. El paciente recibirá el link de registro en su casilla.',
@@ -149,10 +150,7 @@ export class DoctorDashboardComponent implements OnInit {
     () => this.selectedPatientForClinicalRecord() !== null,
   );
 
-  protected readonly firstName = computed(() => {
-    const name = this.user()?.displayName;
-    return name ? name.split(' ')[0] : 'Doctor';
-  });
+  protected readonly greetingName = computed(() => doctorGreetingName(this.user()?.displayName));
 
   protected readonly greeting = computed(() => {
     const hour = new Date().getHours();

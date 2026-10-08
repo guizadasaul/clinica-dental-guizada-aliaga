@@ -20,6 +20,7 @@ import {
 } from '../../../../shared/validation/full-name.validator';
 import { normalizeText, optionalTextError, requiredTextError } from '../../../../shared/validation/text.validator';
 import { scheduleError, type ScheduleBlock } from '../../../../shared/utils/schedule-blocks.util';
+import { undecidedTitleError } from '../../../../shared/validation/public-name.validator';
 
 const DISPLAY_NAME_MAX_LENGTH = 200;
 const SPECIALTY_MAX_LENGTH = 150;
@@ -78,8 +79,10 @@ export class DoctorSettingsComponent implements OnInit {
   protected readonly saved = signal(false);
   protected readonly email = signal<string | null>(null);
 
-  protected readonly displayName = field<string>('', (v: string) =>
-    requiredTextError(v, DISPLAY_NAME_MAX_LENGTH, { minLength: MIN_NAME_LENGTH }),
+  protected readonly displayName = field<string>(
+    '',
+    (v: string) =>
+      requiredTextError(v, DISPLAY_NAME_MAX_LENGTH, { minLength: MIN_NAME_LENGTH }) ?? undecidedTitleError(v),
   );
   protected readonly firstName = field<string>('', (v: string) => personNameError(v, 'El nombre', false));
   protected readonly lastNamePaternal = field<string>('', (v: string) => personNameError(v, 'El apellido paterno', false));

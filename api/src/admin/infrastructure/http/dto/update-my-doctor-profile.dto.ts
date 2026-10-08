@@ -18,6 +18,7 @@ import { IsE164Phone } from '../../../../shared/validators/phone.validator.js';
 import { HEX_COLOR_REGEX } from '../../../../shared/doctor-color-palette.js';
 import { NoHtml } from '../../../../shared/validators/text-safety.validator.js';
 import { IsValidSchedule, ScheduleBlockDto } from './schedule-block.dto.js';
+import { NoUndecidedTitle } from '../../../../shared/validators/public-name.validator.js';
 
 /**
  * Lo que un doctor puede editar de su propio perfil (CLI-191). A diferencia de
@@ -33,6 +34,7 @@ export class UpdateMyDoctorProfileDto {
   @IsNotEmpty()
   @MaxLength(200)
   @NoHtml()
+  @NoUndecidedTitle()
   displayName?: string;
 
   @IsOptional()

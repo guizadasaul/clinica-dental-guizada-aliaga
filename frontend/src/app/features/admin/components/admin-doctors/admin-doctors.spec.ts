@@ -401,6 +401,24 @@ describe('AdminDoctorsComponent', () => {
       expect(el<HTMLInputElement>(fixture, '#admin-doctor-name').value).toBe('Dr./Dra. Marylu Aliaga');
     });
 
+    it('does not save while the public name still says "Dr./Dra." (CLI-254)', async () => {
+      const { fixture, adminDoctorsService } = setup();
+      await settle(fixture);
+
+      el<HTMLButtonElement>(fixture, '.admin-doctors__header-actions .admin-doctors__btn--primary').click();
+      await settle(fixture);
+      fillCreateNames(fixture);
+      fillInput(fixture, '#admin-doctor-name', 'Dr./Dra. Maria Lopez');
+      fillInput(fixture, '#admin-doctor-email', 'maria@example.com');
+      await settle(fixture);
+
+      submitForm(fixture);
+      await settle(fixture);
+
+      expect(adminDoctorsService.create).not.toHaveBeenCalled();
+      expect(el(fixture, '.admin-doctors__form')?.textContent).toContain('Elige "Dr." o "Dra." para el nombre público.');
+    });
+
     it('stops suggesting once the admin edits the public name by hand', async () => {
       const { fixture } = setup();
       await settle(fixture);
