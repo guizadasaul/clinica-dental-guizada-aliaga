@@ -10,9 +10,13 @@ import { SupabaseAdminService } from '../../auth/infrastructure/SupabaseAdminSer
 import { buildWhatsappUrl, phoneLastDigits } from '../../shared/phone.util.js';
 import { PasswordResetLinkRepository } from '../domain/PasswordResetLinkRepository.js';
 import type { IPasswordResetLinkRepository } from '../domain/PasswordResetLinkRepository.js';
+import {
+  LINK_TTL_MINUTES,
+  formatInviteTtl,
+} from '../../patient-invites/domain/PatientInvite.js';
 
-/** Vigencia del link de contraseña nueva (CLI-244). */
-export const RESET_LINK_TTL_MINUTES = 30;
+/** Vigencia del link de contraseña nueva: 24 h como los demás links (CLI-255). */
+export const RESET_LINK_TTL_MINUTES = LINK_TTL_MINUTES;
 
 export interface CreateResetLinkResult {
   whatsappUrl: string;
@@ -37,7 +41,7 @@ function buildWhatsappMessage(fullName: string, resetUrl: string): string {
     'Te escribimos de *Clínica Dental Guizada-Aliaga*. Con este enlace puedes crear una nueva contraseña para tu cuenta:',
     resetUrl,
     '',
-    `_Por tu seguridad, el enlace vence en ${RESET_LINK_TTL_MINUTES} minutos y sirve una sola vez. Si no lo pediste, ignora este mensaje._`,
+    `_Por tu seguridad, el enlace vence en ${formatInviteTtl(RESET_LINK_TTL_MINUTES)} y sirve una sola vez. Si no lo pediste, ignora este mensaje._`,
   ].join('\n');
 }
 

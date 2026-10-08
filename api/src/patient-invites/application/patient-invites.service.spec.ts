@@ -172,7 +172,7 @@ describe('PatientInvitesService', () => {
       expect(createArg.tokenHash).toMatch(/^[0-9a-f]{64}$/); // sha256 hex digest
     });
 
-    it('expires the invite 5 minutes from creation', async () => {
+    it('expires the invite 24 hours from creation (CLI-255; before, 5 minutes)', async () => {
       mockInviteRepo.findPatientContactInfo.mockResolvedValue(
         CONTACT_WITH_BOTH,
       );
@@ -185,8 +185,8 @@ describe('PatientInvitesService', () => {
       const calls = mockInviteRepo.create.mock.calls as [{ expiresAt: Date }][];
       const [[createArg]] = calls;
       const ttlMs = createArg.expiresAt.getTime() - before;
-      expect(ttlMs).toBeGreaterThanOrEqual(5 * 60 * 1000);
-      expect(ttlMs).toBeLessThanOrEqual(5 * 60 * 1000 + (after - before));
+      expect(ttlMs).toBeGreaterThanOrEqual(24 * 60 * 60 * 1000);
+      expect(ttlMs).toBeLessThanOrEqual(24 * 60 * 60 * 1000 + (after - before));
     });
   });
 
@@ -229,7 +229,7 @@ describe('PatientInvitesService', () => {
       expect(result).toEqual({});
     });
 
-    it('expires a doctor invite 48 hours from creation (a patient one still takes 5 minutes)', async () => {
+    it('expires a doctor invite 24 hours from creation, the same as a patient one (CLI-255)', async () => {
       mockInviteRepo.create.mockResolvedValue({});
       const before = Date.now();
 
@@ -244,12 +244,12 @@ describe('PatientInvitesService', () => {
       const calls = mockInviteRepo.create.mock.calls as [{ expiresAt: Date }][];
       const [[createArg]] = calls;
       const ttlMs = createArg.expiresAt.getTime() - before;
-      const expectedMs = 48 * 60 * 60 * 1000;
+      const expectedMs = 24 * 60 * 60 * 1000;
       expect(ttlMs).toBeGreaterThanOrEqual(expectedMs);
       expect(ttlMs).toBeLessThanOrEqual(expectedMs + (after - before));
     });
 
-    it('builds a wa.me URL with the doctor copy (team invitation, 48 hours, no emojis) for channel=whatsapp', async () => {
+    it('builds a wa.me URL with the doctor copy (team invitation, 24 hours, no emojis) for channel=whatsapp', async () => {
       mockInviteRepo.create.mockResolvedValue({});
 
       const result = await service.createInviteForUser(
@@ -267,8 +267,8 @@ describe('PatientInvitesService', () => {
       expect(text).toContain('equipo de odontólogos');
       expect(text).toContain('Crea tu acceso aquí:');
       expect(text).toContain('/invitacion/');
-      expect(text).toContain('vence en 48 horas');
-      expect(text).not.toContain('vence en 5 minutos');
+      expect(text).toContain('vence en 24 horas');
+      expect(text).not.toContain('minutos');
       // Nada de caracteres de 3+ bytes en UTF-8 (wa.me los corrompe).
       expect(text).not.toMatch(/[\u0800-\uFFFF]/);
     });
@@ -295,9 +295,10 @@ describe('PatientInvitesService', () => {
       expect(formatInviteTtl(48 * 60)).toBe('48 horas');
     });
 
-    it('keeps patient invites at 5 minutes and doctor invites at 48 hours', () => {
-      expect(INVITE_TTL_MINUTES.patient).toBe(5);
-      expect(INVITE_TTL_MINUTES.doctor).toBe(48 * 60);
+    it('every invite lasts 24 hours, patient or doctor (CLI-255)', () => {
+      expect(INVITE_TTL_MINUTES.patient).toBe(24 * 60);
+      expect(INVITE_TTL_MINUTES.doctor).toBe(24 * 60);
+      expect(formatInviteTtl(INVITE_TTL_MINUTES.patient)).toBe('24 horas');
     });
   });
 

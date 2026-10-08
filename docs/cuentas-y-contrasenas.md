@@ -6,7 +6,7 @@ entra acá: no tiene contraseña propia.
 ## Crear la cuenta
 
 Toda cuenta nace de una **invitación** que el doctor manda desde la ficha (Pacientes → "Enviar registro", por
-WhatsApp o correo). El link `/invitacion/:token` vence a los 5 minutos y deja elegir correo o teléfono.
+WhatsApp o correo). El link `/invitacion/:token` vence a las 24 horas y deja elegir correo o teléfono.
 
 ### Con teléfono y contraseña
 
@@ -27,7 +27,7 @@ Si la cuenta se creó pero el login falló, el token queda guardado en el navega
    (`admin.generateLink` tipo `signup`), **vincula la ficha en ese momento** (canjea la invitación) y manda
    por Resend el correo "Confirma tu correo".
 2. El link del correo (`/auth/confirmar?token_hash=…&type=signup`) sirve **en cualquier navegador**: no
-   depende de que sea el mismo que hizo el registro. Vence en 1 hora y sirve una vez.
+   depende de que sea el mismo que hizo el registro. Vence a las 24 horas y sirve una vez.
 3. Mientras no confirme, puede pedir otro correo desde la misma pantalla ("Reenviar correo",
    `POST /auth/register/email/resend`).
 4. Un correo que ya tiene una cuenta confirmada da 409 ("Inicia sesión o recupera tu contraseña") y no gasta
@@ -40,7 +40,7 @@ Si la cuenta se creó pero el login falló, el token queda guardado en el navega
 1. "¿Olvidaste tu contraseña?" → `POST /auth/password/recover { email }`. Responde igual exista o no la
    cuenta (no revela qué correos están registrados).
 2. Si hay una cuenta, el backend manda por Resend "Crea una nueva contraseña" con el link
-   `/auth/reset-password?token_hash=…&type=recovery`. También sirve en cualquier navegador, vence en 1 hora y
+   `/auth/reset-password?token_hash=…&type=recovery`. También sirve en cualquier navegador, vence a las 24 horas y
    sirve una vez.
 3. Con esa sesión de recuperación el paciente **no entra al portal** (ni recargando) hasta definir la
    contraseña nueva. Después vuelve al login.
@@ -55,7 +55,7 @@ Una cuenta de teléfono no tiene correo, así que "Olvidé mi contraseña" no le
 3. El paciente abre `/recuperar/:token`, ve "Para tu cuenta con el teléfono terminado en 944", elige la
    contraseña nueva y entra desde el login con su teléfono.
 
-El link vence a los **30 minutos**, sirve **una sola vez**, cada link nuevo **anula el anterior** y solo
+El link vence a las **24 horas**, sirve **una sola vez**, cada link nuevo **anula el anterior** y solo
 cambia la contraseña de la cuenta de esa ficha. En la base se guarda solo el hash del token
 (`password_reset_links`). Sirve también para una cuenta de correo, si el paciente no tiene acceso a su
 buzón.
@@ -77,8 +77,8 @@ Lo que importa para estos flujos:
 
 - Providers **Email** y **Phone** activos. Phone no necesita proveedor de SMS: las cuentas de teléfono las
   crea el backend con el número ya confirmado.
-- Email → **Confirm email** activo, y la vigencia del link (*Email OTP Expiration*) en **3600 s**: los correos
-  dicen "vence en 1 hora".
+- Email → **Confirm email** activo, y la vigencia del link (*Email OTP Expiration*) en **86400 s**: los correos
+  dicen "vence en 24 horas" (todos los links viven 24 horas, CLI-255).
 - Largo mínimo de contraseña: **8** (el mismo que valida el backend).
 - El SMTP de Supabase ya no interviene en el alta ni en la recuperación con contraseña: si falla (pasó en
   el proyecto de desarrollo/staging: "Error sending confirmation/recovery email"), estos flujos siguen

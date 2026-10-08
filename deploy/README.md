@@ -122,8 +122,8 @@ dos sistemas de migración sobre las mismas tablas terminan en drift.
    la identidad antes de canjear la invitación); quien decide si esa identidad tiene cuenta es el backend:
    `POST /auth/sync` solo crea la fila en `users` con una invitación válida, y `POST /auth/register/phone` y
    `POST /auth/register/email` exigen el token de invitación.
-4. **Auth → Providers → Email**: *Confirm email* activo, *Email OTP Expiration* en 3600 s (los correos dicen
-   "vence en 1 hora") y largo mínimo de contraseña 8. Detalle de cada flujo en
+4. **Auth → Providers → Email**: *Confirm email* activo, *Email OTP Expiration* en 86400 s (los correos dicen
+   "vence en 24 horas", CLI-255) y largo mínimo de contraseña 8. Detalle de cada flujo en
    [`docs/cuentas-y-contrasenas.md`](../docs/cuentas-y-contrasenas.md).
 5. **Google OAuth** (Google Cloud Console): redirect URI autorizado
    `https://<ref>.supabase.co/auth/v1/callback` del proyecto. En producción, la pantalla de consentimiento
