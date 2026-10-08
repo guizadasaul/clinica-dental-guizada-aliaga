@@ -18,10 +18,7 @@ import { QuotesService } from '../../services/quotes.service';
 import { TreatmentsService } from '../../../treatments/services/treatments.service';
 import type { Quote, QuoteItem } from '../../models/quote.model';
 import { linePerformedAt } from '../../utils/quote-lines';
-import type {
-  ToothProcedure,
-  Treatment,
-} from '../../../treatments/models/treatment.model';
+import type { ToothProcedure, Treatment } from '../../../treatments/models/treatment.model';
 import { applicationTypeAllowsQuantity } from '../../../../shared/constants/dental-chart.constants';
 import {
   TreatmentScopePickerComponent,
