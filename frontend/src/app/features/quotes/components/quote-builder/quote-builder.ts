@@ -18,7 +18,10 @@ import { QuotesService } from '../../services/quotes.service';
 import { TreatmentsService } from '../../../treatments/services/treatments.service';
 import type { Quote, QuoteItem } from '../../models/quote.model';
 import { linePerformedAt } from '../../utils/quote-lines';
-import type { Treatment } from '../../../treatments/models/treatment.model';
+import type {
+  ToothProcedure,
+  Treatment,
+} from '../../../treatments/models/treatment.model';
 import { applicationTypeAllowsQuantity } from '../../../../shared/constants/dental-chart.constants';
 import {
   TreatmentScopePickerComponent,
@@ -28,7 +31,6 @@ import { PageHeaderComponent } from '../../../../shared/ui/page-header/page-head
 import { PatientsService } from '../../../patients/services/patients.service';
 import { DiagnosesService } from '../../../diagnoses/services/diagnoses.service';
 import type { DentalExam } from '../../../patients/models/dental-exam.model';
-import type { ToothProcedure } from '../../../treatments/models/treatment.model';
 import type { DiagnosisCategory } from '../../../diagnoses/models/diagnosis.model';
 import { patientOdontogram } from '../../../../shared/utils/patient-odontogram.util';
 
