@@ -2,6 +2,7 @@ import { TestBed, type ComponentFixture } from '@angular/core/testing';
 import { of, throwError } from 'rxjs';
 import { AppointmentDetailDialogComponent } from './appointment-detail-dialog';
 import { AppointmentsService } from '../../services/appointments.service';
+import { PatientsService } from '../../../patients/services/patients.service';
 import type { AppointmentAgendaItem } from '../../models/appointment.model';
 
 const FUTURE = new Date(Date.now() + 7 * 86_400_000).toISOString();
@@ -33,7 +34,11 @@ function appointment(overrides: Partial<AppointmentAgendaItem> = {}): Appointmen
   };
 }
 
-function setup(appt: AppointmentAgendaItem = appointment(), cancelResult?: unknown) {
+function setup(
+  appt: AppointmentAgendaItem = appointment(),
+  cancelResult?: unknown,
+  currentExam: unknown = { id: 'exam-1' },
+) {
   const appointmentsService = {
     cancelByDoctor: vi.fn().mockReturnValue(cancelResult ?? of({ ...appt, status: 'cancelled' })),
     markNoShow: vi.fn().mockReturnValue(of({ ...appt, status: 'no_show' })),
@@ -41,7 +46,16 @@ function setup(appt: AppointmentAgendaItem = appointment(), cancelResult?: unkno
   };
   TestBed.configureTestingModule({
     imports: [AppointmentDetailDialogComponent],
-    providers: [{ provide: AppointmentsService, useValue: appointmentsService }],
+    providers: [
+      { provide: AppointmentsService, useValue: appointmentsService },
+      {
+        provide: PatientsService,
+        useValue: {
+          getCurrentDentalExam: () =>
+            currentExam instanceof Error ? throwError(() => currentExam) : of(currentExam),
+        },
+      },
+    ],
   });
   const fixture = TestBed.createComponent(AppointmentDetailDialogComponent);
   fixture.componentRef.setInput('appointment', appt);
@@ -76,20 +90,22 @@ describe('AppointmentDetailDialogComponent (CLI-151)', () => {
     expect(fixture.nativeElement.textContent).toContain('Consulta reservada por la web');
   });
 
-  it('emite abrir ficha, reprogramar y cerrar', () => {
+  it('emite registrar tratamiento, reprogramar y cerrar', async () => {
     const { fixture } = setup();
-    const openRecord = vi.fn();
+    await fixture.whenStable();
+    fixture.detectChanges();
+    const registerTreatment = vi.fn();
     const reschedule = vi.fn();
     const closed = vi.fn();
-    fixture.componentInstance.openRecord.subscribe(openRecord);
+    fixture.componentInstance.registerTreatment.subscribe(registerTreatment);
     fixture.componentInstance.reschedule.subscribe(reschedule);
     fixture.componentInstance.closed.subscribe(closed);
 
-    button(fixture, 'Abrir ficha')!.click();
+    button(fixture, 'Registrar tratamiento')!.click();
     button(fixture, 'Reprogramar')!.click();
     (fixture.nativeElement.querySelector('.detail-modal') as HTMLElement).click();
 
-    expect(openRecord).toHaveBeenCalledWith('p-1');
+    expect(registerTreatment).toHaveBeenCalledWith('p-1');
     expect(reschedule).toHaveBeenCalledWith(expect.objectContaining({ id: 'appt-1' }));
     expect(closed).toHaveBeenCalled();
   });
@@ -97,15 +113,39 @@ describe('AppointmentDetailDialogComponent (CLI-151)', () => {
   it('una cita pasada no se reprograma ni se cancela', () => {
     const { fixture } = setup(appointment({ appointmentDatetime: PAST }));
 
-    expect(button(fixture, 'Abrir ficha')).toBeTruthy();
+    expect(button(fixture, 'Registrar tratamiento')).toBeTruthy();
     expect(button(fixture, 'Reprogramar')).toBeFalsy();
     expect(button(fixture, 'Cancelar cita')).toBeFalsy();
   });
 
-  it('una reserva sin ficha no ofrece abrir la ficha', () => {
+  it('sin diagnóstico no deja registrar un tratamiento y explica por qué', async () => {
+    const { fixture } = setup(appointment(), undefined, null);
+    await fixture.whenStable();
+    fixture.detectChanges();
+    const registerTreatment = vi.fn();
+    fixture.componentInstance.registerTreatment.subscribe(registerTreatment);
+
+    const btn = button(fixture, 'Registrar tratamiento')!;
+    btn.click();
+
+    expect(btn.disabled).toBe(true);
+    expect(registerTreatment).not.toHaveBeenCalled();
+    expect(fixture.nativeElement.textContent).toContain('aún no tiene diagnóstico');
+  });
+
+  it('si no se puede verificar el diagnóstico, el botón queda deshabilitado', async () => {
+    const { fixture } = setup(appointment(), undefined, new Error('boom'));
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(button(fixture, 'Registrar tratamiento')!.disabled).toBe(true);
+    expect(fixture.nativeElement.textContent).toContain('No se pudo verificar el diagnóstico');
+  });
+
+  it('una reserva sin ficha no ofrece registrar tratamiento', () => {
     const { fixture } = setup(appointment({ patientId: null }));
 
-    expect(button(fixture, 'Abrir ficha')).toBeFalsy();
+    expect(button(fixture, 'Registrar tratamiento')).toBeFalsy();
     expect(button(fixture, 'Cancelar cita')).toBeTruthy();
   });
 

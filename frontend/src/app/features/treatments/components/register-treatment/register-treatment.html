@@ -1,6 +1,6 @@
 <div class="reg-treatment">
 
-  <app-page-header title="Registrar tratamiento" backLabel="Volver a la lista" (back)="onClose()" />
+  <app-page-header title="Registrar tratamiento" [backLabel]="backLabel()" (back)="onClose()" />
 
   @if (successMessage()) {
     <div class="reg-treatment__success">

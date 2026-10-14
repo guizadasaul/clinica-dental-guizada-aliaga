@@ -19,7 +19,7 @@ import { firstValueFrom, forkJoin, map } from 'rxjs';
 import { AppointmentsService } from '../../services/appointments.service';
 import { AuthService } from '../../../../auth/application/auth.service';
 import { FALLBACK_DOCTOR_COLOR } from '../../../../shared/constants/doctor-colors';
-import { PatientWizardComponent } from '../../../patients/components/patient-wizard/patient-wizard';
+import { RegisterTreatmentComponent } from '../../../treatments/components/register-treatment/register-treatment';
 import type {
   AppointmentAgendaItem,
   DoctorScheduleBlock,
@@ -218,7 +218,7 @@ function assignLanes(
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
     PageHeaderComponent,
-    PatientWizardComponent,
+    RegisterTreatmentComponent,
     BookAppointmentDialogComponent,
     TimeBlockDialogComponent,
     AppointmentDetailDialogComponent,
@@ -233,7 +233,7 @@ export class DoctorAgendaComponent {
 
   // CLI-64: cuando viene seteado (panel de admin), la agenda mostrada es la
   // de ESE doctor en vez de la del usuario logueado; readOnly apaga cualquier
-  // acción de edición (hoy, abrir la ficha del paciente desde un turno).
+  // acción de edición (hoy, registrar un tratamiento desde un turno).
   readonly doctorId = input<string | null>(null);
   readonly readOnly = input(false);
   /** CLI-110: fija la agenda común (panel de admin, "Todos los doctores") y oculta el selector. */
@@ -308,7 +308,7 @@ export class DoctorAgendaComponent {
   protected readonly loading = signal(false);
   protected readonly error = signal<string | null>(null);
 
-  protected readonly historyPatientId = signal<string | null>(null);
+  protected readonly treatmentPatientId = signal<string | null>(null);
 
   /**
    * CLI-150: solo en la agenda propia del doctor (ni en la común, ni en la
@@ -333,8 +333,8 @@ export class DoctorAgendaComponent {
   protected readonly detailAppointment = signal<AppointmentAgendaItem | null>(null);
   /** CLI-151: cita que se está reprogramando — la agenda espera el click en el horario nuevo. */
   protected readonly rescheduling = signal<AppointmentAgendaItem | null>(null);
-  /** CLI-152: turno desde el que se abrió la ficha — al completarla se ofrece agendar la próxima cita. */
-  private readonly historyOrigin = signal<AppointmentAgendaItem | null>(null);
+  /** CLI-152: turno desde el que se registra el tratamiento — al terminar se ofrece agendar la próxima cita. */
+  private readonly treatmentOrigin = signal<AppointmentAgendaItem | null>(null);
   /** CLI-152: oferta "¿Agendar la próxima cita?", con la cita futura que el paciente ya tenga, si hay. */
   protected readonly followUpOffer = signal<{
     origin: AppointmentAgendaItem;
@@ -671,10 +671,10 @@ export class DoctorAgendaComponent {
     this.detailAppointment.set(null);
   }
 
-  protected onOpenRecord(patientId: string): void {
-    this.historyOrigin.set(this.detailAppointment());
+  protected onRegisterTreatment(patientId: string): void {
+    this.treatmentOrigin.set(this.detailAppointment());
     this.detailAppointment.set(null);
-    this.historyPatientId.set(patientId);
+    this.treatmentPatientId.set(patientId);
   }
 
   /** "Reprogramar": la agenda propia pasa a esperar el click en el horario nuevo. */
@@ -934,19 +934,19 @@ export class DoctorAgendaComponent {
     this.detailAppointment.set(a);
   }
 
-  protected onHistoryDone(): void {
-    this.historyPatientId.set(null);
-    this.historyOrigin.set(null);
+  protected onTreatmentClosed(): void {
+    this.treatmentPatientId.set(null);
+    this.treatmentOrigin.set(null);
     void this.load();
   }
 
   /**
-   * CLI-152: terminó de cargar la ficha desde un turno de hoy o anterior —
+   * CLI-152: terminó de registrar tratamientos desde un turno de hoy o anterior —
    * con el paciente todavía en el consultorio, se ofrece agendar el control.
    */
-  protected onHistoryComplete(): void {
-    const origin = this.historyOrigin();
-    this.onHistoryDone();
+  protected onTreatmentDone(): void {
+    const origin = this.treatmentOrigin();
+    this.onTreatmentClosed();
     const today = laPazDateString(new Date());
     if (!origin?.patientId || laPazDateString(new Date(origin.appointmentDatetime)) > today) {
       return;

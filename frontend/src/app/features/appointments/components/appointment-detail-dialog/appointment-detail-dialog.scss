@@ -184,6 +184,13 @@
   color: #b91c1c;
 }
 
+.detail-modal__hint {
+  display: block;
+  margin: 0;
+  font-size: var(--font-size-sm);
+  color: #92400e;
+}
+
 .detail-modal__actions {
   display: flex;
   flex-wrap: wrap;

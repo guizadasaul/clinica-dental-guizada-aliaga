@@ -139,7 +139,7 @@
   @if (detailAppointment(); as appt) {
     <app-appointment-detail-dialog
       [appointment]="appt"
-      (openRecord)="onOpenRecord($event)"
+      (registerTreatment)="onRegisterTreatment($event)"
       (reschedule)="onStartReschedule($event)"
       (cancelled)="onCancelled($event)"
       (attendanceChanged)="onAttendanceChanged($event)"
@@ -179,12 +179,12 @@
     </aside>
   }
 
-  @if (historyPatientId(); as patientId) {
-    <app-patient-wizard
-      [existingPatientId]="patientId"
-      [startStep]="2"
-      (wizardComplete)="onHistoryComplete()"
-      (cancelled)="onHistoryDone()"
+  @if (treatmentPatientId(); as patientId) {
+    <app-register-treatment
+      [patientId]="patientId"
+      backLabel="Volver a la agenda"
+      (done)="onTreatmentDone()"
+      (cancelled)="onTreatmentClosed()"
     />
   } @else {
     <div class="agenda__nav">

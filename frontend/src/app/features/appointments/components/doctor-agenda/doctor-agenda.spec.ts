@@ -11,6 +11,8 @@ import type {
 import { AuthService } from '../../../../auth/application/auth.service';
 import { PatientsService } from '../../../patients/services/patients.service';
 import { TreatmentsService } from '../../../treatments/services/treatments.service';
+import { DiagnosesService } from '../../../diagnoses/services/diagnoses.service';
+import { QuotesService } from '../../../quotes/services/quotes.service';
 import { ViewportService } from '../../../../shared/services/viewport.service';
 
 // 14:00 UTC = 10:00 en La Paz (UTC-4) — dentro de la grilla (9:00–24:00).
@@ -79,9 +81,25 @@ function setup(
     providers: [
       { provide: AppointmentsService, useValue: appointmentsService },
       // El modal de "Agendar cita" (CLI-150) carga pacientes y tratamientos.
-      { provide: PatientsService, useValue: { getAll: () => of([]) } },
-      { provide: TreatmentsService, useValue: { getAll: () => of([]) } },
-      // El doctor logueado — en la agenda común solo sus turnos abren la ficha.
+      {
+        provide: PatientsService,
+        useValue: {
+          getAll: () => of([]),
+          getCurrentDentalExam: () => of({ id: 'exam-1' }),
+        },
+      },
+      {
+        provide: TreatmentsService,
+        useValue: {
+          getAll: () => of([]),
+          getFrequentIds: () => of([]),
+          getToothProcedures: () => of([]),
+        },
+      },
+      // El registro de tratamientos (abierto desde el detalle del turno).
+      { provide: DiagnosesService, useValue: { getCatalog: () => of([]) } },
+      { provide: QuotesService, useValue: { getByPatient: () => of([]) } },
+      // El doctor logueado — en la agenda común solo sus turnos abren el detalle.
       { provide: AuthService, useValue: { currentUser: signal({ id: 'doctor-a' }) } },
       // CLI-248: el ancho de pantalla decide entre la semana y la vista de un día.
       {
@@ -211,10 +229,10 @@ describe('DoctorAgendaComponent', () => {
     );
   });
 
-  // CLI-151: el click abre el detalle del turno; la ficha se abre desde ahí.
-  // Renderiza el wizard completo de la ficha: con coverage en el runner del CI
+  // CLI-151: el click abre el detalle del turno; el tratamiento se registra desde ahí.
+  // Renderiza el registro de tratamientos completo: con coverage en el runner del CI
   // pasa los 5 s por defecto (CLI-212), así que tiene su propio margen.
-  it('opens the appointment detail from a slot, and the patient history from it', async () => {
+  it('opens the appointment detail from a slot, and the treatment registration from it', async () => {
     const { fixture } = setup();
     await settle(fixture);
 
@@ -224,16 +242,18 @@ describe('DoctorAgendaComponent', () => {
     await settle(fixture);
     expect(fixture.nativeElement.querySelector('app-appointment-detail-dialog')).toBeTruthy();
 
-    const openRecord = [
+    await fixture.whenStable();
+    fixture.detectChanges();
+    const registerTreatment = [
       ...(fixture.nativeElement as HTMLElement).querySelectorAll<HTMLButtonElement>(
         '.detail-modal__btn',
       ),
-    ].find((b) => b.textContent?.includes('Abrir ficha'))!;
-    openRecord.click();
+    ].find((b) => b.textContent?.includes('Registrar tratamiento'))!;
+    registerTreatment.click();
     await settle(fixture);
 
     expect(fixture.nativeElement.querySelector('app-appointment-detail-dialog')).toBeFalsy();
-    expect(fixture.nativeElement.querySelector('app-patient-wizard')).toBeTruthy();
+    expect(fixture.nativeElement.querySelector('app-register-treatment')).toBeTruthy();
   }, 20_000);
 
   it('does not open the patient history from a slot when readOnly is true', async () => {
@@ -246,7 +266,7 @@ describe('DoctorAgendaComponent', () => {
     slot.click();
     await settle(fixture);
 
-    expect(fixture.nativeElement.querySelector('app-patient-wizard')).toBeFalsy();
+    expect(fixture.nativeElement.querySelector('app-register-treatment')).toBeFalsy();
     expect(fixture.nativeElement.querySelector('app-appointment-detail-dialog')).toBeFalsy();
   });
 
@@ -332,7 +352,7 @@ describe('DoctorAgendaComponent', () => {
       expect(first.style.width).toContain('0.5');
     });
 
-    it('un turno de otro doctor en la agenda común no abre la ficha', async () => {
+    it('un turno de otro doctor en la agenda común no abre el detalle ni el registro', async () => {
       const { fixture } = setup([fakeAppointment({ doctorId: 'doctor-b' })]);
       await settle(fixture);
       scopeButton(fixture, 'Agenda común').click();
@@ -341,7 +361,7 @@ describe('DoctorAgendaComponent', () => {
       (fixture.nativeElement.querySelector('.agenda-slot') as HTMLButtonElement).click();
       await settle(fixture);
 
-      expect(fixture.nativeElement.querySelector('app-patient-wizard')).toBeFalsy();
+      expect(fixture.nativeElement.querySelector('app-register-treatment')).toBeFalsy();
       expect(fixture.nativeElement.querySelector('app-appointment-detail-dialog')).toBeFalsy();
     });
 
@@ -808,9 +828,9 @@ describe('DoctorAgendaComponent', () => {
         upcoming: AppointmentAgendaItem | null;
       } | null;
       followUpPick: () => AppointmentAgendaItem | null;
-      onOpenRecord: (patientId: string) => void;
-      onHistoryComplete: () => void;
-      onHistoryDone: () => void;
+      onRegisterTreatment: (patientId: string) => void;
+      onTreatmentDone: () => void;
+      onTreatmentClosed: () => void;
       onAcceptFollowUp: () => void;
       onDismissFollowUp: () => void;
     };
@@ -821,8 +841,8 @@ describe('DoctorAgendaComponent', () => {
     const justAttended = () =>
       fakeAppointment({ appointmentDatetime: new Date(Date.now() - 3_600_000).toISOString() });
 
-    /** Con el detalle de un turno abierto, abre la ficha desde ahí. */
-    async function openRecordFrom(origin: AppointmentAgendaItem) {
+    /** Con el detalle de un turno abierto, registra el tratamiento desde ahí. */
+    async function registerFrom(origin: AppointmentAgendaItem) {
       const ctx = setup([origin]);
       await settle(ctx.fixture);
       (
@@ -830,15 +850,15 @@ describe('DoctorAgendaComponent', () => {
           detailAppointment: { set: (a: unknown) => void };
         }
       ).detailAppointment.set(origin);
-      internals(ctx.fixture).onOpenRecord('patient-1');
+      internals(ctx.fixture).onRegisterTreatment('patient-1');
       return ctx;
     }
-    const openRecordFromToday = () => openRecordFrom(justAttended());
+    const registerFromToday = () => registerFrom(justAttended());
 
-    it('al completar la ficha desde un turno de hoy, ofrece agendar la próxima cita', async () => {
-      const { fixture } = await openRecordFromToday();
+    it('al terminar de registrar tratamientos desde un turno de hoy, ofrece agendar la próxima cita', async () => {
+      const { fixture } = await registerFromToday();
 
-      internals(fixture).onHistoryComplete();
+      internals(fixture).onTreatmentDone();
       await settle(fixture);
 
       expect(internals(fixture).followUpOffer()?.origin.id).toBe('appt-1');
@@ -847,23 +867,23 @@ describe('DoctorAgendaComponent', () => {
       );
     });
 
-    it('si se cierra la ficha sin completarla, no ofrece nada', async () => {
-      const { fixture } = await openRecordFromToday();
+    it('si se cierra el registro sin terminar, no ofrece nada', async () => {
+      const { fixture } = await registerFromToday();
 
-      internals(fixture).onHistoryDone();
+      internals(fixture).onTreatmentClosed();
       await settle(fixture);
 
       expect(internals(fixture).followUpOffer()).toBeNull();
     });
 
     it('desde un turno futuro no ofrece nada', async () => {
-      const { fixture } = await openRecordFrom(
+      const { fixture } = await registerFrom(
         fakeAppointment({
           appointmentDatetime: new Date(Date.now() + 3 * 86_400_000).toISOString(),
         }),
       );
 
-      internals(fixture).onHistoryComplete();
+      internals(fixture).onTreatmentDone();
 
       expect(internals(fixture).followUpOffer()).toBeNull();
     });
@@ -873,10 +893,10 @@ describe('DoctorAgendaComponent', () => {
         id: 'appt-next',
         appointmentDatetime: new Date(Date.now() + 5 * 86_400_000).toISOString(),
       });
-      const { fixture, appointmentsService } = await openRecordFromToday();
+      const { fixture, appointmentsService } = await registerFromToday();
       appointmentsService.getAgenda.mockImplementation(agendaOf([justAttended(), upcoming]));
 
-      internals(fixture).onHistoryComplete();
+      internals(fixture).onTreatmentDone();
       await settle(fixture);
 
       expect(internals(fixture).followUpOffer()?.upcoming?.id).toBe('appt-next');
@@ -887,14 +907,14 @@ describe('DoctorAgendaComponent', () => {
 
     it('"Agendar" lleva a la semana siguiente esperando el click, y el click abre el modal con el paciente fijo', async () => {
       const origin = justAttended();
-      const { fixture } = await openRecordFrom(origin);
+      const { fixture } = await registerFrom(origin);
       // Lunes de la semana del turno (Bolivia), más 7 días.
       const originDay = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/La_Paz' }).format(
         new Date(origin.appointmentDatetime),
       );
       const weekday = new Date(`${originDay}T12:00:00Z`).getUTCDay();
       const originMonday = Date.parse(`${originDay}T12:00:00Z`) - ((weekday + 6) % 7) * 86_400_000;
-      internals(fixture).onHistoryComplete();
+      internals(fixture).onTreatmentDone();
       await settle(fixture);
 
       internals(fixture).onAcceptFollowUp();
@@ -919,8 +939,8 @@ describe('DoctorAgendaComponent', () => {
     });
 
     it('"Ahora no" descarta la oferta', async () => {
-      const { fixture } = await openRecordFromToday();
-      internals(fixture).onHistoryComplete();
+      const { fixture } = await registerFromToday();
+      internals(fixture).onTreatmentDone();
 
       internals(fixture).onDismissFollowUp();
 
