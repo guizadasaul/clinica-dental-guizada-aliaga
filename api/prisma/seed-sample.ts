@@ -27,7 +27,7 @@ import {
  *
  * Las cuentas con login (2 doctores + 12 pacientes) existen en el Supabase
  * Auth de staging, creadas con scripts/create-sample-auth-users.mjs; sus uid
- * van fijos acá. Pavel es el doctor de demo de seed-demo.ts (mismo uid).
+ * van fijos acá. Paul es el doctor de demo de seed-demo.ts (mismo uid).
  */
 
 const SAMPLE_DOMAIN = 'muestra.example.com';
@@ -107,11 +107,11 @@ const fromMinutes = (m: number) =>
 type Block = [weekday: number, start: string, end: string];
 
 interface DoctorSeed {
-  key: 'pavel' | 'lucia' | 'andres';
+  key: 'paul' | 'lucia' | 'andres';
   authUserId: string;
   email: string;
   displayName: string;
-  /** Pavel es del seed de demo: su perfil y horario solo se crean si faltan. */
+  /** Paul es del seed de demo: su perfil y horario solo se crean si faltan. */
   isSample: boolean;
   profile: Omit<Prisma.doctor_profilesUncheckedCreateInput, 'user_id'>;
   blocks: Block[];
@@ -126,10 +126,10 @@ const weekdays = (from: number, to: number, start: string, end: string) =>
 
 const DOCTORS: DoctorSeed[] = [
   {
-    key: 'pavel',
+    key: 'paul',
     authUserId: '19554b22-46dd-4589-8e6c-270c82b69a6a',
-    email: 'pavel@example.com',
-    displayName: 'Pavel Rojas',
+    email: 'paul@example.com',
+    displayName: 'Paul Rojas',
     isSample: false,
     profile: {
       specialty: 'Odontología general y rehabilitación oral',
@@ -1307,7 +1307,7 @@ class Agenda {
   private readonly taken = new Map<string, Set<number>>();
   private readonly offDays = new Map<string, Set<string>>();
 
-  /** Horario real de cada doctor (el de la base, no el del seed: Pavel puede tener otro en staging). */
+  /** Horario real de cada doctor (el de la base, no el del seed: Paul puede tener otro en staging). */
   constructor(private readonly blocks: Map<string, Block[]>) {}
 
   isFree(doctorId: string, start: Date, minutes: number): boolean {
@@ -1395,10 +1395,61 @@ function guestFields(
   return fields;
 }
 
+interface LeadRef {
+  id: string;
+  doctorId: string;
+}
+
+const LEAD_COUNT = 60;
+
+/**
+ * Personas que reservaron por la web o por WhatsApp y todavía no tienen cuenta.
+ * Igual que `confirmPaidBooking` en producción: un `users` placeholder
+ * (`auth_user_id` NULL) con una ficha mínima asignada al doctor de la cita.
+ * Así toda cita confirmada o atendida tiene un paciente que aparece en la
+ * lista de Pacientes como "Pendiente de cuenta".
+ */
+async function seedLeads(
+  doctors: DoctorRef[],
+  today: string,
+): Promise<LeadRef[]> {
+  const leads: LeadRef[] = [];
+  for (let i = 0; i < LEAD_COUNT; i += 1) {
+    const doctor = doctors[i % doctors.length];
+    const g = guestFields('public_web');
+    const createdAt = at(addDays(today, -randInt(1, 30)), '09:00');
+    const user = await prisma.users.create({
+      data: {
+        auth_user_id: null,
+        email: g.guest_email ?? null,
+        display_name: g.guest_full_name ?? null,
+        role: 'patient',
+        phone: g.guest_phone ?? null,
+        created_at: createdAt,
+        updated_at: createdAt,
+      },
+    });
+    const patient = await prisma.patients.create({
+      data: {
+        user_id: user.id,
+        first_name: g.guest_first_name ?? '',
+        last_name_paternal: g.guest_last_name_paternal ?? '',
+        last_name_maternal: g.guest_last_name_maternal ?? '',
+        assigned_doctor_id: doctor.id,
+        created_at: createdAt,
+        updated_at: createdAt,
+      },
+    });
+    leads.push({ id: patient.id, doctorId: doctor.id });
+  }
+  return leads;
+}
+
 async function seedAppointments(
   cat: Catalogs,
   doctors: DoctorRef[],
   patients: PatientRef[],
+  leads: LeadRef[],
   today: string,
 ) {
   const now = new Date();
@@ -1460,7 +1511,7 @@ async function seedAppointments(
     doctorId: string,
     slot: Date,
     treatment: TreatmentRow,
-    patient: PatientRef | null,
+    patient: { id: string } | null,
     source: string,
     status: string,
   ) => {
@@ -1603,6 +1654,20 @@ async function seedAppointments(
         if (patient) {
           futureCount.set(patient.id, (futureCount.get(patient.id) ?? 0) + 1);
         }
+        // Sin paciente con ficha, reserva una persona de la web o WhatsApp
+        // (con su usuario placeholder); si no quedan, el hueco queda libre.
+        const lead = patient
+          ? null
+          : leads.find(
+              (l) =>
+                l.doctorId === doctor.id && (futureCount.get(l.id) ?? 0) < 2,
+            );
+        if (!patient && !lead) {
+          continue;
+        }
+        if (lead) {
+          futureCount.set(lead.id, (futureCount.get(lead.id) ?? 0) + 1);
+        }
         let treatment = cat.consultation;
         // Un turno de hoy que ya pasó queda atendido: sin procedimiento
         // registrado, así que es una consulta (CLI-221).
@@ -1631,9 +1696,25 @@ async function seedAppointments(
         const source = patient
           ? pick(['doctor', 'doctor', 'public_web', 'whatsapp'])
           : pick(['public_web', 'public_web', 'whatsapp']);
-        push(doctor.id, slot, treatment, patient, source, status);
+        push(
+          doctor.id,
+          slot,
+          treatment,
+          patient ?? lead ?? null,
+          source,
+          status,
+        );
       }
     }
+  }
+
+  const orphanRows = rows.filter(
+    (r) => !r.patient_id && r.status !== 'held' && r.status !== 'expired',
+  );
+  if (orphanRows.length > 0) {
+    throw new Error(
+      `Integridad: el seed generó ${orphanRows.length} citas sin paciente.`,
+    );
   }
 
   for (let i = 0; i < rows.length; i += 200) {
@@ -1719,6 +1800,48 @@ async function upsertTestimonials() {
   );
 }
 
+/**
+ * Cada cita que no sea un hold/vencida de un invitado debe tener un paciente
+ * activo que figure en la lista de Pacientes. Si no, la agenda y Pacientes
+ * se contradicen en la demo. Las que genera el seed se validan antes de
+ * insertar; esto avisa de las que ya existían por fuera.
+ */
+async function verifyIntegrity() {
+  const orphans = await prisma.appointments.count({
+    where: {
+      patient_id: null,
+      status: { in: ['confirmed', 'attended', 'cancelled'] },
+    },
+  });
+  const hidden = await prisma.appointments.count({
+    where: {
+      patient_id: { not: null },
+      patients: {
+        users: { OR: [{ is_active: false }, { role: { not: 'patient' } }] },
+      },
+    },
+  });
+  if (orphans > 0 || hidden > 0) {
+    console.warn(
+      `! Fuera del seed hay ${orphans} citas sin paciente y ${hidden} con paciente que no figura en la lista (datos reales o de prueba manual; revisarlas a mano).`,
+    );
+  }
+  const [withAccount, pending, noDiagnosis] = await Promise.all([
+    prisma.users.count({
+      where: { role: 'patient', is_active: true, auth_user_id: { not: null } },
+    }),
+    prisma.users.count({
+      where: { role: 'patient', is_active: true, auth_user_id: null },
+    }),
+    prisma.patients.count({
+      where: { dental_exams: { none: {} }, users: { is_active: true } },
+    }),
+  ]);
+  console.log(
+    `✓ Integridad: toda cita del seed tiene paciente listado (${withAccount} con cuenta, ${pending} pendientes de cuenta, ${noDiagnosis} sin diagnóstico).`,
+  );
+}
+
 async function main() {
   assertNotProduction(process.env);
   const today = clinicToday();
@@ -1734,10 +1857,12 @@ async function main() {
     patients.push(await seedPatient(cat, spec, index, doctor, today));
   }
   console.log(
-    `✓ ${patients.length} pacientes (${ACCOUNT_COUNT} con cuenta, ${INVITE_COUNT} con invitación pendiente) con historial, presupuestos y tratamientos.`,
+    `✓ ${patients.length} pacientes (${ACCOUNT_COUNT} con cuenta, ${INVITE_COUNT} con invitación pendiente) con historial, presupuestos y tratamientos; más ${LEAD_COUNT} reservas web/WhatsApp sin cuenta.`,
   );
 
-  await seedAppointments(cat, doctors, patients, today);
+  const leads = await seedLeads(doctors, today);
+  await seedAppointments(cat, doctors, patients, leads, today);
+  await verifyIntegrity();
   await upsertTestimonials();
 }
 

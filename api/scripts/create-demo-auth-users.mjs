@@ -16,7 +16,12 @@ import { createClient } from '@supabase/supabase-js';
 // Supabase sobre users.display_name, así que si difieren, el nombre del seed
 // se pisa en el primer ingreso (y se ve en la web pública).
 const DEMO_ACCOUNTS = [
-  { email: 'pavel@example.com', fullName: 'Pavel Rojas' },
+  // Antes era pavel@example.com: si esa cuenta existe, se renombra (mismo uid).
+  {
+    email: 'paul@example.com',
+    fullName: 'Paul Rojas',
+    formerEmail: 'pavel@example.com',
+  },
   { email: 'juan@example.com', fullName: 'Juan Pérez' },
   { email: 'mariano@example.com', fullName: 'Mariano Vargas' },
 ];
@@ -52,8 +57,27 @@ async function findByEmail(email) {
   }
 }
 
-for (const { email, fullName } of DEMO_ACCOUNTS) {
-  const existing = await findByEmail(email);
+for (const { email, fullName, formerEmail } of DEMO_ACCOUNTS) {
+  let existing = await findByEmail(email);
+  if (!existing && formerEmail) {
+    const former = await findByEmail(formerEmail);
+    if (former) {
+      const { data, error } = await supabase.auth.admin.updateUserById(
+        former.id,
+        {
+          email,
+          email_confirm: true,
+          user_metadata: { ...former.user_metadata, full_name: fullName },
+        },
+      );
+      if (error) {
+        console.error(`✗ ${formerEmail} → ${email}: ${error.message}`);
+        process.exit(1);
+      }
+      console.log(`~ ${formerEmail} renombrada a ${email} → ${data.user.id}`);
+      continue;
+    }
+  }
   if (existing) {
     if (existing.user_metadata?.full_name !== fullName) {
       const { error } = await supabase.auth.admin.updateUserById(existing.id, {

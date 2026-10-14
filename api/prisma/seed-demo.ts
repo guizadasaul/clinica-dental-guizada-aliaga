@@ -24,8 +24,8 @@ const DEMO_USERS: Record<
 > = {
   doctor: {
     authUserId: '19554b22-46dd-4589-8e6c-270c82b69a6a',
-    email: 'pavel@example.com',
-    displayName: 'Pavel Rojas',
+    email: 'paul@example.com',
+    displayName: 'Paul Rojas',
     role: 'odontologist',
   },
   patient: {
