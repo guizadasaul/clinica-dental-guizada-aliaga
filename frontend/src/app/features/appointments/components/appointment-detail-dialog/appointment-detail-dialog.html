@@ -91,10 +91,10 @@
         <p class="detail-modal__error" role="alert">{{ error() }}</p>
       }
       @if (appointment().patientId && diagnosis() === 'missing') {
-        <p class="detail-modal__hint" role="status">
+        <output class="detail-modal__hint">
           Este paciente aún no tiene diagnóstico. Regístralo desde Pacientes para poder cargar
           tratamientos.
-        </p>
+        </output>
       } @else if (appointment().patientId && diagnosis() === 'error') {
         <p class="detail-modal__error" role="alert">
           No se pudo verificar el diagnóstico del paciente. Cierra y vuelve a abrir la cita.
