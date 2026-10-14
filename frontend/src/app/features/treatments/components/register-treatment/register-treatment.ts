@@ -50,6 +50,8 @@ export class RegisterTreatmentComponent {
   private readonly odontogram = viewChild<RegisterTreatmentOdontogramComponent>('odontogram');
 
   readonly patientId = input.required<string>();
+  /** Texto del botón de volver: cambia según desde dónde se abrió (lista de pacientes o agenda). */
+  readonly backLabel = input('Volver a la lista');
   readonly done = output<void>();
   readonly cancelled = output<void>();
 

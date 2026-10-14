@@ -5,6 +5,7 @@ import {
   ElementRef,
   afterNextRender,
   computed,
+  effect,
   inject,
   input,
   output,
@@ -13,6 +14,7 @@ import {
 } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 import { AppointmentsService } from '../../services/appointments.service';
+import { PatientsService } from '../../../patients/services/patients.service';
 import { ScrollLockService } from '../../../../shared/services/scroll-lock.service';
 import type { AppointmentAgendaItem } from '../../models/appointment.model';
 import { appointmentPatientLabel } from '../../models/appointment-patient-label';
@@ -33,10 +35,11 @@ const SOURCE_LABELS: Record<string, string> = {
 };
 
 /**
- * Detalle de un turno propio en la agenda (CLI-151), con sus acciones: abrir
- * la ficha (lo que hacía el click antes), reprogramar (lo resuelve la agenda
- * con un click en el horario nuevo) y cancelar (con confirmación y motivo).
- * Una cita pasada permite abrir la ficha y marcar "No asistió" (CLI-208).
+ * Detalle de un turno propio en la agenda (CLI-151), con sus acciones:
+ * registrar un tratamiento al paciente (solo si ya tiene diagnóstico; el
+ * backend también lo exige), reprogramar (lo resuelve la agenda con un click
+ * en el horario nuevo) y cancelar (con confirmación y motivo). Una cita
+ * pasada permite registrar el tratamiento y marcar "No asistió" (CLI-208).
  */
 @Component({
   selector: 'app-appointment-detail-dialog',
@@ -47,11 +50,12 @@ const SOURCE_LABELS: Record<string, string> = {
 })
 export class AppointmentDetailDialogComponent {
   private readonly appointmentsService = inject(AppointmentsService);
+  private readonly patientsService = inject(PatientsService);
   private readonly scrollLock = inject(ScrollLockService);
 
   readonly appointment = input.required<AppointmentAgendaItem>();
 
-  readonly openRecord = output<string>();
+  readonly registerTreatment = output<string>();
   readonly reschedule = output<AppointmentAgendaItem>();
   readonly cancelled = output<AppointmentAgendaItem>();
   /** CLI-208: se marcó o se deshizo "No asistió". */
@@ -92,16 +96,39 @@ export class AppointmentDetailDialogComponent {
   protected readonly cancelling = signal(false);
   protected readonly error = signal<string | null>(null);
 
+  /** Si el paciente ya tiene diagnóstico: sin él no se puede registrar un tratamiento. */
+  protected readonly diagnosis = signal<'loading' | 'ready' | 'missing' | 'error'>('loading');
+
   constructor() {
+    effect(() => {
+      const patientId = this.appointment().patientId;
+      if (patientId) {
+        void this.checkDiagnosis(patientId);
+      }
+    });
     this.scrollLock.lock();
     inject(DestroyRef).onDestroy(() => this.scrollLock.unlock());
     afterNextRender(() => this.panel()?.nativeElement.focus());
   }
 
-  protected onOpenRecord(): void {
+  private async checkDiagnosis(patientId: string): Promise<void> {
+    this.diagnosis.set('loading');
+    try {
+      const exam = await firstValueFrom(this.patientsService.getCurrentDentalExam(patientId));
+      if (this.appointment().patientId === patientId) {
+        this.diagnosis.set(exam ? 'ready' : 'missing');
+      }
+    } catch {
+      if (this.appointment().patientId === patientId) {
+        this.diagnosis.set('error');
+      }
+    }
+  }
+
+  protected onRegisterTreatment(): void {
     const patientId = this.appointment().patientId;
-    if (patientId) {
-      this.openRecord.emit(patientId);
+    if (patientId && this.diagnosis() === 'ready') {
+      this.registerTreatment.emit(patientId);
     }
   }
 

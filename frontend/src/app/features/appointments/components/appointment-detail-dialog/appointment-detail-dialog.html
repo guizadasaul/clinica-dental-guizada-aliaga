@@ -90,6 +90,16 @@
       @if (error()) {
         <p class="detail-modal__error" role="alert">{{ error() }}</p>
       }
+      @if (appointment().patientId && diagnosis() === 'missing') {
+        <p class="detail-modal__hint" role="status">
+          Este paciente aún no tiene diagnóstico. Regístralo desde Pacientes para poder cargar
+          tratamientos.
+        </p>
+      } @else if (appointment().patientId && diagnosis() === 'error') {
+        <p class="detail-modal__error" role="alert">
+          No se pudo verificar el diagnóstico del paciente. Cierra y vuelve a abrir la cita.
+        </p>
+      }
       <div class="detail-modal__actions">
         @if (canMarkNoShow() || isNoShow()) {
           <button
@@ -129,9 +139,10 @@
           <button
             type="button"
             class="detail-modal__btn detail-modal__btn--primary"
-            (click)="onOpenRecord()"
+            [disabled]="diagnosis() !== 'ready'"
+            (click)="onRegisterTreatment()"
           >
-            Abrir ficha
+            Registrar tratamiento
           </button>
         }
       </div>
