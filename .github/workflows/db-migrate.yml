@@ -152,7 +152,7 @@ jobs:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
         run: npm run seed:demo
 
-      # Después de los demo: Pavel (doctor de demo) es uno de los 3 doctores.
+      # Después de los demo: Paul (doctor de demo) es uno de los 3 doctores.
       - name: Datos de muestra
         if: inputs.seed_sample_data && inputs.environment == 'staging'
         env:
