@@ -19,6 +19,7 @@ describe('PrismaFinancesReadRepository', () => {
       createdAt?: string;
       lastTreatment?: string;
       quote?: { total: string; paid: string };
+      quotes?: { total: string; paid: string }[];
     } = {},
   ) {
     return {
@@ -30,16 +31,14 @@ describe('PrismaFinancesReadRepository', () => {
       tooth_procedures: overrides.lastTreatment
         ? [{ created_at: new Date(overrides.lastTreatment) }]
         : [],
-      quotes: overrides.quote
-        ? [
-            {
-              id: `quote-${id}`,
-              total_amount: overrides.quote.total,
-              total_paid: overrides.quote.paid,
-              shared_at: SHARED,
-            },
-          ]
-        : [],
+      quotes: (
+        overrides.quotes ?? (overrides.quote ? [overrides.quote] : [])
+      ).map((q, i) => ({
+        id: i === 0 ? `quote-${id}` : `quote-${id}-${i}`,
+        total_amount: q.total,
+        total_paid: q.paid,
+        shared_at: SHARED,
+      })),
     };
   }
 
@@ -75,7 +74,7 @@ describe('PrismaFinancesReadRepository', () => {
     ]);
   });
 
-  it('pide solo fichas no eliminadas, con su último tratamiento y su presupuesto activo más reciente', async () => {
+  it('pide solo fichas no eliminadas, con su último tratamiento y todos sus presupuestos activos', async () => {
     prisma.patients.findMany.mockResolvedValue([]);
 
     await repo.listPatientsWithBalance();
@@ -86,7 +85,7 @@ describe('PrismaFinancesReadRepository', () => {
           where: unknown;
           select: {
             tooth_procedures: unknown;
-            quotes: { where: unknown; orderBy: unknown; take: number };
+            quotes: { where: unknown; orderBy: unknown; take?: number };
           };
         },
       ],
@@ -103,8 +102,28 @@ describe('PrismaFinancesReadRepository', () => {
         total_amount: { gt: 0 },
       },
       orderBy: { updated_at: 'desc' },
-      take: 1,
     });
+    expect(args.select.quotes.take).toBeUndefined();
+  });
+
+  it('suma el saldo de todos sus presupuestos abiertos; quoteId es el más reciente (CLI-265)', async () => {
+    prisma.patients.findMany.mockResolvedValue([
+      patient('p1', 'Ana', 'Pérez', {
+        quotes: [
+          { total: '300', paid: '0' },
+          { total: '700', paid: '200.5' },
+        ],
+      }),
+    ]);
+
+    await expect(repo.listPatientsWithBalance()).resolves.toMatchObject([
+      {
+        quoteId: 'quote-p1',
+        totalAmount: 1000,
+        totalPaid: 200.5,
+        balance: 799.5,
+      },
+    ]);
   });
 
   it('ordena por último tratamiento, el más reciente primero, y los que nunca recibieron uno al final', async () => {

@@ -27,13 +27,15 @@ import { FinancesReadRepository } from '../domain/FinancesReadRepository';
 import type { IFinancesReadRepository } from '../domain/FinancesReadRepository';
 import type { PatientBalance } from '../domain/PatientBalance';
 
-const ACTIVE_STATUSES = new Set(['pending', 'partially_paid']);
-
 export interface PatientFinanceDetail {
   patientId: string;
   patientName: string;
-  /** El presupuesto activo; si no hay, el más reciente; null si nunca tuvo. */
-  quote: Quote | null;
+  /**
+   * Todos sus presupuestos, los más recientes primero (CLI-265): pagado uno,
+   * lo siguiente que se registra va a uno nuevo, y el historial de
+   * tratamientos y pagos tiene que seguir completo.
+   */
+  quotes: Quote[];
 }
 
 export interface QrChargeView {
@@ -99,9 +101,7 @@ export class FinancesService {
       throw new NotFoundException(`Paciente con id ${patientId} no encontrado`);
     }
     const quotes = await this.quotesService.findByPatient(patientId);
-    const quote =
-      quotes.find((q) => ACTIVE_STATUSES.has(q.status)) ?? quotes[0] ?? null;
-    return { patientId, patientName, quote };
+    return { patientId, patientName, quotes };
   }
 
   /** CLI-261: el doctor cobra con QR los tratamientos que elige, por su saldo completo. */

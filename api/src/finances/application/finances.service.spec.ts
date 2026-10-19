@@ -93,39 +93,31 @@ describe('FinancesService', () => {
       );
     });
 
-    it('elige el presupuesto activo aunque haya uno pagado más nuevo', async () => {
+    it('devuelve todos los presupuestos: el pagado y el nuevo (CLI-265)', async () => {
       readRepo.findPatientName.mockResolvedValue('Ana Pérez');
-      const active = quote({ id: 'active' });
-      quotesService.findByPatient.mockResolvedValue([
-        quote({ id: 'paid', status: 'paid' }),
-        active,
-      ]);
+      const fresh = quote({ id: 'fresh' });
+      const paid = quote({ id: 'paid', status: 'paid' });
+      quotesService.findByPatient.mockResolvedValue([fresh, paid]);
 
       await expect(service.getPatientDetail('patient-1')).resolves.toEqual({
         patientId: 'patient-1',
         patientName: 'Ana Pérez',
-        quote: active,
+        quotes: [fresh, paid],
       });
     });
 
-    it('sin activo usa el más reciente; sin presupuestos, null', async () => {
+    it('sin presupuestos, una lista vacía', async () => {
       readRepo.findPatientName.mockResolvedValue('Ana Pérez');
-      const paid = quote({ id: 'paid', status: 'paid' });
-      quotesService.findByPatient
-        .mockResolvedValueOnce([paid])
-        .mockResolvedValueOnce([]);
+      quotesService.findByPatient.mockResolvedValue([]);
 
-      expect((await service.getPatientDetail('patient-1')).quote).toBe(paid);
-      expect((await service.getPatientDetail('patient-1')).quote).toBeNull();
+      expect((await service.getPatientDetail('patient-1')).quotes).toEqual([]);
     });
   });
 
   describe('createQrCharge (CLI-261: el doctor elige los tratamientos)', () => {
     const withLines = () =>
       quote({
-        items: [
-          { id: 'item-1', applicationGroupId: null },
-        ] as Quote['items'],
+        items: [{ id: 'item-1', applicationGroupId: null }] as Quote['items'],
         lines: [
           {
             key: 'item-1',

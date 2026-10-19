@@ -108,7 +108,7 @@ function quote(overrides: Partial<Quote> = {}): Quote {
   };
 }
 
-const DETAIL: PatientFinanceDetail = { patientId: 'p1', patientName: 'Ana Pérez', quote: quote() };
+const DETAIL: PatientFinanceDetail = { patientId: 'p1', patientName: 'Ana Pérez', quotes: [quote()] };
 
 function setup(list = of(PATIENTS)) {
   vi.useFakeTimers();
@@ -302,7 +302,7 @@ describe('FinancesPageComponent', () => {
 
   it('paciente sin presupuesto', () => {
     const { root, finances, tick } = setup();
-    finances.getPatientDetail.mockReturnValue(of({ ...DETAIL, quote: null }));
+    finances.getPatientDetail.mockReturnValue(of({ ...DETAIL, quotes: [] }));
 
     root.querySelector<HTMLButtonElement>('.fin__patient')!.click();
     tick();
@@ -328,6 +328,72 @@ describe('FinancesPageComponent', () => {
     expect(root.textContent).toContain('Pago de Bs. 500.00 registrado');
     expect(root.textContent).toContain('Presupuesto pagado por completo');
     expect(finances.listPatients).toHaveBeenCalledTimes(2);
+  });
+
+  // CLI-265: pagado uno, lo siguiente que se registra va a un presupuesto nuevo.
+  describe('con un presupuesto pagado y uno nuevo', () => {
+    const paidQuote = quote({ totalPaid: 700, balance: 0, status: 'paid' });
+    const freshQuote = quote({
+      id: 'quote-2',
+      totalAmount: 300,
+      totalPaid: 0,
+      balance: 300,
+      status: 'pending',
+      createdAt: '2026-10-10T12:00:00Z',
+      payments: [],
+      lines: [
+        { key: 'i3', treatmentName: 'Resina', toothNumbers: [16], total: 300, paid: 0, pending: 300, performedAt: '2026-10-10' },
+      ],
+    });
+
+    function selectBoth() {
+      const ctx = setup();
+      ctx.finances.getPatientDetail.mockReturnValue(of({ ...DETAIL, quotes: [freshQuote, paidQuote] }));
+      ctx.root.querySelector<HTMLButtonElement>('.fin__patient')!.click();
+      ctx.tick();
+      return ctx;
+    }
+
+    it('muestra los tratamientos y los pagos de los dos, y los totales sumados', () => {
+      const { root } = selectBoth();
+
+      const lines = [...root.querySelectorAll('.fin__line')].map((l) => l.textContent!);
+      expect(lines).toHaveLength(3);
+      expect(lines[0]).toContain('Resina');
+      expect(lines[1]).toContain('Tratamiento de conducto');
+      expect(root.querySelectorAll('.fin__table tbody tr:not(.fin__payment-detail)')).toHaveLength(2);
+      expect(root.querySelector('.fin__card--balance')?.textContent).toContain('Bs. 300.00');
+      expect(root.querySelectorAll('.fin__pay-btn')).toHaveLength(1);
+    });
+
+    it('el pago se registra sobre el que tiene saldo y no pisa al otro', () => {
+      const { fixture, root, tick } = selectBoth();
+      root.querySelector<HTMLButtonElement>('.fin__pay-btn')!.click();
+      tick();
+      const panel = fixture.debugElement.query(By.directive(RegisterPaymentStub))
+        .componentInstance as RegisterPaymentStub;
+      expect(panel.quoteId()).toBe('quote-2');
+      expect(panel.lines().map((l) => l.key)).toEqual(['i3']);
+
+      panel.paid.emit({ ...freshQuote, totalPaid: 300, balance: 0, status: 'paid' });
+      tick();
+
+      expect(root.textContent).toContain('Pago de Bs. 300.00 registrado');
+      expect(root.textContent).toContain('Presupuesto pagado por completo');
+      expect(root.querySelectorAll('.fin__line')).toHaveLength(3);
+      expect(root.querySelector('.fin__card--balance')?.textContent).toContain('Bs. 0.00');
+    });
+
+    it('con dos presupuestos con saldo, un botón por cada uno', () => {
+      const { root, finances, tick } = setup();
+      finances.getPatientDetail.mockReturnValue(of({ ...DETAIL, quotes: [freshQuote, quote()] }));
+      root.querySelector<HTMLButtonElement>('.fin__patient')!.click();
+      tick();
+
+      const buttons = [...root.querySelectorAll('.fin__pay-btn')].map((b) => b.textContent!);
+      expect(buttons).toHaveLength(2);
+      expect(buttons[0]).toContain('presupuesto del 10/10/2026');
+    });
   });
 
   it('cerrar el panel vuelve al botón', () => {

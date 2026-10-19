@@ -329,7 +329,7 @@ export class GetMyPatientsTool implements ChatTool<MyPatientsArgsDto> {
 export class GetMyPatientSummaryTool implements ChatTool<MyPatientSummaryArgsDto> {
   readonly name = 'get_my_patient_summary';
   readonly description =
-    'Resumen de UN paciente suyo por nombre: próxima cita, última visita, faltas, tratamientos hechos, presupuesto y saldo. Si varios coinciden, devuelve candidatos. Sin historia clínica.';
+    'Resumen de UN paciente suyo por nombre: próxima cita, última visita, faltas, tratamientos hechos, presupuestos y saldo. Si varios coinciden, devuelve candidatos. Sin historia clínica.';
   readonly parameters: JsonSchema = {
     type: 'object',
     properties: { name: { type: 'string', minLength: 2, maxLength: 60 } },
@@ -394,7 +394,8 @@ export class GetMyPatientSummaryTool implements ChatTool<MyPatientSummaryArgsDto
           ...(t.toothNumber !== null && { tooth: t.toothNumber }),
         })),
       },
-      quote: finance.quote ? quoteSummary(finance.quote) : null,
+      // CLI-265: pagado uno, lo siguiente va a otro presupuesto: van todos.
+      quotes: finance.quotes.map(quoteSummary),
       note: 'missedAppointments = citas a las que "no asistió" (dilo así, no "no-show").',
     };
   }
