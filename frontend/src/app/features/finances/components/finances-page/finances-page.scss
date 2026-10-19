@@ -226,7 +226,33 @@
     &:last-child { border-bottom: none; }
 
     // El monto no se parte en dos renglones ("Bs." arriba, el número abajo).
-    > strong { flex-shrink: 0; white-space: nowrap; }
+    strong { white-space: nowrap; }
+  }
+
+  // CLI-262: lo pagado y lo que falta de cada tratamiento, bajo su precio.
+  &__line-amounts {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    flex-shrink: 0;
+    gap: 0.125rem;
+    text-align: right;
+  }
+
+  &__line-paid { color: #166534; font-size: var(--font-size-xs); font-weight: 600; }
+  &__line-owed { color: var(--color-error); font-size: var(--font-size-xs); }
+
+  &__payment--detailed td { border-bottom: none; }
+
+  &__payment-detail td {
+    padding-top: 0;
+    font-size: var(--font-size-xs);
+    color: var(--color-gray-500);
+  }
+
+  &__payment-notes {
+    display: block;
+    font-style: italic;
   }
 
   &__teeth { color: var(--color-gray-500); font-size: var(--font-size-xs); }

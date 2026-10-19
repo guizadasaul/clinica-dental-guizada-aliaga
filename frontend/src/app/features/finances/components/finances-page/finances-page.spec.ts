@@ -81,10 +81,29 @@ function quote(overrides: Partial<Quote> = {}): Quote {
         paymentDate: '2026-09-20T12:00:00Z',
         notes: null,
         createdAt: '2026-09-20T12:00:00Z',
-        covered: [],
+        covered: [{ lineKey: 'i1', treatmentName: 'Tratamiento de conducto', amount: 150 }],
       },
     ],
-    lines: [],
+    lines: [
+      {
+        key: 'i1',
+        treatmentName: 'Tratamiento de conducto',
+        toothNumbers: [36],
+        total: 700,
+        paid: 200,
+        pending: 500,
+        performedAt: '2026-04-22',
+      },
+      {
+        key: 'i2',
+        treatmentName: 'Limpieza',
+        toothNumbers: [],
+        total: 100,
+        paid: 100,
+        pending: 0,
+        performedAt: null,
+      },
+    ],
     ...overrides,
   };
 }
@@ -256,7 +275,19 @@ describe('FinancesPageComponent', () => {
     expect(root.querySelector('.fin__line-status')?.textContent).toContain('Realizado el 22/04/2026');
     const rows = root.querySelectorAll('.fin__table tbody tr');
     expect(rows[0].textContent).toContain('QR BANECO');
-    expect(rows[1].textContent).toContain('efectivo');
+    // CLI-262: debajo del pago, a qué tratamiento se aplicó.
+    expect(rows[1].textContent!.replace(/\s+/g, ' ')).toContain('Cubrió: Tratamiento de conducto (Bs. 150.00)');
+    expect(rows[2].textContent).toContain('efectivo');
+  });
+
+  it('cada tratamiento muestra lo pagado y lo que falta (CLI-262)', () => {
+    const { root, tick } = setup();
+    root.querySelector<HTMLButtonElement>('.fin__patient')!.click();
+    tick();
+
+    const lines = [...root.querySelectorAll('.fin__line')].map((l) => l.textContent!.replace(/\s+/g, ' '));
+    expect(lines[0]).toContain('Pagó Bs. 200.00 · debe Bs. 500.00');
+    expect(lines[1]).toContain('Pagado');
   });
 
   it('si el detalle falla, avisa', () => {
@@ -288,7 +319,7 @@ describe('FinancesPageComponent', () => {
     tick();
     const panel = fixture.debugElement.query(By.directive(RegisterPaymentStub))
       .componentInstance as RegisterPaymentStub;
-    expect(panel.lines()).toEqual([]);
+    expect(panel.lines().map((l) => l.key)).toEqual(['i1', 'i2']);
 
     panel.paid.emit(quote({ totalPaid: 700, balance: 0, status: 'paid' }));
     tick();

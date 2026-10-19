@@ -1,4 +1,4 @@
-import { groupQuoteLines, linePerformedAt, paymentMethodLabel } from './quote-lines';
+import { linePerformedAt, paymentMethodLabel } from './quote-lines';
 import type { QuoteItem } from '../models/quote.model';
 
 function item(overrides: Partial<QuoteItem> = {}): QuoteItem {
@@ -19,21 +19,6 @@ function item(overrides: Partial<QuoteItem> = {}): QuoteItem {
     ...overrides,
   };
 }
-
-describe('groupQuoteLines', () => {
-  it('junta las filas de un mismo grupo en una línea con todas sus piezas', () => {
-    const lines = groupQuoteLines([
-      item({ id: 'a', applicationGroupId: 'g1', toothNumber: 16, subtotal: 300 }),
-      item({ id: 'b', applicationGroupId: 'g1', toothNumber: 17, subtotal: 300 }),
-      item({ id: 'c', treatmentName: 'Limpieza', toothNumber: null, subtotal: 250 }),
-    ]);
-
-    expect(lines).toEqual([
-      { key: 'g1', treatmentName: 'Resina', toothNumbers: [16, 17], total: 300, performedAt: null },
-      { key: 'c', treatmentName: 'Limpieza', toothNumbers: [], total: 250, performedAt: null },
-    ]);
-  });
-});
 
 describe('linePerformedAt (CLI-228)', () => {
   const done = (date: string) => item({ procedureId: `p-${date}`, performedAt: date });

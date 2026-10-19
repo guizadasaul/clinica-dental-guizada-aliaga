@@ -12,7 +12,7 @@ import { PageHeaderComponent } from '../../../../shared/ui/page-header/page-head
 import { FinancesService } from '../../services/finances.service';
 import type { PatientBalance, PatientFinanceDetail } from '../../models/finance.model';
 import type { Quote } from '../../../quotes/models/quote.model';
-import { groupQuoteLines, paymentMethodLabel } from '../../../quotes/utils/quote-lines';
+import { paymentMethodLabel } from '../../../quotes/utils/quote-lines';
 import { PaginationComponent, PAGE_SIZE } from '../../../../shared/ui/pagination/pagination';
 import { ScrollIntoViewOnMobileDirective } from '../../../../shared/directives/scroll-into-view-on-mobile.directive';
 import { clampPage, pageSlice } from '../../../../shared/utils/pagination.util';
@@ -101,7 +101,8 @@ export class FinancesPageComponent {
     return state.status === 'ready' ? state.detail : null;
   });
 
-  protected readonly lines = computed(() => groupQuoteLines(this.detail()?.quote?.items ?? []));
+  /** CLI-262: cada tratamiento con lo pagado y lo pendiente, como lo calcula el API. */
+  protected readonly lines = computed(() => this.detail()?.quote?.lines ?? []);
 
   /** Más recientes primero. */
   protected readonly payments = computed(() =>

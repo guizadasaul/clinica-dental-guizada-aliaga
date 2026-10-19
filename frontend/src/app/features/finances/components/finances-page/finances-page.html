@@ -125,7 +125,16 @@
                         }
                       </small>
                     </span>
-                    <strong>Bs. {{ line.total | number: '1.2-2' }}</strong>
+                    <span class="fin__line-amounts">
+                      <strong>Bs. {{ line.total | number: '1.2-2' }}</strong>
+                      @if (line.pending <= 0) {
+                        <small class="fin__line-paid">Pagado</small>
+                      } @else if (line.paid > 0) {
+                        <small class="fin__line-owed">Pagó Bs. {{ line.paid | number: '1.2-2' }} · debe Bs. {{ line.pending | number: '1.2-2' }}</small>
+                      } @else {
+                        <small class="fin__line-owed">Debe Bs. {{ line.pending | number: '1.2-2' }}</small>
+                      }
+                    </span>
                   </li>
                 }
               </ul>
@@ -143,12 +152,28 @@
                   </thead>
                   <tbody>
                     @for (p of payments(); track p.id) {
-                      <tr>
+                      <tr [class.fin__payment--detailed]="p.covered.length > 0 || p.notes">
                         <td>{{ p.paymentDate | date: 'dd/MM/yyyy HH:mm' }}</td>
                         <td>{{ methodLabel(p.paymentMethod) }}</td>
                         <td>{{ p.receiptNumber }}</td>
                         <td class="fin__num">Bs. {{ p.amount | number: '1.2-2' }}</td>
                       </tr>
+                      <!-- CLI-262: a qué tratamientos se aplicó cada pago -->
+                      @if (p.covered.length > 0 || p.notes) {
+                        <tr class="fin__payment-detail">
+                          <td colspan="4">
+                            @if (p.covered.length > 0) {
+                              Cubrió:
+                              @for (c of p.covered; track c.lineKey; let last = $last) {
+                                {{ c.treatmentName }} (Bs. {{ c.amount | number: '1.2-2' }}){{ last ? '' : ',' }}
+                              }
+                            }
+                            @if (p.notes) {
+                              <span class="fin__payment-notes">{{ p.notes }}</span>
+                            }
+                          </td>
+                        </tr>
+                      }
                     }
                   </tbody>
                 </table>
