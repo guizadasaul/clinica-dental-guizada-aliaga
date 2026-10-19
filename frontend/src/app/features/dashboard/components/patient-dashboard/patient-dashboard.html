@@ -77,6 +77,57 @@
       </div>
     </section>
 
+    @if (quotes() !== null) {
+      <section class="patient__section">
+        <h2 class="section-title">Pendientes</h2>
+        @if (pending().toDo.length === 0 && pending().toPay.length === 0) {
+          <p class="patient__muted">Estás al día: no tienes tratamientos ni pagos pendientes.</p>
+        } @else {
+          <div class="pending">
+            <div class="pending__group">
+              <h3 class="pending__title">
+                <span class="material-symbols-outlined" aria-hidden="true">dentistry</span>
+                Por realizar
+              </h3>
+              <ul class="pending__list">
+                @for (t of pending().toDo; track t.key) {
+                  <li class="pending__item">{{ t.label }}</li>
+                } @empty {
+                  <li class="pending__item pending__item--muted">Nada por realizar.</li>
+                }
+              </ul>
+              @if (pending().toDoMore > 0) {
+                <p class="patient__muted">Y {{ pending().toDoMore }} más.</p>
+              }
+            </div>
+            <div class="pending__group">
+              <h3 class="pending__title">
+                <span class="material-symbols-outlined" aria-hidden="true">payments</span>
+                Por pagar
+              </h3>
+              <ul class="pending__list">
+                @for (t of pending().toPay; track t.key) {
+                  <li class="pending__item">
+                    <span>{{ t.label }}</span>
+                    <strong class="pending__amount">{{ t.amount }}</strong>
+                  </li>
+                } @empty {
+                  <li class="pending__item pending__item--muted">Nada por pagar.</li>
+                }
+              </ul>
+              @if (pending().toPayMore > 0) {
+                <p class="patient__muted">Y {{ pending().toPayMore }} más.</p>
+              }
+            </div>
+          </div>
+          <button type="button" class="patient__link" (click)="navChange.emit('quote')">
+            Ver mi presupuesto
+            <span class="material-symbols-outlined" aria-hidden="true">arrow_forward</span>
+          </button>
+        }
+      </section>
+    }
+
     <p class="patient__contact">
       ¿Necesitas reprogramar o tienes una consulta?
       <a class="patient__whatsapp" [href]="whatsappUrl()" target="_blank" rel="noopener noreferrer">
