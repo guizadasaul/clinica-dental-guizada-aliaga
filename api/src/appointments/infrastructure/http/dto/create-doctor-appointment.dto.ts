@@ -1,4 +1,5 @@
 import {
+  IsBoolean,
   IsDivisibleBy,
   IsInt,
   IsISO8601,
@@ -42,4 +43,9 @@ export class CreateDoctorAppointmentDto {
   @IsString()
   @MaxLength(500)
   notes?: string;
+
+  /** CLI-264: paciente que llegó sin cita: se acepta un horario de hoy que ya empezó. */
+  @IsOptional()
+  @IsBoolean()
+  walkIn?: boolean;
 }

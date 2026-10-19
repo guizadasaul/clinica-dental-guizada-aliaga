@@ -110,6 +110,11 @@ export interface DoctorAppointmentInput {
   treatmentId?: string;
   durationMinutes?: number;
   notes?: string;
+  /**
+   * CLI-264: el paciente llegó sin cita y se atiende ahora. Se acepta un
+   * horario de hoy que ya empezó; nunca de otro día.
+   */
+  walkIn?: boolean;
 }
 
 /** CLI-149: nuevo horario de una cita confirmada (notas: undefined = no tocarlas). */
@@ -126,6 +131,11 @@ const TIME_BLOCKED_MESSAGE =
   'Ese horario lo tienes reservado en tu agenda. Quita la reserva o elige otro horario.';
 /** Un bloqueo no puede durar más que esto: evita apartar la agenda "para siempre" por un error de fecha. */
 const MAX_TIME_BLOCK_MS = 31 * 24 * 60 * 60 * 1000;
+
+/** Día de Bolivia (YYYY-MM-DD) de un instante, para comparar "hoy" en la clínica. */
+const CLINIC_DAY_FORMATTER = new Intl.DateTimeFormat('en-CA', {
+  timeZone: CLINIC_TIMEZONE,
+});
 
 const BLOCK_WHEN_FORMATTER = new Intl.DateTimeFormat('es-BO', {
   timeZone: CLINIC_TIMEZONE,
@@ -405,7 +415,11 @@ export class AppointmentsService {
   ): Promise<AppointmentWithPatient> {
     const start = new Date(input.appointmentDatetime);
     const now = new Date();
-    this.assertBookableStart(start, now);
+    if (input.walkIn) {
+      this.assertWalkInStart(start, now);
+    } else {
+      this.assertBookableStart(start, now);
+    }
 
     let durationMinutes = input.durationMinutes ?? SLOT_MINUTES;
     if (input.treatmentId) {
@@ -635,6 +649,22 @@ export class AppointmentsService {
     if (start.getTime() <= now.getTime()) {
       throw new BadRequestException('La cita tiene que ser en el futuro');
     }
+    this.assertStartStep(start);
+  }
+
+  /** CLI-264: un paciente sin cita se registra en un horario de hoy, aunque ya haya empezado. */
+  private assertWalkInStart(start: Date, now: Date): void {
+    if (
+      CLINIC_DAY_FORMATTER.format(start) !== CLINIC_DAY_FORMATTER.format(now)
+    ) {
+      throw new BadRequestException(
+        'Un paciente sin cita se registra en un horario de hoy',
+      );
+    }
+    this.assertStartStep(start);
+  }
+
+  private assertStartStep(start: Date): void {
     // El doctor agenda de a 5 minutos (CLI-194); la reserva pública sigue en
     // la grilla de 30 (holdSlot / isValidSlot).
     if (start.getTime() % (DOCTOR_START_STEP_MINUTES * 60_000) !== 0) {

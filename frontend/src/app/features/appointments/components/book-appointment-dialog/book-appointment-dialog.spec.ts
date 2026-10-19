@@ -436,6 +436,63 @@ describe('BookAppointmentDialogComponent (CLI-150)', () => {
     });
   });
 
+  // CLI-264
+  describe('paciente sin cita', () => {
+    it('en un horario de hoy que ya empezó, el título lo dice y la cita se manda como walkIn', async () => {
+      const { fixture, appointmentsService } = setup();
+      fixture.componentRef.setInput('walkIn', true);
+      fixture.detectChanges();
+
+      expect(fixture.nativeElement.querySelector('#book-modal-title').textContent).toContain('Paciente sin cita');
+      internals(fixture).onPatientChange('p-1');
+      await internals(fixture).onSubmit();
+
+      expect(appointmentsService.createByDoctor).toHaveBeenCalledWith(
+        expect.objectContaining({ patientId: 'p-1', walkIn: true }),
+      );
+    });
+
+    it('una cita normal no manda walkIn', async () => {
+      const { fixture, appointmentsService } = setup();
+      fixture.detectChanges();
+      internals(fixture).onPatientChange('p-1');
+      await internals(fixture).onSubmit();
+
+      expect(appointmentsService.createByDoctor.mock.calls[0][0]).not.toHaveProperty('walkIn');
+    });
+
+    it('"Paciente nuevo" pasa la hora y la duración elegidas para registrar su ficha', () => {
+      const { fixture } = setup();
+      const emitted: unknown[] = [];
+      fixture.componentInstance.newPatient.subscribe((e) => emitted.push(e));
+      fixture.detectChanges();
+      internals(fixture).onStartChange(eventWith('10:15'));
+      internals(fixture).onDurationHoursChange(eventWith('1'));
+      fixture.detectChanges();
+
+      (fixture.nativeElement as HTMLElement).querySelector<HTMLButtonElement>('.book-modal__new-patient')!.click();
+
+      // 1 h + los 30 min que ya tenía.
+      expect(emitted).toEqual([{ minutes: 10 * 60 + 15, durationMinutes: 90 }]);
+    });
+
+    it('al reprogramar no se ofrece registrar un paciente nuevo', () => {
+      const { fixture } = setup();
+      fixture.componentRef.setInput('appointment', {
+        id: 'a-1',
+        patientId: 'p-1',
+        patientFirstName: 'Ana',
+        patientLastNamePaternal: 'Perez',
+        durationMinutes: 30,
+        notes: null,
+        treatmentName: null,
+      });
+      fixture.detectChanges();
+
+      expect((fixture.nativeElement as HTMLElement).querySelector('.book-modal__new-patient')).toBeNull();
+    });
+  });
+
   it('ante un 409 queda abierto y explica el choque', async () => {
     const { fixture } = setup({ createResult: throwError(() => ({ status: 409 })) });
     const booked = vi.fn();

@@ -68,7 +68,7 @@
           [attr.title]="cell.label"
           (click)="onBookSlot(date, cell)"
         >
-          <span class="material-symbols-outlined agenda-cell__plus" aria-hidden="true">add</span>
+          <span class="material-symbols-outlined agenda-cell__plus" aria-hidden="true">{{ cell.walkIn ? 'person_add' : 'add' }}</span>
         </button>
       } @else if (cell.offHours) {
         <div
@@ -131,7 +131,9 @@
       [busyIntervals]="busyIntervals()"
       [appointment]="rescheduling()"
       [followUpOf]="followUpPick()"
+      [walkIn]="bookingWalkIn()"
       (booked)="onBooked($event)"
+      (newPatient)="onNewPatient($event)"
       (closed)="onBookingClosed()"
     />
   }
@@ -185,6 +187,15 @@
       backLabel="Volver a la agenda"
       (done)="onTreatmentDone()"
       (cancelled)="onTreatmentClosed()"
+    />
+  } @else if (walkInDraft()) {
+    <!-- CLI-264: ficha completa del paciente nuevo; al terminar queda su cita en el horario elegido -->
+    <app-patient-wizard
+      [startStep]="1"
+      backLabel="Volver a la agenda"
+      finishLabel="Ver su cita en la agenda"
+      (wizardComplete)="onWalkInRegistered($event)"
+      (cancelled)="onWalkInCancelled()"
     />
   } @else {
     <div class="agenda__nav">

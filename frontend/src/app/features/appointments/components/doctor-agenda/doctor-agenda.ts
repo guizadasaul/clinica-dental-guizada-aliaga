@@ -25,16 +25,18 @@ import type {
   DoctorScheduleBlock,
   TimeBlock,
 } from '../../models/appointment.model';
-import { isWithinSchedule, minutesToHhmm } from '../../models/clinic-schedule.util';
+import { clinicSlotIso, isWithinSchedule, minutesToHhmm } from '../../models/clinic-schedule.util';
 import {
   BookAppointmentDialogComponent,
   type AgendaSlot,
   type BusyInterval,
+  type NewPatientSlot,
 } from '../book-appointment-dialog/book-appointment-dialog';
 import { TimeBlockDialogComponent } from '../time-block-dialog/time-block-dialog';
 import { AppointmentDetailDialogComponent } from '../appointment-detail-dialog/appointment-detail-dialog';
 import { appointmentPatientLabel } from '../../models/appointment-patient-label';
 import { PageHeaderComponent } from '../../../../shared/ui/page-header/page-header';
+import { PatientWizardComponent } from '../../../patients/components/patient-wizard/patient-wizard';
 import { ViewportService } from '../../../../shared/services/viewport.service';
 
 const TIME_FORMATTER = new Intl.DateTimeFormat('es-BO', {
@@ -164,7 +166,17 @@ interface AgendaCell {
   /** Fuera del horario de atención del doctor — se sombrea. */
   readonly offHours: boolean;
   readonly bookable: boolean;
+  /** CLI-264: franja de hoy que ya empezó — solo para un paciente que llegó sin cita. */
+  readonly walkIn: boolean;
   readonly label: string;
+}
+
+/** CLI-264: dónde queda la cita del paciente nuevo cuando termine su ficha. */
+interface WalkInDraft {
+  readonly date: string;
+  readonly minutes: number;
+  readonly durationMinutes: number;
+  readonly walkIn: boolean;
 }
 
 interface DoctorLegendItem {
@@ -222,6 +234,7 @@ function assignLanes(
     BookAppointmentDialogComponent,
     TimeBlockDialogComponent,
     AppointmentDetailDialogComponent,
+    PatientWizardComponent,
     NgTemplateOutlet,
   ],
   templateUrl: './doctor-agenda.html',
@@ -329,6 +342,10 @@ export class DoctorAgendaComponent {
   protected readonly blockDialog = signal<{ block: TimeBlock | null; date: string } | null>(null);
   /** Horario clickeado: con valor, el modal de "Agendar cita" está abierto. */
   protected readonly bookingSlot = signal<AgendaSlot | null>(null);
+  /** CLI-264: el horario elegido ya empezó (hoy): el diálogo es para un paciente sin cita. */
+  protected readonly bookingWalkIn = signal(false);
+  /** CLI-264: paciente nuevo que se está registrando para un horario de la agenda. */
+  protected readonly walkInDraft = signal<WalkInDraft | null>(null);
   /** CLI-151: turno propio clickeado — con valor, el detalle está abierto. */
   protected readonly detailAppointment = signal<AppointmentAgendaItem | null>(null);
   /** CLI-151: cita que se está reprogramando — la agenda espera el click en el horario nuevo. */
@@ -508,6 +525,7 @@ export class DoctorAgendaComponent {
       return cells;
     }
     const now = Date.now();
+    const today = laPazDateString(new Date(now));
     const schedule = this.schedule();
     for (const date of this.visibleDates()) {
       const movingId = this.rescheduling()?.id;
@@ -526,13 +544,18 @@ export class DoctorAgendaComponent {
           busy.some((b) => b.start < minutes + this.SLOT_MINUTES && minutes < b.end) ||
           blocked.some((b) => b.start < minutes + this.SLOT_MINUTES && minutes < b.end);
         const past = new Date(`${date}T${minutesToHhmm(minutes)}:00-04:00`).getTime() <= now;
+        // Hoy, lo que ya empezó sirve para el que llegó sin cita (no al reprogramar).
+        const walkIn = past && date === today && !occupied && !this.picking();
         dayCells.push({
           minutes,
           offset: i * this.ROW_HEIGHT_PX,
           offHours:
             schedule.length > 0 && !isWithinSchedule(schedule, date, minutes, this.SLOT_MINUTES),
-          bookable: !occupied && !past,
-          label: `Agendar el ${this.dayLabel(date)} a las ${minutesToHhmm(minutes)}`,
+          bookable: (!occupied && !past) || walkIn,
+          walkIn,
+          label: walkIn
+            ? `Paciente sin cita a las ${minutesToHhmm(minutes)}`
+            : `Agendar el ${this.dayLabel(date)} a las ${minutesToHhmm(minutes)}`,
         });
       }
       cells.set(date, dayCells);
@@ -647,10 +670,49 @@ export class DoctorAgendaComponent {
       return;
     }
     this.bookingSlot.set({ date, minutes: cell.minutes });
+    this.bookingWalkIn.set(cell.walkIn);
   }
 
   protected onBookingClosed(): void {
     this.bookingSlot.set(null);
+  }
+
+  /** CLI-264: del diálogo a la ficha del paciente nuevo; la cita se crea al terminarla. */
+  protected onNewPatient(choice: NewPatientSlot): void {
+    const slot = this.bookingSlot();
+    if (!slot) {
+      return;
+    }
+    this.walkInDraft.set({ date: slot.date, ...choice, walkIn: this.bookingWalkIn() });
+    this.bookingSlot.set(null);
+  }
+
+  protected onWalkInCancelled(): void {
+    this.walkInDraft.set(null);
+  }
+
+  /** Ficha terminada: queda su cita en el horario elegido y se abre para registrar el tratamiento. */
+  protected async onWalkInRegistered(patientId: string | null): Promise<void> {
+    const draft = this.walkInDraft();
+    this.walkInDraft.set(null);
+    if (!draft || !patientId) {
+      return;
+    }
+    try {
+      const created = await firstValueFrom(
+        this.appointmentsService.createByDoctor({
+          patientId,
+          appointmentDatetime: clinicSlotIso(draft.date, draft.minutes),
+          durationMinutes: draft.durationMinutes,
+          ...(draft.walkIn && { walkIn: true }),
+        }),
+      );
+      this.showNotice(`Cita registrada: ${this.patientLabel(created)} · ${this.formatDatetime(created.appointmentDatetime)}`);
+      await this.load();
+      this.detailAppointment.set(created);
+    } catch {
+      this.showNotice('La ficha quedó registrada, pero no se pudo crear la cita. Tócala en la agenda para agendarla.');
+    }
   }
 
   protected onBooked(saved: AppointmentAgendaItem): void {
