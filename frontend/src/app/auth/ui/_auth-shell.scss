@@ -2,6 +2,9 @@
 
 .login-page {
   min-height: 100vh;
+  // En iOS Safari 100vh incluye la barra del navegador y la tarjeta quedaba
+  // corrida hacia abajo; dvh es el alto que se ve de verdad.
+  min-height: 100dvh;
   display: flex;
   align-items: center;
   justify-content: center;

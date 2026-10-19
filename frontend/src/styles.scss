@@ -28,11 +28,38 @@ body {
 // Antes, html y body tenían overflow-x: hidden, que escondía cualquier
 // desborde horizontal del panel: el contenido quedaba cortado sin que se
 // notara. Esa red de seguridad ahora vive solo en la landing (su carrusel 3D).
-@media (max-width: 767px) {
+// El iPad también hace ese zoom y pasa de 767 px, por eso además va para
+// cualquier pantalla táctil.
+@media (max-width: 767px), (pointer: coarse) {
   input:not([type='checkbox'], [type='radio'], [type='range'], [type='color']),
   select,
   textarea {
     font-size: 16px !important;
+  }
+}
+
+// Safari dibuja el <select> nativo con su propio alto (unos 26 px) e ignora el
+// padding y el min-height del componente: en el celular quedaba chico para el
+// dedo y distinto de los demás campos. Sin la apariencia nativa se ve igual en
+// todos los navegadores; la flecha la pone el fondo. !important porque cada
+// componente fija `background` y `padding` con el atajo, que borraría esto.
+select:not([multiple], [size]) {
+  -webkit-appearance: none;
+  appearance: none !important;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E") !important;
+  background-repeat: no-repeat !important;
+  background-position: right 0.75rem center !important;
+  background-size: 1rem !important;
+  padding-right: 2.25rem !important;
+}
+
+// En iOS Safari los campos de fecha y hora centran el valor y, vacíos, se
+// encogen más bajos que los demás campos del formulario.
+input[type='date'],
+input[type='time'] {
+  &::-webkit-date-and-time-value {
+    min-height: 1.5em;
+    text-align: left;
   }
 }
 
