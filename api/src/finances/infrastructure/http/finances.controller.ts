@@ -45,7 +45,7 @@ export class FinancesController {
     @Param('quoteId', ParseUUIDPipe) quoteId: string,
     @Body() dto: CreateQrChargeDto,
   ) {
-    return this.financesService.createQrCharge(quoteId, dto.amount);
+    return this.financesService.createQrCharge(quoteId, dto.lineKeys);
   }
 
   @Post('qr-charges/:chargeId/verify')

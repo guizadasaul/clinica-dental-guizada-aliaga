@@ -27,6 +27,8 @@ export const QUOTE_INCLUDE = {
       qr_charge: { include: { lines: true } },
       // CLI-257: el pago de una reserva web va entero a su consulta.
       quote_item: { select: { id: true, application_group_id: true } },
+      // CLI-261: los tratamientos que eligió el doctor al cobrar en efectivo.
+      lines: true,
     },
   },
 } as const;

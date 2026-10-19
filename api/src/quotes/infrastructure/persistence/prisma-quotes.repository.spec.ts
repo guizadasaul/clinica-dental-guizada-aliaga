@@ -386,6 +386,36 @@ describe('PrismaQuotesRepository — altas, lecturas y pagos', () => {
       tx.quotes.update.mockResolvedValue({ id: 'quote-1' });
     });
 
+    it('guarda los tratamientos que cubre el pago en efectivo (CLI-261)', async () => {
+      tx.payments.aggregate.mockResolvedValue({ _sum: { amount: '550' } });
+      tx.quotes.findUniqueOrThrow.mockResolvedValue({ total_amount: '900' });
+
+      await repo.addPayment('quote-1', {
+        amount: 550,
+        paymentMethod: 'cash',
+        notes: null,
+        lines: [
+          { quoteItemId: 'item-1', amount: 150 },
+          { applicationGroupId: 'group-1', amount: 400 },
+        ],
+      });
+
+      expect(tx.payments.create).toHaveBeenCalledWith({
+        data: {
+          quote_id: 'quote-1',
+          amount: 550,
+          payment_method: 'cash',
+          notes: null,
+          lines: {
+            create: [
+              { quote_item_id: 'item-1', application_group_id: null, amount: 150 },
+              { quote_item_id: null, application_group_id: 'group-1', amount: 400 },
+            ],
+          },
+        },
+      });
+    });
+
     it('registra el pago y recalcula lo pagado y el estado', async () => {
       tx.payments.aggregate.mockResolvedValue({ _sum: { amount: '300' } });
       tx.quotes.findUniqueOrThrow.mockResolvedValue({ total_amount: '300' });
@@ -528,7 +558,7 @@ describe('PrismaQuotesRepository — altas, lecturas y pagos', () => {
       });
     });
 
-    it('findPendingPatientQrCharge busca el QR pendiente del paciente que tenga tratamientos', async () => {
+    it('findPendingPatientQrCharge busca el QR pendiente que generó el paciente (CLI-261: por origen)', async () => {
       prisma.quote_qr_charges.findFirst
         .mockResolvedValueOnce({ id: 'c1' })
         .mockResolvedValueOnce(null);
@@ -542,7 +572,7 @@ describe('PrismaQuotesRepository — altas, lecturas y pagos', () => {
       expect(prisma.quote_qr_charges.findFirst).toHaveBeenCalledWith({
         where: {
           status: 'pending',
-          lines: { some: {} },
+          origin: 'patient',
           quotes: { patient_id: 'patient-1' },
         },
         include: { lines: true },

@@ -1,17 +1,25 @@
 import {
+  ArrayMaxSize,
+  ArrayNotEmpty,
+  IsArray,
   IsIn,
-  IsNumber,
   IsOptional,
-  IsPositive,
   IsString,
+  IsUUID,
   MaxLength,
 } from 'class-validator';
 import { PaymentMethod } from '../../../domain/PaymentMethod.js';
 
 export class AddPaymentDto {
-  @IsNumber({ maxDecimalPlaces: 2 })
-  @IsPositive()
-  amount!: number;
+  /**
+   * CLI-261: los tratamientos (claves de línea del presupuesto) que se pagan,
+   * cada uno por su saldo completo; el monto sale de ahí, no se escribe.
+   */
+  @IsArray()
+  @ArrayNotEmpty({ message: 'Elige al menos un tratamiento' })
+  @ArrayMaxSize(100)
+  @IsUUID('all', { each: true })
+  lineKeys!: string[];
 
   /**
    * Solo efectivo por esta vía (CLI-159): el QR BANECO se registra solo al

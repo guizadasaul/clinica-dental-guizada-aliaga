@@ -8,12 +8,12 @@ import { FinancesService } from '../../services/finances.service';
 import { PaginationComponent } from '../../../../shared/ui/pagination/pagination';
 import { PageHeaderComponent } from '../../../../shared/ui/page-header/page-header';
 import type { PatientBalance, PatientFinanceDetail } from '../../models/finance.model';
-import type { Quote } from '../../../quotes/models/quote.model';
+import type { Quote, QuoteLine } from '../../../quotes/models/quote.model';
 
 @Component({ selector: 'app-register-payment', standalone: true, template: 'panel' })
 class RegisterPaymentStub {
   readonly quoteId = input<string>('');
-  readonly balance = input<number>(0);
+  readonly lines = input<QuoteLine[]>([]);
   readonly paid = output<Quote>();
   readonly closed = output<void>();
 }
@@ -288,7 +288,7 @@ describe('FinancesPageComponent', () => {
     tick();
     const panel = fixture.debugElement.query(By.directive(RegisterPaymentStub))
       .componentInstance as RegisterPaymentStub;
-    expect(panel.balance()).toBe(500);
+    expect(panel.lines()).toEqual([]);
 
     panel.paid.emit(quote({ totalPaid: 700, balance: 0, status: 'paid' }));
     tick();

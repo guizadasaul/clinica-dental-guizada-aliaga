@@ -59,19 +59,30 @@
     </div>
   } @else {
     <div class="rp__form">
-      <div class="rp__field">
-        <label class="rp__label" for="rp-amount">Monto (Bs.)</label>
-        <input
-          id="rp-amount"
-          type="number"
-          min="0.01"
-          step="0.01"
-          class="rp__input"
-          [ngModel]="amount()"
-          (ngModelChange)="amount.set($event)"
-        />
-        <small class="rp__hint">Saldo pendiente: Bs. {{ balance() | number: '1.2-2' }}</small>
-      </div>
+      <fieldset class="rp__lines">
+        <legend class="rp__label">Tratamientos a pagar</legend>
+        @if (payable().length > 1) {
+          <label class="rp__line rp__line--all">
+            <input type="checkbox" [checked]="allSelected()" (change)="toggleAll()" />
+            <span class="rp__line-name">Todos</span>
+          </label>
+        }
+        @for (l of payable(); track l.key) {
+          <label class="rp__line">
+            <input type="checkbox" [checked]="selected().has(l.key)" (change)="toggleLine(l.key)" />
+            <span class="rp__line-name">
+              {{ l.treatmentName }}
+              @if (l.toothNumbers.length > 0) {
+                <small class="rp__line-teeth">· pieza{{ l.toothNumbers.length === 1 ? '' : 's' }} {{ l.toothNumbers.join(', ') }}</small>
+              }
+            </span>
+            <span class="rp__line-amount">Bs. {{ l.pending | number: '1.2-2' }}</span>
+          </label>
+        }
+      </fieldset>
+      <p class="rp__total">
+        Total a cobrar: <strong>Bs. {{ selectedTotal() | number: '1.2-2' }}</strong>
+      </p>
 
       @if (mode() === 'cash') {
         <div class="rp__field">

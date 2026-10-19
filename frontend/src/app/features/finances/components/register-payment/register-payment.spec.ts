@@ -3,7 +3,7 @@ import { of, throwError } from 'rxjs';
 import { RegisterPaymentComponent } from './register-payment';
 import { QuotesService } from '../../../quotes/services/quotes.service';
 import { FinancesService } from '../../services/finances.service';
-import type { Quote } from '../../../quotes/models/quote.model';
+import type { Quote, QuoteLine } from '../../../quotes/models/quote.model';
 
 const UPDATED = { id: 'quote-1', totalPaid: 700, balance: 0 } as Quote;
 const CHARGE = {
@@ -15,7 +15,26 @@ const CHARGE = {
   lines: [],
 };
 
-function setup(balance = 500) {
+function line(key: string, pending: number, overrides: Partial<QuoteLine> = {}): QuoteLine {
+  return {
+    key,
+    treatmentName: `Tratamiento ${key}`,
+    toothNumbers: [],
+    total: pending,
+    paid: 0,
+    pending,
+    performedAt: null,
+    ...overrides,
+  };
+}
+
+const LINES: QuoteLine[] = [
+  line('a', 200, { treatmentName: 'Resina', toothNumbers: [16] }),
+  line('b', 300, { treatmentName: 'Conducto', toothNumbers: [21, 22] }),
+  line('c', 0, { treatmentName: 'Consulta', total: 100, paid: 100 }),
+];
+
+function setup(lines: QuoteLine[] = LINES) {
   const quotes = { addPayment: vi.fn().mockReturnValue(of(UPDATED)) };
   const finances = {
     createQrCharge: vi.fn().mockReturnValue(of(CHARGE)),
@@ -31,7 +50,7 @@ function setup(balance = 500) {
   });
   const fixture = TestBed.createComponent(RegisterPaymentComponent);
   fixture.componentRef.setInput('quoteId', 'quote-1');
-  fixture.componentRef.setInput('balance', balance);
+  fixture.componentRef.setInput('lines', lines);
   const paid: Quote[] = [];
   let closed = 0;
   fixture.componentInstance.paid.subscribe((q) => paid.push(q));
@@ -52,55 +71,70 @@ function setup(balance = 500) {
     el.dispatchEvent(new Event('input'));
     await settle();
   };
-  return { fixture, root, quotes, finances, paid, closed: () => closed, settle, button, type };
+  /** Tilda o destilda el tratamiento por su nombre. */
+  const toggle = async (name: string) => {
+    const row = [...root.querySelectorAll<HTMLLabelElement>('.rp__line')].find((l) =>
+      l.textContent?.includes(name),
+    )!;
+    row.querySelector<HTMLInputElement>('input')!.click();
+    await settle();
+  };
+  const lineNames = () =>
+    [...root.querySelectorAll('.rp__line:not(.rp__line--all) .rp__line-name')].map((n) =>
+      n.textContent!.replace(/\s+/g, ' ').trim(),
+    );
+  return { fixture, root, quotes, finances, paid, closed: () => closed, settle, button, type, toggle, lineNames };
 }
 
 describe('RegisterPaymentComponent', () => {
-  it('por defecto propone cobrar el saldo completo en efectivo', async () => {
-    const { root, settle } = setup(500);
+  it('lista lo que se debe tratamiento por tratamiento, sin elegir nada todavía (CLI-261)', async () => {
+    const { root, settle, lineNames, toggle } = setup();
     await settle();
 
-    expect(root.querySelector<HTMLInputElement>('#rp-amount')!.value).toBe('500');
+    expect(lineNames()).toEqual(['Resina · pieza 16', 'Conducto · piezas 21, 22']);
+    expect(root.querySelector('.rp__total')?.textContent).toContain('Bs. 0.00');
+    expect(root.querySelector('#rp-amount')).toBeNull();
     expect(root.querySelector('.rp__mode--active')?.textContent).toContain('Efectivo');
+
+    await toggle('Todos');
+    expect(root.querySelector('.rp__total')?.textContent).toContain('Bs. 500.00');
   });
 
   describe('efectivo', () => {
-    it('registra el pago con notas y emite el presupuesto actualizado', async () => {
-      const { quotes, paid, settle, button, type } = setup();
+    it('registra el pago de los tratamientos elegidos con notas y emite el presupuesto actualizado', async () => {
+      const { root, quotes, paid, settle, button, type, toggle } = setup();
       await settle();
-      await type('rp-amount', '200');
+      await toggle('Resina');
       await type('rp-notes', '  primer pago ');
 
+      expect(root.querySelector('.rp__total')?.textContent).toContain('Bs. 200.00');
       button('Registrar pago en efectivo').click();
       await settle();
 
       expect(quotes.addPayment).toHaveBeenCalledWith('quote-1', {
-        amount: 200,
+        lineKeys: ['a'],
         paymentMethod: 'cash',
         notes: 'primer pago',
       });
       expect(paid).toEqual([UPDATED]);
     });
 
-    it.each([
-      ['0', 'mayor a 0'],
-      ['600', 'no puede superar el saldo'],
-    ])('monto %s: avisa y no llama al backend', async (value, message) => {
-      const { root, quotes, settle, button, type } = setup(500);
+    it('sin ningún tratamiento elegido avisa y no llama al backend', async () => {
+      const { root, quotes, settle, button } = setup();
       await settle();
-      await type('rp-amount', value);
 
       button('Registrar pago en efectivo').click();
       await settle();
 
       expect(quotes.addPayment).not.toHaveBeenCalled();
-      expect(root.querySelector('.rp__error')?.textContent).toContain(message);
+      expect(root.querySelector('.rp__error')?.textContent).toContain('Elige al menos un tratamiento');
     });
 
     it('si el backend falla, avisa', async () => {
-      const { root, quotes, settle, button } = setup();
+      const { root, quotes, settle, button, toggle } = setup();
       quotes.addPayment.mockReturnValue(throwError(() => new Error('500')));
       await settle();
+      await toggle('Resina');
 
       button('Registrar pago en efectivo').click();
       await settle();
@@ -115,16 +149,16 @@ describe('RegisterPaymentComponent', () => {
       await s.settle();
       s.button('QR BANECO').click();
       await s.settle();
-      await s.type('rp-amount', '150');
+      await s.toggle('Resina');
       s.button('Generar QR').click();
       await s.settle();
       return s;
     }
 
-    it('genera el QR por el monto elegido y bloquea cambiar de método', async () => {
+    it('genera el QR por los tratamientos elegidos y bloquea cambiar de método', async () => {
       const { root, finances, button } = await withQr();
 
-      expect(finances.createQrCharge).toHaveBeenCalledWith('quote-1', 150);
+      expect(finances.createQrCharge).toHaveBeenCalledWith('quote-1', ['a']);
       expect(root.querySelector<HTMLImageElement>('.rp__qr-img')!.src).toContain('base64,QRDATA');
       expect(button('Efectivo').disabled).toBe(true);
     });

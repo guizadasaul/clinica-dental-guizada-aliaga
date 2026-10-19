@@ -28,9 +28,14 @@ export interface NewPaymentData {
   amount: number;
   paymentMethod?: string | null;
   notes?: string | null;
+  /** CLI-261: los tratamientos que cubre el pago (efectivo del doctor). */
+  lines?: NewQrChargeLineData[];
 }
 
-/** CLI-218: un tratamiento que cubre el QR — fila suelta o grupo multi-diente, nunca las dos. */
+/**
+ * CLI-218: un tratamiento que cubre el QR — fila suelta o grupo multi-diente,
+ * nunca las dos. Desde CLI-261, también el de un pago en efectivo.
+ */
 export interface NewQrChargeLineData {
   quoteItemId?: string;
   applicationGroupId?: string;
@@ -43,9 +48,13 @@ export interface NewQrChargeData {
   qrId: string;
   transactionId: string;
   qrImageBase64: string;
-  /** CLI-218: solo en los QR que genera el paciente eligiendo tratamientos. */
+  /** CLI-261: quién lo generó; el paciente solo retoma los suyos. */
+  origin: QrChargeOrigin;
+  /** Los tratamientos que cubre (CLI-218 el paciente, CLI-261 el doctor). */
   lines?: NewQrChargeLineData[];
 }
+
+export type QrChargeOrigin = 'patient' | 'doctor';
 
 export interface IQuoteRepository {
   createForPatient(patientId: string, notes: string | null): Promise<Quote>;

@@ -63,16 +63,16 @@ describe('controllers de presupuestos', () => {
       expect(service.removeItem).toHaveBeenCalledWith('quote-1', 'item-1');
     });
 
-    it('addPayment pasa monto, medio y notas', async () => {
+    it('addPayment pasa tratamientos, medio y notas (CLI-261)', async () => {
       await controller.addPayment('quote-1', {
-        amount: 50,
-        paymentMethod: 'qr',
+        lineKeys: ['item-1'],
+        paymentMethod: 'cash',
         notes: 'primer pago',
       });
 
       expect(service.addPayment).toHaveBeenCalledWith('quote-1', {
-        amount: 50,
-        paymentMethod: 'qr',
+        lineKeys: ['item-1'],
+        paymentMethod: 'cash',
         notes: 'primer pago',
       });
     });

@@ -1,5 +1,4 @@
 import {
-  BadRequestException,
   ConflictException,
   NotFoundException,
   ServiceUnavailableException,
@@ -121,16 +120,36 @@ describe('FinancesService', () => {
     });
   });
 
-  describe('createQrCharge', () => {
-    it('genera el QR en BANECO y guarda el cobro', async () => {
-      quotesService.findById.mockResolvedValue(quote());
+  describe('createQrCharge (CLI-261: el doctor elige los tratamientos)', () => {
+    const withLines = () =>
+      quote({
+        items: [
+          { id: 'item-1', applicationGroupId: null },
+        ] as Quote['items'],
+        lines: [
+          {
+            key: 'item-1',
+            treatmentName: 'Resina',
+            toothNumbers: [16],
+            total: 300,
+            paid: 150,
+            pending: 150,
+            performedAt: null,
+          },
+        ],
+      });
+
+    it('genera el QR en BANECO por el saldo de lo elegido y lo guarda como del doctor', async () => {
+      quotesService.findById.mockResolvedValue(withLines());
       gateway.generateQr.mockResolvedValue({
         qrId: 'qr-1',
         qrImageBase64: 'img',
       });
       quoteRepo.createQrCharge.mockResolvedValue(charge());
 
-      await expect(service.createQrCharge('quote-1', 150)).resolves.toEqual({
+      await expect(
+        service.createQrCharge('quote-1', ['item-1']),
+      ).resolves.toEqual({
         chargeId: 'charge-1',
         quoteId: 'quote-1',
         amount: 150,
@@ -150,15 +169,16 @@ describe('FinancesService', () => {
         qrId: 'qr-1',
         transactionId: params.transactionId,
         qrImageBase64: 'img',
-        lines: undefined,
+        origin: 'doctor',
+        lines: [{ quoteItemId: 'item-1', amount: 150 }],
       });
     });
 
-    it('400 si el monto supera el saldo, sin llamar a BANECO', async () => {
-      quotesService.findById.mockResolvedValue(quote({ balance: 100 }));
+    it('422 si el tratamiento no es de este presupuesto, sin llamar a BANECO', async () => {
+      quotesService.findById.mockResolvedValue(withLines());
 
-      await expect(service.createQrCharge('quote-1', 150)).rejects.toThrow(
-        BadRequestException,
+      await expect(service.createQrCharge('quote-1', ['otro'])).rejects.toThrow(
+        UnprocessableEntityException,
       );
       expect(gateway.generateQr).not.toHaveBeenCalled();
     });
@@ -489,6 +509,7 @@ describe('FinancesService', () => {
         expect.objectContaining({
           quoteId: 'quote-1',
           amount: 500.5,
+          origin: 'patient',
           lines: [
             { quoteItemId: 'item-1', amount: 300 },
             { applicationGroupId: 'group-1', amount: 200.5 },

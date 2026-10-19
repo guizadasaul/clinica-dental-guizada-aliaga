@@ -429,10 +429,33 @@ describe('QuotesService', () => {
     });
   });
 
-  describe('addPayment', () => {
+  describe('addPayment (CLI-261: por tratamientos, saldo completo)', () => {
+    const line = (key: string, pending: number, total = pending) => ({
+      key,
+      treatmentName: `Tratamiento ${key}`,
+      toothNumbers: [],
+      total,
+      paid: total - pending,
+      pending,
+      performedAt: null,
+    });
     beforeEach(() => {
       mockQuoteRepo.findById.mockResolvedValue(
-        fakeQuote({ totalAmount: 300, balance: 300 }),
+        fakeQuote({
+          totalAmount: 900,
+          balance: 650,
+          items: [
+            { id: 'item-1', applicationGroupId: null },
+            { id: 'item-2', applicationGroupId: 'group-1' },
+            { id: 'item-3', applicationGroupId: 'group-1' },
+            { id: 'item-4', applicationGroupId: null },
+          ] as Quote['items'],
+          lines: [
+            line('item-1', 150, 300),
+            line('group-1', 400),
+            line('item-4', 0, 200),
+          ],
+        }),
       );
     });
 
@@ -440,25 +463,29 @@ describe('QuotesService', () => {
       mockQuoteRepo.findById.mockResolvedValue(null);
 
       await expect(
-        service.addPayment('missing-quote', { amount: 100 }),
+        service.addPayment('missing-quote', { lineKeys: ['item-1'] }),
       ).rejects.toThrow(NotFoundException);
       expect(mockQuoteRepo.addPayment).not.toHaveBeenCalled();
     });
 
-    it('delegates to the repository with the mapped data', async () => {
-      const updated = fakeQuote({ totalPaid: 100 });
+    it('cobra el saldo completo de cada tratamiento elegido y deja el pago asignado a ellos', async () => {
+      const updated = fakeQuote({ totalPaid: 550 });
       mockQuoteRepo.addPayment.mockResolvedValue(updated);
 
       const result = await service.addPayment('quote-1', {
-        amount: 100,
+        lineKeys: ['item-1', 'group-1', 'item-1'],
         paymentMethod: 'cash',
         notes: 'primer pago',
       });
 
       expect(mockQuoteRepo.addPayment).toHaveBeenCalledWith('quote-1', {
-        amount: 100,
+        amount: 550,
         paymentMethod: 'cash',
         notes: 'primer pago',
+        lines: [
+          { quoteItemId: 'item-1', amount: 150 },
+          { applicationGroupId: 'group-1', amount: 400 },
+        ],
       });
       expect(result).toEqual(updated);
     });
@@ -466,27 +493,25 @@ describe('QuotesService', () => {
     it('sin método es efectivo, y sin notas null (CLI-159)', async () => {
       mockQuoteRepo.addPayment.mockResolvedValue(fakeQuote());
 
-      await service.addPayment('quote-1', { amount: 50 });
+      await service.addPayment('quote-1', { lineKeys: ['item-1'] });
 
-      expect(mockQuoteRepo.addPayment).toHaveBeenCalledWith('quote-1', {
-        amount: 50,
-        paymentMethod: 'cash',
-        notes: null,
-      });
+      expect(mockQuoteRepo.addPayment).toHaveBeenCalledWith(
+        'quote-1',
+        expect.objectContaining({ paymentMethod: 'cash', notes: null }),
+      );
     });
 
-    it('cobrar exactamente el saldo está permitido', async () => {
-      mockQuoteRepo.addPayment.mockResolvedValue(fakeQuote());
-
-      await service.addPayment('quote-1', { amount: 300 });
-
-      expect(mockQuoteRepo.addPayment).toHaveBeenCalled();
-    });
-
-    it('400 si el monto supera el saldo pendiente (CLI-159)', async () => {
+    it('422 si un tratamiento no es de este presupuesto', async () => {
       await expect(
-        service.addPayment('quote-1', { amount: 300.01 }),
-      ).rejects.toThrow(BadRequestException);
+        service.addPayment('quote-1', { lineKeys: ['otro'] }),
+      ).rejects.toThrow('no está en este presupuesto');
+      expect(mockQuoteRepo.addPayment).not.toHaveBeenCalled();
+    });
+
+    it('422 si un tratamiento ya está pagado', async () => {
+      await expect(
+        service.addPayment('quote-1', { lineKeys: ['item-1', 'item-4'] }),
+      ).rejects.toThrow('ya está pagado');
       expect(mockQuoteRepo.addPayment).not.toHaveBeenCalled();
     });
   });
