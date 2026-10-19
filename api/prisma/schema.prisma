@@ -440,6 +440,25 @@ model payments {
   /// CLI-257: a qué línea se aplica entero (el pago de una reserva web, a su consulta). Sin esto, el reparto es FIFO.
   quote_item_id  String?           @db.Uuid
   quote_item     quote_items?      @relation("payment_quote_item", fields: [quote_item_id], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  lines          payment_lines[]
+}
+
+/// CLI-261: qué tratamientos (fila suelta o grupo multi-diente) cubre un pago
+/// en efectivo que registró el doctor, cada uno por su saldo completo. Igual
+/// que quote_qr_charge_lines para el QR: el pago queda asignado a estas líneas
+/// en vez de repartirse en orden.
+model payment_lines {
+  id                   String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  payment_id           String              @db.Uuid
+  quote_item_id        String?             @db.Uuid
+  application_group_id String?             @db.Uuid
+  amount               Decimal             @db.Decimal(10, 2)
+  created_at           DateTime            @default(now()) @db.Timestamptz(6)
+  payments             payments            @relation(fields: [payment_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  quote_items          quote_items?        @relation(fields: [quote_item_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  application_groups   application_groups? @relation(fields: [application_group_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([payment_id], map: "idx_payment_lines_payment")
 }
 
 /// Cobro con QR BANECO de un presupuesto (CLI-159). Nace `pending` al generar
@@ -461,7 +480,10 @@ model quote_qr_charges {
   updated_at            DateTime                @default(now()) @db.Timestamptz(6)
   quotes                quotes                  @relation(fields: [quote_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
   payments              payments?               @relation(fields: [payment_id], references: [id], onDelete: SetNull, onUpdate: NoAction)
-  /// CLI-218: tratamientos que cubre un QR que generó el paciente (vacío en los del doctor).
+  /// CLI-261: quién generó el QR, `patient` (Mi presupuesto) o `doctor` (Finanzas).
+  /// Antes se distinguía por tener líneas, pero desde CLI-261 el del doctor también las tiene.
+  origin                String                  @default("patient") @db.VarChar(10)
+  /// CLI-218: tratamientos que cubre el QR (desde CLI-261, también en los del doctor).
   lines                 quote_qr_charge_lines[]
 
   @@index([quote_id], map: "idx_quote_qr_charges_quote")
@@ -508,6 +530,7 @@ model application_groups {
   quote_items      quote_items[]
   tooth_procedures tooth_procedures[]
   qr_charge_lines  quote_qr_charge_lines[]
+  payment_lines    payment_lines[]
 
   @@index([quote_id], map: "idx_application_groups_quote")
 }
@@ -532,6 +555,7 @@ model quote_items {
   treatments           treatments              @relation(fields: [treatment_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   application_groups   application_groups?     @relation(fields: [application_group_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
   qr_charge_lines      quote_qr_charge_lines[]
+  payment_lines        payment_lines[]
   tooth_procedures     tooth_procedures[]
   appointment          appointments?           @relation("appointment_quote_item")
   payments             payments[]              @relation("payment_quote_item")

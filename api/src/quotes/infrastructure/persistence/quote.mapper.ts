@@ -21,8 +21,15 @@ type QuoteItemRecordWithGroup = quote_items & {
   /** CLI-226: a lo sumo uno (tooth_procedures.quote_item_id es UNIQUE). */
   tooth_procedures?: { id: string; procedure_date: Date }[];
 };
+/** Una línea elegida al cobrar: la del QR (CLI-218) o la del efectivo (CLI-261). */
+type ChargedLineRecord = Pick<
+  quote_qr_charge_lines,
+  'quote_item_id' | 'application_group_id' | 'amount'
+>;
 type PaymentRecord = payments & {
   qr_charge?: { lines: quote_qr_charge_lines[] } | null;
+  /** CLI-261: los tratamientos que eligió el doctor al cobrar en efectivo. */
+  lines?: ChargedLineRecord[];
   /** CLI-257: la línea a la que se aplica entero (el pago de una reserva web). */
   quote_item?: { id: string; application_group_id: string | null } | null;
 };
@@ -102,14 +109,19 @@ export class QuoteMapper {
   }
 
   /**
-   * A qué líneas se aplica un pago: las que eligió el paciente al generar su
-   * QR (CLI-218) o, si es el de una reserva web, entero a su consulta
-   * (CLI-257). Sin ninguna de las dos, el reparto es FIFO (QuoteBalance).
+   * A qué líneas se aplica un pago: las que se eligieron al generar el QR
+   * (CLI-218) o al cobrar en efectivo (CLI-261) o, si es el de una reserva
+   * web, entero a su consulta (CLI-257). Sin nada de eso, el reparto es FIFO
+   * (QuoteBalance): así quedan los pagos anteriores a CLI-261.
    */
   static paymentAllocations(record: PaymentRecord): PaymentAllocation[] {
-    const lines = record.qr_charge?.lines ?? [];
-    if (lines.length > 0) {
-      return QuoteMapper.linesToAllocations(lines);
+    const qrLines = record.qr_charge?.lines ?? [];
+    if (qrLines.length > 0) {
+      return QuoteMapper.linesToAllocations(qrLines);
+    }
+    const cashLines = record.lines ?? [];
+    if (cashLines.length > 0) {
+      return QuoteMapper.linesToAllocations(cashLines);
     }
     if (record.quote_item) {
       return [
@@ -123,9 +135,7 @@ export class QuoteMapper {
     return [];
   }
 
-  static linesToAllocations(
-    lines: quote_qr_charge_lines[],
-  ): PaymentAllocation[] {
+  static linesToAllocations(lines: ChargedLineRecord[]): PaymentAllocation[] {
     return lines.map((l) => ({
       lineKey: l.application_group_id ?? l.quote_item_id ?? '',
       amount: Number(l.amount),

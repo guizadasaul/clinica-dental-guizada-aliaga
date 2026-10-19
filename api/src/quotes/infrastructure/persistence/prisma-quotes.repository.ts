@@ -121,6 +121,15 @@ export class PrismaQuotesRepository implements IQuoteRepository {
           amount: data.amount,
           payment_method: data.paymentMethod ?? null,
           notes: data.notes ?? null,
+          ...(data.lines?.length && {
+            lines: {
+              create: data.lines.map((l) => ({
+                quote_item_id: l.quoteItemId ?? null,
+                application_group_id: l.applicationGroupId ?? null,
+                amount: l.amount,
+              })),
+            },
+          }),
         },
       });
       return this.recalculatePaymentsAndReturn(tx, quoteId);
@@ -135,6 +144,7 @@ export class PrismaQuotesRepository implements IQuoteRepository {
         baneco_qr_id: data.qrId,
         baneco_transaction_id: data.transactionId,
         qr_image: data.qrImageBase64,
+        origin: data.origin,
         ...(data.lines?.length && {
           lines: {
             create: data.lines.map((l) => ({
@@ -181,7 +191,7 @@ export class PrismaQuotesRepository implements IQuoteRepository {
     const record = await this.prisma.quote_qr_charges.findFirst({
       where: {
         status: QrChargeStatus.PENDING,
-        lines: { some: {} },
+        origin: 'patient',
         quotes: { patient_id: patientId },
       },
       include: { lines: true },

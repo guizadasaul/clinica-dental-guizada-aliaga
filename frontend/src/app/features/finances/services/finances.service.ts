@@ -26,8 +26,9 @@ export class FinancesService {
     return this.http.get<PatientFinanceDetail>(`${this.base}/patients/${patientId}`);
   }
 
-  createQrCharge(quoteId: string, amount: number): Observable<QrCharge> {
-    return this.http.post<QrCharge>(`${this.base}/quotes/${quoteId}/qr-charges`, { amount });
+  /** CLI-261: QR por el saldo completo de los tratamientos elegidos. */
+  createQrCharge(quoteId: string, lineKeys: string[]): Observable<QrCharge> {
+    return this.http.post<QrCharge>(`${this.base}/quotes/${quoteId}/qr-charges`, { lineKeys });
   }
 
   /** Consulta a BANECO una sola vez — el botón "Verificar pago", sin polling. */

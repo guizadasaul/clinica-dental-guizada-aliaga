@@ -21,6 +21,7 @@ import type { IPatientRepository } from '../../patients/domain/PatientRepository
 import { ExchangeRateProvider } from '../../exchange-rate/domain/ExchangeRateProvider';
 import type { ExchangeRateProvider as IExchangeRateProvider } from '../../exchange-rate/domain/ExchangeRateProvider';
 import { buildQuoteLine, priceInBob } from './quote-pricing';
+import { chargedLines } from './charged-lines';
 
 interface AddQuoteItemInput {
   treatmentId: string;
@@ -30,18 +31,10 @@ interface AddQuoteItemInput {
 }
 
 interface AddPaymentInput {
-  amount: number;
+  /** CLI-261: los tratamientos que se pagan, cada uno por su saldo completo. */
+  lineKeys: string[];
   paymentMethod?: string;
   notes?: string;
-}
-
-/** No se cobra más que el saldo pendiente (CLI-159) — vale para efectivo y QR. */
-export function assertWithinBalance(quote: Quote, amount: number): void {
-  if (amount > quote.balance) {
-    throw new BadRequestException(
-      `El monto (Bs. ${amount.toFixed(2)}) supera el saldo pendiente (Bs. ${quote.balance.toFixed(2)})`,
-    );
-  }
 }
 
 @Injectable()
@@ -140,11 +133,12 @@ export class QuotesService {
         `Presupuesto con id ${quoteId} no encontrado`,
       );
     }
-    assertWithinBalance(quote, data.amount);
+    const { lines, amount } = chargedLines(quote, data.lineKeys);
     return this.quoteRepo.addPayment(quoteId, {
-      amount: data.amount,
+      amount,
       paymentMethod: data.paymentMethod ?? PaymentMethod.CASH,
       notes: data.notes ?? null,
+      lines,
     });
   }
 

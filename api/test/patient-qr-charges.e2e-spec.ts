@@ -55,6 +55,8 @@ describe('QR BANECO del paciente (e2e) — CLI-218', () => {
   };
   let quoteA: string;
   let quoteB: string;
+  /** CLI-261: presupuesto propio para los cobros del doctor, sin tocar los de A y B. */
+  let quoteC: string;
   let itemKey: string;
   let groupKey: string;
 
@@ -176,6 +178,7 @@ describe('QR BANECO del paciente (e2e) — CLI-218', () => {
     });
     quoteA = await createPatientWithQuote('patient-a', treatment.id);
     quoteB = await createPatientWithQuote('patient-b', treatment.id);
+    quoteC = await createPatientWithQuote('patient-c', treatment.id);
     const lines = (await myQuote()).lines;
     itemKey = lines.find((l) => l.pending === 300)!.key;
     groupKey = lines.find((l) => l.pending === 400)!.key;
@@ -365,5 +368,63 @@ describe('QR BANECO del paciente (e2e) — CLI-218', () => {
       .expect(200);
     const quote = (quotes.body as QuoteBody[]).find((q) => q.id === quoteB)!;
     expect(quote.lines.every((l) => l.pending === 0)).toBe(true);
+  });
+
+  // CLI-261: el doctor también cobra eligiendo tratamientos.
+  async function lineKeyOfC(grouped: boolean): Promise<string> {
+    const item = await prisma.quote_items.findFirstOrThrow({
+      where: {
+        quote_id: quoteC,
+        application_group_id: grouped ? { not: null } : null,
+      },
+    });
+    return item.application_group_id ?? item.id;
+  }
+
+  it('el QR del doctor cubre lo que eligió y no se le ofrece al paciente para retomar', async () => {
+    qrStatus = 'pending';
+    const cItem = await lineKeyOfC(false);
+    const res = await request(app.getHttpServer())
+      .post(`/finances/quotes/${quoteC}/qr-charges`)
+      .set(as('doctor'))
+      .send({ lineKeys: [cItem] })
+      .expect(201);
+    const charge = res.body as ChargeBody;
+    expect(charge.amount).toBe(300);
+    expect(charge.lines).toEqual([{ lineKey: cItem, amount: 300 }]);
+
+    const pending = await request(app.getHttpServer())
+      .get('/patients/me/qr-charges/pending')
+      .set(as('patient-c'))
+      .expect(200);
+    expect(pending.body).toEqual({});
+
+    await request(app.getHttpServer())
+      .post(`/finances/qr-charges/${charge.chargeId}/cancel`)
+      .set(as('doctor'))
+      .expect(200);
+  });
+
+  it('el efectivo del doctor va entero a los tratamientos que eligió', async () => {
+    const cGroup = await lineKeyOfC(true);
+    await request(app.getHttpServer())
+      .post(`/quotes/${quoteC}/payments`)
+      .set(as('doctor'))
+      .send({ lineKeys: [cGroup] })
+      .expect(201);
+
+    const quotes = await request(app.getHttpServer())
+      .get('/patients/me/quotes')
+      .set(as('patient-c'))
+      .expect(200);
+    const quote = (quotes.body as QuoteBody[]).find((q) => q.id === quoteC)!;
+    const pending = Object.fromEntries(
+      quote.lines.map((l) => [l.key, l.pending]),
+    );
+    expect(pending[cGroup]).toBe(0);
+    expect(Object.values(pending)).toContain(300);
+    expect(quote.payments.at(-1)?.covered).toEqual([
+      expect.objectContaining({ lineKey: cGroup, amount: 400 }),
+    ]);
   });
 });

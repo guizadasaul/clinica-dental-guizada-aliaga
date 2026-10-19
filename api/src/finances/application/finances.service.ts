@@ -4,16 +4,14 @@ import {
   Injectable,
   Logger,
   NotFoundException,
-  UnprocessableEntityException,
 } from '@nestjs/common';
-import {
-  QuotesService,
-  assertWithinBalance,
-} from '../../quotes/application/quotes.service';
+import { QuotesService } from '../../quotes/application/quotes.service';
+import { chargedLines } from '../../quotes/application/charged-lines';
 import { QuoteRepository } from '../../quotes/domain/QuoteRepository';
 import type {
   IQuoteRepository,
   NewQrChargeLineData,
+  QrChargeOrigin,
 } from '../../quotes/domain/QuoteRepository';
 import type { PaymentAllocation } from '../../quotes/domain/QuoteBalance';
 import type { Quote } from '../../quotes/domain/Quote';
@@ -72,8 +70,6 @@ function toView(charge: QrCharge): QrChargeView {
   };
 }
 
-const round2 = (n: number) => Math.round(n * 100) / 100;
-
 /**
  * Finanzas (CLI-159): saldos por paciente y cobro de presupuestos con QR
  * BANECO. Sin polling: el QR se confirma solo cuando el doctor aprieta
@@ -108,10 +104,14 @@ export class FinancesService {
     return { patientId, patientName, quote };
   }
 
-  async createQrCharge(quoteId: string, amount: number): Promise<QrChargeView> {
+  /** CLI-261: el doctor cobra con QR los tratamientos que elige, por su saldo completo. */
+  async createQrCharge(
+    quoteId: string,
+    lineKeys: string[],
+  ): Promise<QrChargeView> {
     const quote = await this.quotesService.findById(quoteId);
-    assertWithinBalance(quote, amount);
-    return toView(await this.issueQrCharge(quoteId, amount));
+    const { lines, amount } = chargedLines(quote, lineKeys);
+    return toView(await this.issueQrCharge(quoteId, amount, lines, 'doctor'));
   }
 
   // ── QR del paciente (CLI-218) ───────────────────────────────────────────
@@ -134,31 +134,8 @@ export class FinancesService {
       );
     }
 
-    const selected = [...new Set(lineKeys)].map((key) =>
-      quote.lines.find((l) => l.key === key),
-    );
-    if (selected.some((line) => !line)) {
-      throw new UnprocessableEntityException(
-        'Alguno de los tratamientos elegidos no está en este presupuesto',
-      );
-    }
-    const lines = selected.filter((l) => l !== undefined);
-    if (lines.some((l) => l.pending <= 0)) {
-      throw new UnprocessableEntityException(
-        'Alguno de los tratamientos elegidos ya está pagado',
-      );
-    }
-
-    const groupIds = new Set(
-      quote.items.map((i) => i.applicationGroupId).filter(Boolean),
-    );
-    const chargeLines: NewQrChargeLineData[] = lines.map((l) =>
-      groupIds.has(l.key)
-        ? { applicationGroupId: l.key, amount: l.pending }
-        : { quoteItemId: l.key, amount: l.pending },
-    );
-    const amount = round2(lines.reduce((sum, l) => sum + l.pending, 0));
-    return toView(await this.issueQrCharge(quoteId, amount, chargeLines));
+    const { lines, amount } = chargedLines(quote, lineKeys);
+    return toView(await this.issueQrCharge(quoteId, amount, lines, 'patient'));
   }
 
   /** El QR pendiente que generó el paciente, para retomarlo; null si no tiene. */
@@ -210,7 +187,8 @@ export class FinancesService {
   private async issueQrCharge(
     quoteId: string,
     amount: number,
-    lines?: NewQrChargeLineData[],
+    lines: NewQrChargeLineData[],
+    origin: QrChargeOrigin,
   ): Promise<QrCharge> {
     const transactionId = `CGA-Q-${quoteId.slice(0, 8)}-${Date.now().toString(36)}`;
     const qr = await this.gateway.generateQr({
@@ -225,6 +203,7 @@ export class FinancesService {
       qrId: qr.qrId,
       transactionId,
       qrImageBase64: qr.qrImageBase64,
+      origin,
       lines,
     });
   }

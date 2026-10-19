@@ -258,10 +258,11 @@ describe('El presupuesto como plan de tratamiento (e2e) — CLI-226', () => {
   });
 
   it('con el presupuesto pagado, lo nuevo va a otro presupuesto, compartido', async () => {
+    const toPay = await planQuote();
     await request(app.getHttpServer())
       .post(`/quotes/${quoteId}/payments`)
       .set(as('doctor'))
-      .send({ amount: 1100 })
+      .send({ lineKeys: toPay.lines.map((l) => l.key) })
       .expect(201);
     expect((await planQuote()).status).toBe('paid');
 

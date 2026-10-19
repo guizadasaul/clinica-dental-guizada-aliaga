@@ -260,6 +260,32 @@ describe('QuoteMapper', () => {
       ).toEqual([{ lineKey: 'item-1', amount: 20 }]);
     });
 
+    it('el efectivo del doctor va a los tratamientos que eligió (CLI-261)', () => {
+      expect(
+        QuoteMapper.paymentAllocations(
+          payment({
+            qr_charge: null,
+            lines: [
+              {
+                quote_item_id: 'item-1',
+                application_group_id: null,
+                amount: '20',
+              },
+              {
+                quote_item_id: null,
+                application_group_id: 'group-2',
+                amount: '30',
+              },
+            ],
+            quote_item: null,
+          } as unknown as Partial<PaymentRecord>),
+        ),
+      ).toEqual([
+        { lineKey: 'item-1', amount: 20 },
+        { lineKey: 'group-2', amount: 30 },
+      ]);
+    });
+
     it('sin QR ni línea: sin asignaciones (reparto FIFO)', () => {
       expect(
         QuoteMapper.paymentAllocations(

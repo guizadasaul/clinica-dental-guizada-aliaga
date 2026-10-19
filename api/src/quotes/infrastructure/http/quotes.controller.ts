@@ -63,7 +63,7 @@ export class QuotesController {
     @Body() dto: AddPaymentDto,
   ) {
     return this.quotesService.addPayment(id, {
-      amount: dto.amount,
+      lineKeys: dto.lineKeys,
       paymentMethod: dto.paymentMethod,
       notes: dto.notes,
     });

@@ -30,10 +30,10 @@ describe('FinancesController', () => {
     expect(service.getPatientDetail).toHaveBeenCalledWith('patient-1');
   });
 
-  it('createQrCharge pasa el monto', async () => {
-    await controller.createQrCharge('quote-1', { amount: 150 });
+  it('createQrCharge pasa los tratamientos elegidos (CLI-261)', async () => {
+    await controller.createQrCharge('quote-1', { lineKeys: ['item-1'] });
 
-    expect(service.createQrCharge).toHaveBeenCalledWith('quote-1', 150);
+    expect(service.createQrCharge).toHaveBeenCalledWith('quote-1', ['item-1']);
   });
 
   it('verifyQrCharge y cancelQrCharge', async () => {

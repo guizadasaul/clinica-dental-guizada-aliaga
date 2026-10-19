@@ -297,10 +297,10 @@ function cases(s: ReturnType<typeof services>): Case[] {
     },
     {
       name: 'finanzas: generar QR',
-      call: () => s.finances.createQrCharge('q1', 150),
+      call: () => s.finances.createQrCharge('q1', ['line-1']),
       method: 'POST',
       url: `${API}/finances/quotes/q1/qr-charges`,
-      body: { amount: 150 },
+      body: { lineKeys: ['line-1'] },
     },
     {
       name: 'finanzas: verificar QR',

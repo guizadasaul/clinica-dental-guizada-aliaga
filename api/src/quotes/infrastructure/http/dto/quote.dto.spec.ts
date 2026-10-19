@@ -52,14 +52,16 @@ describe('AddQuoteItemDto', () => {
   });
 });
 
-describe('AddPaymentDto', () => {
-  it('acepta un monto positivo con medio y notas opcionales', async () => {
-    await expect(invalidFields(AddPaymentDto, { amount: 50 })).resolves.toEqual(
-      [],
-    );
+describe('AddPaymentDto (CLI-261: por tratamientos)', () => {
+  const LINE = '0b0c1d2e-3f40-4a5b-8c6d-7e8f90a1b2c3';
+
+  it('acepta los tratamientos elegidos con medio y notas opcionales', async () => {
+    await expect(
+      invalidFields(AddPaymentDto, { lineKeys: [LINE] }),
+    ).resolves.toEqual([]);
     await expect(
       invalidFields(AddPaymentDto, {
-        amount: 50.5,
+        lineKeys: [LINE],
         paymentMethod: 'cash',
         notes: 'saldo',
       }),
@@ -68,21 +70,19 @@ describe('AddPaymentDto', () => {
 
   it('a mano solo se registra efectivo: el QR BANECO se confirma contra el banco (CLI-159)', async () => {
     await expect(
-      invalidFields(AddPaymentDto, { amount: 50, paymentMethod: 'qr_baneco' }),
-    ).resolves.toEqual(['paymentMethod']);
-    await expect(
-      invalidFields(AddPaymentDto, { amount: 50, paymentMethod: 'efectivo' }),
+      invalidFields(AddPaymentDto, { lineKeys: [LINE], paymentMethod: 'qr_baneco' }),
     ).resolves.toEqual(['paymentMethod']);
   });
 
   it.each([
-    ['amount', -1],
-    ['amount', 10.123],
+    ['lineKeys', []],
+    ['lineKeys', ['no-es-uuid']],
+    ['lineKeys', undefined],
     ['paymentMethod', 'x'.repeat(51)],
     ['notes', 42],
   ])('rechaza %s = %p', async (field, value) => {
     await expect(
-      invalidFields(AddPaymentDto, { amount: 50, [field]: value }),
+      invalidFields(AddPaymentDto, { lineKeys: [LINE], [field]: value }),
     ).resolves.toEqual([field]);
   });
 });

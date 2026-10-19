@@ -95,7 +95,7 @@
               @if (paying()) {
                 <app-register-payment
                   [quoteId]="q.id"
-                  [balance]="q.balance"
+                  [lines]="q.lines"
                   (paid)="onPaid($event)"
                   (closed)="paying.set(false)"
                 />
