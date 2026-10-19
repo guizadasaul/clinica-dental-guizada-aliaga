@@ -17,7 +17,21 @@ import { MyQuoteComponent } from '../../../quotes/components/my-quote/my-quote';
 import { MyVisitsComponent } from '../../../appointments/components/my-visits/my-visits';
 import { MyProfileComponent } from '../../../patients/components/my-profile/my-profile';
 import { QuotesService } from '../../../quotes/services/quotes.service';
+import type { QuoteLine } from '../../../quotes/models/quote.model';
 import { formatBs } from '../../../../shared/utils/money.util';
+
+/** Cuántos pendientes de cada tipo se listan en el inicio; el resto, en "Mi presupuesto". */
+const PENDING_LIMIT = 5;
+
+/** "Conducto · piezas 21, 22", o solo el tratamiento si no es de una pieza. */
+function lineLabel(line: QuoteLine): string {
+  const teeth = line.toothNumbers;
+  if (teeth.length === 0) {
+    return line.treatmentName;
+  }
+  const noun = teeth.length === 1 ? 'pieza' : 'piezas';
+  return `${line.treatmentName} · ${noun} ${teeth.join(', ')}`;
+}
 
 /** WhatsApp de la clínica (mismo número que la landing y la reserva). */
 const CLINIC_WHATSAPP = '59157744250';
@@ -80,10 +94,28 @@ export class PatientDashboardComponent {
   );
   protected readonly visitsCount = computed(() => this.attended()?.length ?? null);
   /** CLI-209: lo que debe sumando sus presupuestos compartidos. */
-  private readonly quotes = toSignal(
+  protected readonly quotes = toSignal(
     this.quotesService.getMine().pipe(catchError(() => of([]))),
     { initialValue: null },
   );
+  /**
+   * CLI-262: lo que tiene pendiente, en detalle. Por realizar = tratamientos
+   * del presupuesto que todavía no se hicieron; por pagar = los que deben algo.
+   */
+  protected readonly pending = computed(() => {
+    const lines = (this.quotes() ?? []).flatMap((q) => q.lines ?? []);
+    const toDo = lines.filter((l) => !l.performedAt).map((l) => ({ key: l.key, label: lineLabel(l) }));
+    const toPay = lines
+      .filter((l) => l.pending > 0)
+      .map((l) => ({ key: l.key, label: lineLabel(l), amount: formatBs(l.pending) }));
+    return {
+      toDo: toDo.slice(0, PENDING_LIMIT),
+      toDoMore: Math.max(0, toDo.length - PENDING_LIMIT),
+      toPay: toPay.slice(0, PENDING_LIMIT),
+      toPayMore: Math.max(0, toPay.length - PENDING_LIMIT),
+    };
+  });
+
   protected readonly account = computed(() => {
     const quotes = this.quotes();
     if (!quotes) {

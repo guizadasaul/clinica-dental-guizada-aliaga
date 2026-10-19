@@ -9,7 +9,7 @@ import { PatientsService } from '../../patients/services/patients.service';
 import { AppointmentsService } from '../../appointments/services/appointments.service';
 import type { PatientAppointment } from '../../appointments/models/appointment.model';
 import { QuotesService } from '../../quotes/services/quotes.service';
-import type { Quote } from '../../quotes/models/quote.model';
+import type { Quote, QuoteLine } from '../../quotes/models/quote.model';
 import { LogoComponent } from '../../../shared/ui/logo/logo';
 import { ReportsService } from '../../reports/services/reports.service';
 import { KpiCardComponent } from '../../reports/components/kpi-card/kpi-card';
@@ -176,6 +176,54 @@ describe('PatientDashboardComponent', () => {
       expect(kpi(root, 1).querySelector('.kpi__value')?.textContent).toContain('Bs. 700,00');
       root.querySelector<HTMLButtonElement>('.kpi__link')!.click();
       expect(emitted).toEqual(['quote']);
+    });
+  });
+
+  // CLI-262
+  describe('pendientes', () => {
+    const line = (key: string, extra: Partial<QuoteLine>): QuoteLine => ({
+      key,
+      treatmentName: key,
+      toothNumbers: [],
+      total: 100,
+      paid: 0,
+      pending: 100,
+      performedAt: null,
+      ...extra,
+    });
+    const items = (root: HTMLElement, group: number) =>
+      [...root.querySelectorAll('.pending__group')[group].querySelectorAll('.pending__item')].map((i) =>
+        i.textContent!.replace(/\s+/g, ' ').trim(),
+      );
+
+    it('lista lo que falta realizar y lo que falta pagar, y lleva al presupuesto', () => {
+      const { fixture, root } = setup('home', {
+        quotes: of([
+          {
+            balance: 450,
+            lines: [
+              line('Resina', { toothNumbers: [16], performedAt: '2026-09-01', paid: 50, pending: 50 }),
+              line('Conducto', { toothNumbers: [21, 22], total: 400, pending: 400 }),
+              line('Limpieza', { performedAt: '2026-08-01', paid: 100, pending: 0 }),
+            ],
+          },
+        ]),
+      });
+      const emitted: string[] = [];
+      fixture.componentInstance.navChange.subscribe((nav) => emitted.push(nav));
+
+      expect(items(root, 0)).toEqual(['Conducto · piezas 21, 22']);
+      expect(items(root, 1)).toEqual(['Resina · pieza 16Bs. 50,00', 'Conducto · piezas 21, 22Bs. 400,00']);
+      [...root.querySelectorAll<HTMLButtonElement>('.patient__link')].find((b) => b.textContent?.includes('Ver mi presupuesto'))!.click();
+      expect(emitted).toEqual(['quote']);
+    });
+
+    it('al día, lo dice', () => {
+      const { root } = setup('home', {
+        quotes: of([{ balance: 0, lines: [line('Limpieza', { performedAt: '2026-08-01', paid: 100, pending: 0 })] }]),
+      });
+      expect(root.textContent).toContain('Estás al día');
+      expect(root.querySelector('.pending')).toBeNull();
     });
   });
 
