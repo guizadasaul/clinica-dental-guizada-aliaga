@@ -2,6 +2,8 @@ import { TestBed } from '@angular/core/testing';
 import { of, throwError } from 'rxjs';
 import { TreatmentHistoryComponent } from './treatment-history';
 import { TreatmentsService } from '../../services/treatments.service';
+import { AppointmentsService } from '../../../appointments/services/appointments.service';
+import type { PatientAppointmentsOverview } from '../../../appointments/models/appointment.model';
 import type { ToothProcedure, Treatment } from '../../models/treatment.model';
 
 function procedure(overrides: Partial<ToothProcedure> = {}): ToothProcedure {
@@ -11,7 +13,7 @@ function procedure(overrides: Partial<ToothProcedure> = {}): ToothProcedure {
     toothNumber: 16,
     applicationGroupId: null,
     treatmentId: 'resina',
-    treatmentName: 'Tratamiento',
+    treatmentName: 'Resina',
     applicationType: 'single_tooth',
     categoryCode: 'rest',
     categoryName: 'Restauración',
@@ -34,7 +36,13 @@ const TREATMENTS = [
   { id: 'carilla', name: 'Carilla', currency: 'USD', basePriceBob: 1392 },
 ] as Treatment[];
 
-function setup(procedures: ToothProcedure[] | Error, mine = false) {
+const NO_APPOINTMENTS: PatientAppointmentsOverview = { upcoming: [], past: [] };
+
+function setup(
+  procedures: ToothProcedure[] | Error,
+  mine = false,
+  appointments: PatientAppointmentsOverview = NO_APPOINTMENTS,
+) {
   const respond = () =>
     procedures instanceof Error ? throwError(() => procedures) : of(procedures);
   const service = {
@@ -42,9 +50,13 @@ function setup(procedures: ToothProcedure[] | Error, mine = false) {
     getToothProcedures: vi.fn(respond),
     getMyToothProcedures: vi.fn(respond),
   };
+  const appointmentsService = { getPatientAppointments: vi.fn(() => of(appointments)) };
   TestBed.configureTestingModule({
     imports: [TreatmentHistoryComponent],
-    providers: [{ provide: TreatmentsService, useValue: service }],
+    providers: [
+      { provide: TreatmentsService, useValue: service },
+      { provide: AppointmentsService, useValue: appointmentsService },
+    ],
   });
   const fixture = TestBed.createComponent(TreatmentHistoryComponent);
   fixture.componentRef.setInput('patientId', 'patient-1');
@@ -53,7 +65,7 @@ function setup(procedures: ToothProcedure[] | Error, mine = false) {
   const root = fixture.nativeElement as HTMLElement;
   const rows = () =>
     [...root.querySelectorAll('.th__table tbody tr')].map((r) => r.textContent ?? '');
-  return { fixture, root, rows, service };
+  return { fixture, root, rows, service, appointmentsService };
 }
 
 describe('TreatmentHistoryComponent', () => {
@@ -70,6 +82,36 @@ describe('TreatmentHistoryComponent', () => {
     expect(rows()[0]).toContain('Resina');
   });
 
+  // CLI-260
+  it('el doctor ve las citas próximas y pasadas del paciente, con las "No asistió" marcadas', () => {
+    const { root, appointmentsService } = setup([], false, {
+      upcoming: [
+        { id: 'a-3', appointmentDatetime: '2026-10-30T14:00:00.000Z', durationMinutes: 30, doctorName: 'Lucía Mamani', treatmentName: 'Resina', status: 'confirmed' },
+      ],
+      past: [
+        { id: 'a-2', appointmentDatetime: '2026-10-01T14:00:00.000Z', durationMinutes: 30, doctorName: null, treatmentName: null, status: 'no_show' },
+      ],
+    });
+    const citas = root.querySelector('.th__appointments')!.textContent!;
+
+    expect(appointmentsService.getPatientAppointments).toHaveBeenCalledWith('patient-1');
+    expect(citas).toContain('30/10/2026 10:00');
+    expect(citas).toContain('Resina · Lucía Mamani');
+    expect(citas).toContain('Consulta odontológica');
+    expect(root.querySelector('.th__appointment--missed')?.textContent).toContain('No asistió');
+  });
+
+  it('el paciente no pide citas acá: las ve en "Mis citas"', () => {
+    const { root, appointmentsService } = setup([], true);
+    expect(appointmentsService.getPatientAppointments).not.toHaveBeenCalled();
+    expect(root.querySelector('.th__appointments')).toBeNull();
+  });
+
+  it('muestra el nombre que trae el API aunque el tratamiento ya no esté en el catálogo (CLI-260)', () => {
+    const { rows } = setup([procedure({ treatmentId: 'retirado', treatmentName: 'Blanqueamiento' })]);
+    expect(rows()[0]).toContain('Blanqueamiento');
+  });
+
   it('sin tratamientos lo avisa', () => {
     expect(setup([]).root.textContent).toContain('Este paciente no tiene tratamientos registrados');
   });
@@ -81,7 +123,7 @@ describe('TreatmentHistoryComponent', () => {
   it('muestra cada tratamiento con fecha, pieza, superficies, precio y notas, y el total cobrado', () => {
     const { root, rows } = setup([
       procedure({ surfaces: ['occlusal', 'mesial'], notes: 'Control en 6 meses' }),
-      procedure({ id: 'proc-2', toothNumber: null, treatmentId: 'carilla', priceCharged: 700 }),
+      procedure({ id: 'proc-2', toothNumber: null, treatmentId: 'carilla', treatmentName: 'Carilla', priceCharged: 700 }),
     ]);
 
     expect(root.textContent).toContain('2 tratamientos');

@@ -167,6 +167,63 @@
   to { transform: rotate(360deg); }
 }
 
+// ─── Citas del paciente (CLI-260) ───────────────────────────────────────────
+
+.th__appointments {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.th__appointments-subtitle {
+  margin: var(--space-3) 0 0;
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  color: var(--color-text-muted);
+}
+
+.th__appointment {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1) var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: #fff;
+  font-size: var(--font-size-sm);
+
+  &--missed .th__appointment-what {
+    color: var(--color-text-muted);
+    text-decoration: line-through;
+  }
+}
+
+.th__appointment-when {
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.th__appointment-what {
+  flex: 1;
+  min-width: 10rem;
+}
+
+.th__appointment-badge {
+  padding: 0.125rem var(--space-2);
+  border-radius: var(--radius-full);
+  background: var(--color-gray-50);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+}
+
+.th__appointments-empty {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
+
 // ─── Celular (CLI-250) ───────────────────────────────────────────────────────
 // La tabla medía 567 px y había que deslizarla de costado: cada tratamiento
 // pasa a ser una tarjeta, con el nombre como título.
