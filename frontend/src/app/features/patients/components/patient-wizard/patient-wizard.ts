@@ -102,7 +102,11 @@ export class PatientWizardComponent implements OnInit {
   readonly startStep = input(4);
   /** Paso del examen dental: `new` = diagnóstico nuevo en blanco, `correct` = corregir el vigente (CLI-109). */
   readonly examMode = input<DentalExamMode>('correct');
-  readonly wizardComplete = output<void>();
+  /** Textos para volver (CLI-264: desde la agenda vuelven a la agenda, no a la lista). */
+  readonly backLabel = input('Volver a la lista');
+  readonly finishLabel = input('Volver a la lista de pacientes');
+  /** Al terminar, con el id de la ficha (CLI-264: la agenda le crea la cita). */
+  readonly wizardComplete = output<string | null>();
   readonly cancelled = output<void>();
 
   protected readonly steps = STEPS;
@@ -353,6 +357,6 @@ export class PatientWizardComponent implements OnInit {
   }
 
   protected onFinish(): void {
-    this.wizardComplete.emit();
+    this.wizardComplete.emit(this.patientId());
   }
 }

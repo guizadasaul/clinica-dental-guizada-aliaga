@@ -18,6 +18,9 @@
       <span class="material-symbols-outlined" aria-hidden="true">event</span>
       {{ whenLabel() }}
     </p>
+    @if (walkIn()) {
+      <p class="book-modal__hint">Este horario ya empezó: es para un paciente que llegó sin cita y se atiende ahora.</p>
+    }
 
     <form class="book-modal__form" (submit)="$event.preventDefault(); onSubmit()">
       @if (appointment(); as appt) {
@@ -56,6 +59,16 @@
                 (selectedChange)="onPatientChange($event)"
               />
             }
+            <!-- CLI-264: el que llega sin cita y sin ficha se registra desde acá -->
+            <button
+              type="button"
+              class="book-modal__new-patient"
+              [disabled]="crossesMidnight() || overlapsNext() || !durationValid()"
+              (click)="onNewPatient()"
+            >
+              <span class="material-symbols-outlined" aria-hidden="true">person_add</span>
+              Paciente nuevo: registrar su ficha
+            </button>
           </div>
         }
 

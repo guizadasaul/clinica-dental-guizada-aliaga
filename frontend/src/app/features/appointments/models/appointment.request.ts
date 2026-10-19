@@ -6,6 +6,8 @@ export interface CreateDoctorAppointmentRequest {
   treatmentId?: string;
   durationMinutes?: number;
   notes?: string;
+  /** CLI-264: paciente que llegó sin cita; acepta un horario de hoy que ya empezó. */
+  walkIn?: boolean;
 }
 
 /** CLI-149/151: nuevo horario de una cita confirmada propia. Notas: si viene, reemplaza (vacío las borra). */

@@ -1,7 +1,7 @@
 <div class="wizard">
   <!-- Header -->
   <div class="wizard__header">
-    <app-page-header [title]="wizardTitle()" backLabel="Volver a la lista" (back)="onCancel()" />
+    <app-page-header [title]="wizardTitle()" [backLabel]="backLabel()" (back)="onCancel()" />
 
     <!-- Progress bar (solo en el alta completa: entrando directo al examen dental el encabezado ya alcanza) -->
     @if (!onlyDentalExam()) {
@@ -59,7 +59,7 @@
         }
         <button class="wizard__success-btn" type="button" (click)="onFinish()">
           <span class="material-symbols-outlined">group</span>
-          Volver a la lista de pacientes
+          {{ finishLabel() }}
         </button>
       </div>
     } @else {

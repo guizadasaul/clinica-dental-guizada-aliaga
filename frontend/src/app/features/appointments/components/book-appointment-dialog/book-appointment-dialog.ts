@@ -45,6 +45,12 @@ export const MAX_DURATION = 8 * 60;
 const HOURS_OPTIONS = Array.from({ length: MAX_DURATION / 60 + 1 }, (_, i) => i);
 const MINUTES_OPTIONS = Array.from({ length: 60 / STEP_MINUTES }, (_, i) => i * STEP_MINUTES);
 
+/** CLI-264: hora de inicio y duración elegidas para el paciente nuevo. */
+export interface NewPatientSlot {
+  readonly minutes: number;
+  readonly durationMinutes: number;
+}
+
 /** Otra cita del día, en minutos desde la medianoche, para avisar si la nueva la pisa. */
 export interface BusyInterval {
   readonly start: number;
@@ -133,7 +139,15 @@ export class BookAppointmentDialogComponent implements OnInit {
    */
   readonly followUpOf = input<AppointmentAgendaItem | null>(null);
 
+  /**
+   * CLI-264: el horario es de hoy y ya empezó — solo para un paciente que
+   * llegó sin cita y se atiende ahora.
+   */
+  readonly walkIn = input(false);
+
   readonly booked = output<AppointmentAgendaItem>();
+  /** CLI-264: registrar un paciente nuevo para este horario; la agenda abre su ficha y después le crea la cita. */
+  readonly newPatient = output<NewPatientSlot>();
   readonly closed = output<void>();
 
   private readonly panel = viewChild<ElementRef<HTMLElement>>('panel');
@@ -285,7 +299,10 @@ export class BookAppointmentDialogComponent implements OnInit {
     if (this.isReschedule()) {
       return 'Reprogramar cita';
     }
-    return this.followUpOf() ? 'Agendar próxima cita' : 'Agendar cita';
+    if (this.followUpOf()) {
+      return 'Agendar próxima cita';
+    }
+    return this.walkIn() ? 'Paciente sin cita' : 'Agendar cita';
   });
 
   protected readonly canSubmit = computed(
@@ -328,6 +345,14 @@ export class BookAppointmentDialogComponent implements OnInit {
     }
     this.patientId.set(id);
     this.error.set(null);
+  }
+
+  /** CLI-264: no hay ficha todavía; se registra y la cita se crea al terminar. */
+  protected onNewPatient(): void {
+    if (this.crossesMidnight() || this.overlapsNext() || !this.durationValid()) {
+      return;
+    }
+    this.newPatient.emit({ minutes: this.startMinutes(), durationMinutes: this.duration() });
   }
 
   protected onTreatmentChange(id: string): void {
@@ -409,6 +434,7 @@ export class BookAppointmentDialogComponent implements OnInit {
       treatmentId: this.treatmentId() ?? undefined,
       durationMinutes: this.duration(),
       notes: this.notes().trim() || undefined,
+      ...(this.walkIn() && { walkIn: true }),
     });
   }
 

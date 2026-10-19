@@ -1,3 +1,4 @@
+import { provideTranslateService } from '@ngx-translate/core';
 import { signal } from '@angular/core';
 import { TestBed, ComponentFixture } from '@angular/core/testing';
 import { of } from 'rxjs';
@@ -12,6 +13,7 @@ import { AuthService } from '../../../../auth/application/auth.service';
 import { PatientsService } from '../../../patients/services/patients.service';
 import { TreatmentsService } from '../../../treatments/services/treatments.service';
 import { DiagnosesService } from '../../../diagnoses/services/diagnoses.service';
+import { MedicalConditionsService } from '../../../medical-conditions/services/medical-conditions.service';
 import { QuotesService } from '../../../quotes/services/quotes.service';
 import { ViewportService } from '../../../../shared/services/viewport.service';
 
@@ -97,7 +99,10 @@ function setup(
         },
       },
       // El registro de tratamientos (abierto desde el detalle del turno).
-      { provide: DiagnosesService, useValue: { getCatalog: () => of([]) } },
+      { provide: DiagnosesService, useValue: { getCatalog: () => of([]), getFrequentCodes: () => of([]) } },
+      // La ficha del paciente nuevo que llegó sin cita (CLI-264).
+      { provide: MedicalConditionsService, useValue: { getCatalog: () => of([]) } },
+      provideTranslateService({ defaultLanguage: 'es' }),
       { provide: QuotesService, useValue: { getByPatient: () => of([]) } },
       // El doctor logueado — en la agenda común solo sus turnos abren el detalle.
       { provide: AuthService, useValue: { currentUser: signal({ id: 'doctor-a' }) } },
@@ -576,6 +581,82 @@ describe('DoctorAgendaComponent', () => {
       await settle(fixture);
 
       expect(fixture.nativeElement.querySelector('button.agenda-cell')).toBeFalsy();
+    });
+
+    // CLI-264: el paciente que llega sin cita.
+    describe('paciente sin cita', () => {
+      type WalkIn = {
+        cellsFor: (date: string) => { minutes: number; bookable: boolean; walkIn: boolean }[];
+        onBookSlot: (date: string, cell: { minutes: number; bookable: boolean; walkIn: boolean }) => void;
+        bookingWalkIn: () => boolean;
+        onNewPatient: (choice: { minutes: number; durationMinutes: number }) => void;
+        walkInDraft: () => unknown;
+        onWalkInRegistered: (patientId: string | null) => Promise<void>;
+        detailAppointment: () => AppointmentAgendaItem | null;
+      };
+      const walk = (fixture: ComponentFixture<DoctorAgendaComponent>) =>
+        fixture.componentInstance as unknown as WalkIn;
+      // Miércoles 07/10/2026, 15:00 en La Paz. Solo se fija Date.
+      const TODAY = '2026-10-07';
+      function atWednesday3pm(): void {
+        vi.useFakeTimers({ toFake: ['Date'] });
+        vi.setSystemTime(new Date(`${TODAY}T15:00:00-04:00`));
+        onTestFinished(() => {
+          vi.useRealTimers();
+        });
+      }
+
+      it('las franjas libres de hoy que ya empezaron se pueden tocar, solo como "sin cita"', async () => {
+        atWednesday3pm();
+        const { fixture } = setup([]);
+        await settle(fixture);
+
+        const today = walk(fixture).cellsFor(TODAY);
+        expect(today.find((c) => c.minutes === 9 * 60)).toMatchObject({ bookable: true, walkIn: true });
+        expect(today.find((c) => c.minutes === 16 * 60)).toMatchObject({ bookable: true, walkIn: false });
+        // Un día anterior sigue cerrado.
+        const tuesday = walk(fixture).cellsFor('2026-10-06');
+        expect(tuesday.find((c) => c.minutes === 9 * 60)!.bookable).toBe(false);
+
+        walk(fixture).onBookSlot(TODAY, today.find((c) => c.minutes === 9 * 60)!);
+        expect(walk(fixture).bookingWalkIn()).toBe(true);
+      });
+
+      it('al terminar la ficha del paciente nuevo, le crea la cita en ese horario y la abre', async () => {
+        atWednesday3pm();
+        const { fixture, appointmentsService } = setup([]);
+        await settle(fixture);
+        const created = fakeAppointment({ id: 'appt-walkin', patientId: 'nuevo' });
+        appointmentsService.createByDoctor.mockReturnValue(of(created));
+        const nine = walk(fixture).cellsFor(TODAY).find((c) => c.minutes === 9 * 60)!;
+        walk(fixture).onBookSlot(TODAY, nine);
+        walk(fixture).onNewPatient({ minutes: 9 * 60, durationMinutes: 45 });
+        await settle(fixture);
+        expect((fixture.nativeElement as HTMLElement).querySelector('app-patient-wizard')).not.toBeNull();
+
+        await walk(fixture).onWalkInRegistered('nuevo');
+
+        expect(appointmentsService.createByDoctor).toHaveBeenCalledWith({
+          patientId: 'nuevo',
+          appointmentDatetime: `${TODAY}T09:00:00-04:00`,
+          durationMinutes: 45,
+          walkIn: true,
+        });
+        expect(walk(fixture).detailAppointment()?.id).toBe('appt-walkin');
+        expect(walk(fixture).walkInDraft()).toBeNull();
+      });
+
+      it('si se cancela la ficha, no se crea ninguna cita', async () => {
+        atWednesday3pm();
+        const { fixture, appointmentsService } = setup([]);
+        await settle(fixture);
+        walk(fixture).onBookSlot(TODAY, walk(fixture).cellsFor(TODAY).find((c) => c.minutes === 9 * 60)!);
+        walk(fixture).onNewPatient({ minutes: 9 * 60, durationMinutes: 30 });
+
+        await walk(fixture).onWalkInRegistered(null);
+
+        expect(appointmentsService.createByDoctor).not.toHaveBeenCalled();
+      });
     });
 
     it('sombrea lo que queda fuera del horario de atención', async () => {

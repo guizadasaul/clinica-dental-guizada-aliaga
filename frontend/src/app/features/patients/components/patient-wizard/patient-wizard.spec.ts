@@ -79,8 +79,11 @@ function setup(inputs: Record<string, unknown> = {}) {
   for (const [name, value] of Object.entries(inputs)) {
     fixture.componentRef.setInput(name, value);
   }
-  const events = { complete: 0, cancelled: 0 };
-  fixture.componentInstance.wizardComplete.subscribe(() => events.complete++);
+  const events = { complete: 0, cancelled: 0, completedId: undefined as string | null | undefined };
+  fixture.componentInstance.wizardComplete.subscribe((id) => {
+    events.complete++;
+    events.completedId = id;
+  });
   fixture.componentInstance.cancelled.subscribe(() => events.cancelled++);
   return { fixture, patients, diagnoses, conditions, events };
 }
@@ -321,6 +324,8 @@ describe('PatientWizardComponent', () => {
         .querySelector<HTMLButtonElement>('.wizard__success-btn')!
         .click();
       expect(events.complete).toBe(1);
+      // CLI-264: con el id de la ficha, para que la agenda le cree la cita.
+      expect(events.completedId).toBe('patient-new');
     });
 
     it('marca los pasos completados en la barra de progreso', async () => {

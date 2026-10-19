@@ -884,6 +884,63 @@ describe('AppointmentsService', () => {
       });
     });
 
+    // CLI-264: "now" es el viernes 14/08/2026 a las 12:00 de Bolivia.
+    describe('paciente sin cita (walkIn)', () => {
+      it('acepta un horario de hoy que ya empezó', async () => {
+        await service.createByDoctor(DOCTOR_ID, {
+          patientId: PATIENT_ID,
+          appointmentDatetime: '2026-08-14T11:30:00-04:00',
+          walkIn: true,
+        });
+
+        expect(mockRepo.createByDoctor).toHaveBeenCalledWith(
+          expect.objectContaining({
+            appointmentDatetime: new Date('2026-08-14T11:30:00-04:00'),
+          }),
+        );
+      });
+
+      it('sin walkIn, el mismo horario se rechaza por pasado', async () => {
+        await expect(
+          service.createByDoctor(DOCTOR_ID, {
+            patientId: PATIENT_ID,
+            appointmentDatetime: '2026-08-14T11:30:00-04:00',
+          }),
+        ).rejects.toThrow('La cita tiene que ser en el futuro');
+      });
+
+      it('no acepta un horario de otro día', async () => {
+        await expect(
+          service.createByDoctor(DOCTOR_ID, {
+            patientId: PATIENT_ID,
+            appointmentDatetime: '2026-08-13T11:30:00-04:00',
+            walkIn: true,
+          }),
+        ).rejects.toThrow(
+          'Un paciente sin cita se registra en un horario de hoy',
+        );
+        expect(mockRepo.createByDoctor).not.toHaveBeenCalled();
+      });
+
+      it('sigue sin dejar pisar otra cita', async () => {
+        mockRepo.findActiveBetween.mockResolvedValue([
+          {
+            id: 'other',
+            appointmentDatetime: new Date('2026-08-14T11:00:00-04:00'),
+            durationMinutes: 60,
+          },
+        ]);
+
+        await expect(
+          service.createByDoctor(DOCTOR_ID, {
+            patientId: PATIENT_ID,
+            appointmentDatetime: '2026-08-14T11:30:00-04:00',
+            walkIn: true,
+          }),
+        ).rejects.toThrow(ConflictException);
+      });
+    });
+
     it('toma la duración del tratamiento si no se indica otra', async () => {
       mockTreatmentRepo.findById.mockResolvedValue(
         fakeTreatment({ estimatedMinutes: 90 }),
