@@ -23,6 +23,16 @@ import { formatBs } from '../../../../shared/utils/money.util';
 /** Cuántos pendientes de cada tipo se listan en el inicio; el resto, en "Mi presupuesto". */
 const PENDING_LIMIT = 5;
 
+/** "Conducto · piezas 21, 22", o solo el tratamiento si no es de una pieza. */
+function lineLabel(line: QuoteLine): string {
+  const teeth = line.toothNumbers;
+  if (teeth.length === 0) {
+    return line.treatmentName;
+  }
+  const noun = teeth.length === 1 ? 'pieza' : 'piezas';
+  return `${line.treatmentName} · ${noun} ${teeth.join(', ')}`;
+}
+
 /** WhatsApp de la clínica (mismo número que la landing y la reserva). */
 const CLINIC_WHATSAPP = '59157744250';
 
@@ -94,14 +104,10 @@ export class PatientDashboardComponent {
    */
   protected readonly pending = computed(() => {
     const lines = (this.quotes() ?? []).flatMap((q) => q.lines ?? []);
-    const label = (l: QuoteLine) =>
-      l.toothNumbers.length > 0
-        ? `${l.treatmentName} · pieza${l.toothNumbers.length === 1 ? '' : 's'} ${l.toothNumbers.join(', ')}`
-        : l.treatmentName;
-    const toDo = lines.filter((l) => !l.performedAt).map((l) => ({ key: l.key, label: label(l) }));
+    const toDo = lines.filter((l) => !l.performedAt).map((l) => ({ key: l.key, label: lineLabel(l) }));
     const toPay = lines
       .filter((l) => l.pending > 0)
-      .map((l) => ({ key: l.key, label: label(l), amount: formatBs(l.pending) }));
+      .map((l) => ({ key: l.key, label: lineLabel(l), amount: formatBs(l.pending) }));
     return {
       toDo: toDo.slice(0, PENDING_LIMIT),
       toDoMore: Math.max(0, toDo.length - PENDING_LIMIT),
