@@ -6,6 +6,7 @@ import { AppointmentsService } from '../../services/appointments.service';
 import { PatientsService } from '../../../patients/services/patients.service';
 import { TreatmentsService } from '../../../treatments/services/treatments.service';
 import { AuthService } from '../../../../auth/application/auth.service';
+import { QuotesService } from '../../../quotes/services/quotes.service';
 
 const MONDAY = '2026-10-05';
 
@@ -34,7 +35,23 @@ function patient(
   };
 }
 
+/** CLI-263: presupuesto de p-1 con un pendiente en dos piezas y uno ya realizado. */
+const P1_QUOTES = [
+  {
+    id: 'q-1',
+    createdAt: '2026-09-01T00:00:00Z',
+    items: [
+      { id: 'i-1', applicationGroupId: 'g-1', treatmentId: 't-1', treatmentName: 'Control', toothNumber: 22, procedureId: null, quantity: 1, subtotal: 300 },
+      { id: 'i-2', applicationGroupId: 'g-1', treatmentId: 't-1', treatmentName: 'Control', toothNumber: 21, procedureId: null, quantity: 1, subtotal: 300 },
+      { id: 'i-3', applicationGroupId: null, treatmentId: 't-1', treatmentName: 'Control', toothNumber: 16, procedureId: 'proc-1', quantity: 1, subtotal: 100 },
+    ],
+  },
+];
+
 function setup(options: { createResult?: unknown } = {}) {
+  const quotesService = {
+    getByPatient: vi.fn((id: string) => of(id === 'p-1' ? P1_QUOTES : [])),
+  };
   const appointmentsService = {
     createByDoctor: vi.fn().mockReturnValue(options.createResult ?? of({ id: 'new' })),
     rescheduleByDoctor: vi.fn().mockReturnValue(options.createResult ?? of({ id: 'moved' })),
@@ -81,17 +98,19 @@ function setup(options: { createResult?: unknown } = {}) {
         },
       },
       { provide: AuthService, useValue: { currentUser: signal({ id: 'doctor-a' }) } },
+      { provide: QuotesService, useValue: quotesService },
     ],
   });
   const fixture = TestBed.createComponent(BookAppointmentDialogComponent);
   fixture.componentRef.setInput('slot', { date: MONDAY, minutes: 10 * 60 });
   fixture.componentRef.setInput('schedule', [{ weekday: 1, start: '09:00', end: '12:00' }]);
-  return { fixture, appointmentsService };
+  return { fixture, appointmentsService, quotesService };
 }
 
 type Internals = {
   patientOptions: () => { id: string; label: string; groupId: string }[];
-  treatmentOptions: () => { id: string }[];
+  treatmentOptions: () => { id: string; label: string; groupLabel: string; hint?: string }[];
+  notes: () => string;
   whenLabel: () => string;
   duration: () => number;
   outsideSchedule: () => boolean;
@@ -365,6 +384,56 @@ describe('BookAppointmentDialogComponent (CLI-150)', () => {
       notes: 'control',
     });
     expect(booked).toHaveBeenCalledWith({ id: 'new' });
+  });
+
+  // CLI-263
+  describe('pendientes del presupuesto', () => {
+    it('al elegir el paciente, sus tratamientos por realizar aparecen primero', () => {
+      const { fixture, quotesService } = setup();
+      fixture.detectChanges();
+      internals(fixture).onPatientChange('p-1');
+      fixture.detectChanges();
+
+      const options = internals(fixture).treatmentOptions();
+      expect(quotesService.getByPatient).toHaveBeenCalledWith('p-1');
+      expect(options[0]).toMatchObject({
+        id: 'plan:g-1',
+        label: 'Control · piezas 21, 22',
+        groupLabel: 'Pendientes del presupuesto',
+        hint: '45 min',
+      });
+      // Lo ya realizado no se ofrece; después viene el catálogo.
+      expect(options.map((o) => o.id)).toEqual(['plan:g-1', 't-1']);
+    });
+
+    it('elegir un pendiente agenda su tratamiento con su duración y anota las piezas', async () => {
+      const { fixture, appointmentsService } = setup();
+      fixture.detectChanges();
+      internals(fixture).onPatientChange('p-1');
+      fixture.detectChanges();
+      internals(fixture).onTreatmentChange('plan:g-1');
+
+      expect(internals(fixture).duration()).toBe(45);
+      expect(internals(fixture).notes()).toBe('Piezas 21, 22');
+      await internals(fixture).onSubmit();
+
+      expect(appointmentsService.createByDoctor).toHaveBeenCalledWith(
+        expect.objectContaining({ patientId: 'p-1', treatmentId: 't-1', notes: 'Piezas 21, 22' }),
+      );
+    });
+
+    it('si cambia de paciente, el pendiente del anterior se descarta', () => {
+      const { fixture } = setup();
+      fixture.detectChanges();
+      internals(fixture).onPatientChange('p-1');
+      fixture.detectChanges();
+      internals(fixture).onTreatmentChange('plan:g-1');
+      internals(fixture).onPatientChange('p-2');
+      fixture.detectChanges();
+
+      expect(internals(fixture).treatmentOptions().map((o) => o.id)).toEqual(['t-1']);
+      expect((fixture.componentInstance as unknown as { treatmentId: () => string | null }).treatmentId()).toBeNull();
+    });
   });
 
   it('ante un 409 queda abierto y explica el choque', async () => {
