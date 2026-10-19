@@ -270,6 +270,7 @@
 .agenda-grid {
   display: grid;
   max-height: calc(100vh - 130px);
+  max-height: calc(100dvh - 130px); // iOS Safari: sin la barra del navegador
   overflow: auto;
   position: relative;
 }
@@ -360,6 +361,7 @@
     top: 3.375rem;
     align-self: start;
     height: calc(100vh - 130px - 3.375rem);
+    height: calc(100dvh - 130px - 3.375rem);
     display: flex;
     flex-direction: column;
     align-items: stretch;
@@ -749,6 +751,19 @@
 
     &--on {
       background: var(--color-primary);
+    }
+  }
+}
+
+// iOS Safari anterior a 16.2 no conoce color-mix(): sin esto la cita queda
+// transparente sobre las líneas de la grilla. El borde de color la sigue
+// distinguiendo.
+@supports not (color: color-mix(in srgb, red 50%, white)) {
+  .agenda-slot {
+    background: #fff;
+
+    &:hover {
+      background: var(--color-gray-50);
     }
   }
 }

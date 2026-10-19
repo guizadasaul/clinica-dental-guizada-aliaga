@@ -306,6 +306,7 @@
   width: 100%;
   max-width: 24rem;
   max-height: calc(100vh - 2rem);
+  max-height: calc(100dvh - 2rem); // iOS Safari: sin la barra del navegador
   margin: 0;
   padding: var(--space-6);
   border: none;
