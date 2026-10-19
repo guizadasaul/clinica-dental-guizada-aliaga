@@ -720,6 +720,11 @@ export class PatientsService {
     ];
   }
 
+  /** 404 si la ficha no existe (CLI-260: citas del paciente vistas por el doctor). */
+  async assertPatientExists(patientId: string): Promise<void> {
+    await this.requirePatient(patientId);
+  }
+
   async findToothProcedures(patientId: string): Promise<ToothProcedure[]> {
     await this.requirePatient(patientId);
     return this.patientRepo.findToothProcedures(patientId);

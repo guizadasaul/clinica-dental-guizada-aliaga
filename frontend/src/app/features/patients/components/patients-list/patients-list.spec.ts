@@ -556,6 +556,31 @@ describe('PatientsListComponent — búsqueda, acciones y menú', () => {
       expect(byLabel('Registrar tratamiento').disabled).toBe(false);
       expect(byLabel('Hacer presupuesto').disabled).toBe(false);
     });
+
+    it('sin cuenta, con diagnóstico, también deja ver y corregir la ficha (CLI-260)', async () => {
+      const { byLabel } = await openRowMenu([fakePatientWithUser({ hasAccount: false })]);
+
+      expect(byLabel('Ver historia clínica')).toBeTruthy();
+      expect(byLabel('Corregir diagnóstico actual')).toBeTruthy();
+      expect(byLabel('Nuevo diagnóstico')).toBeTruthy();
+    });
+  });
+
+  it('con diagnóstico y sin cuenta ofrece el historial junto a mandar la invitación (CLI-260)', async () => {
+    const { fixture } = setup([fakePatientWithUser({ hasAccount: false })]);
+    await settle(fixture);
+    const events: string[] = [];
+    fixture.componentInstance.registerTreatment.subscribe((id) => events.push(`tratamiento:${id}`));
+    fixture.componentInstance.viewHistory.subscribe((id) => events.push(`historial:${id}`));
+    fixture.componentInstance.buildQuote.subscribe((id) => events.push(`presupuesto:${id}`));
+    fixture.componentInstance.sendInvite.subscribe(() => events.push('invitación'));
+
+    rowButton(fixture, 'Tratamiento').click();
+    rowButton(fixture, 'Historial').click();
+    rowButton(fixture, 'Presupuesto').click();
+    rowButton(fixture, 'Enviar registro').click();
+
+    expect(events).toEqual(['tratamiento:patient-1', 'historial:patient-1', 'presupuesto:patient-1', 'invitación']);
   });
 
   describe('menú ⋮', () => {

@@ -54,7 +54,7 @@
                   <span>—</span>
                 }
               </td>
-              <td class="th__cell th__cell--name">{{ getTreatmentName(row.treatmentId) }}</td>
+              <td class="th__cell th__cell--name">{{ row.treatmentName }}</td>
               <td class="th__cell th__cell--surfaces" data-label="Superficies">{{ row.surfaces }}</td>
               <td class="th__cell th__cell--price" data-label="Precio">
                 <span class="th__price">
@@ -71,6 +71,35 @@
         </tbody>
       </table>
     </div>
+  }
+
+  @if (appointments(); as a) {
+    <section class="th__appointments" aria-labelledby="th-appointments-title">
+      <h2 id="th-appointments-title" class="section-title">Citas</h2>
+
+      <h3 class="th__appointments-subtitle">Próximas</h3>
+      @for (u of a.upcoming; track u.id) {
+        <div class="th__appointment">
+          <span class="th__appointment-when">{{ formatAppointment(u) }}</span>
+          <span class="th__appointment-what">{{ u.treatmentName ?? 'Consulta odontológica' }}@if (u.doctorName) { · {{ u.doctorName }} }</span>
+        </div>
+      } @empty {
+        <p class="th__appointments-empty">No tiene citas programadas.</p>
+      }
+
+      <h3 class="th__appointments-subtitle">Pasadas</h3>
+      @for (v of a.past; track v.id) {
+        <div class="th__appointment" [class.th__appointment--missed]="v.status === 'no_show'">
+          <span class="th__appointment-when">{{ formatAppointment(v) }}</span>
+          <span class="th__appointment-what">{{ v.treatmentName ?? 'Consulta odontológica' }}@if (v.doctorName) { · {{ v.doctorName }} }</span>
+          @if (v.status === 'no_show') {
+            <span class="th__appointment-badge">No asistió</span>
+          }
+        </div>
+      } @empty {
+        <p class="th__appointments-empty">Todavía no tiene visitas registradas.</p>
+      }
+    </section>
   }
 
 </div>

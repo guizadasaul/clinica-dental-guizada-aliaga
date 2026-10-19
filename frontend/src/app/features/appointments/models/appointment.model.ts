@@ -45,6 +45,12 @@ export interface PatientAppointment {
   status: string;
 }
 
+/** CLI-260: GET /patients/:id/appointments — próximas (la más cercana primero) y pasadas (la más reciente primero). */
+export interface PatientAppointmentsOverview {
+  upcoming: PatientAppointment[];
+  past: PatientAppointment[];
+}
+
 /** Horario que el doctor aparta de su agenda (CLI-195): emergencia, curso, etc. GET /appointments/blocks. */
 export interface TimeBlock {
   id: string;

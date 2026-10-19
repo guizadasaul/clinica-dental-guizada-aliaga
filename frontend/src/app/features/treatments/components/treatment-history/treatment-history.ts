@@ -11,6 +11,12 @@ import {
 import { DecimalPipe } from '@angular/common';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { TreatmentsService } from '../../services/treatments.service';
+import { AppointmentsService } from '../../../appointments/services/appointments.service';
+import type {
+  PatientAppointment,
+  PatientAppointmentsOverview,
+} from '../../../appointments/models/appointment.model';
+import { CLINIC_TIME_ZONE } from '../../../../shared/utils/clinic-date.util';
 import type { Treatment, ToothProcedure, ToothSurfaceCode } from '../../models/treatment.model';
 import { PageHeaderComponent } from '../../../../shared/ui/page-header/page-header';
 
@@ -24,11 +30,22 @@ const SURFACE_ABBREVIATIONS: Record<ToothSurfaceCode, string> = {
   incisal: 'Inc.',
 };
 
+const APPOINTMENT_WHEN = new Intl.DateTimeFormat('es-BO', {
+  timeZone: CLINIC_TIME_ZONE,
+  day: '2-digit',
+  month: '2-digit',
+  year: 'numeric',
+  hour: '2-digit',
+  minute: '2-digit',
+  hour12: false,
+});
+
 interface GroupedProcedure {
   readonly key: string;
   readonly procedureDate: string;
   readonly toothNumbers: number[];
   readonly treatmentId: string;
+  readonly treatmentName: string;
   readonly totalPrice: number;
   readonly surfaces: string;
   readonly notes: string | null;
@@ -44,6 +61,7 @@ interface GroupedProcedure {
 })
 export class TreatmentHistoryComponent {
   private readonly treatmentsService = inject(TreatmentsService);
+  private readonly appointmentsService = inject(AppointmentsService);
 
   readonly patientId = input.required<string>();
   /**
@@ -62,6 +80,8 @@ export class TreatmentHistoryComponent {
   protected readonly procedures = signal<ToothProcedure[]>([]);
   protected readonly loading = signal(true);
   protected readonly loadError = signal(false);
+  /** CLI-260: citas del paciente, solo en la vista del doctor. */
+  protected readonly appointments = signal<PatientAppointmentsOverview | null>(null);
 
   protected readonly total = computed(() =>
     this.procedures().reduce((sum, p) => sum + p.priceCharged, 0),
@@ -94,6 +114,9 @@ export class TreatmentHistoryComponent {
           .map((r) => r.toothNumber)
           .filter((n): n is number => n !== null),
         treatmentId: first.treatmentId,
+        // El API ya trae el nombre: no depende de que el tratamiento siga en
+        // el catálogo activo (antes se buscaba ahí y salía "—").
+        treatmentName: first.treatmentName || this.getTreatmentName(first.treatmentId),
         totalPrice: rows.reduce((sum, r) => sum + r.priceCharged, 0),
         surfaces: rows.length === 1 ? this.getSurfaces(rows[0]) : '—',
         notes: first.notes,
@@ -120,6 +143,14 @@ export class TreatmentHistoryComponent {
           this.loading.set(false);
         },
       });
+      this.appointments.set(null);
+      if (!this.mine()) {
+        // Si falla, el historial de tratamientos se sigue viendo sin las citas.
+        this.appointmentsService.getPatientAppointments(id).subscribe({
+          next: (overview) => this.appointments.set(overview),
+          error: () => this.appointments.set(null),
+        });
+      }
     }, { allowSignalWrites: true });
   }
 
@@ -141,6 +172,10 @@ export class TreatmentHistoryComponent {
     const datePart = dateStr.slice(0, 10);
     const [y, m, d] = datePart.split('-');
     return `${d}/${m}/${y}`;
+  }
+
+  protected formatAppointment(a: PatientAppointment): string {
+    return APPOINTMENT_WHEN.format(new Date(a.appointmentDatetime)).replace(',', '');
   }
 
   protected getSurfaces(proc: ToothProcedure): string {

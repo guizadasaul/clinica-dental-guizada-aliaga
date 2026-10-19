@@ -6,6 +6,7 @@ import type {
   AppointmentAgendaItem,
   DoctorScheduleBlock,
   PatientAppointment,
+  PatientAppointmentsOverview,
   TimeBlock,
 } from '../models/appointment.model';
 import type {
@@ -105,6 +106,13 @@ export class AppointmentsService {
   getMyUpcoming(): Observable<PatientAppointment[]> {
     return this.http.get<PatientAppointment[]>(
       `${environment.backendUrl}/patients/me/appointments`,
+    );
+  }
+
+  /** CLI-260: citas de un paciente vistas por el doctor (con o sin cuenta). */
+  getPatientAppointments(patientId: string): Observable<PatientAppointmentsOverview> {
+    return this.http.get<PatientAppointmentsOverview>(
+      `${environment.backendUrl}/patients/${patientId}/appointments`,
     );
   }
 

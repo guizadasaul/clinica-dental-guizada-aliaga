@@ -119,28 +119,17 @@
                     <span class="material-symbols-outlined">add_circle</span>
                     Registrar
                   </button>
-                } @else if (p.dentalExamsCount === 0 || !p.hasAccount) {
-                  @if (p.dentalExamsCount === 0) {
-                    <button
-                      class="patients-list__btn"
-                      type="button"
-                      (click)="onRegisterDiagnosis(p.patient!)"
-                    >
-                      <span class="material-symbols-outlined">dentistry</span>
-                      Registrar diagnóstico
-                    </button>
-                  }
-                  @if (!p.hasAccount) {
-                    <button
-                      class="patients-list__btn"
-                      type="button"
-                      (click)="onSendInvite(p)"
-                    >
-                      <span class="material-symbols-outlined">person_add</span>
-                      Enviar registro
-                    </button>
-                  }
+                } @else if (p.dentalExamsCount === 0) {
+                  <button
+                    class="patients-list__btn"
+                    type="button"
+                    (click)="onRegisterDiagnosis(p.patient!)"
+                  >
+                    <span class="material-symbols-outlined">dentistry</span>
+                    Registrar diagnóstico
+                  </button>
                 } @else {
+                  <!-- Sin cuenta también (CLI-260): la ficha es del paciente, no de su cuenta -->
                   <button
                     class="patients-list__btn"
                     type="button"
@@ -166,6 +155,16 @@
                     Presupuesto
                   </button>
                 }
+                @if (p.patient && !p.hasAccount) {
+                  <button
+                    class="patients-list__btn"
+                    type="button"
+                    (click)="onSendInvite(p)"
+                  >
+                    <span class="material-symbols-outlined">person_add</span>
+                    Enviar registro
+                  </button>
+                }
 
                 <div class="patients-list__menu-wrap">
                   <button
@@ -187,7 +186,7 @@
                       [style.bottom.px]="menuPosition()!.bottom"
                       [style.right.px]="menuPosition()!.right"
                     >
-                      @if (p.patient && p.dentalExamsCount > 0 && p.hasAccount) {
+                      @if (p.patient && p.dentalExamsCount > 0) {
                         <button type="button" class="patients-list__menu-item" role="menuitem" (click)="onNewDiagnosis(p.patient.id)">
                           <span class="material-symbols-outlined">dentistry</span>
                           Nuevo diagnóstico
