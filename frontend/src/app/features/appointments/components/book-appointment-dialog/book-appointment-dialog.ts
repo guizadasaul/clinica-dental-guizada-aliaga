@@ -12,11 +12,13 @@ import {
   signal,
   viewChild,
 } from '@angular/core';
-import { toSignal } from '@angular/core/rxjs-interop';
-import { catchError, firstValueFrom, map, of } from 'rxjs';
+import { toObservable, toSignal } from '@angular/core/rxjs-interop';
+import { catchError, firstValueFrom, map, of, switchMap } from 'rxjs';
 import { AppointmentsService } from '../../services/appointments.service';
 import { PatientsService } from '../../../patients/services/patients.service';
 import { TreatmentsService } from '../../../treatments/services/treatments.service';
+import { QuotesService } from '../../../quotes/services/quotes.service';
+import { pendingPlanLines, type PlanLine } from '../../../quotes/utils/treatment-plan';
 import { AuthService } from '../../../../auth/application/auth.service';
 import { ScrollLockService } from '../../../../shared/services/scroll-lock.service';
 import {
@@ -58,6 +60,13 @@ const LONG_DATE_FORMATTER = new Intl.DateTimeFormat('es-BO', {
 });
 
 /** Duración de un tratamiento o de una cita: de 5 en 5 hacia arriba, dentro de lo que se puede agendar (no a 30). */
+/** CLI-263: prefijo de las opciones del selector que son un pendiente del presupuesto, no un tratamiento del catálogo. */
+const PLAN_PREFIX = 'plan:';
+
+function teethLabel(teeth: readonly number[]): string {
+  return `pieza${teeth.length === 1 ? '' : 's'} ${teeth.join(', ')}`;
+}
+
 function normalizeDuration(minutes: number): number {
   return Math.min(MAX_DURATION, Math.max(MIN_DURATION, Math.ceil(minutes / STEP_MINUTES) * STEP_MINUTES));
 }
@@ -103,6 +112,7 @@ export class BookAppointmentDialogComponent implements OnInit {
   private readonly appointmentsService = inject(AppointmentsService);
   private readonly patientsService = inject(PatientsService);
   private readonly treatmentsService = inject(TreatmentsService);
+  private readonly quotesService = inject(QuotesService);
   private readonly authService = inject(AuthService);
   private readonly scrollLock = inject(ScrollLockService);
 
@@ -167,19 +177,60 @@ export class BookAppointmentDialogComponent implements OnInit {
       .sort((a, b) => a.label.localeCompare(b.label, 'es'));
   });
 
-  protected readonly treatmentOptions = computed<CatalogPickerItem[]>(() =>
-    (this.treatments() ?? []).map((t) => ({
-      id: t.id,
-      label: t.name,
-      groupId: t.categoryCode,
-      groupLabel: t.categoryName,
-      color: t.categoryColor,
-      hint: `${t.estimatedMinutes} min`,
-    })),
-  );
-
   protected readonly patientId = signal<string | null>(null);
   protected readonly treatmentId = signal<string | null>(null);
+  /** Lo elegido en el selector: un tratamiento del catálogo o un pendiente del presupuesto (`plan:<línea>`). */
+  protected readonly treatmentChoice = signal<string | null>(null);
+
+  /**
+   * CLI-263: lo que el paciente tiene por realizar en sus presupuestos, para
+   * ofrecerlo primero como próximo tratamiento. Si no se puede cargar, solo
+   * queda el catálogo.
+   */
+  private readonly planLines = toSignal(
+    toObservable(this.patientId).pipe(
+      switchMap((id) =>
+        id
+          ? this.quotesService.getByPatient(id).pipe(
+              map(pendingPlanLines),
+              catchError(() => of([] as PlanLine[])),
+            )
+          : of([] as PlanLine[]),
+      ),
+    ),
+    { initialValue: [] as PlanLine[] },
+  );
+
+  protected readonly treatmentOptions = computed<CatalogPickerItem[]>(() => {
+    const catalog = this.treatments() ?? [];
+    const byId = new Map(catalog.map((t) => [t.id, t]));
+    const pending = this.planLines().map((line) => {
+      const treatment = byId.get(line.treatmentId);
+      return {
+        id: `${PLAN_PREFIX}${line.key}`,
+        label:
+          line.toothNumbers.length > 0
+            ? `${line.treatmentName} · ${teethLabel(line.toothNumbers)}`
+            : line.treatmentName,
+        groupId: 'plan',
+        groupLabel: 'Pendientes del presupuesto',
+        color: treatment?.categoryColor,
+        hint: treatment ? `${treatment.estimatedMinutes} min` : undefined,
+      };
+    });
+    return [
+      ...pending,
+      ...catalog.map((t) => ({
+        id: t.id,
+        label: t.name,
+        groupId: t.categoryCode,
+        groupLabel: t.categoryName,
+        color: t.categoryColor,
+        hint: `${t.estimatedMinutes} min`,
+      })),
+    ];
+  });
+
   protected readonly duration = signal(30);
   /** Hora de inicio, en minutos desde la medianoche; arranca con la del horario clickeado y se puede cambiar de 5 en 5 (CLI-194). */
   protected readonly startMinutes = signal(0);
@@ -264,20 +315,36 @@ export class BookAppointmentDialogComponent implements OnInit {
     if (origin) {
       this.patientId.set(origin.patientId);
       this.treatmentId.set(origin.treatmentId);
+      this.treatmentChoice.set(origin.treatmentId);
       this.duration.set(normalizeDuration(origin.durationMinutes));
     }
   }
 
   protected onPatientChange(id: string): void {
+    if (id !== this.patientId() && this.treatmentChoice()?.startsWith(PLAN_PREFIX)) {
+      // El pendiente era del paciente anterior.
+      this.treatmentChoice.set(null);
+      this.treatmentId.set(null);
+    }
     this.patientId.set(id);
     this.error.set(null);
   }
 
   protected onTreatmentChange(id: string): void {
-    this.treatmentId.set(id);
-    const treatment = this.treatments()?.find((t) => t.id === id);
+    this.treatmentChoice.set(id);
+    const line = id.startsWith(PLAN_PREFIX)
+      ? this.planLines().find((l) => `${PLAN_PREFIX}${l.key}` === id)
+      : undefined;
+    const treatmentId = line ? line.treatmentId : id;
+    this.treatmentId.set(treatmentId);
+    const treatment = this.treatments()?.find((t) => t.id === treatmentId);
     if (treatment) {
       this.duration.set(normalizeDuration(treatment.estimatedMinutes));
+    }
+    // Un pendiente en piezas concretas las deja anotadas, si no hay notas todavía.
+    if (line && line.toothNumbers.length > 0 && !this.notes().trim()) {
+      const teeth = teethLabel(line.toothNumbers);
+      this.notes.set(teeth.charAt(0).toUpperCase() + teeth.slice(1));
     }
   }
 
