@@ -159,8 +159,8 @@
 .kpi__link {
   margin-top: 0;
 
-  @include panel.action-link;
-  @include panel.press;
+  @extend %action-link;
+  @extend %press;
 }
 
 // ─── Pendientes ──────────────────────────────────────────────────────────────
@@ -190,8 +190,8 @@
 }
 
 .patient__link {
-  @include panel.action-link;
-  @include panel.press;
+  @extend %action-link;
+  @extend %press;
 }
 
 .pending {
@@ -291,7 +291,7 @@
     outline-offset: 3px;
   }
 
-  @include panel.press;
+  @extend %press;
 }
 
 // ─── Sin ficha ───────────────────────────────────────────────────────────────

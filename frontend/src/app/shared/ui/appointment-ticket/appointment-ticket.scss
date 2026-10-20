@@ -13,11 +13,6 @@
   display: block;
 }
 
-:host(.ticket--hero) {
-  --stub: 128px;
-  --notch: 10px;
-}
-
 .ticket {
   display: grid;
   grid-template-columns: var(--stub) 1fr;
@@ -115,6 +110,9 @@
 // ─── Tamaño protagonista (inicio del paciente) ───────────────────────────────
 
 :host(.ticket--hero) {
+  --stub: 128px;
+  --notch: 10px;
+
   .ticket__day {
     font-size: var(--font-size-6xl);
   }

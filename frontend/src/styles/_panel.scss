@@ -1,10 +1,12 @@
 // src/styles/_panel.scss
 // Piezas comunes del rediseño del inicio, Mis citas y Mi historial (CLI-267).
-// Se incluyen con `@use 'panel';`.
+// Con `@use 'panel';`: los mixins con `@include panel.x`, los placeholders
+// con `@extend %x`.
 
-/// Responde al toque: se hunde un poco al presionar (no en lectores de
-/// movimiento reducido, donde solo queda el cambio de color).
-@mixin press {
+/// Responde al toque: se hunde un poco al presionar (no con movimiento
+/// reducido, donde solo queda el cambio de color). Placeholder y no mixin:
+/// Sonar (S8776) pide que un `&` anidado tenga raíz de selector.
+%press {
   transition: transform 160ms var(--ease-out-strong);
 
   &:active {
@@ -20,15 +22,6 @@
   }
 }
 
-/// Hover solo con mouse: en el celular un toque no deja el hover pegado.
-@mixin hover {
-  @media (hover: hover) and (pointer: fine) {
-    &:hover {
-      @content;
-    }
-  }
-}
-
 /// Superficie de una sección: plana, separada del fondo crema por el blanco y
 /// un borde suave, sin sombra en reposo.
 @mixin surface {
@@ -37,8 +30,9 @@
   background: #fff;
 }
 
-/// Un enlace con acción ("Ver presupuesto →"): texto en el naranja legible.
-@mixin action-link {
+/// Un enlace con acción ("Ver presupuesto →") en el naranja de la marca.
+/// El hover va solo con mouse: en el celular un toque no lo deja pegado.
+%action-link {
   display: inline-flex;
   align-items: center;
   align-self: flex-start;
@@ -66,10 +60,12 @@
     border-radius: var(--radius-md);
   }
 
-  @include hover {
-    text-decoration: underline;
+  @media (hover: hover) and (pointer: fine) {
+    &:hover {
+      text-decoration: underline;
+    }
 
-    .material-symbols-outlined {
+    &:hover .material-symbols-outlined {
       transform: translateX(2px);
     }
   }
