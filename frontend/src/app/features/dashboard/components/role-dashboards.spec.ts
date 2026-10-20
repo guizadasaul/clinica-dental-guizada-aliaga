@@ -4,6 +4,7 @@ import { By } from '@angular/platform-browser';
 import { NEVER, of, throwError, type Observable } from 'rxjs';
 import { PatientDashboardComponent } from './patient-dashboard/patient-dashboard';
 import { AppointmentTicketComponent } from '../../../shared/ui/appointment-ticket/appointment-ticket';
+import { WhatsappIconComponent } from '../../../shared/ui/whatsapp-icon/whatsapp-icon';
 import { AdminDashboardComponent } from './admin-dashboard/admin-dashboard';
 import { AuthService } from '../../../auth/application/auth.service';
 import { PatientsService } from '../../patients/services/patients.service';
@@ -63,7 +64,7 @@ describe('PatientDashboardComponent', () => {
       ],
     });
     TestBed.overrideComponent(PatientDashboardComponent, {
-      set: { imports: [MyTreatmentHistoryStub, MyVisitsStub, MyProfileStub, AppointmentTicketComponent] },
+      set: { imports: [MyTreatmentHistoryStub, MyVisitsStub, MyProfileStub, AppointmentTicketComponent, WhatsappIconComponent] },
     });
     const fixture = TestBed.createComponent(PatientDashboardComponent);
     fixture.componentRef.setInput('activeNav', nav);
@@ -242,6 +243,9 @@ describe('PatientDashboardComponent', () => {
 
   it('el contacto abre WhatsApp de la clínica con un mensaje con su nombre, sin emojis', () => {
     const link = setup('home').root.querySelector<HTMLAnchorElement>('.patient__whatsapp')!;
+    // CLI-268: con el logo de WhatsApp, no el ícono genérico de chat.
+    expect(link.querySelector('app-whatsapp-icon svg')).not.toBeNull();
+    expect(link.textContent).not.toContain('chat');
     const url = new URL(link.href);
 
     expect(url.origin + url.pathname).toBe('https://wa.me/59157744250');

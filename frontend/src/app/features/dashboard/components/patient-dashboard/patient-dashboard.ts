@@ -19,6 +19,7 @@ import { QuotesService } from '../../../quotes/services/quotes.service';
 import type { QuoteLine } from '../../../quotes/models/quote.model';
 import { formatBs } from '../../../../shared/utils/money.util';
 import { AppointmentTicketComponent } from '../../../../shared/ui/appointment-ticket/appointment-ticket';
+import { WhatsappIconComponent } from '../../../../shared/ui/whatsapp-icon/whatsapp-icon';
 import { CLINIC_TIME_ZONE, relativeDayLabel } from '../../../../shared/utils/clinic-date.util';
 
 /** Cuántos pendientes de cada tipo se listan en el inicio; el resto, en "Mi presupuesto". */
@@ -55,6 +56,7 @@ const TODAY_FORMATTER = new Intl.DateTimeFormat('es-BO', {
     MyVisitsComponent,
     MyProfileComponent,
     AppointmentTicketComponent,
+    WhatsappIconComponent,
   ],
   templateUrl: './patient-dashboard.html',
   styleUrl: './patient-dashboard.scss',

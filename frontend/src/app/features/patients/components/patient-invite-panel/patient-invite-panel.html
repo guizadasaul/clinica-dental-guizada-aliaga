@@ -103,7 +103,7 @@
         [title]="!savedPhone() ? 'El paciente no tiene un teléfono cargado' : ''"
         (click)="onSendWhatsapp()"
       >
-        <span class="material-symbols-outlined">chat</span>
+        <app-whatsapp-icon class="invite-panel__whatsapp-icon" />
         @if (loadingChannel() === 'whatsapp') {
           Abriendo...
         } @else {

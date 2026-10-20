@@ -7,6 +7,7 @@ import {
   type InviteChannel,
 } from '../../../patient-invites/services/patient-invites.service';
 import { PageHeaderComponent } from '../../../../shared/ui/page-header/page-header';
+import { WhatsappIconComponent } from '../../../../shared/ui/whatsapp-icon/whatsapp-icon';
 
 function conflictMessage(err: unknown): string | null {
   if (!(err instanceof HttpErrorResponse) || err.status !== 409) {
@@ -20,7 +21,7 @@ function conflictMessage(err: unknown): string | null {
   selector: 'app-patient-invite-panel',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [PageHeaderComponent],
+  imports: [PageHeaderComponent, WhatsappIconComponent],
   templateUrl: './patient-invite-panel.html',
   styleUrl: './patient-invite-panel.scss',
 })
