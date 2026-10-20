@@ -10,7 +10,7 @@ import {
   OnInit,
 } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
-import { catchError, firstValueFrom, of } from 'rxjs';
+import { catchError, firstValueFrom, of, type Observable } from 'rxjs';
 import { PatientsService } from '../../services/patients.service';
 import { DiagnosesService } from '../../../diagnoses/services/diagnoses.service';
 import { MedicalConditionsService } from '../../../medical-conditions/services/medical-conditions.service';
@@ -19,7 +19,13 @@ import { StepMedicalHistoryComponent } from './steps/step-medical-history/step-m
 import { StepOralHygieneComponent } from './steps/step-oral-hygiene/step-oral-hygiene';
 import type { OralHygieneSubmit } from './steps/step-oral-hygiene/step-oral-hygiene';
 import { StepOdontogramComponent, type DentalExamMode } from './steps/step-odontogram/step-odontogram';
-import type { Patient, PatientFieldOptions } from '../../models/patient.model';
+import type {
+  ClinicalExam,
+  HygieneHabits,
+  MedicalHistory,
+  Patient,
+  PatientFieldOptions,
+} from '../../models/patient.model';
 import { EMPTY_FIELD_OPTIONS } from '../../models/patient.model';
 import type { DentalExam, DentalExamVersionSummary } from '../../models/dental-exam.model';
 import type { DiagnosisCategory } from '../../../diagnoses/models/diagnosis.model';
@@ -100,6 +106,12 @@ export class PatientWizardComponent implements OnInit {
   readonly existingPatient = input<Patient | null>(null);
   /** Paso donde arranca al editar un paciente existente — 4 (examen dental) por defecto. La agenda del doctor pasa 2 para abrir el historial clínico completo. */
   readonly startStep = input(4);
+  /**
+   * CLI-269: retomar una ficha a medias ("Registrar diagnóstico"). Arranca en
+   * el primer paso que falta según lo guardado: con historial, higiene y
+   * examen clínico, directo en el paso 4.
+   */
+  readonly resume = input(false);
   /** Paso del examen dental: `new` = diagnóstico nuevo en blanco, `correct` = corregir el vigente (CLI-109). */
   readonly examMode = input<DentalExamMode>('correct');
   /** Textos para volver (CLI-264: desde la agenda vuelven a la agenda, no a la lista). */
@@ -115,6 +127,16 @@ export class PatientWizardComponent implements OnInit {
   protected readonly loading = signal(false);
   protected readonly error = signal<string | null>(null);
   protected readonly done = signal(false);
+  /** CLI-269: mientras se decide en qué paso retomar no se muestra ninguno. */
+  protected readonly resuming = signal(false);
+
+  /**
+   * Lo ya guardado de la ficha (CLI-269): precarga los pasos 2 y 3 para que
+   * volver a ellos muestre lo cargado y avanzar no lo pise con blancos.
+   */
+  protected readonly savedMedicalHistory = signal<MedicalHistory | null>(null);
+  protected readonly savedHygieneHabits = signal<HygieneHabits | null>(null);
+  protected readonly savedClinicalExam = signal<ClinicalExam | null>(null);
 
   /**
    * Pasos que ya se abrieron (CLI-182). Los pasos 1 a 3 quedan montados (solo
@@ -165,17 +187,27 @@ export class PatientWizardComponent implements OnInit {
       const existingId = this.existingPatientId();
       if (existingId) {
         this.patientId.set(existingId);
+        void this.loadDentalExam(existingId);
+        if (this.resume()) {
+          // El paso sale de lo guardado: hasta saberlo no se monta ninguno.
+          this.resuming.set(true);
+          void this.resumeRecord(existingId);
+          return;
+        }
         this.currentStep.set(this.startStep());
         // Directo, sin esperar al efecto de abajo: así el paso 1 no se monta de
         // pasada (ni un instante) cuando se abre en otro paso, sin importar el
         // orden en que corran los efectos.
         this.visitedSteps.set([this.startStep()]);
-        void this.loadDentalExam(existingId);
+        if (this.startStep() < 4) {
+          void this.loadSavedRecord(existingId);
+        }
       }
     }, { allowSignalWrites: true });
     // Después del efecto de arriba: al editar un paciente existente el primer
     // paso visible es startStep, y el paso 1 no debe montarse de pasada.
     effect(() => {
+      if (this.resuming()) { return; }
       const step = this.currentStep();
       this.visitedSteps.update((visited) => (visited.includes(step) ? visited : [...visited, step]));
     });
@@ -224,6 +256,40 @@ export class PatientWizardComponent implements OnInit {
     } catch {
       // no-op: el step 5 arranca sin examen previo (paciente sin diagnóstico aún)
     }
+  }
+
+  /** Historial, higiene y examen clínico guardados; cada uno queda en null si no está o si falla. */
+  private async loadSavedRecord(patientId: string): Promise<void> {
+    const orNull = <T>(source: Observable<T | null>) =>
+      firstValueFrom(source.pipe(catchError(() => of(null))));
+    const [history, hygiene, clinicalExam] = await Promise.all([
+      orNull(this.patientsService.getMedicalHistory(patientId)),
+      orNull(this.patientsService.getHygieneHabits(patientId)),
+      orNull(this.patientsService.getLatestClinicalExam(patientId)),
+    ]);
+    this.savedMedicalHistory.set(history);
+    this.savedHygieneHabits.set(hygiene);
+    this.savedClinicalExam.set(clinicalExam);
+  }
+
+  /**
+   * CLI-269: la ficha nueva se guarda entera al terminar el paso 3 (CLI-182);
+   * si el doctor salió en el paso 4, al volver retoma ahí. Le falta algo →
+   * el primer paso incompleto. Si no se pudo leer nada, el paso 1, como antes.
+   */
+  private async resumeRecord(patientId: string): Promise<void> {
+    await this.loadSavedRecord(patientId);
+    let step = 1;
+    if (this.savedMedicalHistory() && this.savedHygieneHabits() && this.savedClinicalExam()) {
+      step = 4;
+    } else if (this.savedMedicalHistory()) {
+      step = 3;
+    } else if (this.savedHygieneHabits() || this.savedClinicalExam()) {
+      step = 2;
+    }
+    this.currentStep.set(step);
+    this.visitedSteps.set([step]);
+    this.resuming.set(false);
   }
 
   /**

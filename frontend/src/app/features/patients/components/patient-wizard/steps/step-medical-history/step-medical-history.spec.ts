@@ -214,4 +214,38 @@ describe('StepMedicalHistoryComponent', () => {
 
     expect(backEmitted).toBe(true);
   });
+
+  // CLI-269: al retomar la ficha, lo guardado aparece y se vuelve a mandar igual.
+  it('con lo ya guardado arranca lleno y, sin tocar nada, manda lo mismo', async () => {
+    const fixture = setup();
+    fixture.componentRef.setInput('initial', {
+      id: 'mh-1',
+      patientId: 'patient-1',
+      conditions: [{ code: 'asma', name: 'Asma', notes: 'Usa inhalador' }],
+      otherDiseases: 'Gastritis crónica',
+      gestationLmpDate: null,
+      gestationTrimester: null,
+      anesthesiaReactions: false,
+      medications: [{ id: 'm-1', drugName: 'Salbutamol', dose: '100 mcg', frequency: null, startedAt: '2026-01-10T00:00:00.000Z' }],
+      updatedAt: '2026-10-01T00:00:00.000Z',
+    });
+    await settle(fixture);
+    const emitted: CreateMedicalHistoryRequest[] = [];
+    fixture.componentInstance.submitStep.subscribe((v) => emitted.push(v));
+
+    const boxes = elAll<HTMLInputElement>(fixture, 'input[type="checkbox"]');
+    expect(boxes.map((b) => b.checked)).toEqual([false, true]);
+    submitForm(fixture);
+    await settle(fixture);
+
+    expect(emitted).toEqual([
+      {
+        conditions: [{ code: 'asma', notes: 'Usa inhalador' }],
+        otherDiseases: 'Gastritis crónica',
+        gestationLmpDate: undefined,
+        anesthesiaReactions: false,
+        medications: [{ drugName: 'Salbutamol', dose: '100 mcg', frequency: undefined, startedAt: '2026-01-10' }],
+      },
+    ]);
+  });
 });

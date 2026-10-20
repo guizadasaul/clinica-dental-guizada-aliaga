@@ -151,6 +151,8 @@ export class DoctorDashboardComponent implements OnInit {
   protected readonly wizardStartStep = signal(4);
   /** En el paso del examen dental: diagnóstico nuevo en blanco o corrección del vigente (CLI-109). */
   protected readonly wizardExamMode = signal<DentalExamMode>('correct');
+  /** CLI-269: "Registrar diagnóstico" retoma la ficha en el primer paso que falta. */
+  protected readonly wizardResume = signal(false);
   protected readonly selectedPatientForTreatment = signal<string | null>(null);
   protected readonly selectedPatientForHistory = signal<string | null>(null);
   protected readonly selectedPatientForQuote = signal<string | null>(null);
@@ -365,6 +367,7 @@ export class DoctorDashboardComponent implements OnInit {
   }
 
   protected onOpenOdontogram(patientId: string): void {
+    this.wizardResume.set(false);
     this.selectedPatientId.set(patientId);
     this.selectedUserId.set(null);
     this.selectedPatientForInvite.set(null);
@@ -387,6 +390,7 @@ export class DoctorDashboardComponent implements OnInit {
     this.selectedPatientForClinicalRecord.set(null);
     this.wizardStartStep.set(1);
     this.wizardExamMode.set('correct');
+    this.wizardResume.set(true);
   }
 
   /** Resumen de solo lectura — no abre el wizard editable (CLI-40). */

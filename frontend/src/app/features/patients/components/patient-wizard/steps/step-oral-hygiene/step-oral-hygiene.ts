@@ -1,6 +1,7 @@
 import {
   Component,
   ChangeDetectionStrategy,
+  effect,
   input,
   output,
   signal,
@@ -10,6 +11,7 @@ import { field, allValid, touchAll } from '../../../../../../shared/validation/f
 import { normalizeText, optionalTextError } from '../../../../../../shared/validation/text.validator';
 import { BRUSHING_FREQUENCIES, type BrushingFrequency } from '../../../../../../shared/validation/clinical-options';
 import type { CreateHygieneHabitsRequest, CreateClinicalExamRequest } from '../../../../models/patient.request';
+import type { ClinicalExam, HygieneHabits } from '../../../../models/patient.model';
 
 // Códigos estables del backend (ver clinical-options.ts) con su label visible
 // en español — antes se guardaba directamente el texto con tildes. Exportado
@@ -40,6 +42,9 @@ export interface OralHygieneSubmit {
 })
 export class StepOralHygieneComponent {
   readonly loading = input(false);
+  /** CLI-269: lo ya guardado, para retomar la ficha sin pisarlo con blancos. */
+  readonly initialHygiene = input<HygieneHabits | null>(null);
+  readonly initialClinicalExam = input<ClinicalExam | null>(null);
   readonly submitStep = output<OralHygieneSubmit>();
   readonly back = output<void>();
 
@@ -69,6 +74,38 @@ export class StepOralHygieneComponent {
   // Texto libre a propósito (decisión clínica, no limpieza) — sin opciones
   // cerradas. Mínimo de 3 caracteres cuando hay contenido.
   protected readonly occlusion = field<string>('', (v: string) => optionalTextError(v, 200, 3));
+
+  // Cada parte se precarga una sola vez: después manda lo que marque el doctor.
+  private hygieneLoaded = false;
+  private clinicalExamLoaded = false;
+
+  constructor() {
+    effect(() => {
+      const hygiene = this.initialHygiene();
+      if (this.hygieneLoaded || !hygiene) {
+        return;
+      }
+      this.hygieneLoaded = true;
+      this.usesToothbrush.set(hygiene.usesToothbrush);
+      this.brushingFrequency.reset(hygiene.usesToothbrush ? (hygiene.brushingFrequency ?? '') : '');
+      this.usesDentalFloss.set(hygiene.usesDentalFloss);
+      this.usesToothpick.set(hygiene.usesToothpick);
+      this.brushesTongue.set(hygiene.brushesTongue);
+      this.usesMouthwash.set(hygiene.usesMouthwash);
+    }, { allowSignalWrites: true });
+    effect(() => {
+      const exam = this.initialClinicalExam();
+      if (this.clinicalExamLoaded || !exam) {
+        return;
+      }
+      this.clinicalExamLoaded = true;
+      this.tartar.set(exam.tartar);
+      this.saburra.set(exam.saburra);
+      this.bacterialPlaque.set(exam.bacterialPlaque);
+      this.halitosis.set(exam.halitosis);
+      this.occlusion.reset(exam.occlusion ?? '');
+    }, { allowSignalWrites: true });
+  }
 
   protected onUsesToothbrushChange(checked: boolean): void {
     this.usesToothbrush.set(checked);
