@@ -503,33 +503,35 @@ describe('doctor tools (CLI-92, CLI-234)', () => {
         },
       ]);
       financesService.getPatientDetail.mockResolvedValue({
-        quote: {
-          status: 'partially_paid',
-          sharedAt: new Date(),
-          totalAmount: 1350,
-          totalPaid: 300,
-          balance: 1050,
-          lines: [
-            {
-              key: 'k1',
-              treatmentName: 'Limpieza dental',
-              toothNumbers: [],
-              total: 150,
-              paid: 150,
-              pending: 0,
-              performedAt: new Date('2026-10-03T12:00:00Z'),
-            },
-            {
-              key: 'k2',
-              treatmentName: 'Endodoncia',
-              toothNumbers: [36],
-              total: 800,
-              paid: 0,
-              pending: 800,
-              performedAt: null,
-            },
-          ],
-        },
+        quotes: [
+          {
+            status: 'partially_paid',
+            sharedAt: new Date(),
+            totalAmount: 1350,
+            totalPaid: 300,
+            balance: 1050,
+            lines: [
+              {
+                key: 'k1',
+                treatmentName: 'Limpieza dental',
+                toothNumbers: [],
+                total: 150,
+                paid: 150,
+                pending: 0,
+                performedAt: new Date('2026-10-03T12:00:00Z'),
+              },
+              {
+                key: 'k2',
+                treatmentName: 'Endodoncia',
+                toothNumbers: [36],
+                total: 800,
+                paid: 0,
+                pending: 800,
+                performedAt: null,
+              },
+            ],
+          },
+        ],
       });
 
       const result = await tool().execute(doctor, { name: 'carla' });
@@ -563,21 +565,23 @@ describe('doctor tools (CLI-92, CLI-234)', () => {
             { date: '2026-09-01', treatment: 'Resina simple', tooth: 16 },
           ],
         },
-        quote: {
-          status: 'pago parcial',
-          sharedWithPatient: true,
-          totalBob: 1350,
-          paidBob: 300,
-          balanceBob: 1050,
-          pendingLines: [
-            {
-              treatment: 'Endodoncia',
-              teeth: [36],
-              pendingBob: 800,
-              status: 'por realizar',
-            },
-          ],
-        },
+        quotes: [
+          {
+            status: 'pago parcial',
+            sharedWithPatient: true,
+            totalBob: 1350,
+            paidBob: 300,
+            balanceBob: 1050,
+            pendingLines: [
+              {
+                treatment: 'Endodoncia',
+                teeth: [36],
+                pendingBob: 800,
+                status: 'por realizar',
+              },
+            ],
+          },
+        ],
         note: expect.stringContaining('no asistió') as unknown,
       });
       expect(JSON.stringify(result)).not.toContain('privado');
@@ -587,7 +591,7 @@ describe('doctor tools (CLI-92, CLI-234)', () => {
       appointmentsService.getPatientAppointments.mockResolvedValue([]);
       appointmentsService.getPatientVisits.mockResolvedValue([]);
       patientsService.findToothProcedures.mockResolvedValue([]);
-      financesService.getPatientDetail.mockResolvedValue({ quote: null });
+      financesService.getPatientDetail.mockResolvedValue({ quotes: [] });
 
       await expect(
         tool().execute(doctor, { name: 'Jorge' }),
@@ -597,7 +601,7 @@ describe('doctor tools (CLI-92, CLI-234)', () => {
         lastVisit: null,
         visits: 0,
         missedAppointments: 0,
-        quote: null,
+        quotes: [],
       });
     });
   });

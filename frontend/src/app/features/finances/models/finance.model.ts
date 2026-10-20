@@ -20,8 +20,11 @@ export interface PatientBalance {
 export interface PatientFinanceDetail {
   patientId: string;
   patientName: string;
-  /** El presupuesto activo; si no hay, el más reciente; null si nunca tuvo. */
-  quote: Quote | null;
+  /**
+   * Todos sus presupuestos, los más recientes primero (CLI-265): pagado uno,
+   * lo siguiente que se registra va a uno nuevo.
+   */
+  quotes: Quote[];
 }
 
 export type QrChargeStatus = 'pending' | 'paid' | 'cancelled';

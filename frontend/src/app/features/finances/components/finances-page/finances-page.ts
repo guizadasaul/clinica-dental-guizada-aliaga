@@ -93,7 +93,8 @@ export class FinancesPageComponent {
 
   protected readonly selectedId = signal<string | null>(null);
   protected readonly detailState = signal<DetailState>({ status: 'idle' });
-  protected readonly paying = signal(false);
+  /** El presupuesto al que se le está registrando un pago; null sin el panel abierto. */
+  protected readonly payingQuoteId = signal<string | null>(null);
   protected readonly lastPaymentNotice = signal<string | null>(null);
 
   protected readonly detail = computed(() => {
@@ -101,21 +102,44 @@ export class FinancesPageComponent {
     return state.status === 'ready' ? state.detail : null;
   });
 
-  /** CLI-262: cada tratamiento con lo pagado y lo pendiente, como lo calcula el API. */
-  protected readonly lines = computed(() => this.detail()?.quote?.lines ?? []);
+  /**
+   * CLI-265: todos sus presupuestos. Pagado uno, lo siguiente que se registra
+   * va a uno nuevo, y el historial tiene que seguir completo.
+   */
+  protected readonly quotes = computed(() => this.detail()?.quotes ?? []);
 
-  /** Más recientes primero. */
+  /** Totales de todos los presupuestos, como "Mi presupuesto" del paciente. */
+  protected readonly totals = computed(() => {
+    const quotes = this.quotes();
+    return {
+      total: quotes.reduce((sum, q) => sum + q.totalAmount, 0),
+      paid: quotes.reduce((sum, q) => sum + q.totalPaid, 0),
+      balance: quotes.reduce((sum, q) => sum + q.balance, 0),
+    };
+  });
+
+  /** Los presupuestos con saldo: cada pago se registra sobre uno de ellos. */
+  protected readonly payableQuotes = computed(() => this.quotes().filter((q) => q.balance > 0));
+
+  protected readonly payingQuote = computed(
+    () => this.quotes().find((q) => q.id === this.payingQuoteId()) ?? null,
+  );
+
+  /** CLI-262: cada tratamiento con lo pagado y lo pendiente, como lo calcula el API. */
+  protected readonly lines = computed(() => this.quotes().flatMap((q) => q.lines));
+
+  /** Los pagos de todos los presupuestos, más recientes primero. */
   protected readonly payments = computed(() =>
-    [...(this.detail()?.quote?.payments ?? [])].sort((a, b) =>
-      b.paymentDate.localeCompare(a.paymentDate),
-    ),
+    this.quotes()
+      .flatMap((q) => q.payments)
+      .sort((a, b) => b.paymentDate.localeCompare(a.paymentDate)),
   );
 
   protected readonly methodLabel = paymentMethodLabel;
 
   protected onSelect(patientId: string): void {
     this.selectedId.set(patientId);
-    this.paying.set(false);
+    this.payingQuoteId.set(null);
     this.lastPaymentNotice.set(null);
     this.detailState.set({ status: 'loading' });
     this.financesService.getPatientDetail(patientId).subscribe({
@@ -127,9 +151,11 @@ export class FinancesPageComponent {
   protected onPaid(quote: Quote): void {
     const detail = this.detail();
     if (!detail) { return; }
-    const paid = quote.totalPaid - (detail.quote?.totalPaid ?? 0);
-    this.detailState.set({ status: 'ready', detail: { ...detail, quote } });
-    this.paying.set(false);
+    const before = detail.quotes.find((q) => q.id === quote.id);
+    const paid = quote.totalPaid - (before?.totalPaid ?? 0);
+    const quotes = detail.quotes.map((q) => (q.id === quote.id ? quote : q));
+    this.detailState.set({ status: 'ready', detail: { ...detail, quotes } });
+    this.payingQuoteId.set(null);
     this.lastPaymentNotice.set(`Pago de Bs. ${paid.toFixed(2)} registrado.`);
     this.reloadList$.next();
   }

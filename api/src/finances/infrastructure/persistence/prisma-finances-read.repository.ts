@@ -52,8 +52,9 @@ export class PrismaFinancesReadRepository implements IFinancesReadRepository {
         },
         quotes: {
           where: { status: { in: ACTIVE_STATUSES }, total_amount: { gt: 0 } },
+          // Todos: pagado uno, lo siguiente va a uno nuevo y el saldo es la
+          // suma de los abiertos (CLI-265).
           orderBy: { updated_at: 'desc' },
-          take: 1,
           select: {
             id: true,
             total_amount: true,
@@ -74,8 +75,12 @@ export class PrismaFinancesReadRepository implements IFinancesReadRepository {
     return records
       .map((r) => {
         const quote = r.quotes[0];
-        const totalAmount = quote ? Number(quote.total_amount) : 0;
-        const totalPaid = quote ? Number(quote.total_paid) : 0;
+        const totalAmount = round2(
+          r.quotes.reduce((sum, q) => sum + Number(q.total_amount), 0),
+        );
+        const totalPaid = round2(
+          r.quotes.reduce((sum, q) => sum + Number(q.total_paid), 0),
+        );
         return {
           createdAt: r.created_at,
           row: {

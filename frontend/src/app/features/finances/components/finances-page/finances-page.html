@@ -72,19 +72,19 @@
             <!-- CLI-250: en el celular el detalle queda debajo de la lista; tocar un paciente lleva hasta acá. -->
             <h2 appScrollIntoViewOnMobile class="fin__name">{{ d.patientName }}</h2>
 
-            @if (d.quote; as q) {
+            @if (quotes().length > 0) {
               <div class="fin__cards">
                 <div class="fin__card">
                   <span class="fin__card-label">Total presupuestado</span>
-                  <span class="fin__card-value">Bs. {{ q.totalAmount | number: '1.2-2' }}</span>
+                  <span class="fin__card-value">Bs. {{ totals().total | number: '1.2-2' }}</span>
                 </div>
                 <div class="fin__card">
                   <span class="fin__card-label">Pagado</span>
-                  <span class="fin__card-value">Bs. {{ q.totalPaid | number: '1.2-2' }}</span>
+                  <span class="fin__card-value">Bs. {{ totals().paid | number: '1.2-2' }}</span>
                 </div>
                 <div class="fin__card fin__card--balance">
                   <span class="fin__card-label">Saldo</span>
-                  <span class="fin__card-value">Bs. {{ q.balance | number: '1.2-2' }}</span>
+                  <span class="fin__card-value">Bs. {{ totals().balance | number: '1.2-2' }}</span>
                 </div>
               </div>
 
@@ -92,23 +92,29 @@
                 <p class="fin__success">{{ lastPaymentNotice() }}</p>
               }
 
-              @if (paying()) {
+              @if (payingQuote(); as q) {
                 <app-register-payment
                   [quoteId]="q.id"
                   [lines]="q.lines"
                   (paid)="onPaid($event)"
-                  (closed)="paying.set(false)"
+                  (closed)="payingQuoteId.set(null)"
                 />
-              } @else if (q.balance > 0) {
-                <button type="button" class="fin__pay-btn" (click)="paying.set(true)">
-                  <span class="material-symbols-outlined">add_card</span>
-                  Registrar pago
-                </button>
               } @else {
-                <p class="fin__success">Presupuesto pagado por completo.</p>
+                <!-- CLI-265: cada pago se registra sobre un presupuesto; casi siempre hay uno solo con saldo. -->
+                @for (q of payableQuotes(); track q.id) {
+                  <button type="button" class="fin__pay-btn" (click)="payingQuoteId.set(q.id)">
+                    <span class="material-symbols-outlined">add_card</span>
+                    Registrar pago
+                    @if (payableQuotes().length > 1) {
+                      (presupuesto del {{ q.createdAt | date: 'dd/MM/yyyy' }})
+                    }
+                  </button>
+                } @empty {
+                  <p class="fin__success">Presupuesto pagado por completo.</p>
+                }
               }
 
-              <h3 class="fin__section-title">Tratamientos del presupuesto</h3>
+              <h3 class="fin__section-title">Tratamientos</h3>
               <ul class="fin__lines">
                 @for (line of lines(); track line.key) {
                   <li class="fin__line">
