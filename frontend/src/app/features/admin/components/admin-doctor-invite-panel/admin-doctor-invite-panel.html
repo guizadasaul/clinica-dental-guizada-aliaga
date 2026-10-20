@@ -40,7 +40,7 @@
       [title]="!doctor().phone ? 'El doctor no tiene un teléfono cargado' : ''"
       (click)="send('whatsapp')"
     >
-      <span class="material-symbols-outlined">chat</span>
+      <app-whatsapp-icon />
       {{ loadingChannel() === 'whatsapp' ? 'Abriendo...' : 'Enviar por WhatsApp' }}
     </button>
   </div>
