@@ -1,7 +1,7 @@
 import { Component, input, output, signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { By } from '@angular/platform-browser';
-import { Observable, of, throwError } from 'rxjs';
+import { NEVER, Observable, of, throwError } from 'rxjs';
 import { DecimalPipe } from '@angular/common';
 import { DoctorDashboardComponent } from './doctor-dashboard';
 import { AuthService } from '../../../../auth/application/auth.service';
@@ -292,11 +292,86 @@ describe('DoctorDashboardComponent', () => {
       expect(text(fixture)).toContain('+59171111111');
     });
 
-    it('si la agenda no carga, muestra el estado vacío', async () => {
+    // CLI-267: la jornada del sillón.
+    describe('jornada de hoy', () => {
+      // 24/9/2026 a las 10:00 en Bolivia (14:00 UTC).
+      const NOW = new Date('2026-09-24T14:00:00.000Z');
+      const day = () => [
+        agendaItem({ id: 'a', appointmentDatetime: '2026-09-24T12:30:00.000Z', durationMinutes: 60 }), // 08:30–09:30
+        agendaItem({
+          id: 'b',
+          appointmentDatetime: '2026-09-24T13:45:00.000Z', // 09:45–10:30
+          durationMinutes: 45,
+          treatmentName: 'Endodoncia',
+        }),
+        agendaItem({ id: 'c', appointmentDatetime: '2026-09-24T15:30:00.000Z', durationMinutes: 30 }), // 11:30–12:00
+        agendaItem({ id: 'd', appointmentDatetime: '2026-09-24T16:00:00.000Z', durationMinutes: 30 }), // 12:00–12:30
+      ];
+      const items = (fixture: ReturnType<typeof setup>['fixture']) =>
+        [...(fixture.nativeElement as HTMLElement).querySelectorAll('.journey > li')];
+
+      beforeEach(() => {
+        vi.useFakeTimers({ toFake: ['Date'] });
+        vi.setSystemTime(NOW);
+      });
+
+      it('marca la terminada, la de ahora y la siguiente, con el tratamiento y la duración', async () => {
+        const { fixture } = setup({ agenda: of(day()) });
+        await render(fixture);
+
+        const rows = items(fixture).filter((r) => r.classList.contains('schedule-item'));
+        expect(rows[0].classList).toContain('schedule-item--past');
+        expect(rows[0].textContent).toContain('Terminada');
+        expect(rows[1].classList).toContain('schedule-item--now');
+        expect(rows[1].textContent).toContain('Ahora');
+        expect(rows[1].textContent).toContain('Endodoncia');
+        expect(rows[1].textContent).toContain('45 min');
+        expect(rows[2].classList).toContain('schedule-item--next');
+        expect(rows[2].textContent).toContain('Siguiente');
+        // Solo una es "Siguiente"; sin tratamiento se lee como consulta.
+        expect(rows[3].className).not.toMatch(/--next|--now|--past/);
+        expect(rows[3].textContent).toContain('Consulta odontológica');
+      });
+
+      it('muestra los huecos libres de 15 minutos o más entre citas', async () => {
+        const { fixture } = setup({ agenda: of(day()) });
+        await render(fixture);
+
+        const gaps = items(fixture).filter((r) => r.classList.contains('journey__gap'));
+        // 09:30→09:45 (15 min) y 10:30→11:30 (1 h); 12:00→12:00 no es hueco.
+        expect(
+          gaps.map((g) => [
+            g.querySelector('.journey__time')?.textContent?.trim(),
+            g.querySelector('.journey__gap-label')?.textContent?.trim(),
+          ]),
+        ).toEqual([
+          ['09:30', 'Libre · 15 min'],
+          ['10:30', 'Libre · 1 h'],
+        ]);
+      });
+
+      it('bajo el saludo dice cuántas citas tiene y a qué hora termina', async () => {
+        const { fixture } = setup({ agenda: of(day()) });
+        await render(fixture);
+
+        expect(text(fixture)).toContain('4 citas hoy · terminas a las 12:30.');
+      });
+
+      it('mientras carga no dice que no hay citas', async () => {
+        const { fixture } = setup({ agenda: NEVER });
+        await render(fixture);
+
+        expect((fixture.nativeElement as HTMLElement).querySelector('.journey--loading')).not.toBeNull();
+        expect(text(fixture)).not.toContain('No hay citas programadas para hoy');
+      });
+    });
+
+    it('si la agenda no carga, lo dice en vez de mostrar el día vacío (CLI-267)', async () => {
       const { fixture } = setup({ agenda: throwError(() => new Error('500')) });
       await render(fixture);
 
-      expect(text(fixture)).toContain('No hay citas programadas para hoy');
+      expect(text(fixture)).toContain('No pudimos cargar tu agenda de hoy');
+      expect(text(fixture)).not.toContain('No hay citas programadas para hoy');
     });
 
     it('una doctora con "Dra." en su nombre público no ve "Dr. Dra." (CLI-254)', async () => {

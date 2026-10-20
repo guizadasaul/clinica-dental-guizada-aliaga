@@ -45,6 +45,8 @@ interface ApplicationView {
   id: string;
   treatmentName: string;
   categoryName: string;
+  /** CLI-267: color de la categoría — el punto de la línea de tiempo. */
+  categoryColor: string;
   date: string;
   /** Dónde se aplicó y quién lo hizo: "Piezas 16, 17 · Oclusal · Dra. Lucía Mamani". */
   meta: string;
@@ -96,6 +98,7 @@ function toApplications(procedures: ToothProcedure[]): (ApplicationView & { iso:
         iso: first.procedureDate,
         treatmentName: first.treatmentName,
         categoryName: first.categoryName,
+        categoryColor: first.categoryColor,
         date: DATE_FORMATTER.format(new Date(first.procedureDate)),
         meta: [
           whereLabel(teeth, surfaces, isUnit ? first.quantity : null, first.applicationType),
@@ -110,9 +113,10 @@ function toApplications(procedures: ToothProcedure[]): (ApplicationView & { iso:
 }
 
 /**
- * "Mi historial" del paciente (CLI-211, reestilo CLI-216): todos los
- * tratamientos que recibió, del más reciente al más antiguo, con fecha,
- * piezas, superficies, indicaciones del doctor y quién lo hizo.
+ * "Mi historial" del paciente (CLI-211, línea de tiempo desde CLI-267): todos
+ * los tratamientos que recibió, del más reciente al más antiguo, con fecha,
+ * piezas, superficies, indicaciones del doctor y quién lo hizo; el punto de
+ * cada uno lleva el color de su categoría.
  * El doctor sigue usando treatment-history (tabla con precios).
  */
 @Component({

@@ -77,16 +77,26 @@ describe('MyVisitsComponent (CLI-210, reestilo CLI-216)', () => {
     expect(history[1].querySelector('.visit__badge')).toBeNull();
   });
 
-  it('muestra las próximas citas como filas confirmadas', () => {
+  it('muestra las próximas citas como tarjetas de cita (CLI-267)', () => {
     const root = setup(
       of([cita('n', '2026-10-09T14:30:00.000Z', { treatmentName: 'Limpieza dental' }), cita('m', '2026-10-21T20:00:00.000Z')]),
     );
-    const upcoming = root.querySelectorAll('.visits__section')[0].querySelectorAll('.visit');
+    const tickets = root.querySelectorAll('app-appointment-ticket');
 
-    expect(upcoming).toHaveLength(2);
-    expect(upcoming[0].querySelector('.visit__date')?.textContent).toBe('Viernes, 9 de octubre');
-    expect(upcoming[0].querySelector('.visit__meta')?.textContent).toContain('Limpieza dental');
-    expect(upcoming[0].querySelector('.visit__badge--confirmed')?.textContent).toContain('Confirmada');
+    expect(tickets).toHaveLength(2);
+    expect(tickets[0].querySelector('.ticket__day')?.textContent).toBe('9');
+    expect(tickets[0].querySelector('.ticket__weekday')?.textContent).toBe('Viernes');
+    expect(tickets[0].querySelector('.ticket__time')?.textContent).toBe('10:30 – 11:15');
+    expect(tickets[0].querySelector('.ticket__title')?.textContent).toBe('Limpieza dental');
+    expect(tickets[1].querySelector('.ticket__title')?.textContent).toBe('Restauración con resina');
+  });
+
+  it('cada visita del historial lleva su hoja de calendario', () => {
+    const root = setup(of([]), of([cita('a', '2026-09-16T14:30:00.000Z')]));
+    const leaf = root.querySelector('.visit__leaf')!;
+
+    expect(leaf.querySelector('.visit__leaf-day')?.textContent).toBe('16');
+    expect(leaf.querySelector('.visit__leaf-weekday')?.textContent).toBe('Mié');
   });
 
   it('sin citas ni visitas muestra los estados vacíos', () => {

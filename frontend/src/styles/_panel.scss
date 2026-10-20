@@ -1,0 +1,92 @@
+// src/styles/_panel.scss
+// Piezas comunes del rediseño del inicio, Mis citas y Mi historial (CLI-267).
+// Se incluyen con `@use 'panel';`.
+
+/// Responde al toque: se hunde un poco al presionar (no en lectores de
+/// movimiento reducido, donde solo queda el cambio de color).
+@mixin press {
+  transition: transform 160ms var(--ease-out-strong);
+
+  &:active {
+    transform: scale(0.97);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    transition: none;
+
+    &:active {
+      transform: none;
+    }
+  }
+}
+
+/// Hover solo con mouse: en el celular un toque no deja el hover pegado.
+@mixin hover {
+  @media (hover: hover) and (pointer: fine) {
+    &:hover {
+      @content;
+    }
+  }
+}
+
+/// Superficie de una sección: plana, separada del fondo crema por el blanco y
+/// un borde suave, sin sombra en reposo.
+@mixin surface {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xl);
+  background: #fff;
+}
+
+/// Un enlace con acción ("Ver presupuesto →"): texto en el naranja legible.
+@mixin action-link {
+  display: inline-flex;
+  align-items: center;
+  align-self: flex-start;
+  gap: var(--space-1);
+  // Cómodo para el dedo: el texto es chico, la zona que se toca no (CLI-267).
+  min-height: 44px;
+  padding: var(--space-2) 0;
+  border: none;
+  background: none;
+  font-family: var(--font-body);
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  color: var(--color-primary-dark);
+  cursor: pointer;
+  text-underline-offset: 3px;
+
+  .material-symbols-outlined {
+    font-size: 1rem;
+    transition: transform 160ms var(--ease-out-strong);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--color-primary-dark);
+    outline-offset: 2px;
+    border-radius: var(--radius-md);
+  }
+
+  @include hover {
+    text-decoration: underline;
+
+    .material-symbols-outlined {
+      transform: translateX(2px);
+    }
+  }
+}
+
+/// Título de una pantalla del panel sin banner: serif grande, sin adornos.
+@mixin screen-title {
+  margin: 0;
+  font-family: var(--font-headline);
+  font-size: var(--font-size-4xl);
+  font-weight: 400;
+  line-height: 1.15;
+  letter-spacing: -0.01em;
+  color: var(--color-text);
+  text-wrap: balance;
+
+  @media (max-width: 767px) {
+    font-size: var(--font-size-3xl);
+  }
+}

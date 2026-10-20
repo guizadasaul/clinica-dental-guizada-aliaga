@@ -15,94 +15,128 @@
 
 @if (activeNav() === 'home') {
   <div class="doctor">
-    <!-- Header -->
     <header class="doctor__header">
       <div class="doctor__greeting">
         <p class="doctor__date">{{ today() }}</p>
         <h1 class="doctor__title">{{ greeting() }}, {{ greetingName() }}</h1>
-        <p class="doctor__subtitle">Este es tu panel clínico de hoy.</p>
-      </div>
-      <div class="doctor__badge" aria-hidden="true">
-        @if (user()?.photoURL) {
-          <img
-            class="doctor__badge-photo"
-            [src]="user()!.photoURL!"
-            [alt]="user()!.displayName ?? 'Doctor'"
-            referrerpolicy="no-referrer"
-          />
-        } @else {
-          <span class="material-symbols-outlined">stethoscope</span>
+        @if (dayLede()) {
+          <p class="doctor__lede">{{ dayLede() }}</p>
         }
       </div>
+      @if (user()?.photoURL) {
+        <img
+          class="doctor__photo"
+          [src]="user()!.photoURL!"
+          alt=""
+          referrerpolicy="no-referrer"
+        />
+      }
     </header>
 
-    <!-- Today's schedule -->
-    <section class="doctor__section">
-      <div class="doctor__section-header">
-        <h2 class="section-title">Mi agenda de hoy</h2>
-      </div>
+    <div class="doctor__layout">
+      <!-- La jornada del sillón (CLI-267) -->
+      <section class="doctor__day" aria-labelledby="doctor-day-title">
+        <h2 id="doctor-day-title" class="doctor__heading">Tu jornada de hoy</h2>
 
-      @if (appointments().length === 0) {
-        <div class="schedule-empty">
-          <div class="schedule-empty__icon" aria-hidden="true">
-            <span class="material-symbols-outlined">event_busy</span>
-          </div>
-          <p class="schedule-empty__text">No hay citas programadas para hoy</p>
-          <p class="schedule-empty__sub">Cuando se asignen pacientes, aparecerán aquí.</p>
-        </div>
-      } @else {
-        <div class="schedule-list">
-          @for (appt of appointments(); track appt.time) {
-            <div class="schedule-item">
-              <div class="schedule-item__time">{{ appt.time }}</div>
-              <div class="schedule-item__body">
-                <p class="schedule-item__patient">{{ appt.patientName }}</p>
-                <p class="schedule-item__phone">{{ appt.phone }}</p>
-              </div>
-              <span class="schedule-item__badge schedule-item__badge--confirmed">Confirmada</span>
+        @if (agendaLoading()) {
+          <ol class="journey journey--loading" aria-busy="true" aria-label="Cargando tu agenda de hoy">
+            @for (i of [1, 2, 3]; track i) {
+              <li class="journey__skeleton"></li>
+            }
+          </ol>
+        } @else if (agendaFailed()) {
+          <div class="schedule-empty schedule-empty--error" role="alert">
+            <span class="material-symbols-outlined schedule-empty__icon" aria-hidden="true">cloud_off</span>
+            <div>
+              <p class="schedule-empty__text">No pudimos cargar tu agenda de hoy</p>
+              <p class="schedule-empty__sub">Revisa tu conexión y vuelve a abrir el inicio. También puedes verla en "Mi agenda".</p>
             </div>
-          }
-        </div>
-      }
-    </section>
+          </div>
+        } @else if (appointments().length === 0) {
+          <div class="schedule-empty">
+            <span class="material-symbols-outlined schedule-empty__icon" aria-hidden="true">event_available</span>
+            <div>
+              <p class="schedule-empty__text">No hay citas programadas para hoy</p>
+              <p class="schedule-empty__sub">Cuando agendes a un paciente para hoy, aparecerá aquí.</p>
+            </div>
+          </div>
+        } @else {
+          <ol class="journey">
+            @for (entry of journey(); track entry.kind === 'gap' ? entry.key : entry.slot.id) {
+              @if (entry.kind === 'gap') {
+                <li class="journey__gap">
+                  <span class="journey__time">{{ entry.from }}</span>
+                  <span class="journey__rail" aria-hidden="true"></span>
+                  <span class="journey__gap-label">Libre · {{ durationLabel(entry.minutes) }}</span>
+                </li>
+              } @else {
+                <li
+                  class="schedule-item"
+                  [class.schedule-item--past]="entry.state === 'past'"
+                  [class.schedule-item--now]="entry.state === 'now'"
+                  [class.schedule-item--next]="entry.state === 'next'"
+                  [style.--minutes]="entry.slot.durationMinutes"
+                >
+                  <div class="journey__time">
+                    <span class="schedule-item__time">{{ entry.slot.time }}</span>
+                    <span class="schedule-item__duration">{{ durationLabel(entry.slot.durationMinutes) }}</span>
+                  </div>
+                  <span class="journey__rail" aria-hidden="true"></span>
+                  <div class="schedule-item__card">
+                    <div class="schedule-item__body">
+                      <p class="schedule-item__patient">{{ entry.slot.patientName }}</p>
+                      <p class="schedule-item__treatment">{{ entry.slot.treatmentName ?? 'Consulta odontológica' }}</p>
+                      <p class="schedule-item__phone">{{ entry.slot.phone }}</p>
+                    </div>
+                    @if (entry.state === 'now') {
+                      <span class="schedule-item__tag schedule-item__tag--now">Ahora</span>
+                    } @else if (entry.state === 'next') {
+                      <span class="schedule-item__tag schedule-item__tag--next">Siguiente</span>
+                    } @else if (entry.state === 'past') {
+                      <span class="schedule-item__tag schedule-item__tag--past">Terminada</span>
+                    }
+                  </div>
+                </li>
+              }
+            }
+          </ol>
+        }
+      </section>
 
-    <!-- KPIs básicas (CLI-205) -->
-    <section class="doctor__section">
-      <h2 class="section-title">Resumen</h2>
-      <div class="kpis">
-        <div class="kpi">
-          <span class="material-symbols-outlined kpi__icon" aria-hidden="true">today</span>
-          <span class="kpi__value">{{ kpis().todayAppointments ?? '—' }}</span>
-          <span class="kpi__label">Citas hoy</span>
-        </div>
-        <div class="kpi">
-          <span class="material-symbols-outlined kpi__icon" aria-hidden="true">date_range</span>
-          <span class="kpi__value">{{ kpis().weekAppointments ?? '—' }}</span>
-          <span class="kpi__label">Citas en los próximos 7 días</span>
-        </div>
-        <div class="kpi">
-          <span class="material-symbols-outlined kpi__icon" aria-hidden="true">groups</span>
-          <span class="kpi__value">{{ kpis().myPatients ?? '—' }}</span>
-          <span class="kpi__label">Mis pacientes</span>
-        </div>
-        <div class="kpi">
-          <span class="material-symbols-outlined kpi__icon" aria-hidden="true">payments</span>
-          <span class="kpi__value">
-            @if (kpis().pendingBalance !== null) {
-              Bs. {{ kpis().pendingBalance | number: '1.2-2' }}
-            } @else {
-              —
-            }
-          </span>
-          <span class="kpi__label">
-            Por cobrar
-            @if (kpis().debtors !== null) {
-              · {{ kpis().debtors }} {{ kpis().debtors === 1 ? 'paciente' : 'pacientes' }}
-            }
-          </span>
-        </div>
-      </div>
-    </section>
+      <!-- KPIs (CLI-205): cifras como tipografía, sin íconos -->
+      <section class="doctor__summary" aria-labelledby="doctor-summary-title">
+        <h2 id="doctor-summary-title" class="doctor__heading">Resumen</h2>
+        <dl class="kpis">
+          <div class="kpi">
+            <dt class="kpi__label">Citas hoy</dt>
+            <dd class="kpi__value">{{ kpis().todayAppointments ?? '—' }}</dd>
+          </div>
+          <div class="kpi">
+            <dt class="kpi__label">Citas en los próximos 7 días</dt>
+            <dd class="kpi__value">{{ kpis().weekAppointments ?? '—' }}</dd>
+          </div>
+          <div class="kpi">
+            <dt class="kpi__label">Mis pacientes</dt>
+            <dd class="kpi__value">{{ kpis().myPatients ?? '—' }}</dd>
+          </div>
+          <div class="kpi kpi--money" [class.kpi--owed]="(kpis().pendingBalance ?? 0) > 0">
+            <dt class="kpi__label">
+              Por cobrar
+              @if (kpis().debtors !== null) {
+                · {{ kpis().debtors }} {{ kpis().debtors === 1 ? 'paciente' : 'pacientes' }}
+              }
+            </dt>
+            <dd class="kpi__value">
+              @if (kpis().pendingBalance !== null) {
+                Bs. {{ kpis().pendingBalance | number: '1.2-2' }}
+              } @else {
+                —
+              }
+            </dd>
+          </div>
+        </dl>
+      </section>
+    </div>
   </div>
 }
 

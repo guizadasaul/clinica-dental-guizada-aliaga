@@ -1,6 +1,7 @@
 import {
   Component,
   ChangeDetectionStrategy,
+  DestroyRef,
   inject,
   input,
   output,
@@ -30,6 +31,7 @@ import { appointmentPatientLabel } from '../../../appointments/models/appointmen
 import type { Patient, PatientInviteContact } from '../../../patients/models/patient.model';
 import type { InviteChannel } from '../../../patient-invites/services/patient-invites.service';
 import { doctorGreetingName } from '../../doctor-greeting.util';
+import { CLINIC_TIME_ZONE } from '../../../../shared/utils/clinic-date.util';
 
 const INVITE_SUCCESS_MESSAGE: Record<InviteChannel, string> = {
   email: 'Correo enviado correctamente. El paciente recibirá el link de registro en su casilla.',
@@ -40,10 +42,23 @@ const INVITE_SUCCESS_MESSAGE: Record<InviteChannel, string> = {
 const KPI_WEEK_DAYS = 7;
 
 const TIME_FORMATTER = new Intl.DateTimeFormat('es-BO', {
-  timeZone: 'America/La_Paz',
+  timeZone: CLINIC_TIME_ZONE,
   hour: '2-digit',
   minute: '2-digit',
+  hour12: false,
 });
+
+const TODAY_FORMATTER = new Intl.DateTimeFormat('es-BO', {
+  timeZone: CLINIC_TIME_ZONE,
+  weekday: 'long',
+  day: 'numeric',
+  month: 'long',
+});
+
+/** Un hueco entre dos citas se muestra desde este largo (CLI-267). */
+const MIN_GAP_MINUTES = 15;
+/** Cada cuánto se mueve "Ahora" en la jornada. */
+const CLOCK_TICK_MS = 60_000;
 
 function laPazDateString(date: Date): string {
   return new Intl.DateTimeFormat('en-CA', { timeZone: 'America/La_Paz' }).format(date);
@@ -68,9 +83,33 @@ interface Kpis {
 }
 
 interface AppointmentSlot {
+  readonly id: string;
   readonly time: string;
   readonly patientName: string;
   readonly phone: string;
+  /** CLI-267: lo que se le hace, cuánto dura y cuándo empieza y termina (ms). */
+  readonly treatmentName: string | null;
+  readonly durationMinutes: number;
+  readonly start: number;
+  readonly end: number;
+}
+
+/** La jornada del sillón (CLI-267): las citas del día con su estado y los huecos libres entre ellas. */
+type JourneyEntry =
+  | {
+      readonly kind: 'appointment';
+      readonly slot: AppointmentSlot;
+      readonly state: 'past' | 'now' | 'next' | 'later';
+    }
+  | { readonly kind: 'gap'; readonly key: string; readonly from: string; readonly minutes: number };
+
+function durationLabel(minutes: number): string {
+  const hours = Math.floor(minutes / 60);
+  const rest = minutes % 60;
+  if (hours === 0) {
+    return `${rest} min`;
+  }
+  return rest === 0 ? `${hours} h` : `${hours} h ${rest} min`;
 }
 
 @Component({
@@ -163,16 +202,66 @@ export class DoctorDashboardComponent implements OnInit {
     return 'Buenas noches';
   });
 
-  protected readonly today = computed(() =>
-    new Date().toLocaleDateString('es-AR', {
-      weekday: 'long',
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-    }),
-  );
+  protected readonly today = computed(() => {
+    const text = TODAY_FORMATTER.format(new Date());
+    return text.charAt(0).toUpperCase() + text.slice(1);
+  });
 
   protected readonly appointments = signal<AppointmentSlot[]>([]);
+  /** CLI-267: mientras carga no se dice que no hay citas. */
+  protected readonly agendaLoading = signal(true);
+  protected readonly agendaFailed = signal(false);
+
+  /** Reloj de la jornada: mueve "Ahora" y "Siguiente" sin volver a pedir la agenda. */
+  private readonly now = signal(Date.now());
+
+  protected readonly durationLabel = durationLabel;
+
+  protected readonly journey = computed<JourneyEntry[]>(() => {
+    const now = this.now();
+    const slots = [...this.appointments()].sort((a, b) => a.start - b.start);
+    const nextId = slots.find((s) => s.start > now)?.id;
+    const entries: JourneyEntry[] = [];
+    slots.forEach((slot, i) => {
+      const previous = slots[i - 1];
+      const gap = previous ? Math.round((slot.start - previous.end) / 60_000) : 0;
+      if (gap >= MIN_GAP_MINUTES) {
+        entries.push({
+          kind: 'gap',
+          key: `gap-${slot.id}`,
+          from: TIME_FORMATTER.format(new Date(previous.end)),
+          minutes: gap,
+        });
+      }
+      let state: 'past' | 'now' | 'next' | 'later' = 'later';
+      if (slot.end <= now) {
+        state = 'past';
+      } else if (slot.start <= now) {
+        state = 'now';
+      } else if (slot.id === nextId) {
+        state = 'next';
+      }
+      entries.push({ kind: 'appointment', slot, state });
+    });
+    return entries;
+  });
+
+  /** La frase bajo el saludo: cuántas citas tiene y a qué hora termina el día. */
+  protected readonly dayLede = computed(() => {
+    if (this.agendaLoading() || this.agendaFailed()) {
+      return '';
+    }
+    const slots = this.appointments();
+    if (slots.length === 0) {
+      return 'Hoy no tienes citas en tu agenda.';
+    }
+    const end = Math.max(...slots.map((s) => s.end));
+    const count = slots.length === 1 ? '1 cita' : `${slots.length} citas`;
+    if (end <= this.now()) {
+      return `Terminaste tu jornada: ${count} hoy.`;
+    }
+    return `${count} hoy · terminas a las ${TIME_FORMATTER.format(new Date(end))}.`;
+  });
 
   /** KPIs básicas del inicio (CLI-205): cada una carga por su lado y falla sin afectar a las demás. */
   protected readonly kpis = signal<Kpis>({
@@ -182,6 +271,11 @@ export class DoctorDashboardComponent implements OnInit {
     pendingBalance: null,
     debtors: null,
   });
+
+  constructor() {
+    const clock = setInterval(() => this.now.set(Date.now()), CLOCK_TICK_MS);
+    inject(DestroyRef).onDestroy(() => clearInterval(clock));
+  }
 
   ngOnInit(): void {
     void this.loadTodayAgenda();
@@ -231,15 +325,24 @@ export class DoctorDashboardComponent implements OnInit {
       this.patchKpis({ todayAppointments: result.length });
     } catch {
       this.appointments.set([]);
+      this.agendaFailed.set(true);
+    } finally {
+      this.agendaLoading.set(false);
     }
   }
 
   private toAppointmentSlot(a: AppointmentAgendaItem): AppointmentSlot {
     const patientName = appointmentPatientLabel(a);
+    const start = new Date(a.appointmentDatetime).getTime();
     return {
-      time: TIME_FORMATTER.format(new Date(a.appointmentDatetime)),
+      id: a.id,
+      time: TIME_FORMATTER.format(start),
       patientName,
       phone: a.patientPhone ?? a.guestPhone ?? '—',
+      treatmentName: a.treatmentName,
+      durationMinutes: a.durationMinutes,
+      start,
+      end: start + a.durationMinutes * 60_000,
     };
   }
 
