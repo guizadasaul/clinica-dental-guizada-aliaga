@@ -165,6 +165,11 @@ export class PatientsService {
     return this.patientRepo.findAllWithUsers(doctorId);
   }
 
+  /** CLI-266: para agendar, primero los pacientes que el doctor atendió hace poco. */
+  findRecentlyTreatedIds(doctorId: string, limit: number): Promise<string[]> {
+    return this.patientRepo.findRecentlyTreatedIds(doctorId, limit);
+  }
+
   /**
    * El dashboard del doctor ya usa este endpoint para crear la ficha de OTRO
    * usuario (selecciona un userId de la lista) — por eso la resolución del

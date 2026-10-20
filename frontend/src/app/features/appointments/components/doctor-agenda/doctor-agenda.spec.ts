@@ -87,7 +87,8 @@ function setup(
         provide: PatientsService,
         useValue: {
           getAll: () => of([]),
-          getCurrentDentalExam: () => of({ id: 'exam-1' }),
+          getRecentlyTreatedIds: () => of([]),
+          getCurrentDentalExam: () => of({ id: 'exam-1', recordedAt: '2026-09-01T14:00:00Z', findings: [] }),
         },
       },
       {

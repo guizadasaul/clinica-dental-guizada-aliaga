@@ -1220,3 +1220,30 @@ describe('PrismaPatientsRepository — baja lógica (CLI-184)', () => {
     expect(tx.patients.delete).not.toHaveBeenCalled();
   });
 });
+
+describe('PrismaPatientsRepository.findRecentlyTreatedIds (CLI-266)', () => {
+  it('agrupa por paciente los tratamientos del doctor, el más reciente primero, sin fichas eliminadas', async () => {
+    const groupBy = jest
+      .fn()
+      .mockResolvedValue([{ patient_id: 'p2' }, { patient_id: 'p1' }]);
+    const repo = new PrismaPatientsRepository({
+      tooth_procedures: { groupBy },
+    } as never);
+
+    await expect(repo.findRecentlyTreatedIds('doctor-1', 8)).resolves.toEqual([
+      'p2',
+      'p1',
+    ]);
+    expect(groupBy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        by: ['patient_id'],
+        where: { performed_by: 'doctor-1', patients: { deleted_at: null } },
+        orderBy: [
+          { _max: { procedure_date: 'desc' } },
+          { _max: { created_at: 'desc' } },
+        ],
+        take: 8,
+      }),
+    );
+  });
+});

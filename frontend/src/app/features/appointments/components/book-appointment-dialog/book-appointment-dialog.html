@@ -55,6 +55,7 @@
               <app-catalog-picker
                 noun="paciente"
                 [items]="patientOptions()"
+                [extraGroups]="patientShortcuts()"
                 [selectedId]="patientId()"
                 (selectedChange)="onPatientChange($event)"
               />
@@ -82,6 +83,7 @@
             <app-catalog-picker
               noun="tratamiento"
               [items]="treatmentOptions()"
+              [extraGroups]="treatmentShortcuts()"
               [selectedId]="treatmentChoice()"
               (selectedChange)="onTreatmentChange($event)"
             />

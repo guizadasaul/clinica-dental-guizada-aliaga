@@ -13,16 +13,21 @@ import {
   viewChild,
 } from '@angular/core';
 import { toObservable, toSignal } from '@angular/core/rxjs-interop';
-import { catchError, firstValueFrom, map, of, switchMap } from 'rxjs';
+import { catchError, firstValueFrom, forkJoin, map, of, switchMap } from 'rxjs';
 import { AppointmentsService } from '../../services/appointments.service';
 import { PatientsService } from '../../../patients/services/patients.service';
 import { TreatmentsService } from '../../../treatments/services/treatments.service';
 import { QuotesService } from '../../../quotes/services/quotes.service';
 import { pendingPlanLines, type PlanLine } from '../../../quotes/utils/treatment-plan';
+import { DiagnosesService } from '../../../diagnoses/services/diagnoses.service';
+import { diagnosisSuggestions } from '../../../treatments/utils/diagnosis-suggestions';
+import type { DentalExam } from '../../../patients/models/dental-exam.model';
+import type { ToothProcedure } from '../../../treatments/models/treatment.model';
 import { AuthService } from '../../../../auth/application/auth.service';
 import { ScrollLockService } from '../../../../shared/services/scroll-lock.service';
 import {
   CatalogPickerComponent,
+  type CatalogPickerExtraGroup,
   type CatalogPickerItem,
 } from '../../../../shared/ui/catalog-picker/catalog-picker';
 import type { AppointmentAgendaItem, DoctorScheduleBlock } from '../../models/appointment.model';
@@ -65,14 +70,30 @@ const LONG_DATE_FORMATTER = new Intl.DateTimeFormat('es-BO', {
   month: 'long',
 });
 
-/** Duración de un tratamiento o de una cita: de 5 en 5 hacia arriba, dentro de lo que se puede agendar (no a 30). */
 /** CLI-263: prefijo de las opciones del selector que son un pendiente del presupuesto, no un tratamiento del catálogo. */
 const PLAN_PREFIX = 'plan:';
+/** CLI-266: prefijo de las opciones que sugiere el diagnóstico vigente. */
+const DIAGNOSIS_PREFIX = 'diag:';
+
+/** Lo que el doctor tiene a mano del paciente elegido para sugerirle qué agendar (CLI-263, CLI-266). */
+interface PatientContext {
+  readonly planLines: PlanLine[];
+  readonly exam: DentalExam | null;
+  readonly procedures: ToothProcedure[];
+}
+const EMPTY_CONTEXT: PatientContext = { planLines: [], exam: null, procedures: [] };
+
+/** Un tratamiento sugerido (pendiente o por diagnóstico): qué tratamiento es y en qué piezas. */
+interface SuggestionTarget {
+  readonly treatmentId: string;
+  readonly toothNumbers: readonly number[];
+}
 
 function teethLabel(teeth: readonly number[]): string {
   return `pieza${teeth.length === 1 ? '' : 's'} ${teeth.join(', ')}`;
 }
 
+/** Duración de un tratamiento o de una cita: de 5 en 5 hacia arriba, dentro de lo que se puede agendar (no a 30). */
 function normalizeDuration(minutes: number): number {
   return Math.min(MAX_DURATION, Math.max(MIN_DURATION, Math.ceil(minutes / STEP_MINUTES) * STEP_MINUTES));
 }
@@ -119,6 +140,7 @@ export class BookAppointmentDialogComponent implements OnInit {
   private readonly patientsService = inject(PatientsService);
   private readonly treatmentsService = inject(TreatmentsService);
   private readonly quotesService = inject(QuotesService);
+  private readonly diagnosesService = inject(DiagnosesService);
   private readonly authService = inject(AuthService);
   private readonly scrollLock = inject(ScrollLockService);
 
@@ -168,6 +190,24 @@ export class BookAppointmentDialogComponent implements OnInit {
     { initialValue: undefined },
   );
 
+  /** CLI-266: los pacientes que el doctor atendió hace poco, primero; si falla, no hay atajo. */
+  private readonly recentlyTreatedIds = toSignal(
+    this.patientsService.getRecentlyTreatedIds().pipe(catchError(() => of([] as string[]))),
+    { initialValue: [] as string[] },
+  );
+  protected readonly patientShortcuts = computed<CatalogPickerExtraGroup[]>(() => [
+    { id: 'recent', label: 'Atendidos recientemente', itemIds: this.recentlyTreatedIds() },
+  ]);
+
+  /** Qué tratamientos sugiere cada diagnóstico (CLI-119), por código. */
+  private readonly suggestedByCode = toSignal(
+    this.diagnosesService.getCatalog().pipe(
+      map((categories) => new Map(categories.flatMap((c) => c.diagnoses).map((d) => [d.code, d.suggestedTreatmentIds ?? []]))),
+      catchError(() => of(new Map<string, string[]>())),
+    ),
+    { initialValue: new Map<string, string[]>() },
+  );
+
   protected readonly patientsLoading = computed(() => this.patients() === undefined);
   protected readonly patientsFailed = computed(() => this.patients() === null);
   protected readonly treatmentsLoading = computed(() => this.treatments() === undefined);
@@ -197,23 +237,48 @@ export class BookAppointmentDialogComponent implements OnInit {
   protected readonly treatmentChoice = signal<string | null>(null);
 
   /**
-   * CLI-263: lo que el paciente tiene por realizar en sus presupuestos, para
-   * ofrecerlo primero como próximo tratamiento. Si no se puede cargar, solo
-   * queda el catálogo.
+   * Del paciente elegido: lo que tiene por realizar en sus presupuestos
+   * (CLI-263) y su diagnóstico vigente con lo ya tratado (CLI-266). Son una
+   * ayuda: lo que no se pueda cargar queda vacío y sigue el catálogo.
    */
-  private readonly planLines = toSignal(
+  private readonly patientContext = toSignal(
     toObservable(this.patientId).pipe(
       switchMap((id) =>
         id
-          ? this.quotesService.getByPatient(id).pipe(
-              map(pendingPlanLines),
-              catchError(() => of([] as PlanLine[])),
-            )
-          : of([] as PlanLine[]),
+          ? forkJoin({
+              planLines: this.quotesService.getByPatient(id).pipe(
+                map(pendingPlanLines),
+                catchError(() => of([] as PlanLine[])),
+              ),
+              exam: this.patientsService.getCurrentDentalExam(id).pipe(catchError(() => of(null))),
+              procedures: this.treatmentsService.getToothProcedures(id).pipe(
+                catchError(() => of([] as ToothProcedure[])),
+              ),
+            })
+          : of(EMPTY_CONTEXT),
       ),
     ),
-    { initialValue: [] as PlanLine[] },
+    { initialValue: EMPTY_CONTEXT },
   );
+
+  private readonly planLines = computed(() => this.patientContext().planLines);
+
+  private readonly diagnosisSuggestions = computed(() => {
+    const { exam, procedures, planLines } = this.patientContext();
+    return diagnosisSuggestions(exam, this.suggestedByCode(), procedures, planLines);
+  });
+
+  /** Opción del selector → tratamiento y piezas, para los pendientes y las sugerencias. */
+  private readonly suggestionTargets = computed(() => {
+    const targets = new Map<string, SuggestionTarget>();
+    for (const line of this.planLines()) {
+      targets.set(`${PLAN_PREFIX}${line.key}`, line);
+    }
+    for (const suggestion of this.diagnosisSuggestions()) {
+      targets.set(`${DIAGNOSIS_PREFIX}${suggestion.key}`, suggestion);
+    }
+    return targets;
+  });
 
   protected readonly treatmentOptions = computed<CatalogPickerItem[]>(() => {
     const catalog = this.treatments() ?? [];
@@ -227,13 +292,30 @@ export class BookAppointmentDialogComponent implements OnInit {
             ? `${line.treatmentName} · ${teethLabel(line.toothNumbers)}`
             : line.treatmentName,
         groupId: 'plan',
-        groupLabel: 'Pendientes del presupuesto',
+        groupLabel: 'Del presupuesto',
         color: treatment?.categoryColor,
         hint: treatment ? `${treatment.estimatedMinutes} min` : undefined,
       };
     });
+    // Solo tratamientos activos del catálogo.
+    const suggested = this.diagnosisSuggestions().flatMap((suggestion) => {
+      const treatment = byId.get(suggestion.treatmentId);
+      if (!treatment) {
+        return [];
+      }
+      const teeth = suggestion.toothNumbers.length > 0 ? ` · ${teethLabel(suggestion.toothNumbers)}` : '';
+      return [{
+        id: `${DIAGNOSIS_PREFIX}${suggestion.key}`,
+        label: `${treatment.name}${teeth} (${suggestion.diagnosisNames.join(', ').toLowerCase()})`,
+        groupId: 'diagnosis',
+        groupLabel: 'Según su diagnóstico',
+        color: treatment.categoryColor,
+        hint: `${treatment.estimatedMinutes} min`,
+      }];
+    });
     return [
       ...pending,
+      ...suggested,
       ...catalog.map((t) => ({
         id: t.id,
         label: t.name,
@@ -242,6 +324,16 @@ export class BookAppointmentDialogComponent implements OnInit {
         color: t.categoryColor,
         hint: `${t.estimatedMinutes} min`,
       })),
+    ];
+  });
+
+  /** CLI-266: primero lo del presupuesto y después lo que pide el diagnóstico. */
+  protected readonly treatmentShortcuts = computed<CatalogPickerExtraGroup[]>(() => {
+    const ids = (group: string) =>
+      this.treatmentOptions().filter((o) => o.groupId === group).map((o) => o.id);
+    return [
+      { id: 'plan', label: 'Del presupuesto', itemIds: ids('plan') },
+      { id: 'diagnosis', label: 'Según su diagnóstico', itemIds: ids('diagnosis') },
     ];
   });
 
@@ -338,8 +430,8 @@ export class BookAppointmentDialogComponent implements OnInit {
   }
 
   protected onPatientChange(id: string): void {
-    if (id !== this.patientId() && this.treatmentChoice()?.startsWith(PLAN_PREFIX)) {
-      // El pendiente era del paciente anterior.
+    if (id !== this.patientId() && this.suggestionTargets().has(this.treatmentChoice() ?? '')) {
+      // El pendiente o la sugerencia era del paciente anterior.
       this.treatmentChoice.set(null);
       this.treatmentId.set(null);
     }
@@ -357,16 +449,14 @@ export class BookAppointmentDialogComponent implements OnInit {
 
   protected onTreatmentChange(id: string): void {
     this.treatmentChoice.set(id);
-    const line = id.startsWith(PLAN_PREFIX)
-      ? this.planLines().find((l) => `${PLAN_PREFIX}${l.key}` === id)
-      : undefined;
+    const line = this.suggestionTargets().get(id);
     const treatmentId = line ? line.treatmentId : id;
     this.treatmentId.set(treatmentId);
     const treatment = this.treatments()?.find((t) => t.id === treatmentId);
     if (treatment) {
       this.duration.set(normalizeDuration(treatment.estimatedMinutes));
     }
-    // Un pendiente en piezas concretas las deja anotadas, si no hay notas todavía.
+    // Un pendiente o una sugerencia en piezas concretas las deja anotadas, si no hay notas todavía.
     if (line && line.toothNumbers.length > 0 && !this.notes().trim()) {
       const teeth = teethLabel(line.toothNumbers);
       this.notes.set(teeth.charAt(0).toUpperCase() + teeth.slice(1));

@@ -665,6 +665,24 @@ export class PrismaPatientsRepository implements IPatientRepository {
     );
   }
 
+  async findRecentlyTreatedIds(
+    doctorId: string,
+    limit: number,
+  ): Promise<string[]> {
+    const rows = await this.prisma.tooth_procedures.groupBy({
+      by: ['patient_id'],
+      where: { performed_by: doctorId, patients: { deleted_at: null } },
+      _max: { procedure_date: true, created_at: true },
+      // A igual fecha, el registrado último primero.
+      orderBy: [
+        { _max: { procedure_date: 'desc' } },
+        { _max: { created_at: 'desc' } },
+      ],
+      take: limit,
+    });
+    return rows.map((r) => r.patient_id);
+  }
+
   async findToothProcedures(patientId: string): Promise<ToothProcedure[]> {
     const records = await this.prisma.tooth_procedures.findMany({
       where: { patient_id: patientId },

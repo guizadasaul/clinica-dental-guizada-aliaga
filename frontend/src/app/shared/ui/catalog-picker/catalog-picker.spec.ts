@@ -112,6 +112,20 @@ describe('CatalogPickerComponent', () => {
     expect(optionIds(fixture)).toEqual(['r1', 'r2', 'e1']);
   });
 
+  it('una categoría con el id de un atajo no repite su chip (CLI-266)', () => {
+    const { fixture } = setup();
+    fixture.componentRef.setInput('items', [
+      { id: 'plan:1', label: 'Resina · pieza 16', groupId: 'plan', groupLabel: 'Del presupuesto' },
+      ...ITEMS,
+    ]);
+    fixture.componentRef.setInput('extraGroups', [{ id: 'plan', label: 'Del presupuesto', itemIds: ['plan:1'] }]);
+    fixture.detectChanges();
+
+    const chips = [...root(fixture).querySelectorAll('.catalog-picker__chip')].map((c) => c.textContent?.trim());
+    expect(chips).toEqual(['Del presupuesto', 'Todos', 'Operatoria dental', 'Endodoncia']);
+    expect(optionIds(fixture)).toEqual(['plan:1']);
+  });
+
   it('un atajo sin ítems existentes no aparece', () => {
     const { fixture } = setup();
     fixture.componentRef.setInput('extraGroups', [{ id: 'freq', label: 'Frecuentes', itemIds: ['no-existe'] }]);
