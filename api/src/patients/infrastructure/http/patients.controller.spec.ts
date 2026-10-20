@@ -1,6 +1,7 @@
 import { PatientsController } from './patients.controller';
 import { PatientsService } from '../../application/patients.service';
 import type { AuthenticatedUser } from '../../../auth/domain/AuthenticatedUser';
+import type { User } from '../../../auth/domain/User';
 import type { CreatePatientDto } from './dto/create-patient.dto';
 import type { CreateMedicalHistoryDto } from './dto/create-medical-history.dto';
 import type { CreateHygieneHabitsDto } from './dto/create-hygiene-habits.dto';
@@ -12,6 +13,7 @@ const PATIENT_ID = 'patient-1';
 describe('PatientsController', () => {
   const mockService = {
     findAll: jest.fn(),
+    findRecentlyTreatedIds: jest.fn(),
     findMyPatient: jest.fn(),
     findMyPatientStatus: jest.fn(),
     findMyToothProcedures: jest.fn(),
@@ -50,6 +52,24 @@ describe('PatientsController', () => {
         controller.findAll({ doctorId: 'doctor-1' }),
       ).resolves.toEqual(['p']);
       expect(mockService.findAll).toHaveBeenCalledWith('doctor-1');
+    });
+
+    it('recently-treated usa el id del doctor y acota el límite entre 1 y 20 (CLI-266)', async () => {
+      const doctor = { id: 'doctor-1' } as User;
+      mockService.findRecentlyTreatedIds.mockResolvedValue(['p2', 'p1']);
+
+      await expect(controller.findRecentlyTreated(doctor, 8)).resolves.toEqual([
+        'p2',
+        'p1',
+      ]);
+      await controller.findRecentlyTreated(doctor, 500);
+      await controller.findRecentlyTreated(doctor, 0);
+
+      expect(mockService.findRecentlyTreatedIds.mock.calls).toEqual([
+        ['doctor-1', 8],
+        ['doctor-1', 20],
+        ['doctor-1', 1],
+      ]);
     });
 
     it('me y me/status usan el uid del usuario autenticado', async () => {

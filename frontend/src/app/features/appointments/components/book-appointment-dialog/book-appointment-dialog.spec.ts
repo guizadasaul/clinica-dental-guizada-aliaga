@@ -7,6 +7,7 @@ import { PatientsService } from '../../../patients/services/patients.service';
 import { TreatmentsService } from '../../../treatments/services/treatments.service';
 import { AuthService } from '../../../../auth/application/auth.service';
 import { QuotesService } from '../../../quotes/services/quotes.service';
+import { DiagnosesService } from '../../../diagnoses/services/diagnoses.service';
 
 const MONDAY = '2026-10-05';
 
@@ -48,7 +49,26 @@ const P1_QUOTES = [
   },
 ];
 
-function setup(options: { createResult?: unknown } = {}) {
+/** CLI-266: examen vigente de p-1 — caries en la 16 (ya tratada después) y en la 26, y la 22 que ya está en el plan. */
+const P1_EXAM = {
+  recordedAt: '2026-09-01T14:00:00Z',
+  findings: [
+    { diagnosisCode: 'caries', diagnosisName: 'Caries', toothNumber: 16 },
+    { diagnosisCode: 'caries', diagnosisName: 'Caries', toothNumber: 26 },
+    { diagnosisCode: 'fractura', diagnosisName: 'Fractura', toothNumber: 22 },
+  ],
+};
+const P1_PROCEDURES = [{ treatmentId: 't-1', toothNumber: 16, procedureDate: '2026-09-10' }];
+const DIAGNOSES = [
+  {
+    diagnoses: [
+      { code: 'caries', suggestedTreatmentIds: ['t-3', 't-2'] },
+      { code: 'fractura', suggestedTreatmentIds: ['t-1'] },
+    ],
+  },
+];
+
+function setup(options: { createResult?: unknown; recentIds?: unknown } = {}) {
   const quotesService = {
     getByPatient: vi.fn((id: string) => of(id === 'p-1' ? P1_QUOTES : [])),
   };
@@ -69,6 +89,8 @@ function setup(options: { createResult?: unknown } = {}) {
               patient('p-1', 'Ana', 'doctor-a', '1234567'),
               { ...patient('x', 'Sin ficha', null), patient: null },
             ]),
+          getRecentlyTreatedIds: () => options.recentIds ?? of(['p-2', 'p-1']),
+          getCurrentDentalExam: (id: string) => of(id === 'p-1' ? P1_EXAM : null),
         },
       },
       {
@@ -94,11 +116,22 @@ function setup(options: { createResult?: unknown } = {}) {
                 categoryName: 'C',
                 categoryColor: '#000',
               },
+              {
+                id: 't-3',
+                name: 'Resina',
+                estimatedMinutes: 40,
+                isActive: true,
+                categoryCode: 'c',
+                categoryName: 'C',
+                categoryColor: '#000',
+              },
             ]),
+          getToothProcedures: (id: string) => of(id === 'p-1' ? P1_PROCEDURES : []),
         },
       },
       { provide: AuthService, useValue: { currentUser: signal({ id: 'doctor-a' }) } },
       { provide: QuotesService, useValue: quotesService },
+      { provide: DiagnosesService, useValue: { getCatalog: () => of(DIAGNOSES) } },
     ],
   });
   const fixture = TestBed.createComponent(BookAppointmentDialogComponent);
@@ -163,7 +196,7 @@ describe('BookAppointmentDialogComponent (CLI-150)', () => {
       internals(fixture)
         .treatmentOptions()
         .map((t) => t.id),
-    ).toEqual(['t-1']);
+    ).toEqual(['t-1', 't-3']);
     internals(fixture).onTreatmentChange('t-1');
     expect(internals(fixture).duration()).toBe(45);
   });
@@ -399,11 +432,11 @@ describe('BookAppointmentDialogComponent (CLI-150)', () => {
       expect(options[0]).toMatchObject({
         id: 'plan:g-1',
         label: 'Control · piezas 21, 22',
-        groupLabel: 'Pendientes del presupuesto',
+        groupLabel: 'Del presupuesto',
         hint: '45 min',
       });
-      // Lo ya realizado no se ofrece; después viene el catálogo.
-      expect(options.map((o) => o.id)).toEqual(['plan:g-1', 't-1']);
+      // Lo ya realizado no se ofrece; después vienen las sugerencias del diagnóstico y el catálogo.
+      expect(options.map((o) => o.id)).toEqual(['plan:g-1', 'diag:t-3:26', 't-1', 't-3']);
     });
 
     it('elegir un pendiente agenda su tratamiento con su duración y anota las piezas', async () => {
@@ -431,7 +464,77 @@ describe('BookAppointmentDialogComponent (CLI-150)', () => {
       internals(fixture).onPatientChange('p-2');
       fixture.detectChanges();
 
-      expect(internals(fixture).treatmentOptions().map((o) => o.id)).toEqual(['t-1']);
+      expect(internals(fixture).treatmentOptions().map((o) => o.id)).toEqual(['t-1', 't-3']);
+      expect((fixture.componentInstance as unknown as { treatmentId: () => string | null }).treatmentId()).toBeNull();
+    });
+  });
+
+  // CLI-266
+  describe('sugerencias para agendar', () => {
+    type Shortcuts = { id: string; label: string; itemIds: string[] }[];
+    const shortcuts = (fixture: ComponentFixture<BookAppointmentDialogComponent>, name: string) =>
+      (fixture.componentInstance as unknown as Record<string, () => Shortcuts>)[name]();
+
+    it('el selector de paciente arranca con los atendidos recientemente, en el orden de la API', () => {
+      const { fixture } = setup();
+      fixture.detectChanges();
+
+      expect(shortcuts(fixture, 'patientShortcuts')).toEqual([
+        { id: 'recent', label: 'Atendidos recientemente', itemIds: ['p-2', 'p-1'] },
+      ]);
+    });
+
+    it('si la API de recientes falla, el selector queda como antes', () => {
+      const { fixture } = setup({ recentIds: throwError(() => new Error('500')) });
+      fixture.detectChanges();
+
+      expect(shortcuts(fixture, 'patientShortcuts')[0].itemIds).toEqual([]);
+      expect(internals(fixture).patientOptions()).toHaveLength(2);
+    });
+
+    it('los tratamientos arrancan con el presupuesto y siguen con el diagnóstico, sin lo ya tratado ni lo ya presupuestado', () => {
+      const { fixture } = setup();
+      fixture.detectChanges();
+      internals(fixture).onPatientChange('p-1');
+      fixture.detectChanges();
+
+      expect(shortcuts(fixture, 'treatmentShortcuts')).toEqual([
+        { id: 'plan', label: 'Del presupuesto', itemIds: ['plan:g-1'] },
+        // La 16 se trató después del examen y la 22 ya está en el plan; t-2 está inactivo.
+        { id: 'diagnosis', label: 'Según su diagnóstico', itemIds: ['diag:t-3:26'] },
+      ]);
+      expect(internals(fixture).treatmentOptions().find((o) => o.id === 'diag:t-3:26')).toMatchObject({
+        label: 'Resina · pieza 26 (caries)',
+        groupLabel: 'Según su diagnóstico',
+        hint: '40 min',
+      });
+    });
+
+    it('elegir una sugerencia del diagnóstico agenda ese tratamiento con su duración y su pieza', async () => {
+      const { fixture, appointmentsService } = setup();
+      fixture.detectChanges();
+      internals(fixture).onPatientChange('p-1');
+      fixture.detectChanges();
+      internals(fixture).onTreatmentChange('diag:t-3:26');
+
+      expect(internals(fixture).duration()).toBe(40);
+      expect(internals(fixture).notes()).toBe('Pieza 26');
+      await internals(fixture).onSubmit();
+
+      expect(appointmentsService.createByDoctor).toHaveBeenCalledWith(
+        expect.objectContaining({ patientId: 'p-1', treatmentId: 't-3', notes: 'Pieza 26' }),
+      );
+    });
+
+    it('si cambia de paciente, la sugerencia del anterior se descarta', () => {
+      const { fixture } = setup();
+      fixture.detectChanges();
+      internals(fixture).onPatientChange('p-1');
+      fixture.detectChanges();
+      internals(fixture).onTreatmentChange('diag:t-3:26');
+      internals(fixture).onPatientChange('p-2');
+      fixture.detectChanges();
+
       expect((fixture.componentInstance as unknown as { treatmentId: () => string | null }).treatmentId()).toBeNull();
     });
   });

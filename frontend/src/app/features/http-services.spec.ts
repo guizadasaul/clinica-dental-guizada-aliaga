@@ -150,6 +150,12 @@ function cases(s: ReturnType<typeof services>): Case[] {
       url: `${API}/patients/p1/dental-exams`,
     },
     {
+      name: 'pacientes: los atendidos recientemente por el doctor (CLI-266)',
+      call: () => s.patients.getRecentlyTreatedIds(),
+      method: 'GET',
+      url: `${API}/patients/recently-treated`,
+    },
+    {
       name: 'pacientes: examen dental vigente',
       call: () => s.patients.getCurrentDentalExam('p1'),
       method: 'GET',

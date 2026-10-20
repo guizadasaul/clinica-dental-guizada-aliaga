@@ -189,6 +189,11 @@ export interface PatientDeletionBlockers {
 export interface IPatientRepository {
   /** CLI-58: doctorId es un filtro de conveniencia, no de seguridad — sin él devuelve todos los pacientes, igual que siempre (visibilidad compartida). */
   findAllWithUsers(doctorId?: string): Promise<PatientWithUser[]>;
+  /**
+   * CLI-266: los pacientes a los que el doctor les hizo un tratamiento, el más
+   * reciente primero (por fecha del tratamiento), sin fichas eliminadas.
+   */
+  findRecentlyTreatedIds(doctorId: string, limit: number): Promise<string[]>;
   /** Lugares de nacimiento, zonas y ciudades ya usados, el más usado primero (CLI-178). */
   findFieldOptions(): Promise<PatientFieldOptions>;
   findPatientById(id: string): Promise<Patient | null>;

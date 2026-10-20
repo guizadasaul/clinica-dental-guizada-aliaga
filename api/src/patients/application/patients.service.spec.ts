@@ -116,6 +116,7 @@ function fakeTreatment(overrides: Partial<Treatment> = {}): Treatment {
 
 const mockPatientRepo = {
   findAllWithUsers: jest.fn(),
+  findRecentlyTreatedIds: jest.fn(),
   findPatientById: jest.fn(),
   findByUserId: jest.fn(),
   findDeletionBlockers: jest.fn(),
@@ -699,6 +700,18 @@ describe('PatientsService', () => {
 
       expect(mockPatientRepo.findAllWithUsers).toHaveBeenCalledWith('doctor-a');
     });
+  });
+
+  it('findRecentlyTreatedIds delega en el repo (CLI-266)', async () => {
+    mockPatientRepo.findRecentlyTreatedIds.mockResolvedValue(['p1']);
+
+    await expect(
+      service.findRecentlyTreatedIds('doctor-a', 8),
+    ).resolves.toEqual(['p1']);
+    expect(mockPatientRepo.findRecentlyTreatedIds).toHaveBeenCalledWith(
+      'doctor-a',
+      8,
+    );
   });
 
   describe('lugar de nacimiento, zona y ciudad unificados (CLI-178)', () => {

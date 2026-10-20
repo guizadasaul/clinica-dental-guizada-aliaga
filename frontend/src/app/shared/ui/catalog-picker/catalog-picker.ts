@@ -87,8 +87,10 @@ export class CatalogPickerComponent {
       .filter((g) => g.itemIds.some((id) => itemIds.has(id)))
       .map((g) => ({ id: g.id, label: g.label }));
     const groups: { id: string; label: string }[] = [];
+    // Una categoría con el mismo id que un atajo ya tiene su chip (ej. "Del presupuesto").
+    const extraIds = new Set(this.extraGroups().map((g) => g.id));
     for (const item of this.items()) {
-      if (!groups.some((g) => g.id === item.groupId)) {
+      if (!extraIds.has(item.groupId) && !groups.some((g) => g.id === item.groupId)) {
         groups.push({ id: item.groupId, label: item.groupLabel });
       }
     }

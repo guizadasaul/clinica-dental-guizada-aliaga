@@ -1,11 +1,13 @@
 import {
   Body,
   Controller,
+  DefaultValuePipe,
   Delete,
   Get,
   HttpCode,
   HttpStatus,
   Param,
+  ParseIntPipe,
   ParseUUIDPipe,
   Patch,
   Post,
@@ -18,6 +20,8 @@ import { RolesGuard } from '../../../auth/infrastructure/RolesGuard.js';
 import { Roles } from '../../../auth/infrastructure/roles.decorator.js';
 import { CurrentUser } from '../../../auth/infrastructure/CurrentUserDecorator.js';
 import type { AuthenticatedUser } from '../../../auth/domain/AuthenticatedUser.js';
+import { CurrentAppUser } from '../../../auth/infrastructure/CurrentAppUserDecorator.js';
+import type { User } from '../../../auth/domain/User.js';
 import { UserRole } from '../../../auth/domain/value-objects/UserRole.js';
 import { CreatePatientDto } from './dto/create-patient.dto.js';
 import { ListPatientsQueryDto } from './dto/list-patients-query.dto.js';
@@ -28,6 +32,9 @@ import { CreateClinicalExamDto } from './dto/create-clinical-exam.dto.js';
 import { CreateOdontogramEntriesDto } from './dto/create-odontogram-entries.dto.js';
 import { CreateDentalExamDto } from './dto/create-dental-exam.dto.js';
 
+const RECENT_LIMIT = 8;
+const MAX_RECENT_LIMIT = 20;
+
 @Controller('patients')
 @UseGuards(SupabaseAuthGuard, RolesGuard)
 export class PatientsController {
@@ -37,6 +44,20 @@ export class PatientsController {
   @Roles(UserRole.ODONTOLOGIST, UserRole.ADMIN)
   findAll(@Query() query: ListPatientsQueryDto) {
     return this.patientsService.findAll(query.doctorId);
+  }
+
+  /** CLI-266: ids de los pacientes que el doctor atendió hace poco, el más reciente primero. */
+  @Get('recently-treated')
+  @Roles(UserRole.ODONTOLOGIST)
+  findRecentlyTreated(
+    @CurrentAppUser() appUser: User,
+    @Query('limit', new DefaultValuePipe(RECENT_LIMIT), ParseIntPipe)
+    limit: number,
+  ): Promise<string[]> {
+    return this.patientsService.findRecentlyTreatedIds(
+      appUser.id,
+      Math.min(Math.max(limit, 1), MAX_RECENT_LIMIT),
+    );
   }
 
   @Get('me')

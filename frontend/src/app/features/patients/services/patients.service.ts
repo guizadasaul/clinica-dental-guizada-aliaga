@@ -27,6 +27,11 @@ export class PatientsService {
     });
   }
 
+  /** CLI-266: ids de los pacientes que el doctor logueado atendió hace poco, el más reciente primero. */
+  getRecentlyTreatedIds(): Observable<string[]> {
+    return this.http.get<string[]>(`${this.base}/recently-treated`);
+  }
+
   getMyPatient(): Observable<Patient> {
     return this.http.get<Patient>(`${this.base}/me`);
   }
