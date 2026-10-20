@@ -1,30 +1,29 @@
-// ─── Mis citas del paciente (CLI-216: filas como la agenda del doctor) ──────
+@use 'panel';
+
+// ─── Mis citas del paciente (CLI-267) ────────────────────────────────────────
+// Las próximas como tarjetas de cita; el historial, mes por mes, con una hoja
+// de calendario por visita.
 
 .visits {
+  container: visits / inline-size;
   display: flex;
   flex-direction: column;
-  gap: var(--space-8);
-  max-width: 1000px;
+  gap: var(--space-10);
+  max-width: 1080px;
 }
 
 .visits__section {
   display: flex;
   flex-direction: column;
-  gap: var(--space-2);
-
-  .section-title {
-    margin-bottom: var(--space-2);
-  }
+  gap: var(--space-4);
 }
 
-.visits__month {
-  margin: var(--space-3) 0 var(--space-1);
-  font-family: var(--font-body);
-  font-size: var(--font-size-xs);
-  font-weight: 600;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: var(--color-text-muted);
+.visits__heading {
+  margin: 0;
+  font-family: var(--font-headline);
+  font-size: var(--font-size-xl);
+  font-weight: 400;
+  color: var(--color-text);
 }
 
 .visits__muted {
@@ -33,66 +32,128 @@
   color: var(--color-text-muted);
 }
 
-.visit {
-  display: flex;
-  align-items: center;
-  gap: var(--space-4);
-  padding: var(--space-4) var(--space-5);
-  border: 1px solid var(--color-border);
+.visits__none {
+  margin: 0;
+  padding: var(--space-5) var(--space-6);
   border-radius: var(--radius-xl);
-  background: #fff;
-  box-shadow: var(--shadow-sm);
+  background: var(--color-surface-dim);
+  color: var(--color-text);
+}
 
-  &--missed {
-    box-shadow: none;
+// ─── Próximas ────────────────────────────────────────────────────────────────
 
-    .visit__date,
-    .visit__time {
-      color: var(--color-text-muted);
-    }
+.visits__tickets {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 320px), 1fr));
+  gap: var(--space-4);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+// ─── Historial ───────────────────────────────────────────────────────────────
+
+.visits__month-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.visits__month {
+  margin: 0;
+  font-family: var(--font-body);
+  font-size: var(--font-size-base);
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.visits__list {
+  @include panel.surface;
+
+  margin: 0;
+  padding: 0 var(--space-5);
+  list-style: none;
+}
+
+.visit {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-2) var(--space-4);
+  padding: var(--space-4) 0;
+
+  & + & {
+    border-top: 1px solid var(--color-border);
+  }
+
+  // En el celular la hora baja debajo del texto y la marca ocupa su fila.
+  @container visits (max-width: 440px) {
+    grid-template-columns: auto minmax(0, 1fr);
   }
 }
 
-.visit__time {
-  flex-shrink: 0;
-  min-width: 72px;
+// La hoja de calendario: el día grande y el día de la semana.
+.visit__leaf {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 52px;
+  height: 56px;
+  border-radius: var(--radius-lg);
+  background: var(--color-primary-light);
+  font-variant-numeric: lining-nums tabular-nums;
+}
+
+.visit__leaf-day {
   font-family: var(--font-headline);
-  font-size: var(--font-size-base);
-  color: var(--color-primary-dark);
+  font-size: var(--font-size-xl);
+  line-height: 1;
+  color: var(--color-text);
+}
+
+.visit__leaf-weekday {
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  color: var(--color-text);
 }
 
 .visit__body {
-  flex: 1;
   min-width: 0;
 }
 
 .visit__date {
   margin: 0;
-  font-family: var(--font-body);
-  font-size: var(--font-size-sm);
   font-weight: 600;
   color: var(--color-text);
 }
 
 .visit__meta {
   margin: 0;
-  font-family: var(--font-body);
-  font-size: var(--font-size-xs);
+  font-size: var(--font-size-sm);
   color: var(--color-text-muted);
+  overflow-wrap: anywhere;
+}
+
+.visit__time {
+  font-family: var(--font-headline);
+  font-size: var(--font-size-lg);
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text);
+
+  @container visits (max-width: 440px) {
+    grid-column: 2;
+    font-size: var(--font-size-base);
+  }
 }
 
 .visit__badge {
-  flex-shrink: 0;
+  grid-column: 2 / -1;
+  justify-self: start;
   padding: var(--space-1) var(--space-3);
   border-radius: var(--radius-full);
-  font-family: var(--font-body);
   font-size: var(--font-size-xs);
   font-weight: 600;
-
-  &--confirmed {
-    background: var(--color-success-light);
-    color: #16a34a;
-  }
 
   &--missed {
     background: var(--color-error-light);
@@ -100,37 +161,37 @@
   }
 }
 
+// Una visita a la que no fue queda en segundo plano, con su marca a la vista.
+.visit--missed {
+  .visit__leaf {
+    background: var(--color-surface-dim);
+  }
+
+  .visit__date,
+  .visit__time {
+    color: var(--color-text-muted);
+  }
+}
+
+// ─── Vacío ───────────────────────────────────────────────────────────────────
+
 .visits-empty {
   display: flex;
-  flex-direction: column;
   align-items: center;
-  gap: var(--space-2);
-  padding: var(--space-12) var(--space-8);
-  border: 1.5px dashed var(--color-border);
+  gap: var(--space-4);
+  padding: var(--space-6);
   border-radius: var(--radius-xl);
-  background: #fff;
-  text-align: center;
+  background: var(--color-surface-dim);
 }
 
 .visits-empty__icon {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 64px;
-  height: 64px;
-  margin-bottom: var(--space-2);
-  border-radius: 50%;
-  background: var(--color-primary-subtle);
-
-  .material-symbols-outlined {
-    font-size: 32px;
-    color: var(--color-primary-dark);
-  }
+  flex-shrink: 0;
+  font-size: 2rem;
+  color: var(--color-primary-dark);
 }
 
 .visits-empty__text {
   margin: 0;
-  font-size: var(--font-size-base);
   font-weight: 600;
   color: var(--color-text);
 }

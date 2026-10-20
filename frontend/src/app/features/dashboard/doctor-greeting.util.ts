@@ -10,17 +10,16 @@ function normalizeTitle(word: string): string {
 }
 
 /**
- * Cómo saludar al doctor en su panel: con su título si lo trae el nombre
- * público ("Dra. María"), o solo con su primer nombre si no ("Lucía"), para
- * no adivinar si es doctor o doctora. Sin nombre, "Doctor".
+ * Cómo saludar al doctor en su panel, siempre con su título (CLI-267: el
+ * saludo es formal): "Dra." si su nombre público lo dice ("Dra. María"),
+ * "Dr." en cualquier otro caso ("Dr. Paul"). Sin nombre, "Doctor".
  */
 export function doctorGreetingName(displayName: string | null | undefined): string {
   const words = (displayName ?? '').trim().split(/\s+/).filter(Boolean);
-  // "Dr./Dra." es la sugerencia del alta que quedó sin elegir: no dice si es
-  // doctor o doctora, así que se saluda solo por el nombre.
+  // "Dr./Dra." es la sugerencia del alta que quedó sin elegir: va "Dr.".
   if (UNDECIDED_TITLE.test(words[0] ?? '')) {
     words.shift();
-    return words[0] ?? 'Doctor';
+    return words[0] ? `Dr. ${words[0]}` : 'Doctor';
   }
   if (words.length === 0) {
     return 'Doctor';
@@ -28,5 +27,5 @@ export function doctorGreetingName(displayName: string | null | undefined): stri
   if (TITLE.test(words[0])) {
     return words.length > 1 ? `${normalizeTitle(words[0])} ${words[1]}` : 'Doctor';
   }
-  return words[0];
+  return `Dr. ${words[0]}`;
 }

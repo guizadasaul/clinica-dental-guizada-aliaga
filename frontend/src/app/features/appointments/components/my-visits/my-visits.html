@@ -3,47 +3,59 @@
     <app-page-header title="Mis citas" subtitle="Tus próximas citas y todas tus visitas a la clínica." />
 
     @if (loading()) {
-      <p class="visits__muted">Cargando tus citas...</p>
+      <p class="visits__muted" aria-busy="true">Cargando tus citas...</p>
     } @else {
-      <section class="visits__section">
-        <h2 class="section-title">Próximas</h2>
-        @for (u of upcoming(); track u.id) {
-          <div class="visit">
-            <div class="visit__time">{{ u.time }}</div>
-            <div class="visit__body">
-              <p class="visit__date">{{ u.when }}</p>
-              <p class="visit__meta">{{ u.title }}@if (u.doctorName) { · {{ u.doctorName }} }</p>
-            </div>
-            <span class="visit__badge visit__badge--confirmed">Confirmada</span>
-          </div>
-        } @empty {
-          <p class="visits__muted">No tienes citas programadas.</p>
+      <section class="visits__section" aria-labelledby="visits-upcoming-title">
+        <h2 id="visits-upcoming-title" class="visits__heading">Próximas</h2>
+        @if (upcoming().length > 0) {
+          <ul class="visits__tickets">
+            @for (u of upcoming(); track u.id) {
+              <li>
+                <app-appointment-ticket
+                  [datetime]="u.appointmentDatetime"
+                  [durationMinutes]="u.durationMinutes"
+                  [title]="u.treatmentName ?? 'Consulta odontológica'"
+                  [doctorName]="u.doctorName"
+                />
+              </li>
+            }
+          </ul>
+        } @else {
+          <p class="visits__none">No tienes citas programadas.</p>
         }
       </section>
 
-      <section class="visits__section">
-        <h2 class="section-title">Historial</h2>
+      <section class="visits__section" aria-labelledby="visits-history-title">
+        <h2 id="visits-history-title" class="visits__heading">Historial</h2>
         @for (group of months(); track group.label) {
-          <h3 class="visits__month">{{ group.label }}</h3>
-          @for (v of group.visits; track v.id) {
-            <div class="visit" [class.visit--missed]="v.noShow">
-              <div class="visit__time">{{ v.time }}</div>
-              <div class="visit__body">
-                <p class="visit__date">{{ v.when }}</p>
-                <p class="visit__meta">{{ v.title }}@if (v.doctorName) { · {{ v.doctorName }} }</p>
-              </div>
-              @if (v.noShow) {
-                <span class="visit__badge visit__badge--missed">No asististe</span>
+          <div class="visits__month-group">
+            <h3 class="visits__month">{{ group.label }}</h3>
+            <ul class="visits__list">
+              @for (v of group.visits; track v.id) {
+                <li class="visit" [class.visit--missed]="v.noShow">
+                  <div class="visit__leaf" aria-hidden="true">
+                    <span class="visit__leaf-day">{{ v.day }}</span>
+                    <span class="visit__leaf-weekday">{{ v.weekday }}</span>
+                  </div>
+                  <div class="visit__body">
+                    <p class="visit__date">{{ v.when }}</p>
+                    <p class="visit__meta">{{ v.title }}@if (v.doctorName) { · {{ v.doctorName }} }</p>
+                  </div>
+                  <span class="visit__time">{{ v.time }}</span>
+                  @if (v.noShow) {
+                    <span class="visit__badge visit__badge--missed">No asististe</span>
+                  }
+                </li>
               }
-            </div>
-          }
+            </ul>
+          </div>
         } @empty {
           <div class="visits-empty">
-            <div class="visits-empty__icon" aria-hidden="true">
-              <span class="material-symbols-outlined">history</span>
+            <span class="material-symbols-outlined visits-empty__icon" aria-hidden="true">history</span>
+            <div>
+              <p class="visits-empty__text">Todavía no tienes visitas registradas</p>
+              <p class="visits-empty__sub">Después de tu primera cita la verás aquí.</p>
             </div>
-            <p class="visits-empty__text">Todavía no tienes visitas registradas</p>
-            <p class="visits-empty__sub">Después de tu primera cita la verás aquí.</p>
           </div>
         }
       </section>

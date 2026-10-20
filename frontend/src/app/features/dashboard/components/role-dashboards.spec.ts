@@ -3,6 +3,7 @@ import { TestBed } from '@angular/core/testing';
 import { By } from '@angular/platform-browser';
 import { NEVER, of, throwError, type Observable } from 'rxjs';
 import { PatientDashboardComponent } from './patient-dashboard/patient-dashboard';
+import { AppointmentTicketComponent } from '../../../shared/ui/appointment-ticket/appointment-ticket';
 import { AdminDashboardComponent } from './admin-dashboard/admin-dashboard';
 import { AuthService } from '../../../auth/application/auth.service';
 import { PatientsService } from '../../patients/services/patients.service';
@@ -62,7 +63,7 @@ describe('PatientDashboardComponent', () => {
       ],
     });
     TestBed.overrideComponent(PatientDashboardComponent, {
-      set: { imports: [MyTreatmentHistoryStub, MyVisitsStub, MyProfileStub] },
+      set: { imports: [MyTreatmentHistoryStub, MyVisitsStub, MyProfileStub, AppointmentTicketComponent] },
     });
     const fixture = TestBed.createComponent(PatientDashboardComponent);
     fixture.componentRef.setInput('activeNav', nav);
@@ -95,23 +96,29 @@ describe('PatientDashboardComponent', () => {
     expect(text).not.toContain('Solicitar cita');
   });
 
-  // CLI-216: el inicio sigue el del doctor — fila de próxima cita y KPIs.
+  // CLI-267: la próxima cita es la tarjeta protagonista del inicio.
   describe('próxima cita', () => {
-    it('muestra la más cercana como una fila de la agenda y ofrece ir a las demás', () => {
+    it('muestra la más cercana como tarjeta de cita, lo dice bajo el saludo y ofrece ir a las demás', () => {
       const { fixture, root } = setup('home', {
         upcoming: of([
           cita('a', '2026-09-29T14:00:00.000Z'),
           cita('b', '2026-10-06T14:00:00.000Z', { treatmentName: null }),
         ]),
       });
-      const row = root.querySelector('.appointment')!;
+      const tickets = root.querySelectorAll('app-appointment-ticket');
+      const ticket = tickets[0];
       const emitted: string[] = [];
       fixture.componentInstance.navChange.subscribe((nav) => emitted.push(nav));
 
-      expect(row.querySelector('.appointment__time')?.textContent).toContain('10:00');
-      expect(row.querySelector('.appointment__date')?.textContent).toContain('Martes, 29 de septiembre');
-      expect(row.querySelector('.appointment__meta')?.textContent).toContain('Control de ortodoncia · Saul Guizada');
-      expect(row.querySelector('.appointment__badge')?.textContent).toContain('Confirmada');
+      // Solo la más cercana es protagonista; las demás están en "Mis citas".
+      expect(tickets).toHaveLength(1);
+      expect(ticket.classList).toContain('ticket--hero');
+      expect(ticket.querySelector('.ticket__day')?.textContent).toBe('29');
+      expect(ticket.querySelector('.ticket__weekday')?.textContent).toBe('Martes');
+      expect(ticket.querySelector('.ticket__time')?.textContent).toBe('10:00 – 11:00');
+      expect(ticket.querySelector('.ticket__title')?.textContent).toBe('Control de ortodoncia');
+      expect(ticket.querySelector('.ticket__doctor')?.textContent).toContain('Saul Guizada');
+      expect(root.querySelector('.patient__lede')?.textContent).toContain('Tu próxima cita es');
       const more = root.querySelector<HTMLButtonElement>('.patient__link')!;
       expect(more.textContent).toContain('Y 1 cita más');
       more.click();
@@ -123,6 +130,7 @@ describe('PatientDashboardComponent', () => {
 
       expect(root.querySelector('.patient-empty')?.textContent).toContain('No tienes citas programadas');
       expect(root.querySelector('.patient-empty button')).toBeNull();
+      expect(root.querySelector('.patient__lede')?.textContent).toContain('Por ahora no tienes citas programadas');
     });
 
     it('si falla la consulta, también muestra el estado vacío', () => {
@@ -135,11 +143,14 @@ describe('PatientDashboardComponent', () => {
       const { root } = setup('home', { upcoming: NEVER });
 
       expect(root.textContent).toContain('Cargando tus citas...');
+      // Mientras carga no afirma nada bajo el saludo.
+      expect(root.querySelector('.patient__lede')).toBeNull();
     });
   });
 
+  // CLI-267: primero el saldo, después las visitas.
   describe('resumen', () => {
-    const kpi = (root: HTMLElement, i: number) => root.querySelectorAll('.kpi')[i];
+    const kpi = (root: HTMLElement, i: number) => root.querySelectorAll('.kpi')[i === 0 ? 1 : 0];
 
     it('cuenta las visitas pasadas sin las "No asistió"', () => {
       const { root } = setup('home', {
@@ -174,6 +185,8 @@ describe('PatientDashboardComponent', () => {
       fixture.componentInstance.navChange.subscribe((nav) => emitted.push(nav));
 
       expect(kpi(root, 1).querySelector('.kpi__value')?.textContent).toContain('Bs. 700,00');
+      // Si debe algo, el saldo se marca.
+      expect(kpi(root, 1).classList).toContain('kpi--owes');
       root.querySelector<HTMLButtonElement>('.kpi__link')!.click();
       expect(emitted).toEqual(['quote']);
     });

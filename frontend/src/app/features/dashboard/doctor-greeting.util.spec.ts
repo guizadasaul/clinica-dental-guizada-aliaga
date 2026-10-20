@@ -12,18 +12,18 @@ describe('doctorGreetingName (CLI-254)', () => {
     expect(doctorGreetingName(name)).toBe(expected);
   });
 
-  it('sin título saluda solo por el primer nombre, sin adivinar doctor o doctora', () => {
-    expect(doctorGreetingName('Lucía Mamani')).toBe('Lucía');
+  it('sin título saluda con "Dr." y el primer nombre (CLI-267)', () => {
+    expect(doctorGreetingName('Paul Rojas')).toBe('Dr. Paul');
   });
 
-  it('"Dr./Dra." (la sugerencia del alta sin elegir) saluda solo por el nombre', () => {
-    expect(doctorGreetingName('Dr./Dra. Juan Pérez')).toBe('Juan');
-    expect(doctorGreetingName('Dr/Dra Juan Pérez')).toBe('Juan');
+  it('"Dr./Dra." (la sugerencia del alta sin elegir) saluda con "Dr."', () => {
+    expect(doctorGreetingName('Dr./Dra. Juan Pérez')).toBe('Dr. Juan');
+    expect(doctorGreetingName('Dr/Dra Juan Pérez')).toBe('Dr. Juan');
     expect(doctorGreetingName('Dr./Dra.')).toBe('Doctor');
   });
 
   it('un nombre que empieza con "Dra" pero no es el título no se confunde', () => {
-    expect(doctorGreetingName('Draco Malfoy')).toBe('Draco');
+    expect(doctorGreetingName('Draco Malfoy')).toBe('Dr. Draco');
   });
 
   it.each([null, undefined, '', '   ', 'Dra.'])('sin nombre (%p) saluda como "Doctor"', (name) => {

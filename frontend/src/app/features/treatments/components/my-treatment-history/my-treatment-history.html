@@ -15,34 +15,39 @@
     </app-page-header>
 
     @if (loading()) {
-      <p class="history__muted">Cargando tu historial...</p>
+      <p class="history__muted" aria-busy="true">Cargando tu historial...</p>
     } @else if (failed()) {
       <p class="history__error" role="alert">No pudimos cargar tu historial. Prueba de nuevo en un momento.</p>
     } @else if (total() === 0) {
       <div class="history-empty">
-        <div class="history-empty__icon" aria-hidden="true">
-          <span class="material-symbols-outlined">dentistry</span>
+        <span class="material-symbols-outlined history-empty__icon" aria-hidden="true">dentistry</span>
+        <div>
+          <p class="history-empty__text">Todavía no tienes tratamientos registrados</p>
+          <p class="history-empty__sub">Cuando el doctor registre un tratamiento, lo verás aquí.</p>
         </div>
-        <p class="history-empty__text">Todavía no tienes tratamientos registrados</p>
-        <p class="history-empty__sub">Cuando el doctor registre un tratamiento, lo verás aquí.</p>
       </div>
     } @else {
-      <ul class="history__list">
+      <ol class="history__list">
         @for (a of visible(); track a.id) {
-          <li class="treatment">
-            <div class="treatment__date">{{ a.date }}</div>
+          <li class="treatment" [style.--category]="a.categoryColor">
+            <p class="treatment__date">{{ a.date }}</p>
+            <span class="treatment__node" aria-hidden="true"></span>
             <div class="treatment__body">
+              <p class="treatment__category">{{ a.categoryName }}</p>
               <p class="treatment__name">{{ a.treatmentName }}</p>
               @if (a.meta) {
                 <p class="treatment__meta">{{ a.meta }}</p>
               }
               @if (a.notes) {
-                <p class="treatment__notes">{{ a.notes }}</p>
+                <p class="treatment__notes">
+                  <span class="material-symbols-outlined" aria-hidden="true">sticky_note_2</span>
+                  <span>{{ a.notes }}</span>
+                </p>
               }
             </div>
           </li>
         }
-      </ul>
+      </ol>
       <app-pagination [total]="filtered().length" [page]="currentPage()" (pageChange)="goToPage($event)" />
     }
   </div>

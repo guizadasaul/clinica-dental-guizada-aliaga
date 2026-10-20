@@ -99,4 +99,7 @@
   --transition-fast: 150ms ease;
   --transition-base: 250ms ease;
   --transition-slow: 400ms ease;
+
+  // === CURVAS (CLI-267) ===
+  --ease-out-strong: cubic-bezier(0.23, 1, 0.32, 1); // entradas y respuesta a un toque
 }

@@ -5,12 +5,15 @@ import { AppointmentsService } from '../../services/appointments.service';
 import type { PatientAppointment } from '../../models/appointment.model';
 import { CLINIC_TIME_ZONE } from '../../../../shared/utils/clinic-date.util';
 import { PageHeaderComponent } from '../../../../shared/ui/page-header/page-header';
+import { AppointmentTicketComponent } from '../../../../shared/ui/appointment-ticket/appointment-ticket';
 
 const fmt = (options: Intl.DateTimeFormatOptions) =>
   new Intl.DateTimeFormat('es-BO', { timeZone: CLINIC_TIME_ZONE, ...options });
 const MONTH_YEAR = fmt({ month: 'long', year: 'numeric' });
 const LONG_DATE = fmt({ weekday: 'long', day: 'numeric', month: 'long' });
-const TIME = fmt({ hour: '2-digit', minute: '2-digit' });
+const TIME = fmt({ hour: '2-digit', minute: '2-digit', hour12: false });
+const DAY = fmt({ day: 'numeric' });
+const WEEKDAY_SHORT = fmt({ weekday: 'short' });
 
 function capitalize(text: string): string {
   return text.charAt(0).toUpperCase() + text.slice(1);
@@ -18,6 +21,9 @@ function capitalize(text: string): string {
 
 interface VisitView {
   id: string;
+  /** CLI-267: la hoja de calendario de la fila — el día y el día de la semana abreviado. */
+  day: string;
+  weekday: string;
   when: string;
   time: string;
   title: string;
@@ -34,6 +40,8 @@ function toView(a: PatientAppointment): VisitView {
   const date = new Date(a.appointmentDatetime);
   return {
     id: a.id,
+    day: DAY.format(date),
+    weekday: capitalize(WEEKDAY_SHORT.format(date).replace('.', '')),
     when: capitalize(LONG_DATE.format(date)),
     time: TIME.format(date),
     title: a.treatmentName ?? 'Consulta odontológica',
@@ -43,16 +51,16 @@ function toView(a: PatientAppointment): VisitView {
 }
 
 /**
- * "Mis citas" del paciente (CLI-210, reestilo CLI-216): sus próximas citas y
- * el registro de todas las veces que vino a la clínica, agrupado por mes, con
- * el estilo de la agenda del doctor. Solo las que el doctor marcó "No asistió"
- * (CLI-208) llevan una marca.
+ * "Mis citas" del paciente (CLI-210, rediseño CLI-267): sus próximas citas
+ * como tarjetas de cita y el registro de todas las veces que vino a la
+ * clínica, agrupado por mes, cada visita con su hoja de calendario. Solo las
+ * que el doctor marcó "No asistió" (CLI-208) llevan una marca.
  */
 @Component({
   selector: 'app-my-visits',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [PageHeaderComponent],
+  imports: [PageHeaderComponent, AppointmentTicketComponent],
   templateUrl: './my-visits.html',
   styleUrl: './my-visits.scss',
 })
@@ -70,7 +78,8 @@ export class MyVisitsComponent {
   );
 
   protected readonly loading = computed(() => this.upcomingRaw() === null || this.pastRaw() === null);
-  protected readonly upcoming = computed(() => (this.upcomingRaw() ?? []).map(toView));
+  /** Las próximas van como tarjetas de cita (CLI-267), con los datos tal cual llegan. */
+  protected readonly upcoming = computed(() => this.upcomingRaw() ?? []);
 
   protected readonly months = computed<MonthGroup[]>(() => {
     const groups: MonthGroup[] = [];

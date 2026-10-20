@@ -11,7 +11,6 @@ import { catchError, map, of } from 'rxjs';
 import { AuthService } from '../../../../auth/application/auth.service';
 import { PatientsService } from '../../../patients/services/patients.service';
 import { AppointmentsService } from '../../../appointments/services/appointments.service';
-import type { PatientAppointment } from '../../../appointments/models/appointment.model';
 import { MyTreatmentHistoryComponent } from '../../../treatments/components/my-treatment-history/my-treatment-history';
 import { MyQuoteComponent } from '../../../quotes/components/my-quote/my-quote';
 import { MyVisitsComponent } from '../../../appointments/components/my-visits/my-visits';
@@ -19,6 +18,8 @@ import { MyProfileComponent } from '../../../patients/components/my-profile/my-p
 import { QuotesService } from '../../../quotes/services/quotes.service';
 import type { QuoteLine } from '../../../quotes/models/quote.model';
 import { formatBs } from '../../../../shared/utils/money.util';
+import { AppointmentTicketComponent } from '../../../../shared/ui/appointment-ticket/appointment-ticket';
+import { CLINIC_TIME_ZONE, relativeDayLabel } from '../../../../shared/utils/clinic-date.util';
 
 /** Cuántos pendientes de cada tipo se listan en el inicio; el resto, en "Mi presupuesto". */
 const PENDING_LIMIT = 5;
@@ -36,24 +37,25 @@ function lineLabel(line: QuoteLine): string {
 /** WhatsApp de la clínica (mismo número que la landing y la reserva). */
 const CLINIC_WHATSAPP = '59157744250';
 
-// Las citas se muestran siempre en hora de Bolivia, esté donde esté el paciente.
-const LONG_DATE_FORMATTER = new Intl.DateTimeFormat('es-BO', {
-  timeZone: 'America/La_Paz',
+// Siempre en hora de Bolivia, esté donde esté el paciente.
+const TODAY_FORMATTER = new Intl.DateTimeFormat('es-BO', {
+  timeZone: CLINIC_TIME_ZONE,
   weekday: 'long',
   day: 'numeric',
   month: 'long',
-});
-const TIME_FORMATTER = new Intl.DateTimeFormat('es-BO', {
-  timeZone: 'America/La_Paz',
-  hour: '2-digit',
-  minute: '2-digit',
 });
 
 @Component({
   selector: 'app-patient-dashboard',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [MyTreatmentHistoryComponent, MyQuoteComponent, MyVisitsComponent, MyProfileComponent],
+  imports: [
+    MyTreatmentHistoryComponent,
+    MyQuoteComponent,
+    MyVisitsComponent,
+    MyProfileComponent,
+    AppointmentTicketComponent,
+  ],
   templateUrl: './patient-dashboard.html',
   styleUrl: './patient-dashboard.scss',
 })
@@ -116,12 +118,29 @@ export class PatientDashboardComponent {
     };
   });
 
-  protected readonly account = computed(() => {
+  private readonly balance = computed(() => {
     const quotes = this.quotes();
-    if (!quotes) {
-      return null;
+    return quotes ? quotes.reduce((sum, q) => sum + q.balance, 0) : null;
+  });
+
+  protected readonly account = computed(() => {
+    const balance = this.balance();
+    return balance === null ? null : { balance: formatBs(balance) };
+  });
+
+  /** CLI-267: el saldo se marca solo si debe algo. */
+  protected readonly owes = computed(() => (this.balance() ?? 0) > 0);
+
+  /** CLI-267: la frase bajo el saludo responde lo primero que busca: cuándo vuelve. */
+  protected readonly lede = computed(() => {
+    const upcoming = this.upcoming();
+    if (upcoming === null) {
+      return '';
     }
-    return { balance: formatBs(quotes.reduce((sum, q) => sum + q.balance, 0)) };
+    const next = upcoming[0];
+    return next
+      ? `Tu próxima cita es ${relativeDayLabel(next.appointmentDatetime).toLowerCase()}.`
+      : 'Por ahora no tienes citas programadas.';
   });
 
   protected readonly whatsappUrl = computed(() => {
@@ -131,15 +150,6 @@ export class PatientDashboardComponent {
       : 'Hola, quisiera hacer una consulta sobre mi atención en la clínica.';
     return `https://wa.me/${CLINIC_WHATSAPP}?text=${encodeURIComponent(text)}`;
   });
-
-  protected longDate(a: PatientAppointment): string {
-    const text = LONG_DATE_FORMATTER.format(new Date(a.appointmentDatetime));
-    return text.charAt(0).toUpperCase() + text.slice(1);
-  }
-
-  protected time(a: PatientAppointment): string {
-    return TIME_FORMATTER.format(new Date(a.appointmentDatetime));
-  }
 
   protected readonly firstName = computed(() => {
     const name = this.user()?.displayName;
@@ -153,12 +163,8 @@ export class PatientDashboardComponent {
     return 'Buenas noches';
   });
 
-  protected readonly today = computed(() =>
-    new Date().toLocaleDateString('es-BO', {
-      weekday: 'long',
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-    }),
-  );
+  protected readonly today = computed(() => {
+    const text = TODAY_FORMATTER.format(new Date());
+    return text.charAt(0).toUpperCase() + text.slice(1);
+  });
 }

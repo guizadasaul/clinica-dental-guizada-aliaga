@@ -1,0 +1,173 @@
+// ─── Tarjeta de cita (CLI-267) ───────────────────────────────────────────────
+// Un talón con el día y, separado por el troquel (dos muescas), el cuerpo con
+// cuándo falta, la hora, el tratamiento y el doctor. Plana: sin sombra en
+// reposo; el talón se pinta del naranja de la marca cuando la cita es hoy o
+// mañana.
+
+:host {
+  --stub: 76px;
+  --notch: 7px;
+
+  // Se adapta al lugar donde la ponen (inicio o grilla de Mis citas), no a la ventana.
+  container: ticket / inline-size;
+  display: block;
+}
+
+.ticket {
+  display: grid;
+  grid-template-columns: var(--stub) 1fr;
+  min-height: 100%;
+  border-radius: var(--radius-xl);
+  background: #fff;
+  // El troquel: dos muescas en el borde entre el talón y el cuerpo.
+  mask:
+    radial-gradient(circle at var(--stub) 0, transparent var(--notch), #000 calc(var(--notch) + 0.5px)) top / 100% 51% no-repeat,
+    radial-gradient(circle at var(--stub) 100%, transparent var(--notch), #000 calc(var(--notch) + 0.5px)) bottom / 100% 51% no-repeat;
+}
+
+.ticket__stub {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-1);
+  padding: var(--space-4) var(--space-2);
+  background: var(--color-primary-light);
+  color: var(--color-text);
+  border-right: 2px dashed rgb(28 27 31 / 0.18);
+  font-variant-numeric: lining-nums tabular-nums;
+}
+
+:host(.ticket--soon) .ticket__stub {
+  background: var(--color-primary);
+}
+
+.ticket__day {
+  font-family: var(--font-headline);
+  font-size: var(--font-size-3xl);
+  line-height: 1;
+}
+
+.ticket__month {
+  font-family: var(--font-body);
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+}
+
+.ticket__body {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: var(--space-1);
+  min-width: 0;
+  padding: var(--space-4) var(--space-5);
+}
+
+.ticket__when {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0 var(--space-2);
+  margin: 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
+
+.ticket__relative {
+  font-weight: 700;
+  color: var(--color-primary-dark);
+}
+
+.ticket__time {
+  margin: 0;
+  font-family: var(--font-headline);
+  font-size: var(--font-size-lg);
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text);
+}
+
+.ticket__title {
+  margin: 0;
+  font-size: var(--font-size-base);
+  font-weight: 600;
+  color: var(--color-text);
+  overflow-wrap: anywhere;
+}
+
+.ticket__doctor {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  margin: 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+
+  .material-symbols-outlined {
+    font-size: 1rem;
+  }
+}
+
+// ─── Tamaño protagonista (inicio del paciente) ───────────────────────────────
+
+:host(.ticket--hero) {
+  --stub: 128px;
+  --notch: 10px;
+
+  .ticket__day {
+    font-size: var(--font-size-6xl);
+  }
+
+  .ticket__month {
+    font-size: var(--font-size-base);
+  }
+
+  .ticket__body {
+    gap: var(--space-2);
+    padding: var(--space-6) var(--space-8);
+  }
+
+  .ticket__when {
+    font-size: var(--font-size-base);
+  }
+
+  .ticket__time {
+    font-size: var(--font-size-3xl);
+    line-height: 1.15;
+  }
+
+  .ticket__title {
+    font-size: var(--font-size-lg);
+  }
+
+  @container ticket (max-width: 440px) {
+    .ticket {
+      --stub: 96px;
+    }
+
+    .ticket__day {
+      font-size: var(--font-size-5xl);
+    }
+
+    .ticket__body {
+      padding: var(--space-5);
+    }
+
+    .ticket__time {
+      font-size: var(--font-size-2xl);
+    }
+  }
+}
+
+// La protagonista entra una vez, corta y desde ya visible casi entera.
+@media (prefers-reduced-motion: no-preference) {
+  :host(.ticket--hero) .ticket {
+    transition:
+      opacity 240ms var(--ease-out-strong),
+      transform 240ms var(--ease-out-strong);
+
+    @starting-style {
+      opacity: 0;
+      transform: translateY(8px);
+    }
+  }
+}

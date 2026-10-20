@@ -1,0 +1,20 @@
+<article class="ticket" [attr.aria-label]="label()">
+  <time class="ticket__stub" [attr.datetime]="datetime()">
+    <span class="ticket__day">{{ day() }}</span>
+    <span class="ticket__month">{{ month() }}</span>
+  </time>
+  <div class="ticket__body">
+    <p class="ticket__when">
+      <span class="ticket__relative">{{ relative() }}</span>
+      <span class="ticket__weekday">{{ weekday() }}</span>
+    </p>
+    <p class="ticket__time">{{ timeRange() }}</p>
+    <p class="ticket__title">{{ title() }}</p>
+    @if (doctorName()) {
+      <p class="ticket__doctor">
+        <span class="material-symbols-outlined" aria-hidden="true">stethoscope</span>
+        {{ doctorName() }}
+      </p>
+    }
+  </div>
+</article>

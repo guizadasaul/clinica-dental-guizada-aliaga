@@ -1,272 +1,418 @@
-// ─── Doctor Dashboard ─────────────────────────────────────────────────────────
+@use 'panel';
+
+// ─── Inicio del doctor (CLI-267) ─────────────────────────────────────────────
+// Responde "¿quién sigue y cómo viene mi día?": la jornada del sillón es lo
+// más grande; el resumen va al costado como cifras. Se abre muchas veces al
+// día, así que nada entra animado.
 
 .doctor {
-  padding: var(--space-8) var(--space-8) var(--space-12);
-  max-width: 1000px;
+  // Las columnas dependen del espacio que deja el menú lateral, no de la
+  // ventana: a 1024 px con el menú abierto, la jornada va sola (CLI-267).
+  container: doctor-home / inline-size;
   display: flex;
   flex-direction: column;
-  gap: var(--space-8);
+  gap: var(--space-10);
+  max-width: 1120px;
+  padding: var(--space-10) var(--space-8) var(--space-12);
 
   @media (max-width: 767px) {
+    gap: var(--space-8);
     padding: var(--space-6) var(--space-4) var(--space-10);
-    gap: var(--space-6);
   }
 }
 
-// ─── Header ──────────────────────────────────────────────────────────────────
+// ─── Encabezado: sin banner ──────────────────────────────────────────────────
 
 .doctor__header {
-  position: relative;
   display: flex;
+  align-items: center;
   justify-content: space-between;
-  align-items: flex-start;
-  padding: var(--space-8) var(--space-8);
-  background: var(--color-navy);
-  border-radius: var(--radius-xl);
-  overflow: hidden;
-
-  &::before {
-    content: '';
-    position: absolute;
-    inset: 0;
-    background: radial-gradient(ellipse at 80% 50%, rgb(232 152 88 / 0.35) 0%, transparent 60%);
-    pointer-events: none;
-  }
+  gap: var(--space-6);
 }
 
 .doctor__greeting {
-  position: relative;
-  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
 }
 
 .doctor__date {
-  font-family: var(--font-body);
-  font-size: var(--font-size-xs);
-  color: var(--color-primary-light);
-  text-transform: capitalize;
-  letter-spacing: 0.04em;
-  margin: 0 0 var(--space-2);
+  margin: 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
 }
 
 .doctor__title {
-  font-family: var(--font-headline);
-  font-size: var(--font-size-3xl);
-  color: #fff;
-  margin: 0 0 var(--space-2);
-  line-height: 1.2;
-
-  @media (max-width: 767px) {
-    font-size: var(--font-size-2xl);
-  }
+  @include panel.screen-title;
 }
 
-.doctor__subtitle {
-  font-family: var(--font-body);
-  font-size: var(--font-size-sm);
-  color: rgb(255 255 255 / 0.55);
+.doctor__lede {
   margin: 0;
+  font-size: var(--font-size-lg);
+  color: var(--color-text-muted);
 }
 
-.doctor__badge {
-  position: relative;
-  z-index: 1;
-  width: 72px;
-  height: 72px;
-  border-radius: 50%;
-  background: rgb(232 152 88 / 0.2);
-  display: flex;
-  align-items: center;
-  justify-content: center;
+.doctor__photo {
   flex-shrink: 0;
-  border: 2px solid rgb(232 152 88 / 0.4);
-
-  .material-symbols-outlined {
-    font-size: 36px;
-    color: var(--color-primary-light);
-  }
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  object-fit: cover;
 
   @media (max-width: 600px) {
     display: none;
   }
 }
 
-.doctor__badge-photo {
-  width: 100%;
-  height: 100%;
-  border-radius: 50%;
-  object-fit: cover;
+.doctor__heading {
+  margin: 0;
+  font-family: var(--font-headline);
+  font-size: var(--font-size-xl);
+  font-weight: 400;
+  color: var(--color-text);
 }
 
-// ─── Section ─────────────────────────────────────────────────────────────────
+.doctor__layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.75fr) minmax(240px, 1fr);
+  align-items: start;
+  gap: var(--space-8);
 
-.doctor__section {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-4);
-}
-
-.doctor__section-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
-// ─── Schedule empty ───────────────────────────────────────────────────────────
-
-.schedule-empty {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: var(--space-12) var(--space-8);
-  background: #fff;
-  border: 1.5px dashed var(--color-border);
-  border-radius: var(--radius-xl);
-  text-align: center;
-  gap: var(--space-2);
-}
-
-.schedule-empty__icon {
-  width: 64px;
-  height: 64px;
-  border-radius: 50%;
-  background: var(--color-primary-subtle);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin-bottom: var(--space-2);
-
-  .material-symbols-outlined {
-    font-size: 32px;
-    color: var(--color-primary-dark);
+  @container doctor-home (max-width: 880px) {
+    grid-template-columns: 1fr;
   }
 }
 
-.schedule-empty__text {
-  font-family: var(--font-body);
-  font-size: var(--font-size-base);
-  font-weight: 600;
-  color: var(--color-text);
-  margin: 0;
-}
-
-.schedule-empty__sub {
-  font-family: var(--font-body);
-  font-size: var(--font-size-sm);
-  color: var(--color-text-muted);
-  margin: 0;
-}
-
-// ─── Schedule list ────────────────────────────────────────────────────────────
-
-.schedule-list {
+.doctor__day,
+.doctor__summary {
   display: flex;
   flex-direction: column;
-  gap: var(--space-2);
+  gap: var(--space-4);
 }
 
-.schedule-item {
+// ─── La jornada ──────────────────────────────────────────────────────────────
+
+$time-col: 72px;
+$rail-col: 28px;
+$node: 12px;
+
+.journey {
   display: flex;
-  align-items: center;
-  gap: var(--space-4);
-  padding: var(--space-4) var(--space-5);
-  background: #fff;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-xl);
-  box-shadow: var(--shadow-sm);
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.schedule-item,
+.journey__gap {
+  display: grid;
+  grid-template-columns: $time-col $rail-col minmax(0, 1fr);
+  align-items: stretch;
+
+  @media (max-width: 480px) {
+    grid-template-columns: 56px 20px minmax(0, 1fr);
+  }
+}
+
+.journey__time {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding-top: var(--space-4);
+  font-variant-numeric: tabular-nums;
 }
 
 .schedule-item__time {
   font-family: var(--font-headline);
-  font-size: var(--font-size-base);
-  color: var(--color-primary-dark);
-  min-width: 56px;
-  flex-shrink: 0;
+  font-size: var(--font-size-lg);
+  line-height: 1;
+  color: var(--color-text);
+}
+
+.schedule-item__duration {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+}
+
+// La línea vertical del día con un punto por cita.
+.journey__rail {
+  position: relative;
+  display: flex;
+  justify-content: center;
+
+  &::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    background: var(--color-surface-var);
+  }
+}
+
+.schedule-item .journey__rail::after {
+  content: '';
+  position: relative;
+  width: $node;
+  height: $node;
+  margin-top: calc(var(--space-4) + 3px);
+  border: 2px solid var(--color-text-muted);
+  border-radius: 50%;
+  background: var(--color-bg);
+}
+
+.journey > :first-child .journey__rail::before {
+  top: calc(var(--space-4) + 3px);
+}
+
+.journey > :last-child .journey__rail::before {
+  bottom: auto;
+  height: calc(var(--space-4) + 3px);
+}
+
+.schedule-item__card {
+  @include panel.surface;
+
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-3);
+  // El alto sigue la duración: una cita de una hora ocupa más que una de 30 min.
+  min-height: clamp(76px, calc(var(--minutes, 30) * 1.6px), 168px);
+  margin-bottom: var(--space-3);
+  padding: var(--space-4) var(--space-5);
 }
 
 .schedule-item__body {
-  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
   min-width: 0;
 }
 
 .schedule-item__patient {
-  font-family: var(--font-body);
-  font-size: var(--font-size-sm);
+  margin: 0;
+  font-size: var(--font-size-base);
   font-weight: 600;
   color: var(--color-text);
+  overflow-wrap: anywhere;
+}
+
+.schedule-item__treatment {
   margin: 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-text);
+  overflow-wrap: anywhere;
 }
 
 .schedule-item__phone {
-  font-family: var(--font-body);
-  font-size: var(--font-size-xs);
-  color: var(--color-text-muted);
   margin: 0;
+  font-size: var(--font-size-sm);
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text-muted);
 }
 
-.schedule-item__badge {
-  padding: var(--space-1) var(--space-3);
-  border-radius: var(--radius-full);
-  font-family: var(--font-body);
-  font-size: var(--font-size-xs);
-  font-weight: 600;
+.schedule-item__tag {
   flex-shrink: 0;
+  padding: 2px var(--space-3);
+  border-radius: var(--radius-full);
+  font-size: var(--font-size-xs);
+  font-weight: 700;
 
-  &--confirmed {
-    background: var(--color-success-light);
-    color: #16a34a;
+  &--now {
+    background: var(--color-primary);
+    color: var(--color-text);
+  }
+
+  &--next {
+    background: var(--color-primary-subtle);
+    color: var(--color-primary-dark);
+  }
+
+  &--past {
+    font-weight: 600;
+    color: var(--color-text-muted);
   }
 }
 
-// ─── KPIs ─────────────────────────────────────────────────────────────────────
+// Ya pasó: queda en segundo plano.
+.schedule-item--past {
+  .schedule-item__card {
+    border-color: transparent;
+    background: var(--color-surface-dim);
+  }
 
-.kpis {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: var(--space-4);
+  .schedule-item__time,
+  .schedule-item__patient,
+  .schedule-item__treatment {
+    color: var(--color-text-muted);
+  }
 
-  @media (max-width: 900px) {
-    grid-template-columns: repeat(2, 1fr);
+  .journey__rail::after {
+    border-color: var(--color-gray-400);
+    background: var(--color-gray-400);
+  }
+}
+
+// Ahora: la cita en curso se pinta del color de la marca.
+.schedule-item--now {
+  .schedule-item__card {
+    border-color: var(--color-primary);
+    background: var(--color-primary-light);
+  }
+
+  .journey__rail::after {
+    width: $node + 6px;
+    height: $node + 6px;
+    margin-top: calc(var(--space-4));
+    border-color: var(--color-primary);
+    background: var(--color-primary);
+  }
+}
+
+// La siguiente: lista para recibir.
+.schedule-item--next {
+  .schedule-item__card {
+    border-color: var(--color-primary);
+  }
+
+  .journey__rail::after {
+    border-color: var(--color-primary);
+  }
+}
+
+// Un hueco libre entre dos citas.
+.journey__gap {
+  .journey__time {
+    padding-top: 0;
+    font-size: var(--font-size-sm);
+    color: var(--color-text-muted);
+  }
+
+  .journey__rail::before {
+    background: repeating-linear-gradient(
+      to bottom,
+      var(--color-surface-var) 0 4px,
+      transparent 4px 8px
+    );
+  }
+}
+
+.journey__gap-label {
+  align-self: start;
+  margin-bottom: var(--space-4);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
+
+// Mientras carga: tres bloques quietos en el lugar de las citas.
+.journey__skeleton {
+  height: 84px;
+  margin: 0 0 var(--space-3) calc(#{$time-col} + #{$rail-col});
+  border-radius: var(--radius-xl);
+  background: var(--color-surface-dim);
+
+  @media (prefers-reduced-motion: no-preference) {
+    animation: journey-pulse 1.4s ease-in-out infinite;
   }
 
   @media (max-width: 480px) {
-    grid-template-columns: 1fr;
+    margin-left: 0;
+  }
+}
+
+@keyframes journey-pulse {
+  50% {
+    opacity: 0.55;
+  }
+}
+
+// ─── Vacío y error ───────────────────────────────────────────────────────────
+
+.schedule-empty {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  padding: var(--space-6);
+  border-radius: var(--radius-xl);
+  background: var(--color-surface-dim);
+}
+
+.schedule-empty__icon {
+  flex-shrink: 0;
+  font-size: 2rem;
+  color: var(--color-primary-dark);
+}
+
+.schedule-empty--error .schedule-empty__icon {
+  color: var(--color-error);
+}
+
+.schedule-empty__text {
+  margin: 0;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.schedule-empty__sub {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
+
+// ─── Resumen: cifras como tipografía ─────────────────────────────────────────
+
+.kpis {
+  @include panel.surface;
+
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: var(--space-2) var(--space-5);
+
+  @container doctor-home (min-width: 560px) and (max-width: 880px) {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    column-gap: var(--space-6);
   }
 }
 
 .kpi {
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
-  gap: var(--space-1);
-  padding: var(--space-5);
-  border-radius: var(--radius-xl);
-  border: 1px solid var(--color-border);
-  background: #fff;
-}
+  gap: 2px;
+  padding: var(--space-4) 0;
 
-.kpi__icon {
-  font-size: 24px;
-  padding: var(--space-2);
-  border-radius: var(--radius-lg);
-  margin-bottom: var(--space-2);
-  color: var(--color-primary-dark);
-  background: var(--color-primary-subtle);
-}
+  & + & {
+    border-top: 1px solid var(--color-border);
+  }
 
-.kpi__value {
-  font-family: var(--font-headline);
-  font-size: var(--font-size-2xl);
-  font-weight: 700;
-  color: var(--color-text);
-  line-height: 1.1;
+  // En dos columnas, la segunda fila lleva su línea arriba y la primera no.
+  @container doctor-home (min-width: 560px) and (max-width: 880px) {
+    &:nth-child(2) {
+      border-top: none;
+    }
+  }
 }
 
 .kpi__label {
-  font-family: var(--font-body);
   font-size: var(--font-size-sm);
   color: var(--color-text-muted);
-  line-height: 1.4;
+}
+
+.kpi__value {
+  margin: 0;
+  font-family: var(--font-headline);
+  font-size: var(--font-size-2xl);
+  line-height: 1.15;
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text);
+}
+
+.kpi--owed .kpi__value {
+  color: var(--color-primary-dark);
 }
 
 // ─── Invite success toast ──────────────────────────────────────────────────
