@@ -481,7 +481,7 @@ describe('Conversaciones completas (CLI-238)', () => {
         })),
       );
       ctx.finances.getPatientDetail.mockResolvedValue({
-        quote: carlaQuote(),
+        quotes: [carlaQuote()],
       });
 
       const [ask, summary] = await ctx.converse(
@@ -499,7 +499,7 @@ describe('Conversaciones completas (CLI-238)', () => {
         },
       });
       expect(detail).toMatchObject({
-        data: { name: 'Carla Mendoza', quote: { balanceBob: 1050 } },
+        data: { name: 'Carla Mendoza', quotes: [{ balanceBob: 1050 }] },
       });
       expect(summary.reply).toBe('Carla Mendoza debe Bs. 1050.');
       expect(ctx.patients.findAll).toHaveBeenCalledWith('doctor-lucia');

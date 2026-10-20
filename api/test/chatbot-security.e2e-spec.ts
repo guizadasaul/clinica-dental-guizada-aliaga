@@ -322,7 +322,7 @@ describe('Chatbot: autorización (e2e) — CLI-95', () => {
 
       expect(turn.result['data']).toMatchObject({
         name: `${PATIENT_A.firstName} ${PATIENT_A.lastName}`,
-        quote: { balanceBob: A_QUOTE.total - A_QUOTE.paid },
+        quotes: [{ balanceBob: A_QUOTE.total - A_QUOTE.paid }],
       });
       await expectNoForeignData(turn);
     });
