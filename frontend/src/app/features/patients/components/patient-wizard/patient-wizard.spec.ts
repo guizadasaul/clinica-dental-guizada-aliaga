@@ -1,7 +1,7 @@
 import { Component, input, output } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { By } from '@angular/platform-browser';
-import { of, throwError } from 'rxjs';
+import { NEVER, of, throwError } from 'rxjs';
 import { PatientWizardComponent } from './patient-wizard';
 import { PatientsService } from '../../services/patients.service';
 import { DiagnosesService } from '../../../diagnoses/services/diagnoses.service';
@@ -20,12 +20,15 @@ class Step1Stub {
 class Step2Stub {
   readonly loading = input(false);
   readonly catalog = input<unknown[]>([]);
+  readonly initial = input<unknown>(null);
   readonly submitStep = output<unknown>();
   readonly back = output<void>();
 }
 @Component({ selector: 'app-step-oral-hygiene', standalone: true, template: 'paso 3' })
 class Step3Stub {
   readonly loading = input(false);
+  readonly initialHygiene = input<unknown>(null);
+  readonly initialClinicalExam = input<unknown>(null);
   readonly submitStep = output<unknown>();
   readonly back = output<void>();
 }
@@ -58,6 +61,9 @@ function setup(inputs: Record<string, unknown> = {}) {
     createDentalExam: vi.fn().mockReturnValue(of({})),
     getCurrentDentalExam: vi.fn().mockReturnValue(of({ id: 'exam-1' })),
     getDentalExamVersions: vi.fn().mockReturnValue(of([{ id: 'exam-1' }])),
+    getMedicalHistory: vi.fn().mockReturnValue(of(null)),
+    getHygieneHabits: vi.fn().mockReturnValue(of(null)),
+    getLatestClinicalExam: vi.fn().mockReturnValue(of(null)),
   };
   const diagnoses = {
     getCatalog: vi.fn().mockReturnValue(of([{ id: 'cat-1' }])),
@@ -439,6 +445,91 @@ describe('PatientWizardComponent', () => {
     });
   });
 
+  // CLI-269: "Registrar diagnóstico" retoma la ficha donde quedó.
+  describe('retomar una ficha a medias', () => {
+    const HISTORY = { id: 'mh-1' };
+    const HYGIENE_SAVED = { id: 'hh-1' };
+    const EXAM_SAVED = { id: 'ce-1' };
+
+    function resumeWith(saved: { history?: unknown; hygiene?: unknown; exam?: unknown }) {
+      const ctx = setup({ existingPatientId: 'patient-1', existingPatient: { id: 'patient-1' }, startStep: 1, resume: true });
+      ctx.patients.getMedicalHistory.mockReturnValue(of(saved.history ?? null));
+      ctx.patients.getHygieneHabits.mockReturnValue(of(saved.hygiene ?? null));
+      ctx.patients.getLatestClinicalExam.mockReturnValue(of(saved.exam ?? null));
+      return ctx;
+    }
+
+    it('con los pasos 1 a 3 guardados abre directo en el paso 4, sin montar el paso 1', async () => {
+      const { fixture } = resumeWith({ history: HISTORY, hygiene: HYGIENE_SAVED, exam: EXAM_SAVED });
+      await settle(fixture);
+
+      expect(text(fixture)).toContain('Paso 4 de 4');
+      expect(fixture.debugElement.query(By.directive(Step4Stub))).toBeTruthy();
+      expect(fixture.debugElement.query(By.directive(Step1Stub))).toBeNull();
+    });
+
+    it('"Atrás" muestra los pasos 3 y 2 con lo guardado', async () => {
+      const { fixture } = resumeWith({ history: HISTORY, hygiene: HYGIENE_SAVED, exam: EXAM_SAVED });
+      await settle(fixture);
+
+      step(fixture, Step4Stub).back.emit();
+      await settle(fixture);
+      expect(step(fixture, Step3Stub).initialHygiene()).toBe(HYGIENE_SAVED);
+      expect(step(fixture, Step3Stub).initialClinicalExam()).toBe(EXAM_SAVED);
+
+      step(fixture, Step3Stub).back.emit();
+      await settle(fixture);
+      expect(step(fixture, Step2Stub).initial()).toBe(HISTORY);
+    });
+
+    it('volver a avanzar actualiza lo guardado del mismo paciente, sin crear otro', async () => {
+      const { fixture, patients } = resumeWith({ history: HISTORY, hygiene: HYGIENE_SAVED, exam: EXAM_SAVED });
+      await settle(fixture);
+      step(fixture, Step4Stub).back.emit();
+      await settle(fixture);
+
+      step(fixture, Step3Stub).submitStep.emit(HYGIENE);
+      await settle(fixture);
+
+      expect(patients.createPatient).not.toHaveBeenCalled();
+      expect(patients.createHygieneHabits).toHaveBeenCalledWith('patient-1', HYGIENE.hygieneHabits);
+      expect(text(fixture)).toContain('Paso 4 de 4');
+    });
+
+    it('con el historial pero sin la higiene o el examen clínico, abre en el paso 3', async () => {
+      const { fixture } = resumeWith({ history: HISTORY, hygiene: HYGIENE_SAVED });
+      await settle(fixture);
+
+      expect(text(fixture)).toContain('Paso 3 de 4');
+    });
+
+    it('sin nada guardado de los pasos 2 y 3 (p. ej. vino de una reserva web), abre en el paso 1', async () => {
+      const { fixture } = resumeWith({});
+      await settle(fixture);
+
+      expect(text(fixture)).toContain('Paso 1 de 4');
+    });
+
+    it('si las lecturas fallan, abre en el paso 1 como antes', async () => {
+      const { fixture, patients } = resumeWith({});
+      patients.getMedicalHistory.mockReturnValue(throwError(() => new Error('500')));
+      patients.getHygieneHabits.mockReturnValue(throwError(() => new Error('500')));
+      patients.getLatestClinicalExam.mockReturnValue(throwError(() => new Error('500')));
+      await settle(fixture);
+
+      expect(text(fixture)).toContain('Paso 1 de 4');
+    });
+
+    it('mientras carga no muestra ningún paso', () => {
+      const { fixture, patients } = resumeWith({});
+      patients.getMedicalHistory.mockReturnValue(NEVER);
+      fixture.detectChanges();
+
+      expect(text(fixture)).toContain('Cargando la ficha del paciente');
+      expect(fixture.debugElement.query(By.directive(Step1Stub))).toBeNull();
+    });
+  });
+
   describe('paciente existente', () => {
     it('por defecto abre el examen dental para corregir el vigente, con sus versiones', async () => {
       const { fixture, patients } = setup({ existingPatientId: 'patient-1' });
@@ -510,7 +601,16 @@ describe('PatientWizardComponent', () => {
       expect(text(fixture)).toContain('Paso 2 de 4');
     });
 
-    it('si el examen previo no carga, arranca sin él', async () => {
+    it('al abrir el historial (paso 2) lo precarga con lo guardado, para no pisarlo (CLI-269)', async () => {
+      const history = { id: 'mh-1' };
+      const { fixture, patients } = setup({ existingPatientId: 'patient-1', startStep: 2 });
+      patients.getMedicalHistory.mockReturnValue(of(history));
+      await settle(fixture);
+
+      expect(step(fixture, Step2Stub).initial()).toBe(history);
+    });
+
+        it('si el examen previo no carga, arranca sin él', async () => {
       const { fixture, patients } = setup({ existingPatientId: 'patient-1' });
       patients.getCurrentDentalExam.mockReturnValue(throwError(() => new Error('404')));
       await settle(fixture);

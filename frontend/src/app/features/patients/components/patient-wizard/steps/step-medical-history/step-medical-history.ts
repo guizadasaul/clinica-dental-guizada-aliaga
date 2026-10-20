@@ -1,6 +1,7 @@
 import {
   Component,
   ChangeDetectionStrategy,
+  effect,
   input,
   output,
   signal,
@@ -12,6 +13,7 @@ import { normalizeFullName } from '../../../../../../shared/validation/full-name
 import { isNotFutureDate } from '../../../../../../shared/validation/date.validator';
 import type { MedicalCondition } from '../../../../../medical-conditions/models/medical-condition.model';
 import type { CreateMedicalHistoryRequest } from '../../../../models/patient.request';
+import type { MedicalHistory } from '../../../../models/patient.model';
 
 interface ConditionDetail {
   notes: string;
@@ -40,6 +42,8 @@ export class StepMedicalHistoryComponent {
   readonly loading = input(false);
   /** Catálogo real de condiciones médicas (CLI-50) — agregar una condición nueva no requiere tocar este componente. */
   readonly catalog = input<MedicalCondition[]>([]);
+  /** CLI-269: lo ya guardado, para retomar la ficha sin pisarlo con blancos. */
+  readonly initial = input<MedicalHistory | null>(null);
   readonly submitStep = output<CreateMedicalHistoryRequest>();
   readonly back = output<void>();
 
@@ -58,6 +62,33 @@ export class StepMedicalHistoryComponent {
     return isNotFutureDate(v) ? null : 'La fecha no puede ser futura.';
   });
   protected readonly anesthesiaReactions = signal<boolean | null>(null);
+
+  /** Se precarga una sola vez: después manda lo que escriba el doctor. */
+  private initialLoaded = false;
+
+  constructor() {
+    effect(() => {
+      const history = this.initial();
+      if (this.initialLoaded || !history) {
+        return;
+      }
+      this.initialLoaded = true;
+      this.conditionDetails.set(
+        new Map(history.conditions.map((c) => [c.code, { notes: c.notes ?? '' }])),
+      );
+      this.otherDiseases.reset(history.otherDiseases ?? '');
+      this.gestationLmpDate.reset(history.gestationLmpDate ? history.gestationLmpDate.slice(0, 10) : '');
+      this.anesthesiaReactions.set(history.anesthesiaReactions);
+      this.medications.set(
+        history.medications.map((m) => ({
+          drugName: m.drugName,
+          dose: m.dose ?? '',
+          frequency: m.frequency ?? '',
+          startedAt: m.startedAt ? m.startedAt.slice(0, 10) : '',
+        })),
+      );
+    }, { allowSignalWrites: true });
+  }
 
   protected isConditionChecked(code: string): boolean {
     return this.conditionDetails().has(code);

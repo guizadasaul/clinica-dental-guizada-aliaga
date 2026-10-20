@@ -36,6 +36,7 @@ class PatientWizardStub {
   readonly existingPatient = input<Patient | null>(null);
   readonly startStep = input(4);
   readonly examMode = input('correct');
+  readonly resume = input(false);
   readonly wizardComplete = output<void>();
   readonly cancelled = output<void>();
 }
@@ -481,7 +482,7 @@ describe('DoctorDashboardComponent', () => {
       expect(child(fixture, PatientWizardStub).examMode()).toBe('new');
     });
 
-    it('registrar diagnóstico: abre el wizard en el paso 1 con la ficha precargada', async () => {
+    it('registrar diagnóstico: abre el wizard con la ficha precargada y retomando donde quedó (CLI-269)', async () => {
       const { fixture, list } = await patients();
 
       list.registerDiagnosis.emit(PATIENT);
@@ -490,6 +491,18 @@ describe('DoctorDashboardComponent', () => {
       const wizard = child(fixture, PatientWizardStub);
       expect(wizard.startStep()).toBe(1);
       expect(wizard.existingPatient()).toBe(PATIENT);
+      expect(wizard.resume()).toBe(true);
+    });
+
+    it('el odontograma no retoma: va directo al examen dental', async () => {
+      const { fixture, list } = await patients();
+
+      list.openOdontogram.emit('patient-1');
+      fixture.detectChanges();
+
+      const wizard = child(fixture, PatientWizardStub);
+      expect(wizard.startStep()).toBe(4);
+      expect(wizard.resume()).toBe(false);
     });
 
     it.each([['wizardComplete'], ['cancelled']] as const)(

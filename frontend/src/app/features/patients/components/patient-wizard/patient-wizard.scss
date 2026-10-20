@@ -118,6 +118,14 @@
     flex: 1;
   }
 
+  // CLI-269: mientras se decide en qué paso retomar.
+  &__resuming {
+    margin: 0;
+    padding: var(--space-8) 0;
+    font-size: var(--font-size-sm);
+    color: var(--color-text-muted);
+  }
+
   &__step-title {
     display: flex;
     flex-direction: column;

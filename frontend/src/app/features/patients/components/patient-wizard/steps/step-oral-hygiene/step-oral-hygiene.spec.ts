@@ -123,4 +123,48 @@ describe('StepOralHygieneComponent', () => {
 
     expect(back()).toBe(1);
   });
+
+  // CLI-269: al retomar la ficha, lo guardado aparece y se vuelve a mandar igual.
+  it('con la higiene y el examen guardados arranca lleno y, sin tocar nada, manda lo mismo', () => {
+    const { fixture, submitted, submit } = setup();
+    fixture.componentRef.setInput('initialHygiene', {
+      id: 'hh-1',
+      patientId: 'patient-1',
+      usesToothbrush: true,
+      brushingFrequency: 'twice_daily',
+      usesDentalFloss: true,
+      usesToothpick: false,
+      brushesTongue: false,
+      usesMouthwash: true,
+      updatedAt: '2026-10-01T00:00:00.000Z',
+    });
+    fixture.componentRef.setInput('initialClinicalExam', {
+      id: 'ce-1',
+      patientId: 'patient-1',
+      tartar: true,
+      saburra: false,
+      bacterialPlaque: true,
+      halitosis: false,
+      occlusion: 'Clase I',
+      examDate: '2026-10-01',
+      createdAt: '2026-10-01T00:00:00.000Z',
+    });
+    fixture.detectChanges();
+
+    submit();
+
+    expect(submitted).toEqual([
+      {
+        hygieneHabits: {
+          usesToothbrush: true,
+          brushingFrequency: 'twice_daily',
+          usesDentalFloss: true,
+          usesToothpick: false,
+          brushesTongue: false,
+          usesMouthwash: true,
+        },
+        clinicalExam: { tartar: true, saburra: false, bacterialPlaque: true, halitosis: false, occlusion: 'Clase I' },
+      },
+    ]);
+  });
 });
