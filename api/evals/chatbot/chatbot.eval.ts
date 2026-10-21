@@ -234,7 +234,15 @@ describe('Evals del chatbot (Groq real)', () => {
   it.each(cases.map((c) => [c.id, c] as const))(
     '%s',
     async (_id, evalCase) => {
-      const result = await runCase(evalCase);
+      let result: CaseResult;
+      try {
+        result = await runCase(evalCase);
+      } finally {
+        if (evalCase.mutatesFixtures) {
+          await cleanupEvalFixtures(prisma);
+          fx = await createEvalFixtures(prisma);
+        }
+      }
       results.push(result);
       const failures = result.turns.flatMap((t) => [
         ...(t.errorCode ? [`error del agente: ${t.errorCode}`] : []),
