@@ -464,7 +464,8 @@ export class CreateMyQrPaymentTool implements ChatTool<CreateMyQrPaymentArgsDto>
       return {
         error: 'line_already_paid',
         lines: paid,
-        note: 'Esas líneas ya están pagadas.',
+        // En los evals pidió lines: [1] para "pagar todo" y se rindió (CLI-270).
+        note: 'Esas líneas ya están pagadas. Si pidió pagar todo lo que debe, vuelve a llamar sin lines.',
       };
     }
 

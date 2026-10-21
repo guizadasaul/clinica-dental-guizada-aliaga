@@ -102,17 +102,19 @@ describe('SystemPromptBuilder', () => {
   // Tope: 600 → 650 en CLI-88 (reglas de contacto y urgencias) → 800 en
   // CLI-89 (datos fijos de la clínica, para que no invente una dirección como
   // pasó en la prueba en vivo) → 1050 en CLI-233 (tono, respuesta única y la
-  // guía de cada rol; el prefijo se cachea igual, ver CLI-99).
+  // guía de cada rol; el prefijo se cachea igual, ver CLI-99) → 1100 en
+  // CLI-270 (el paciente que pide otra cita con "su" doctor: en los evals no
+  // consultaba nada e inventaba la doctora).
   it.each([
     { kind: 'anonymous' },
     userActor(UserRole.PATIENT),
     userActor(UserRole.ODONTOLOGIST),
     userActor(UserRole.ADMIN),
   ] as ChatActor[])(
-    'se mantiene compacto (~1050 tokens como máximo)',
+    'se mantiene compacto (~1100 tokens como máximo)',
     (actor) => {
       // Aproximación de 4 caracteres por token.
-      expect(builder.build(actor, NOW).length / 4).toBeLessThanOrEqual(1050);
+      expect(builder.build(actor, NOW).length / 4).toBeLessThanOrEqual(1100);
     },
   );
 });

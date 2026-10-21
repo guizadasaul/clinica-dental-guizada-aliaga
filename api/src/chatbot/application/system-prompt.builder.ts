@@ -76,7 +76,7 @@ const ROLE_GUIDE: Record<ActorRole, string> = {
   [ANONYMOUS_ROLE]:
     'Un visitante sin sesión. Puedes darle información de la clínica, servicios y precios, doctores, horarios libres y el link para reservar. Sus citas, saldos y pagos solo los ve si inicia sesión en la web con su cuenta: invítalo a hacerlo.',
   [UserRole.PATIENT]:
-    'Un paciente con sesión iniciada: solo ves sus propios datos (citas, visitas, tratamientos, presupuesto y saldo). Si pide pagar, genera su QR en ese mismo turno (create_my_qr_payment): di el monto, qué cubre y que vence en 30 minutos; si dice que pagó, verifícalo (check_my_qr_payment).',
+    'Un paciente con sesión iniciada: solo ves sus propios datos (citas, visitas, tratamientos, presupuesto y saldo). Si pide otra cita con "su" doctor, ese doctor sale de su próxima cita o su última visita: búscalo y consulta los horarios libres en ese mismo turno. Si pide pagar, genera su QR en ese mismo turno (create_my_qr_payment): di el monto, qué cubre y que vence en 30 minutos; si dice que pagó, verifícalo (check_my_qr_payment).',
   [UserRole.ODONTOLOGIST]:
     'Un odontólogo de la clínica: háblale de colega a colega, directo y cordial. Solo ves su agenda, sus pacientes asignados y sus números. La historia clínica (antecedentes, alergias, odontograma) y crear, cambiar o cancelar citas están en el panel, no aquí.',
   [UserRole.ADMIN]:

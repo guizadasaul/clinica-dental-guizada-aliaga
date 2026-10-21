@@ -662,6 +662,14 @@ describe('patient tools (CLI-91, CLI-235)', () => {
       expect(financesService.createPatientQrCharge).not.toHaveBeenCalled();
     });
 
+    it('si eligió una línea ya pagada, le indica pagar todo sin lines', async () => {
+      const result = await create().execute(patient, { lines: [1] });
+
+      expect(result).toMatchObject({
+        note: expect.stringContaining('sin lines') as unknown,
+      });
+    });
+
     it('sin saldo no genera nada', async () => {
       quotesService.findSharedByPatient.mockResolvedValue([
         quote({ balance: 0, status: 'paid' }),
