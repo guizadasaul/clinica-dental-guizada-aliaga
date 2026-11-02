@@ -12,9 +12,9 @@ import {
 } from '../src/quotes/infrastructure/persistence/quote-writes';
 
 /**
- * Datos de muestra para staging y la base local (CLI-202): 3 doctores, 40
+ * Datos de muestra para staging y la base local (CLI-202): 3 doctores, 15
  * pacientes con historial clínico, presupuestos en todos los estados,
- * tratamientos realizados y agendas llenas, con fechas relativas a hoy.
+ * tratamientos realizados y agendas con movimiento, con fechas relativas a hoy.
  *
  * NUNCA en producción: se niega a correr con APP_ENV=production o si
  * DATABASE_URL/SUPABASE_URL apuntan al proyecto de Supabase de producción, y
@@ -256,7 +256,9 @@ const PATIENT_AUTH_UIDS: Record<string, string> = {
 };
 
 const ACCOUNT_COUNT = 12;
-const INVITE_COUNT = 6;
+const INVITE_COUNT = 2;
+/** Cuántos de PATIENTS se siembran: con 40 la agenda quedaba saturada. */
+const SAMPLE_PATIENT_COUNT = 15;
 
 const CITIES: { ciudad: string; zonas: string[]; weight: number }[] = [
   {
@@ -1641,7 +1643,7 @@ async function seedAppointments(
   // más espaciado. Los turnos de hoy que ya pasaron quedan atendidos.
   const futureCount = new Map<string, number>();
   for (let d = today; d <= horizon; d = addDays(d, 1)) {
-    const fill = daysBetween(today, d) <= 14 ? 0.75 : 0.3;
+    const fill = daysBetween(today, d) <= 14 ? 0.5 : 0.2;
     for (const doctor of doctors) {
       const own = patients.filter((p) => p.doctorId === doctor.id);
       for (const slot of agenda.freeSlots(doctor.id, d)) {
@@ -1851,7 +1853,10 @@ async function main() {
   const lucia = doctors.find((d) => d.seed.key === 'lucia') ?? doctors[0];
 
   const patients: PatientRef[] = [];
-  for (const [index, spec] of PATIENTS.entries()) {
+  for (const [index, spec] of PATIENTS.slice(
+    0,
+    SAMPLE_PATIENT_COUNT,
+  ).entries()) {
     const isKid = Number(today.slice(0, 4)) - spec[4] < 14;
     const doctor = isKid ? lucia : doctors[index % doctors.length];
     patients.push(await seedPatient(cat, spec, index, doctor, today));
